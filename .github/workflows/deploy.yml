@@ -226,6 +226,10 @@ jobs:
       if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_WORKER_DEPLOY == 'true'
       run: node scripts/fetch-demo-artifacts.mjs
 
+    - name: Refuse a beta preview build on the production deploy path
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_WORKER_DEPLOY == 'true'
+      run: node scripts/assert-variant.mjs production
+
     - name: Deploy production Worker
       if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_WORKER_DEPLOY == 'true'
       uses: cloudflare/wrangler-action@v4
