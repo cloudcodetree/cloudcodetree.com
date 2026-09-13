@@ -31,7 +31,8 @@ node scripts/scaffold-tutorial.mjs <slug> --series "Series Name" --title "Subtit
 It appends a `draft: true` manifest entry (as the series' next part), bumps siblings'
 "(Part k of M)", writes `page.draft.mdx` from a type-aware template full of `TODO`
 markers, and regenerates covers. Drafts can be committed and pushed without creating
-a public route.
+a production route. `pnpm run build:staging && pnpm run deploy:staging` publishes
+all tutorial drafts to the noindex beta preview with a visible preview banner.
 For verified tutorials, `--with-repo` also scaffolds the local companion repo
 (then `node scripts/new-tutorial-repo.mjs <slug> --create-remote` to publish it). Run
 `--help`-style by reading the script header for all flags. It never commits.

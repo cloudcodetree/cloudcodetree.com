@@ -3,7 +3,7 @@
 AI engineering news, hands-on tutorials, project demos, and Chris Harper's portfolio.
 
 - Production: [cloudcodetree.com](https://cloudcodetree.com)
-- Staging: [beta.cloudcodetree.com](https://beta.cloudcodetree.com) (noindex)
+- Staging: [beta.cloudcodetree.com](https://beta.cloudcodetree.com) (noindex draft preview)
 
 ## Development
 
@@ -54,7 +54,9 @@ existing consumers.
 Tutorials are private by default. A public lesson must belong to a series named
 in `RELEASED_TUTORIAL_SERIES` and must not carry `draft: true` in
 `app/tutorials/manifest.ts`. The scaffolder creates draft entries and
-`page.draft.mdx`; publishing is a separate, explicit manifest change.
+`page.draft.mdx`; publishing is a separate, explicit manifest change. Staging
+builds temporarily include every tutorial draft so work can be reviewed live on
+beta without weakening the production gate.
 
 ## Deployment
 
@@ -72,7 +74,7 @@ Production deployment requires `ENABLE_WORKER_DEPLOY=true` and the existing
 Cloudflare account/token secrets. Local deployments use Wrangler authentication.
 
 ```bash
-# Rehearse on beta; staging adds noindex headers.
+# Build the live draft preview; staging adds a banner and noindex headers.
 pnpm run build:staging && pnpm run deploy:staging
 
 # Manual production deployment.

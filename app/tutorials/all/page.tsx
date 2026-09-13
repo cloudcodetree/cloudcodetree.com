@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import TutorialsList from '../../components/TutorialsList';
-import { publishedTutorials as tutorials } from '../manifest';
+import { siteTutorials as tutorials } from '../manifest';
 
 export const metadata: Metadata = {
   title: 'All Tutorials · CloudCodeTree',
-  description: 'Every CloudCodeTree tutorial as an individual card — RAG, embeddings, fine-tuning, agents, and the full DealFinder AI-engineering course.',
+  description: 'Every released CloudCodeTree tutorial as an individual card — RAG, embeddings, fine-tuning, agents, and more.',
   alternates: {
     canonical: 'https://cloudcodetree.com/tutorials/all/',
     types: { 'application/rss+xml': 'https://cloudcodetree.com/tutorials/feed.xml' },

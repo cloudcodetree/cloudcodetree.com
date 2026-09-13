@@ -38,6 +38,10 @@ export const KNOWN_DIFFERENCES = [
       'Workers html_handling normalizes the .html extension away (307 -> /404/); Pages serves it at 200. ' +
       'Real misses serve the identical 404 page on both, which is what the /definitely-not-a-page/ case asserts.',
   },
+  {
+    path: '/tutorials/<draft>/',
+    reason: 'Beta is the noindex editorial preview and serves draft tutorials; production excludes them structurally.',
+  },
 ];
 
 /** Behavioral contract. Every case must hold on both origins. */
@@ -80,7 +84,7 @@ export const CONTRACT = [
   { path: '/tutorials/topic/rag/', status: 200, contentType: /text\/html/, bodyIncludes: 'RAG tutorials' },
   { path: '/tutorials/topic/rag/feed.xml', status: 200, bodyIncludes: 'tutorial-build-a-rag-over-your-blog' },
   { path: '/tutorials/feed.xml?topics=rag,python', status: 200, contentType: /rss\+xml/, bodyIncludes: 'Tutorials ·' },
-  { path: '/tutorials/dealfinder-part-01/', status: 404 },
+  { path: '/tutorials/dealfinder-part-01/', status: 404, beta: { status: 200, bodyIncludes: 'Data layer, normalization' } },
   { path: '/saved/?section=tutorials', status: 200, bodyIncludes: 'noindex' },
   // Oldest post (frozen back-catalog, never trimmed): the Related strip is
   // baked in once the index has run at least once on main.
@@ -144,10 +148,12 @@ async function main() {
     process.exit(2);
   }
 
+  const beta = new URL(origin).hostname === 'beta.cloudcodetree.com';
   let failed = 0;
   console.log(`\n▸ contract (${CONTRACT.length} cases) against ${origin}`);
   for (const testCase of CONTRACT) {
-    const failures = evaluateCase(testCase, await probe(origin, testCase.path));
+    const effective = beta && testCase.beta ? { ...testCase, ...testCase.beta } : testCase;
+    const failures = evaluateCase(effective, await probe(origin, testCase.path));
     if (failures.length > 0) {
       failed += 1;
       console.error(`  ✗ ${testCase.path}`);

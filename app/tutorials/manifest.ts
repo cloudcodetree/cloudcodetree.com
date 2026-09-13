@@ -705,3 +705,8 @@ export function isTutorialPublished(tutorial: Tutorial): boolean {
 }
 
 export const publishedTutorials: Tutorial[] = tutorials.filter(isTutorialPublished);
+
+/** Beta builds show every draft; production and ordinary local builds stay gated. */
+export const siteTutorials: Tutorial[] = process.env.NEXT_PUBLIC_CONTENT_PREVIEW === '1'
+  ? tutorials.map((tutorial) => ({ ...tutorial, draft: false }))
+  : publishedTutorials;

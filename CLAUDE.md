@@ -40,7 +40,7 @@ pnpm run lint
 pnpm test
 pnpm run typecheck:worker
 
-# Staging: relative-asset/noindex build → cct-site-staging (= https://beta.cloudcodetree.com)
+# Staging: every tutorial draft + preview banner + noindex → beta.cloudcodetree.com
 pnpm run build:staging && pnpm run deploy:staging
 
 # Production: build + vendor the demo builds → cct-site. Both deploy scripts first
@@ -175,7 +175,7 @@ inside the assets.
 | | Worker | URL | Build |
 |---|---|---|---|
 | production | `cct-site` | https://cloudcodetree.com via the apex Worker route | `pnpm run build` + `node scripts/fetch-demo-artifacts.mjs` |
-| staging | `cct-site-staging` | https://beta.cloudcodetree.com (also `cct-site-staging.chris-247.workers.dev`) | `pnpm run build:staging` (relative assets, noindex) |
+| staging | `cct-site-staging` | https://beta.cloudcodetree.com (also `cct-site-staging.chris-247.workers.dev`) | `pnpm run build:staging` (all tutorial drafts, preview banner, noindex) |
 
 `scripts/assert-variant.mjs` (inside `deploy:staging` / `deploy:prod`) refuses to
 deploy the wrong variant. `scripts/check-parity.mjs --origin <url> [--sweep]` is the
@@ -593,7 +593,11 @@ course is intentionally absent from the allowlist while it is being developed.
 `page.mdx` → `page.draft.mdx`, which Next does not route. Private lessons are
 also excluded from lists, saved items, feeds, topic pages, and the sitemap.
 Projects retain their independent `draft: true` gate; draft projects also skip
-demo vendoring.
+demo vendoring. `pnpm run build:staging` temporarily reverses the tutorial gate,
+builds all draft routes/listings/feeds into the beta export, then restores the
+source filenames in a `finally` block. Beta carries a visible preview banner and
+site-wide noindex header. `assert-variant.mjs` refuses preview content on the
+production deploy path and refuses a non-preview export on the staging path.
 
 ## Editor theme (VS Code)
 

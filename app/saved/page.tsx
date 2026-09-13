@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import ClientLayout from '../components/ClientLayout';
 import SavedLibrary from '../components/SavedLibrary';
-import { publishedTutorials } from '../tutorials/manifest';
+import { siteTutorials } from '../tutorials/manifest';
 import { blogListing } from '../lib/blogArchive';
 
 // Per-reader, so never indexed and never linked from the sitemap. The exported
@@ -18,7 +18,7 @@ export default function SavedPage() {
   const { initial, archive } = blogListing();
   return (
     <ClientLayout>
-      <SavedLibrary posts={initial} archive={archive} tutorials={publishedTutorials} />
+      <SavedLibrary posts={initial} archive={archive} tutorials={siteTutorials} />
     </ClientLayout>
   );
 }

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import TutorialsList from '../../../components/TutorialsList';
-import { publishedTutorials } from '../../manifest';
+import { siteTutorials } from '../../manifest';
 import { tutorialTopics } from '../../../../scripts/lib/tutorial-catalog.mjs';
 
-const topics = tutorialTopics(publishedTutorials);
+const topics = tutorialTopics(siteTutorials);
 export const dynamicParams = false;
 export function generateStaticParams() { return topics.map(({ slug }) => ({ slug })); }
 
@@ -26,6 +26,6 @@ export default async function TutorialTopicPage({ params }: { params: Promise<{ 
   const { slug } = await params;
   const topic = topics.find((t) => t.slug === slug);
   if (!topic) notFound();
-  const tutorials = publishedTutorials.filter((t) => t.tags.includes(topic.tag)).sort((a, b) => a.order - b.order);
+  const tutorials = siteTutorials.filter((t) => t.tags.includes(topic.tag)).sort((a, b) => a.order - b.order);
   return <TutorialsList tutorials={tutorials} variant="all" topic={topic} />;
 }

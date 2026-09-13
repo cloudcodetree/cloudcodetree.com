@@ -8,11 +8,14 @@ const saveLabel = `Save “${title}” for later`;
 const unsaveLabel = `Remove “${title}” from saved`;
 
 test('tutorial topics filter courses and link to their own static landing pages and feeds', async ({ page, request }) => {
+  const preview = process.env.EXPECT_TUTORIAL_PREVIEW === '1'
+    || (process.env.PLAYWRIGHT_BASE_URL?.includes('beta.cloudcodetree.com') ?? false);
   let privateRequests = 0;
   page.on('request', (request) => { if (request.url().includes('.supabase.co')) privateRequests++; });
   await page.goto('/tutorials/');
-  await expect(page.getByRole('heading', { name: /Become a full-stack AI engineer/ })).toHaveCount(0);
-  expect((await request.get('/tutorials/dealfinder-part-01/')).status()).toBe(404);
+  await expect(page.getByRole('heading', { name: /Become a full-stack AI engineer/ })).toHaveCount(preview ? 1 : 0);
+  expect((await request.get('/tutorials/dealfinder-part-01/')).status()).toBe(preview ? 200 : 404);
+  if (preview) await expect(page.getByRole('status')).toContainText('BETA PREVIEW');
   await page.getByRole('button', { name: 'Topics', exact: true }).click();
   await page.getByRole('textbox', { name: 'Filter topics' }).fill('RAG');
   await page.getByRole('button', { name: /^RAG \d+$/ }).click();

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { Alert, Box, Button } from '@mui/material';
 import Link from 'next/link';
-import { publishedTutorials } from '../tutorials/manifest';
+import { siteTutorials } from '../tutorials/manifest';
 import { tutorialReaderId } from '../../scripts/lib/tutorial-catalog.mjs';
 import { useReaderLibrary } from '../lib/useReaderLibrary';
 import { markRead } from '../lib/readerState';
@@ -14,7 +14,7 @@ import ReaderStateNotice from './ReaderStateNotice';
 /** Lives in the article layout so every published MDX lesson gets the controls. */
 export default function TutorialReaderControls() {
   const slug = usePathname().replace(/\/$/, '').split('/').pop();
-  const tutorial = publishedTutorials.find((t) => t.slug === slug);
+  const tutorial = siteTutorials.find((t) => t.slug === slug);
   const reader = useReaderLibrary();
   const id = tutorial ? tutorialReaderId(tutorial.slug) : null;
   useEffect(() => { if (id && reader.signedIn) markRead(id); }, [id, reader.signedIn]);

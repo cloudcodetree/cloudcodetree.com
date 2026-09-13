@@ -193,7 +193,10 @@ ${media}  </item>`;
   console.log(`✓ ${archive.chunks.length} archive chunks + ${archive.bodies.length} article bodies`);
 
   // Tutorials feed — built from the hand-authored manifest (newest-first, capped).
-  const allTuts = readTutorials().filter((t) => t.published);
+  const previewTutorials = process.env.NEXT_PUBLIC_CONTENT_PREVIEW === '1';
+  const allTuts = readTutorials()
+    .filter((t) => previewTutorials || t.published)
+    .map((t) => previewTutorials ? { ...t, draft: false } : t);
   const sortedTuts = allTuts
     .filter((t) => t.date)
     .map((t) => ({ ...t, d: toDate(t.date), total: seriesTotal(allTuts, t.series) }))
@@ -234,7 +237,7 @@ ${(t.tags || []).map((tag) => `    <category>${cdata(tag)}</category>`).join('\n
   const newest = items.length ? iso(items.map((it) => it.date).sort((a, b) => b - a)[0]) : iso(new Date());
   // Hand-authored tutorial slugs, discovered from app/tutorials/(article)/*/.
   // Manifest-driven (not a directory scan) so drafts never leak into the sitemap.
-  const tutorialSlugs = readTutorials().filter((t) => t.published).map((t) => t.slug);
+  const tutorialSlugs = allTuts.map((t) => t.slug);
 
   const staticRoutes = [
     { loc: `${SITE}/`, lastmod: newest, priority: '1.0' }, // home = AI News blog

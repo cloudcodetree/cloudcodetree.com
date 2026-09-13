@@ -27,7 +27,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck:worker": "tsc -p worker/tsconfig.json",
-    "build:staging": "SITE_ORIGIN= pnpm run build && node scripts/fetch-demo-artifacts.mjs && node scripts/mark-staging-build.mjs out",
+    "build:staging": "node scripts/build-staging.mjs",
     "link-projects": "node scripts/link-projects.mjs",
     "deploy:staging": "node scripts/assert-variant.mjs staging && wrangler deploy --env staging",
     "deploy:prod": "node scripts/assert-variant.mjs production && wrangler deploy",
