@@ -10,7 +10,135 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 10 Sep 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 13 Sep 2026 20:13:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your RAG Pipeline Has Three Failure Points — TruLens Isolates Each One</title>
+      <link>https://www.trulens.org/getting_started/core_concepts/rag_triad/</link>
+      <guid isPermaLink="false">2026-09-13-01-trulens-rag-triad-evaluation</guid>
+      <pubDate>Sun, 13 Sep 2026 20:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>TruLens's RAG Triad scores context relevance, groundedness, and answer relevance separately — each score points to a different broken stage in your pipeline.</description>
+      <content:encoded><![CDATA[**TruLens's RAG Triad scores context relevance, groundedness, and answer relevance separately — each number tells you which part of your pipeline to fix, not just that it's broken.**
+
+RAGAS tells you whether your pipeline is working. The RAG Triad tells you *where* it isn't.
+
+**What you'll be able to do after this:** instrument any RAG pipeline with three feedback functions that act as a triangulated fault-isolation tool. Each score diagnoses a distinct failure mode.
+
+- **Context relevance** — are the retrieved chunks actually on-topic for the query? A low score means fix the retriever: chunking strategy, embedding model, or search approach.
+- **Groundedness** — does the LLM's answer stay within what the retrieved context actually says? A low score means the generator is hallucinating beyond its evidence — the retriever did its job, the LLM didn't.
+- **Answer relevance** — does the final answer address the original question? A low score means the context is relevant and the answer is faithful to it, but the LLM drifted from what was actually asked.
+
+The diagnostic power is the triangulation. High context relevance + low groundedness = the retriever is fine, fix the generator prompt. Low context relevance + high groundedness = the generator does well with whatever it receives, but the retriever sends wrong chunks.
+
+**Wiring up the RAG Triad (TruLens with LangChain):**
+
+```bash
+pip install trulens-eval
+```
+
+```python
+from trulens_eval import Tru, TruChain
+from trulens_eval.feedback.provider import OpenAI as TruProvider
+from trulens_eval.feedback import Feedback
+
+tru = Tru()
+provider = TruProvider()
+
+# 1. Are retrieved chunks relevant to the question?
+f_ctx = Feedback(provider.context_relevance_with_context_sentences, name="Context Rel")    .on_input().on(TruChain.select_context())
+
+# 2. Does the answer stay within the retrieved context?
+f_ground = Feedback(provider.groundedness_measure_with_cot_reasons, name="Groundedness")    .on(TruChain.select_context()).on_output()
+
+# 3. Does the answer address the original question?
+f_ans = Feedback(provider.relevance_with_cot_reasons, name="Answer Rel")    .on_input_output()
+
+tru_rag = TruChain(your_rag_chain, app_id="rag-triad-v1",
+    feedbacks=[f_ctx, f_ground, f_ans])
+
+with tru_rag as recording:
+    response = your_rag_chain.invoke({"question": "What is the refund policy?"})
+
+tru.run_dashboard()   # opens localhost:8501 with per-eval scores
+```
+
+**One real limit:** the groundedness and answer-relevance feedback functions use an LLM as judge, which means they cost extra tokens per evaluation run. At high volume, evaluation costs can rival your pipeline's inference costs. TruLens's docs recommend sampling 5–10% of production queries rather than evaluating every call; use the cheaper exact-match graders for regression detection and the LLM judges only for quality audits.
+
+**Sources:** [RAG Triad — core concepts (trulens.org)](https://www.trulens.org/getting_started/core_concepts/rag_triad/) · [TruLens Quickstart](https://www.trulens.org/getting_started/quickstarts/quickstart/) · [Intermediate course: automatic RAG Triad (Neural Base)](https://theneuralbase.com/trulens/learn/intermediate/automatic-rag-triad/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>OpenAI Opens Its Codex Harness: The Agents API Is in Public Beta</title>
+      <link>https://xnews.sk/en/2026/09/11/openai-agents-api-public-beta-cloud-agents/</link>
+      <guid isPermaLink="false">2026-09-13-02-openai-agents-api-public-beta</guid>
+      <pubDate>Sun, 13 Sep 2026 20:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Agents</category>
+      <category>Developer Tools</category>
+      <description>OpenAI's Agents API, the managed Codex harness, entered public beta September 10. It wraps session orchestration, context compaction, sub-agent coordination, and crash recovery so developers don't build those layers.</description>
+      <content:encoded><![CDATA[**OpenAI's Agents API entered public beta on September 10, giving any developer managed access to the same cloud-agent infrastructure that runs Codex — session orchestration, context compaction, sub-agent coordination, lazy tool loading, and crash recovery included.**
+
+The API's pitch is that you describe what your agents do and what tools they call; OpenAI's harness handles the long-running execution, compacts context when sessions grow, coordinates sub-agents, and recovers from crashes. OpenAI reports no markup over model tokens and tool costs; any hosted sandbox compute is billed separately at its own rate.
+
+The real constraint is delegation: the compaction heuristics, crash-recovery semantics, and context-management decisions are OpenAI's, not yours. If you need precise control over how and when context is trimmed or how a failed sub-agent is retried, you won't get it — the same opacity that makes Codex's behavior hard to predict applies here.
+
+This week also brought GPT-Live-1, a full-duplex voice model, to the API — enabling voice agents that handle interruptions and run over phone lines.
+
+**Why it matters:** If you've been building orchestration layers by hand for cloud-running agents, OpenAI's Agents API is now a real alternative to evaluate — but the tradeoff is that delegating the infrastructure means delegating control over how it runs.
+
+**Sources:** [OpenAI Agents API public beta (XNews)](https://xnews.sk/en/2026/09/11/openai-agents-api-public-beta-cloud-agents/) · [Codex harness details (AiCybr)](https://aicybr.com/blog/openai-agents-api-codex-harness-hosted-sandboxes) · [AI/TLDR release overview](https://ai-tldr.dev/releases/openai-agents-api/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Claude Code Plugin Has No Baseline — `claude plugin eval` Measures the Delta That Proves It Works</title>
+      <link>https://code.claude.com/docs/en/plugin-evals</link>
+      <guid isPermaLink="false">2026-09-13-03-claude-code-plugin-eval-delta</guid>
+      <pubDate>Sun, 13 Sep 2026 20:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <description>Shipped September 11 in Claude Code v2.1.269, `claude plugin eval` runs your plugin against scored test cases and shows the delta between with-plugin and without — a high score without a delta means Claude would have done that anyway.</description>
+      <content:encoded><![CDATA[**`claude plugin eval` runs your plugin against scored test cases and shows a delta (Δ) between with-plugin and without. A high score with no delta means Claude would have done that anyway — the delta is what proves your plugin is doing work.**
+
+Shipped in Claude Code v2.1.269 on September 11, 2026, `claude plugin eval` brings test-driven development to plugin authorship. Each test case is a realistic prompt paired with one or more graders — a regex over the reply, a tool-call assertion, or a rubric a judge model scores.
+
+**The key number is the delta, not the WITH score:**
+
+```
+Test           WITH   W/OUT   Δ
+summarize      1.00   0.33   +0.67   ← plugin is doing real work
+format-json    0.95   0.92   +0.03   ← Claude already handles this well
+```
+
+A plugin that scores 1.00 both with and without it is decoration. The baseline comparison is what proves otherwise.
+
+**Start with the init command:**
+
+```bash
+claude plugin eval init
+```
+
+It asks about your plugin, proposes test cases and graders, dry-runs them, and writes the eval files. Results land at `evals/results/<timestamp>/report.html` with per-grader verdicts and judge votes.
+
+**Four grader types are free** (exact match, substring, regex, tool-call assertion). Two cost judge-model tokens: `llm` (a rubric graded by a second model) and `baseline` (runs each prompt without your plugin to compute the delta). The `baseline` grader is nearly always worth adding — without it you only know how Claude behaves *with* your plugin, not how much it contributed.
+
+**One real limit:** the `llm` and `baseline` graders bill a judge model per test case per run. A large eval suite with rubric-style graders can cost a few dollars each time. Use the free graders for fast regression detection in CI; add `llm` graders only for cases where exact-match checking isn't expressive enough.
+
+**Sources:** [Test plugins with evals — official docs](https://code.claude.com/docs/en/plugin-evals) · [Claude Code 2.1.269 release notes (AI/TLDR)](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-269/) · [Read the delta, not the score (byteiota)](https://byteiota.com/claude-code-plugin-evals-read-the-delta-not-the-score/) · [MarkTechPost writeup](https://www.marktechpost.com/2026/09/11/anthropic-adds-plugin-evals-to-claude-code-6-grader-types-a-no-plugin-baseline-and-a-ci-gate-for-skills/)
+]]></content:encoded>
+    </item>
+
 
     <item>
       <title>Your Loaded Skills Are Costing You Context Every Turn — `/skill-doctor` Shows You Which Ones You Never Use</title>
@@ -5401,145 +5529,9 @@ members = client.beta.organization.members.list()
     </item>
 
 
-    <item>
-      <title>Your API-Key Claude Code Session Loses Its Cache After Five Minutes — Set This to Survive Long Breaks</title>
-      <link>https://code.claude.com/docs/en/prompt-caching</link>
-      <guid isPermaLink="false">2026-08-26-04-prompt-cache-ttl-api-key-claude-code</guid>
-      <pubDate>Wed, 26 Aug 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>API-key and cloud-provider users get a 5-minute prompt cache by default; one setting in settings.json extends it to one hour and eliminates full-recompute costs when you step away from a long session.</description>
-      <content:encoded><![CDATA[**TL;DR: On an API key or cloud provider, your Claude Code session cache expires after five minutes — set `promptCacheTtl: "1h"` in `settings.json` (v2.1.242+) to keep it warm through longer breaks.**
-
-If you're billing via API key or a cloud provider (Bedrock, Vertex, Foundry), Claude Code gives you a five-minute cache by default. Leave a session for a standup, lunch, or a long build cycle, and every token in your conversation prefix gets reprocessed on return. Anthropic prices cache reads at roughly 10% of the standard input rate; that discount disappears whenever the cache expires.
-
-## The two cache buckets
-
-Claude Code divides its requests into two groups and lets you set a TTL for each independently:
-
-- **Main conversation** (`promptCacheTtl`): your interactive turns, non-interactive `-p` runs, and Agent SDK turns. Defaults to 1 hour on a Claude subscription; **5 minutes on API key or cloud provider**.
-- **Everything else** (`subagentPromptCacheTtl`): subagents, workflows, in-process teammates, compaction, session titles. Always 5 minutes unless you override.
-
-## How to set it
-
-Add to your `settings.json` (or `settings.local.json` for a per-machine override):
-
-```json
-{
-  "promptCacheTtl": "1h",
-  "subagentPromptCacheTtl": "1h"
-}
-```
-
-Or use environment variables for a session-level override:
-
-```bash
-export CLAUDE_CODE_PROMPT_CACHE_TTL=1h
-export CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL=1h
-```
-
-Only `"5m"` and `"1h"` are valid values — anything else is silently ignored. Requires v2.1.242 or later.
-
-## When 1h is worth it and when it is not
-
-The one-hour TTL writes cache at a higher rate than five minutes. The math: if you regularly idle five minutes or more between turns, the reprocessing you avoid costs more than the extra write rate. In short, fast bursts with no breaks, the 5m default is cheaper — you pay the higher write overhead and never use the longer lifetime.
-
-For **subagent-heavy workloads** — workflow fan-outs, multi-agent pipelines — extending `subagentPromptCacheTtl` to 1h keeps each subagent's system prompt warm across its turns rather than starting cold on each one.
-
-## The limits
-
-The one-hour TTL is not available through the Claude apps gateway. On Amazon Bedrock, caching support and the one-hour option vary by model and region — check AWS's supported-models table before relying on it. If cache read token counts stay at zero after enabling, your model or deployment may not support it.
-
-**Sources:** [Claude Code prompt caching docs](https://code.claude.com/docs/en/prompt-caching) · [Settings reference — promptCacheTtl](https://code.claude.com/docs/en/settings-reference#promptcachettl) · [GitHub issue #29966: subagent prompt caching disabled by default](https://github.com/anthropics/claude-code/issues/29966) · [How Claude Code Caching Actually Works — ProsperoInAI](https://prosperinai.substack.com/p/claude-code-prompt-caching-explained)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Instruction-Tune a Llama 8B on Your Own Data for Free: QLoRA and Unsloth on Colab's T4 GPU</title>
-      <link>https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.1_(8B)-Alpaca.ipynb</link>
-      <guid isPermaLink="false">2026-08-26-05-qlora-unsloth-llama-instruction-finetune-colab</guid>
-      <pubDate>Wed, 26 Aug 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>QLoRA 4-bit quantization cuts Llama 3.1 8B from ~16 GB to ~5 GB VRAM; Unsloth's LoRA adapters then train on Colab's free T4 in about 30 minutes. You get a portable adapter to export as GGUF or push to HuggingFace Hub.</description>
-      <media:content url="https://img.youtube.com/vi/20jnb69IR6U/hqdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/20jnb69IR6U/hqdefault.jpg" />
-      <content:encoded><![CDATA[**TL;DR: QLoRA + Unsloth fit an 8B instruction fine-tune into ~5 GB of VRAM and about 30 minutes on Colab's free T4 — you get a portable LoRA adapter you can export as GGUF or push to HuggingFace Hub.**
-
-**What you'll be able to do after this:** fine-tune an open-weight model on domain-specific data without a paid GPU, then run the adapter locally in Ollama or deploy it on your own server.
-
-**Three things to know before you open the notebook:**
-
-1. **QLoRA quantizes the base model to 4-bit NF4**, cutting Llama 3.1 8B from ~16 GB to ~5 GB VRAM — that's what fits it on a free T4 (16 GB total). The LoRA adapter trains on top; only the adapter weights update during training. Unsloth claims 2× training speed and ~60% less VRAM versus vanilla HuggingFace TRL, measured on Llama/Mistral on NVIDIA GPUs.
-2. **LoRA rank controls the adapter size.** At rank 16 (the default), about 1.5% of the model's parameters train, saving to a 50–100 MB adapter file. Lower rank = faster and smaller; higher rank = more capacity but slower.
-3. **100 training steps ≈ 30 minutes on the free T4.** Enough to verify your data pipeline and see whether the loss is dropping. Not enough for production — plan 500–1,000 steps for real tasks.
-
-**Walk-through (Llama 3.1 8B Alpaca notebook):**
-
-1. Open the [official Unsloth Llama 3.1 8B Alpaca Colab](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.1_(8B)-Alpaca.ipynb). Runtime → Change runtime type → T4 GPU.
-2. Run the install cell (~2 min). Unsloth handles all dependencies.
-3. The notebook loads `unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit` — a pre-quantized checkpoint, so no on-the-fly quantization overhead.
-4. `max_seq_length = 2048` is the default; drop to 1024 if you hit out-of-memory. `r = 16`, `lora_alpha = 16` for the adapter.
-5. Swap the dataset cell for your own JSONL with `instruction` / `input` / `output` fields, or leave it on the Alpaca dataset for a baseline run.
-6. SFTTrainer uses sequence packing — it fills each batch to the max length instead of padding, roughly doubling effective throughput for short examples.
-7. Run all. Loss should drop by step 20; if it doesn't, check your chat-template formatting.
-8. Export: `model.save_pretrained_gguf("adapter", tokenizer, quantization_method="q4_k_m")` produces a GGUF you can load directly in Ollama.
-
-**The limits that matter:**
-
-- 100 steps is a diagnostic run. Production use typically requires 500–1,000 steps on 1k–10k examples — 3–6 hours on the free T4, or ~30 minutes on a rented A100.
-- The free T4 tops out around 7–8B parameters in 4-bit. A 13B model requires Colab Pro or a rented GPU.
-- Saving the merged model (adapter + base at full precision) requires more RAM than the T4 has. Push only the adapter to HuggingFace Hub and merge locally if you need the full checkpoint.
-- Unsloth's speed and VRAM claims are measured on NVIDIA GPUs; results vary on other hardware.
-
-**Sources:** [Unsloth Llama 3.1 8B Alpaca Colab notebook](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.1_(8B)-Alpaca.ipynb) · [Unsloth notebooks overview](https://unsloth.ai/docs/get-started/unsloth-notebooks) · [Teach a 3B Model to Call Functions with QLoRA + Unsloth on Free Colab T4 — datahacker.rs](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/) · [[LoRA] Unsloth Fine-Tuning Guide (Jan 2026, YouTube)](https://www.youtube.com/watch?v=20jnb69IR6U)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Two Managed Settings Keep Your Whole Team on the Approved Model List in Claude Code</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-08-26-02-claude-code-modelpicker-modelpricing-team</guid>
-      <pubDate>Wed, 26 Aug 2026 04:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.243 adds modelPicker (curate the /model list to approved options) and modelPricing (plug in contracted rates for accurate cost estimates). Solves the "four developers on four different models" problem.</description>
-      <content:encoded><![CDATA[**TL;DR: `modelPicker` curates your team's /model picker to only approved models; `modelPricing` plugs in contracted rates so cost estimates match your invoices. Both are managed settings in v2.1.243 (August 25).**
-
-If you're running Claude Code across a team, you've probably hit this: developers on different models, cost reports that don't match invoices, and config that drifts as people try new releases.
-
-Two managed settings added in v2.1.243 address this directly.
-
-**`modelPicker`** replaces the default /model picker with your own ordered, labeled list — accepts any model ID including Vertex and Bedrock identifiers. You define what appears; the developer still chooses within that list.
-
-```json
-"modelPicker": [
-  { "id": "claude-sonnet-5-20260801", "label": "Team Standard" },
-  { "id": "claude-opus-5-20260901", "label": "Deep Review (expensive)" }
-]
-```
-
-Combine with `ANTHROPIC_DEFAULT_MODEL` (set in your org's managed settings) to ensure every new session starts on your preferred default without per-developer config.
-
-**`modelPricing`** feeds in your org's contracted per-model rates and discount multiplier, so `/cost`, the status line, and usage telemetry show what you actually pay rather than Anthropic list price. Without it, every cost estimate is wrong for anyone on a negotiated contract — a real problem for teams tracking spend against budget.
-
-**The limit you should know:** `modelPicker` controls the TUI menu, but it does not block someone from setting `ANTHROPIC_MODEL` directly in their shell. If you need model enforcement at the infrastructure level — for compliance or cost control — a gateway proxy that restricts model IDs at the API layer is the right control; this is a convenience setting, not an enforcement mechanism.
-
-Also shipping in v2.1.243: keyless sign-in via Anthropic Console (`/login`), a `Skipped sources` line in `/status` for managed settings, and model + effort level visible in `/tasks` for subagent runs.
-
-**Sources:** [Claude Code changelog v2.1.243](https://code.claude.com/docs/en/changelog) · [Model configuration docs](https://code.claude.com/docs/en/model-config) · [Enterprise managed settings guide — systemprompt.io](https://systemprompt.io/guides/enterprise-claude-code-managed-settings)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
