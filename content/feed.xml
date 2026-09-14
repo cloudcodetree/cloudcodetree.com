@@ -10,7 +10,116 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 14 Sep 2026 04:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 14 Sep 2026 12:17:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Your Claude Code Bash Steps Can Now Show Their File Diffs — Wire a PostToolUse Hook for an Audit Log</title>
+      <link>https://code.claude.com/docs/en/hooks</link>
+      <guid isPermaLink="false">2026-09-14-05-bash-edit-diff-posttooluse-hook-audit</guid>
+      <pubDate>Mon, 14 Sep 2026 12:17:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Enable bashEditDiffEnabled in Claude Code and every Bash command that modifies files appends a diff to its tool result — your PostToolUse hooks can read it to build a full file-change audit log.</description>
+      <content:encoded><![CDATA[**Enable `bashEditDiffEnabled` and every Bash command that edits files appends a diff to its tool result — turning a silent write into an auditable record your hooks can act on.**
+
+Claude Code v2.1.269 (Sept 11) ships an opt-in setting that solves a specific pain point in agentic runs: knowing what a Bash step actually changed on disk, without running a separate `git diff` after the fact.
+
+**Enable it** in `.claude/settings.json` (project) or `~/.claude/settings.json` (global):
+```json
+{
+  "bashEditDiffEnabled": true
+}
+```
+
+Once set, any Bash command that writes to files — a `sed -i` patch, a build script that emits config, a generator writing output — appends the file diff to the tool result that Claude receives.
+
+**The hook angle.** PostToolUse hooks bound to the `Bash` matcher receive the complete tool result as JSON, diff included. That makes a full file-change audit log straightforward:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{"type": "command", "command": "scripts/log-bash-edits.sh"}]
+    }]
+  }
+}
+```
+
+Your `log-bash-edits.sh` receives the tool result on stdin, extracts the diff block, and appends it to a log file. During a long unattended run you can review exactly what changed, step by step.
+
+You can also alert when the diff touches something it shouldn't — `.env`, dotfiles, or paths outside a project directory. PostToolUse hooks run after the fact; for a harder boundary that prevents the write, pair with a PreToolUse hook that pattern-matches the command string.
+
+**The limit:** the diff appears only when Bash itself handles the file write. If Claude Code's own `Edit` or `Write` tools made the change, those go through separate hooks — no Bash diff is produced. The setting covers Bash-initiated edits only; `Edit`/`Write` tool calls need their own PostToolUse hooks if you want to log those too.
+
+**Sources:** [Claude Code v2.1.269 changelog — releasebot.io](https://releasebot.io/updates/anthropic/claude-code) · [Hooks reference — code.claude.com](https://code.claude.com/docs/en/hooks)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Vector-Only RAG Misses Error Codes and Product SKUs — Combine BM25 + Dense Search in 15 Lines With LangChain</title>
+      <link>https://www.youtube.com/watch?v=eNzsuWaOCEI</link>
+      <guid isPermaLink="false">2026-09-14-04-hybrid-search-bm25-ensembleretriever-langchain</guid>
+      <pubDate>Mon, 14 Sep 2026 12:16:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>LangChain EnsembleRetriever wires BM25 keyword search alongside your vector store. Queries hit both, results merge via Reciprocal Rank Fusion, and exact-string recall climbs without rebuilding your pipeline.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** retrieve documents that match both meaning and exact strings — fixing the failure where vector-only search returns the semantically similar wrong chunk for a specific error code, API method name, or product SKU.
+
+**The problem vector-only RAG has.** A dense embedding model maps meaning, not identity. "Connection timeout error" and "network failure" land close in vector space. But `errno: ETIMEDOUT` and `errno: ECONNREFUSED` are different errors — and your vector index, asked for one, may return the other. The same gap shows up for product codes, function names, log IDs, and any string whose meaning is its exact spelling.
+
+BM25 — the same keyword model behind most search engines — inverts this: it scores exact term overlap precisely, but treats "cheap flight" and "budget travel" as unrelated. Hybrid search runs both on the same query and merges the ranked lists.
+
+**The hands-on tutorial.** The YouTube walkthrough [Hybrid Search RAG Pipeline From Scratch](https://www.youtube.com/watch?v=eNzsuWaOCEI) builds a full pipeline with LangChain, BM25, and ChromaDB from scratch.
+
+**Install:**
+```bash
+pip install langchain rank_bm25 faiss-cpu
+```
+
+**Wire BM25 + dense retrieval with EnsembleRetriever:**
+```python
+from langchain.retrievers import EnsembleRetriever
+from langchain.retrievers.bm25 import BM25Retriever
+from langchain.vectorstores import FAISS
+from langchain_openai import OpenAIEmbeddings
+
+docs = [...]  # your Document list
+
+bm25 = BM25Retriever.from_documents(docs)
+dense = FAISS.from_documents(docs, OpenAIEmbeddings()).as_retriever()
+
+retriever = EnsembleRetriever(
+    retrievers=[bm25, dense],
+    weights=[0.4, 0.6]  # 40% keyword, 60% semantic
+)
+
+results = retriever.invoke("ETIMEDOUT error in connection pool")
+```
+
+`EnsembleRetriever` merges the result lists using Reciprocal Rank Fusion (RRF), which operates on ranks rather than raw scores — so there's no need to normalize incompatible BM25 and cosine similarity scores before merging.
+
+**Tune the weights.** Start with `[0.4, 0.6]` and test on real queries from your domain. Code search and support-ticket RAG typically benefit from a higher BM25 weight; narrative document search skews toward the semantic side.
+
+**Three takeaways:**
+- BM25 fills the exact-match gap vector search leaves; embeddings fill the semantic gap keyword search leaves — you need both
+- RRF fusion sidesteps score incompatibility; the only parameter to tune is the relative weight
+- Pinecone, Weaviate, and Elasticsearch also offer native hybrid search if you're already on those; `EnsembleRetriever` is the drop-in for any vector store + BM25 combo
+
+**The limits:** two retrieval steps add latency and double the index maintenance surface. BM25 doesn't benefit from fine-tuned embeddings, so any domain customization you've done to your dense model doesn't transfer to the keyword side. And the weight ratio is a hyperparameter you need to tune per corpus — the right split for a customer support knowledge base is different from an API reference.
+
+**Sources:** [Hybrid Search RAG Pipeline From Scratch — YouTube](https://www.youtube.com/watch?v=eNzsuWaOCEI) · [Hybrid Search with LangChain — LanceDB/Medium](https://medium.com/etoai/hybrid-search-combining-bm25-and-semantic-search-for-better-results-with-lan-1358038fe7e6) · [Hybrid Search: BM25 + Dense Vector Reference 2026 — digitalapplied.com](https://www.digitalapplied.com/blog/hybrid-search-bm25-vector-reranking-reference-2026) · [LangChain EnsembleRetriever docs — python.langchain.com](https://python.langchain.com/docs/how_to/ensemble_retriever/)
+]]></content:encoded>
+      <media:content url="https://img.youtube.com/vi/eNzsuWaOCEI/maxresdefault.jpg" medium="image"/>
+      <media:thumbnail url="https://img.youtube.com/vi/eNzsuWaOCEI/maxresdefault.jpg"/>
+    </item>
 
     <item>
       <title>Your File-Search Subagent Doesn't Need Opus — Route Cheap Tasks to Haiku With One Env Var</title>
@@ -5475,64 +5584,8 @@ print(answer.content)
 **Sources:** [Learn RAG From Scratch — LangChain Engineer (YouTube)](https://www.youtube.com/watch?v=sVcwVQRHIc8), [LangChain RAG Tutorial (official docs)](https://python.langchain.com/docs/tutorials/rag/), [all-MiniLM-L6-v2 model card (HuggingFace)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2), [LangChain text splitters](https://python.langchain.com/docs/concepts/text_splitters/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Every Claude API Response Now Carries an Invisible Watermark — What to Adjust Before You Ship</title>
-      <link>https://the-decoder.com/anthropic-watermarks-all-claude-outputs-globally-with-marks-that-may-persist-through-some-editing/</link>
-      <guid isPermaLink="false">2026-08-27-03-claude-output-watermark-api-developers</guid>
-      <pubDate>Thu, 27 Aug 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>LLM</category>
-      <description>New Claude models embed an invisible text watermark and C2PA metadata on file outputs, globally since August 2. Presence proves Claude was involved; absence proves nothing. Here is what to adjust.</description>
-      <content:encoded><![CDATA[**TL;DR: Every new Claude model embeds an invisible signal in text and C2PA metadata in file outputs. Presence proves Claude processed the content; absence proves nothing at all.**
-
-Since August 2, all new Claude models apply two types of provenance marks globally — not just for EU users:
-
-- **Text watermark:** an imperceptible signal in generated text. Anthropic says it "may persist through some editing." It is not guaranteed to survive heavy rewriting, format conversion, or extraction pipelines. Detection is probabilistic, not definitive.
-- **C2PA file provenance:** .svg, .png, and .jpg outputs receive signed Coalition for Content Provenance and Authenticity metadata. If your pipeline strips EXIF/metadata on pass-through, the provenance chain breaks silently.
-
-**What the mark says and doesn't say.** A detected mark is evidence that Claude processed this content at some point — it does NOT mean the text is verbatim AI output. A missing mark tells you nothing: the mark may have been lost in editing, format conversion, or the content may predate August 2.
-
-**What to adjust if you build on the API:**
-
-1. **Audit your post-processing steps.** If you reformat, merge, or trim Claude output, test whether your pipeline strips the text watermark. Don't build logic that treats "no mark = human-authored."
-2. **Handle image metadata explicitly.** Decide whether to preserve or strip C2PA metadata before distribution. Stripping is fine; inadvertently stripping it while claiming provenance is not.
-3. **Keep your own audit log.** The watermark is corroboration, not a reliable substitute. Log which API calls produced which outputs at the application layer — the mark is backup evidence, not a complete record.
-4. **There is no opt-out.** The API exposes no flag to disable watermarking. Plan around it, not against it.
-
-Coverage extends across Claude API, Claude.ai, Claude Code, Claude Cowork, Claude Tag, and cloud partner deployments (AWS Bedrock, Google Cloud, Microsoft Foundry). Older models — anything released before August 2 — do not carry the mark.
-
-**Limit:** Anthropic explicitly says detected marks are "not conclusive evidence" that Claude produced the content, and absence "cannot guarantee that AI wasn't involved." Treat the watermark as a transparency signal, not a detection system.
-
-**Sources:** [How Claude's text watermark works — Anthropic newsroom](https://www.anthropic.com/news) · [Watermarks all Claude outputs globally — The Decoder](https://the-decoder.com/anthropic-watermarks-all-claude-outputs-globally-with-marks-that-may-persist-through-some-editing/) · [TechCrunch](https://techcrunch.com/2026/08/11/anthropic-says-it-will-watermark-text-generated-by-its-ai-models/) · [EU AI Act context — The Next Web](https://thenextweb.com/news/anthropic-watermarks-claude-output-eu-ai-act-article-50)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>OpenAI's Custom Inference Chip Outperforms NVIDIA Blackwell on Throughput per Watt — and GPT-5.6 Luna Falls 80%</title>
-      <link>https://openai.com/index/jalapeno-first-results/</link>
-      <guid isPermaLink="false">2026-08-27-02-openai-jalapeno-chip-luna-pricing</guid>
-      <pubDate>Thu, 27 Aug 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>OpenAI published Jalapeño benchmark results: 1.5–1.9× more throughput per watt vs. current NVIDIA Blackwell. Same week, GPT-5.6 Luna dropped 80% to $0.20/1M input tokens.</description>
-      <content:encoded><![CDATA[**Two developments this week point in the same direction: inference is getting faster and cheaper, and the gap between "powerful" and "affordable" is narrowing.**
-
-**Jalapeño results (Aug 25):** OpenAI published first measured results from its custom inference chip, developed with Broadcom. On SemiAnalysis' InferenceX benchmark: 1.5–1.9× more AI work per watt at peak throughput, 1.7–3.6× lower end-to-end latency, and 2.1–4.1× better performance on interactive workloads — all versus current NVIDIA Blackwell hardware. The architecture keeps KV cache and model state local to cut data-movement overhead, which is the dominant inference bottleneck most hardware doesn't specifically address.
-
-Deployment starts in "very small volumes" at the end of 2026, broader rollout in 2027. No API pricing or response-time changes are announced yet — these are internal infrastructure numbers.
-
-**GPT-5.6 Luna pricing:** OpenAI cut Luna 80% this week to $0.20 input / $1.20 output per million tokens. Terra held at $2.50 / $15.
-
-**Why it matters:** If your agent workflow routes everything through a single model tier, the infrastructure trend supports designing for model routing now — so switching to a cheaper tier for sub-tasks is a config change, not an architecture change. LiteLLM's router is the standard wire for that without coupling to a specific provider.
-
-**Sources:** [Jalapeño first results — OpenAI](https://openai.com/index/jalapeno-first-results/) · [OpenAI + Broadcom chip announcement](https://openai.com/index/openai-broadcom-jalapeno-inference-chip/) · [TechCrunch analysis](https://techcrunch.com/2026/08/25/openais-jalapeno-chip-is-built-for-fast-inference-at-scale-benchmarks-show/) · [GPT pricing updates — llm-stats.com](https://llm-stats.com/llm-updates)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     

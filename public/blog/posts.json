@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-14-05-bash-edit-diff-posttooluse-hook-audit",
+    "title": "Your Claude Code Bash Steps Can Now Show Their File Diffs — Wire a PostToolUse Hook for an Audit Log",
+    "excerpt": "Enable bashEditDiffEnabled in Claude Code and every Bash command that modifies files appends a diff to its tool result — your PostToolUse hooks can read it to build a full file-change audit log.",
+    "author": "Chris Harper",
+    "date": "09-14-2026",
+    "publishedAt": "2026-09-14T12:17:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/hooks",
+    "content": "**Enable `bashEditDiffEnabled` and every Bash command that edits files appends a diff to its tool result — turning a silent write into an auditable record your hooks can act on.**\n\nClaude Code v2.1.269 (Sept 11) ships an opt-in setting that solves a specific pain point in agentic runs: knowing what a Bash step actually changed on disk, without running a separate `git diff` after the fact.\n\n**Enable it** in `.claude/settings.json` (project) or `~/.claude/settings.json` (global):\n```json\n{\n  \"bashEditDiffEnabled\": true\n}\n```\n\nOnce set, any Bash command that writes to files — a `sed -i` patch, a build script that emits config, a generator writing output — appends the file diff to the tool result that Claude receives.\n\n**The hook angle.** PostToolUse hooks bound to the `Bash` matcher receive the complete tool result as JSON, diff included. That makes a full file-change audit log straightforward:\n\n```json\n{\n  \"hooks\": {\n    \"PostToolUse\": [{\n      \"matcher\": \"Bash\",\n      \"hooks\": [{\"type\": \"command\", \"command\": \"scripts/log-bash-edits.sh\"}]\n    }]\n  }\n}\n```\n\nYour `log-bash-edits.sh` receives the tool result on stdin, extracts the diff block, and appends it to a log file. During a long unattended run you can review exactly what changed, step by step.\n\nYou can also alert when the diff touches something it shouldn't — `.env`, dotfiles, or paths outside a project directory. PostToolUse hooks run after the fact; for a harder boundary that prevents the write, pair with a PreToolUse hook that pattern-matches the command string.\n\n**The limit:** the diff appears only when Bash itself handles the file write. If Claude Code's own `Edit` or `Write` tools made the change, those go through separate hooks — no Bash diff is produced. The setting covers Bash-initiated edits only; `Edit`/`Write` tool calls need their own PostToolUse hooks if you want to log those too.\n\n**Sources:** [Claude Code v2.1.269 changelog — releasebot.io](https://releasebot.io/updates/anthropic/claude-code) · [Hooks reference — code.claude.com](https://code.claude.com/docs/en/hooks)"
+  },
+  {
+    "id": "2026-09-14-04-hybrid-search-bm25-ensembleretriever-langchain",
+    "title": "Your Vector-Only RAG Misses Error Codes and Product SKUs — Combine BM25 + Dense Search in 15 Lines With LangChain",
+    "excerpt": "LangChain EnsembleRetriever wires BM25 keyword search alongside your vector store. Queries hit both, results merge via Reciprocal Rank Fusion, and exact-string recall climbs without rebuilding your…",
+    "author": "Chris Harper",
+    "date": "09-14-2026",
+    "publishedAt": "2026-09-14T12:16:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://www.youtube.com/watch?v=eNzsuWaOCEI",
+    "content": "**What you'll be able to do after this:** retrieve documents that match both meaning and exact strings — fixing the failure where vector-only search returns the semantically similar wrong chunk for a specific error code, API method name, or product SKU.\n\n**The problem vector-only RAG has.** A dense embedding model maps meaning, not identity. \"Connection timeout error\" and \"network failure\" land close in vector space. But `errno: ETIMEDOUT` and `errno: ECONNREFUSED` are different errors — and your vector index, asked for one, may return the other. The same gap shows up for product codes, function names, log IDs, and any string whose meaning is its exact spelling.\n\nBM25 — the same keyword model behind most search engines — inverts this: it scores exact term overlap precisely, but treats \"cheap flight\" and \"budget travel\" as unrelated. Hybrid search runs both on the same query and merges the ranked lists.\n\n**The hands-on tutorial.** The YouTube walkthrough [Hybrid Search RAG Pipeline From Scratch](https://www.youtube.com/watch?v=eNzsuWaOCEI) builds a full pipeline with LangChain, BM25, and ChromaDB from scratch.\n\n**Install:**\n```bash\npip install langchain rank_bm25 faiss-cpu\n```\n\n**Wire BM25 + dense retrieval with EnsembleRetriever:**\n```python\nfrom langchain.retrievers import EnsembleRetriever\nfrom langchain.retrievers.bm25 import BM25Retriever\nfrom langchain.vectorstores import FAISS\nfrom langchain_openai import OpenAIEmbeddings\n\ndocs = [...]  # your Document list\n\nbm25 = BM25Retriever.from_documents(docs)\ndense = FAISS.from_documents(docs, OpenAIEmbeddings()).as_retriever()\n\nretriever = EnsembleRetriever(\n    retrievers=[bm25, dense],\n    weights=[0.4, 0.6]  # 40% keyword, 60% semantic\n)\n\nresults = retriever.invoke(\"ETIMEDOUT error in connection pool\")\n```\n\n`EnsembleRetriever` merges the result lists using Reciprocal Rank Fusion (RRF), which operates on ranks rather than raw scores — so there's no need to normalize incompatible BM25 and cosine similarity scores before merging.\n\n**Tune the weights.** Start with `[0.4, 0.6]` and test on real queries from your domain. Code search and support-ticket RAG typically benefit from a higher BM25 weight; narrative document search skews toward the semantic side.\n\n**Three takeaways:**\n- BM25 fills the exact-match gap vector search leaves; embeddings fill the semantic gap keyword search leaves — you need both\n- RRF fusion sidesteps score incompatibility; the only parameter to tune is the relative weight\n- Pinecone, Weaviate, and Elasticsearch also offer native hybrid search if you're already on those; `EnsembleRetriever` is the drop-in for any vector store + BM25 combo\n\n**The limits:** two retrieval steps add latency and double the index maintenance surface. BM25 doesn't benefit from fine-tuned embeddings, so any domain customization you've done to your dense model doesn't transfer to the keyword side. And the weight ratio is a hyperparameter you need to tune per corpus — the right split for a customer support knowledge base is different from an API reference.\n\n**Sources:** [Hybrid Search RAG Pipeline From Scratch — YouTube](https://www.youtube.com/watch?v=eNzsuWaOCEI) · [Hybrid Search with LangChain — LanceDB/Medium](https://medium.com/etoai/hybrid-search-combining-bm25-and-semantic-search-for-better-results-with-lan-1358038fe7e6) · [Hybrid Search: BM25 + Dense Vector Reference 2026 — digitalapplied.com](https://www.digitalapplied.com/blog/hybrid-search-bm25-vector-reranking-reference-2026) · [LangChain EnsembleRetriever docs — python.langchain.com](https://python.langchain.com/docs/how_to/ensemble_retriever/)"
+  },
+  {
     "id": "2026-09-14-03-subagent-model-routing-haiku-cost",
     "title": "Your File-Search Subagent Doesn't Need Opus — Route Cheap Tasks to Haiku With One Env Var",
     "excerpt": "Set CLAUDE_CODE_SUBAGENT_MODEL=haiku to run read-only subagents on Haiku and save your Sonnet/Opus budget for tasks that actually need it. Particularly timely as limits reset today.",
