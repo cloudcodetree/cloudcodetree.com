@@ -10,7 +10,166 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 13 Sep 2026 20:13:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 14 Sep 2026 04:11:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your File-Search Subagent Doesn't Need Opus — Route Cheap Tasks to Haiku With One Env Var</title>
+      <link>https://code.claude.com/docs/en/sub-agents</link>
+      <guid isPermaLink="false">2026-09-14-03-subagent-model-routing-haiku-cost</guid>
+      <pubDate>Mon, 14 Sep 2026 04:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Set CLAUDE_CODE_SUBAGENT_MODEL=haiku to run read-only subagents on Haiku and save your Sonnet/Opus budget for tasks that actually need it. Particularly timely as limits reset today.</description>
+      <content:encoded><![CDATA[**Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` to run read-only and search subagents on Haiku — saves your weekly budget for the reasoning work that actually needs Sonnet or Opus.**
+
+With today's permanent +25% limit replacing the temporary +50% boost (a net 17% cut for current users), subagent model routing is the most direct lever for stretching what you have.
+
+By default every subagent inherits the main session's model. An Explore subagent doing a codebase grep, a test-runner scanning diffs, or a docs agent summarizing files does not need the same reasoning depth as the session doing the actual coding. Three patterns:
+
+**Pattern 1 — Session-wide default (fastest)**
+
+In `.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
+  }
+}
+```
+
+`_FORCE=1` prevents any subagent from escalating back to the heavier model. Good for exploration-heavy workflows where most delegated tasks are read-only.
+
+**Pattern 2 — Per-agent model in frontmatter**
+
+In `.claude/agents/explorer.md`:
+
+```yaml
+---
+name: explorer
+description: Fast read-only codebase search. Use for grep, glob, and file reads.
+model: haiku
+tools: Read, Glob, Grep
+---
+```
+
+This routes just the named agent to Haiku while leaving other agents at their defaults.
+
+**Pattern 3 — The decision rule**
+
+Anything that reads but doesn't decide: Haiku. Anything making a judgement — what to build, change, or write — gets Sonnet or Opus. "Reads but doesn't decide" covers grep, glob, test runner output, doc generation, summarizing files.
+
+**The limit:** Haiku is not suitable for multi-step reasoning, complex code generation, or ambiguous tasks where a wrong answer costs rework. If a subagent needs to plan before acting, routing it to Haiku costs more than it saves. Also: `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is all-or-nothing; if one agent sometimes needs heavier reasoning, use per-agent frontmatter instead.
+
+**Sources:** [Create custom subagents — code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagent Model Routing — Roan Brasil Monteiro, Medium](https://medium.com/@roanmonteiro/claude-code-subagent-model-routing-stop-paying-for-opus-on-haiku-work-ee76dc32cb88) · [Claude Code Agents & Subagents — ksred.com](https://www.ksred.com/claude-code-agents-and-subagents-what-they-actually-unlock/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Claude Code Weekly Budget Drops 17% Today — Here's What Changed and What Helps</title>
+      <link>https://www.bleepingcomputer.com/news/artificial-intelligence/anthropic-is-cutting-claude-codes-current-weekly-limits-by-17-percent/</link>
+      <guid isPermaLink="false">2026-09-14-02-claude-code-weekly-limits-sept-14-cut</guid>
+      <pubDate>Mon, 14 Sep 2026 04:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <description>Anthropic's permanent +25% Claude Code limit increase takes effect today, replacing the temporary +50% boost. For current users, the net change is a 17% reduction in weekly quota.</description>
+      <content:encoded><![CDATA[**Anthropic's permanent +25% limit increase takes effect today, but it replaces the current temporary +50% boost — net result for existing users is a 17% reduction in weekly Claude Code quota.**
+
+Starting September 14, Anthropic is replacing its temporary 50% usage increase with a permanent 25% increase for Pro, Max, Team, and seat-based Enterprise plans. The math Anthropic acknowledged in follow-up: if the baseline limit is 100 units, the temporary promo had users at 150; the new permanent number is 125. That is a 17% drop from what users have had since the promo started.
+
+Two changes that partially offset this:
+
+- **Auto mode's permission classifier no longer counts against your weekly limit.** Every background safety check — the classifier approving or blocking a command — was consuming quota. Those calls are now free, which returns some headroom for users who rely on auto mode.
+- **Faster input loading** ships alongside the limit change, reducing latency on long sessions.
+
+The announcement framed the change as "permanently raising standard weekly limits," leading to community pushback when users did the arithmetic. Anthropic employees acknowledged that leading with the temporary-to-permanent transition would have been clearer.
+
+**Why it matters:** If you're running CI-driven Claude Code workflows or heavy agentic development, your effective weekly ceiling is 17% lower than yesterday — worth recalibrating before you hit a wall mid-project.
+
+**Sources:** [Bleeping Computer — Claude Code limit reduction math](https://www.bleepingcomputer.com/news/artificial-intelligence/anthropic-is-cutting-claude-codes-current-weekly-limits-by-17-percent/) · [ClaudeDevs X — official announcement](https://x.com/ClaudeDevs/status/2093742321473065266) · [pasqualepillitteri.it — the arithmetic](https://pasqualepillitteri.it/en/news/13403/claude-code-weekly-limits-25-percent-17-cut)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Single Agent Is Doing Too Much — Split It Into a Supervisor Team With LangGraph</title>
+      <link>https://www.langchain.com/blog/langgraph-multi-agent-workflows</link>
+      <guid isPermaLink="false">2026-09-14-01-langgraph-supervisor-multi-agent-orchestration</guid>
+      <pubDate>Mon, 14 Sep 2026 04:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Developer Tools</category>
+      <description>The LangGraph supervisor pattern routes each sub-task to a specialist agent in its own scratchpad, with a supervisor LLM deciding who acts next — wired with three function calls.</description>
+      <content:encoded><![CDATA[**The LangGraph supervisor pattern gives each specialist agent its own scratchpad and lets a routing LLM decide who acts next — wire it together in three function calls with `langgraph-supervisor`.**
+
+Single-agent designs hit a ceiling when the context fills with tool noise from tasks that don't share state. The supervisor pattern fixes this: each specialist runs in an isolated context, the supervisor decides routing, and only the result crosses back.
+
+**What you'll be able to do after this:** build a multi-agent system where a supervisor LLM routes each task to the right specialist (researcher, writer, coder, reviewer) and collects the result — without hard-coding any routing logic.
+
+- **The supervisor is a tool-calling LLM.** It selects agents by calling handoff tools. Change routing behavior by updating the supervisor's system prompt, not the graph structure.
+- **Each sub-agent has its own scratchpad.** Agents don't see each other's full histories — the supervisor only sees its own instructions plus the task, keeping context lean.
+- **`langgraph-supervisor` abstracts the graph plumbing.** Three function calls replace dozens of lines of raw LangGraph state management.
+
+**Walk-through:**
+
+```bash
+pip install langgraph-supervisor langchain-anthropic
+```
+
+```python
+from langchain_anthropic import ChatAnthropic
+from langgraph.prebuilt import create_react_agent
+from langgraph_supervisor import create_supervisor
+
+# Define specialist tools
+def search_web(query: str) -> str:
+    """Run a web search and return a summary."""
+    return f"Search results for: {query}"  # plug in real search
+
+def draft_section(notes: str, topic: str) -> str:
+    """Draft a prose section from research notes."""
+    return f"Section on {topic}: {notes[:300]}..."
+
+# Create specialized agents (each has its own model and tools)
+research_agent = create_react_agent(
+    model="claude-sonnet-5-20260101",  # substitute your current Sonnet ID
+    tools=[search_web],
+    name="research_agent",
+    prompt="You are a research specialist. Search for facts and return them concisely.",
+)
+
+writing_agent = create_react_agent(
+    model="claude-haiku-4-5-20251001",  # lighter model for structured writing
+    tools=[draft_section],
+    name="writing_agent",
+    prompt="You are a technical writer. Turn research notes into clear prose.",
+)
+
+# Wire them under a supervisor
+workflow = create_supervisor(
+    [research_agent, writing_agent],
+    model=ChatAnthropic(model="claude-sonnet-5-20260101"),
+    prompt="You manage a research and writing team. Route each task to the right specialist.",
+)
+
+app = workflow.compile()
+
+result = app.invoke({
+    "messages": [{"role": "user", "content": "Write a section on vector embeddings for RAG."}]
+})
+print(result["messages"][-1].content)
+```
+
+**What to watch for:** `create_supervisor` returns only the last agent message by default. Pass `output_mode="full_history"` if you need the full turn-by-turn transcript. Parallel tool calls (for routing multiple agents simultaneously) work with Anthropic and OpenAI models only. If your team grows beyond 4–5 agents, consider hierarchical teams — a supervisor coordinating other supervisors — rather than one flat routing list.
+
+**Sources:** [LangGraph multi-agent workflows — langchain.com/blog](https://www.langchain.com/blog/langgraph-multi-agent-workflows) · [create_supervisor API reference — reference.langchain.com](https://reference.langchain.com/python/langgraph-supervisor/supervisor/create_supervisor) · [LangGraph multi-agent systems: supervisor, swarm, network — machinelearningplus.com](https://machinelearningplus.com/gen-ai/langgraph-multi-agent-systems-supervisor-swarm-network/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your RAG Pipeline Has Three Failure Points — TruLens Isolates Each One</title>
@@ -5374,160 +5533,9 @@ Deployment starts in "very small volumes" at the end of 2026, broader rollout in
 **Sources:** [Jalapeño first results — OpenAI](https://openai.com/index/jalapeno-first-results/) · [OpenAI + Broadcom chip announcement](https://openai.com/index/openai-broadcom-jalapeno-inference-chip/) · [TechCrunch analysis](https://techcrunch.com/2026/08/25/openais-jalapeno-chip-is-built-for-fast-inference-at-scale-benchmarks-show/) · [GPT pricing updates — llm-stats.com](https://llm-stats.com/llm-updates)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Turn Any Python Function Into a Tool Claude Code Can Call: Your First MCP Server in 15 Lines</title>
-      <link>https://modelcontextprotocol.io/docs/2026-07-28/develop/build-server</link>
-      <guid isPermaLink="false">2026-08-27-01-build-first-mcp-server-python-sdk</guid>
-      <pubDate>Thu, 27 Aug 2026 04:01:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>MCP</category>
-      <category>Agents</category>
-      <media:content url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png" medium="image" />
-      <media:thumbnail url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png" />
-      <description>The MCP Python SDK turns decorated Python functions into tools Claude Code can call. Install mcp[cli], decorate your functions, test with mcp dev, wire to Claude Code in settings.json.</description>
-      <content:encoded><![CDATA[**TL;DR: The MCP Python SDK turns any typed Python function into a Claude-callable tool in 15 lines — decorators handle the JSON schema, the CLI handles the inspector, no protocol code needed.**
-
-**What you'll be able to do after this:** expose your own tools, APIs, or data sources to Claude Code (and any MCP host) so they're available as first-class tools in every session — without touching protocol or serialization code.
-
-- **`@mcp.tool()` is all you write.** Type hints become JSON schema automatically; the SDK handles request parsing, validation, and transport.
-- **`mcp dev server.py`** launches a browser inspector so you can invoke your tools and inspect the protocol messages before connecting anything to Claude.
-- **Use MCP when multiple agents or editors need the same capability.** For a single session's private helper, a shell tool is simpler. MCP pays off when the tool is shared.
-
-**Minimal server (Python, 15 lines):**
-
-```python
-from mcp.server import MCPServer
-
-mcp = MCPServer("my-tools")
-
-@mcp.tool()
-def search_docs(query: str, max_results: int = 10) -> list[dict]:
-    """Search the internal docs API and return matching pages."""
-    return fetch_docs(query, limit=max_results)
-
-if __name__ == "__main__":
-    mcp.run()
-```
-
-**Steps:**
-
-1. Install: `pip install "mcp[cli]"` (Python 3.10+; or `uv add "mcp[cli]"`)
-2. Decorate each capability with `@mcp.tool()`, `@mcp.resource()`, or `@mcp.prompt()`
-3. Test: `mcp dev server.py` — opens MCP Server Inspector in your browser; invoke tools and inspect JSON without connecting Claude
-4. Wire to Claude Code — add to `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "my-tools": { "command": "python", "args": ["path/to/server.py"] }
-  }
-}
-```
-
-Then run `claude mcp login my-tools` if the server requires authentication, and restart Claude Code.
-
-**Three things that don't work automatically:**
-
-- **Authentication:** MCP has no built-in auth for tool calls. Wire a shared secret or OAuth yourself, or use the `claude mcp login` interactive flow.
-- **Error propagation:** unhandled exceptions become opaque errors. Return a structured dict with an `error` key for failures the model can read and act on.
-- **Response size:** the SDK serializes anything you return, but Claude Code enforces a per-tool result-size limit. Keep responses under ~50K characters or paginate.
-
-The SDK is at **v2**, aligning with the 2026-07-28 MCP specification, which changes transports (Streamable HTTP is the new default; SSE still works). If you have a v1 server, check the [migration guide](https://py.sdk.modelcontextprotocol.io/migration) — the API surface changed.
-
-**Start here:** the official MCP quickstart at [modelcontextprotocol.io](https://modelcontextprotocol.io/docs/2026-07-28/develop/build-server) builds a two-tool weather server end-to-end and connects it to Claude Desktop. Anthropic's free course [Introduction to Model Context Protocol](https://anthropic.skilljar.com/introduction-to-model-context-protocol) goes deeper — all three primitives (tools, resources, prompts) and a document management system you build and test with the MCP Server Inspector.
-
-**Sources:** [Build an MCP server — modelcontextprotocol.io](https://modelcontextprotocol.io/docs/2026-07-28/develop/build-server) · [MCP Python SDK — GitHub](https://github.com/modelcontextprotocol/python-sdk) · [Introduction to MCP — Anthropic Skilljar](https://anthropic.skilljar.com/introduction-to-model-context-protocol) · [Step-by-step guide — Composio](https://composio.dev/content/mcp-server-step-by-step-guide-to-building-from-scrtch)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Give Your Managed Agent a Strategist to Consult Mid-Turn: The Advisor Model Pattern</title>
-      <link>https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration#give-the-session-an-advisor</link>
-      <guid isPermaLink="false">2026-08-26-06-managed-agents-advisor-model-pattern</guid>
-      <pubDate>Wed, 26 Aug 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Managed Agents lets you pair a fast executor model with a more capable advisor it can consult mid-turn — paying Opus-level tokens only for the hard decisions, not the whole run.</description>
-      <content:encoded><![CDATA[**TL;DR: Add one roster entry and your Sonnet 5 agent gets an Opus 5 advisor it consults on hard decisions — paying advisor-model rates only for those calls, not the whole run.**
-
-Most multi-agent work is repetitive execution: tool calls, file reads, code generation. A small fraction of turns need real strategic judgment — architectural choices, getting unstuck on a subtle bug, deciding whether to abort a plan. Running the whole session on your most capable model is the expensive way to handle the hard cases.
-
-The **advisor pattern** (released August 7) solves this: configure a more capable model as an advisor in your agent's multiagent roster. The agent consults it mid-turn when it decides to, that consultation runs on a dedicated platform-spawned thread, advice arrives back as an event, and the advisor thread terminates. The rest of the session runs on your executor model.
-
-## Configuration
-
-```bash
-curl -fsS https://api.anthropic.com/v1/agents \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "anthropic-beta: managed-agents-2026-04-01" \
-  -H "content-type: application/json" \
-  -d '{
-    "name": "Backend engineer",
-    "model": "claude-sonnet-5",
-    "system": "You implement backend features. Consult the advisor before major design decisions.",
-    "multiagent": {
-      "type": "coordinator",
-      "agents": [
-        {"type": "advisor", "model": "claude-opus-5"}
-      ]
-    }
-  }'
-```
-
-In the Python SDK (`client.beta.agents.create`), pass `multiagent={"type": "coordinator", "agents": [{"type": "advisor", "model": "claude-opus-5"}]}`.
-
-## What to know before you configure it
-
-- **Model compatibility:** the agent's model must be ≤ the advisor's capability tier. A Sonnet 5 agent can use Opus 5 as advisor. An Opus 5 agent cannot use Sonnet 5 as advisor — the API rejects that configuration.
-- **One advisor per agent.** If the advisor is the only roster entry, you still use `"type": "coordinator"`.
-- **Opus 5 advice is redacted from your client event stream.** The agent reads the full advice server-side, but `agent.thread_message_received` delivers `[{"type": "redacted"}]` to your event listener. Use Claude Opus 4.8 as the advisor instead if you need to observe what the advisor said (it delivers readable text on the stream).
-- **Billing:** consultations are billed at the advisor model's rates. Each consult's tokens appear in the advisor thread's usage and in session totals.
-- **Access:** Managed Agents API access is currently gated — request access at the Managed Agents overview page.
-- **Failure handling:** a failed or interrupted consultation never fails the agent's turn — the agent continues with a notice that the consultation failed.
-
-The advisor is not a subagent: it is invisible to `list_agents`, cannot be messaged directly, and only the session's primary thread can consult it.
-
-**Sources:** [Give the session an advisor — Anthropic Managed Agents docs](https://platform.claude.com/docs/en/managed-agents/multiagent-orchestration#give-the-session-an-advisor) · [Advisor tool (Messages API variant) — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/advisor-tool) · [The Advisor Strategy: Opus-Level Agents at Sonnet Prices — Medium](https://medium.com/@ai_93276/the-advisor-strategy-how-anthropics-new-pattern-delivers-opus-level-agents-at-sonnet-prices-933510b21200)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Manage Your Claude Organization Without curl: Admin API Ships to Seven SDKs</title>
-      <link>https://platform.claude.com/docs/en/release-notes/overview</link>
-      <guid isPermaLink="false">2026-08-26-07-admin-api-sdks-organization-management</guid>
-      <pubDate>Wed, 26 Aug 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Best Practices</category>
-      <description>Anthropic's Admin API — org members, workspaces, API keys, rate limits, service accounts, CMEK — is now accessible in Python, TypeScript, Go, Java, Ruby, PHP, and C# SDKs under client.beta.organization.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic's Admin API now ships in seven language SDKs and the `ant` CLI under `client.beta.organization` — org members, workspaces, API keys, and rate limits are no longer curl-only.**
-
-Released August 26, the Admin API is now available in the Python, TypeScript, C#, Go, Java, PHP, and Ruby SDKs, plus the `ant` CLI, under `client.beta.organization`. Coverage: org info, members, invites, workspaces and workspace members, API keys, rate limits, service accounts, workload identity federation issuers and rules, and customer-managed encryption keys.
-
-```python
-from anthropic import Anthropic
-
-client = Anthropic()  # uses ANTHROPIC_API_KEY (Admin API key) or
-                      # ANTHROPIC_AUTH_TOKEN (org:admin OAuth token)
-
-members = client.beta.organization.members.list()
-```
-
-**Why it matters:** Teams automating Claude Enterprise provisioning — rotating API keys, managing workspace membership, applying rate-limit policies — no longer need raw curl scripts. GitOps pipelines and internal tooling can use typed SDK clients instead.
-
-**Limit:** Usage and cost reports, and Claude Enterprise user-management analytics endpoints, remain curl-only for now.
-
-**Sources:** [Claude Platform release notes, August 26 — Anthropic](https://platform.claude.com/docs/en/release-notes/overview) · [Admin API docs — platform.claude.com](https://platform.claude.com/docs/en/api/admin)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
 
     
     
