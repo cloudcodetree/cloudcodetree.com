@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-15-05-ci-test-impact-analysis-claude-code-scale",
+    "title": "Your CI Was Designed for One PR a Day — Here Is the Architecture That Handles Agentic Code at Scale",
+    "excerpt": "When AI writes 80% of your code, your CI sees 25x more jobs. Test impact analysis — mapping changes to the minimum valid test set — is the architecture fix Anthropic shipped.",
+    "author": "Chris Harper",
+    "date": "09-15-2026",
+    "publishedAt": "2026-09-15T12:05:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic",
+    "content": "**When AI authors 80% of your code and generates 25× more CI jobs in six months, \"bigger machine\" is a patch. Stateless test selection is the fix.**\n\nAnthropic's engineering blog published yesterday on a problem most teams running Claude Code will hit: agentic code generation creates exponential CI load, not linear. Their trajectory:\n\n| Change | Bought | How it broke |\n|---|---|---|\n| 2× machines | 70 days | Memory saturation |\n| Shard by package | 29 days | Package count kept growing |\n| Daily restart | <1 day | Hit load by mid-afternoon |\n| Stateless workers + TIA | Scales horizontally | — |\n\nThe fix was **test impact analysis (TIA)**: a service that maps each code change to the minimum set of tests that could be affected, using past run data and the package dependency graph. Instead of running 10,000 tests on every agent commit, each change gets a targeted list — and agents self-verify against that. The service is stateless, runs as disposable workers, and scales out rather than up.\n\nThree things this implies for your stack:\n\n1. **Design for 5× your current CI load, not 1.1×.** If agents write 20% of your commits today, extrapolate forward. The curve is not linear.\n2. **A focused test set gives agents better feedback.** 200 targeted tests let an agent iterate; waiting 20 minutes on a full suite induces guessing. Tighter feedback loops produce fewer follow-up fixes.\n3. **Stateless beats stateful at scale.** A single process accumulating per-test history across thousands of changes becomes a bottleneck. Workers that process one change and exit scale horizontally without any coordination problem.\n\nFor Python stacks: [`pytest-testmon`](https://testmon.org) tracks source-to-test dependencies and re-runs only affected tests. For polyglot monorepos, Bazel's affected-target analysis does this at the build graph level. The technique predates LLMs; agentic coding just made it load-bearing.\n\n**One real limit:** TIA depends on accurate static dependency data. Dynamic imports, generated code, and metaprogramming can cause under-selection — the service may skip tests it should have run. Anthropic validated coverage by running TIA alongside the full suite for the first few weeks before relying on it exclusively.\n\n**Sources:**\n- [Agentic coding is straining CI: how we scaled test impact analysis at Anthropic](https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic) (Anthropic engineering blog, Sept 14 2026)\n- [TDAD: Test-Driven Agentic Development — Graph-Based Impact Analysis](https://arxiv.org/html/2603.17973) — independent arXiv paper on automated test selection for AI coding agents\n- [pytest-testmon](https://testmon.org) — open-source Python TIA; the same principle applied to smaller stacks"
+  },
+  {
+    "id": "2026-09-15-04-build-mcp-server-typescript-sdk-tools-resources",
+    "title": "Your Agent Asks the Same Questions Every Session — Build the MCP Server That Answers Them Once",
+    "excerpt": "Build a TypeScript MCP server in 30 minutes with the official SDK — tools, resources, and prompts — and stop pasting the same context into every agent session.",
+    "author": "Chris Harper",
+    "date": "09-15-2026",
+    "publishedAt": "2026-09-15T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "MCP",
+      "Agents"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://modelcontextprotocol.io/quickstart/server",
+    "content": "**Build a TypeScript MCP server in 30 minutes and turn repetitive context-pasting into persistent, callable tools your agent finds automatically.**\n\n**What you'll be able to do after this:** Give any MCP client — Claude Code, Cursor, Windsurf — a named server with tools it calls and data it reads, so recurring questions are answered without pasting context every session.\n\nThree things to know before writing a line of code:\n\n- **MCP has three capability types.** *Tools* = functions Claude calls (`get_build_status`, `search_codebase`). *Resources* = data it reads (a file, a database row, a config). *Prompts* = reusable message templates. Most servers start with just tools.\n- **Use stdio for local, Streamable HTTP for remote.** The HTTP+SSE transport from the 2024-era spec was deprecated on 2026-03-26. Local stdio servers are simpler to wire; anything deployed for a team needs Streamable HTTP.\n- **Never use `console.log` in a stdio server.** The protocol uses stdout for JSON-RPC frames. A stray log line corrupts the framing silently. Use `console.error()` for debugging output.\n\n**The 30-minute path:**\n\n```bash\nnpm init -y\nnpm install @modelcontextprotocol/sdk zod\n```\n\n```typescript\nimport { McpServer } from \"@modelcontextprotocol/sdk/server/mcp.js\";\nimport { StdioServerTransport } from \"@modelcontextprotocol/sdk/server/stdio.js\";\nimport { z } from \"zod\";\n\nconst server = new McpServer({ name: \"my-server\", version: \"1.0.0\" });\n\nserver.tool(\n  \"get_build_status\",\n  \"Returns current CI status for a branch\",\n  { branch: z.string().describe(\"branch name\") },\n  async ({ branch }) => ({\n    content: [{ type: \"text\", text: `Status for ${branch}: passing` }]\n  })\n);\n\nconst transport = new StdioServerTransport();\nawait server.connect(transport);\n```\n\nAdd to `claude_desktop_config.json` (or `~/.claude.json` for Claude Code):\n\n```json\n{\n  \"mcpServers\": {\n    \"my-server\": { \"command\": \"node\", \"args\": [\"dist/index.js\"] }\n  }\n}\n```\n\nTest tools before wiring to any client:\n\n```bash\nnpx @modelcontextprotocol/inspector dist/index.js\n```\n\nMCP Inspector gives you a browser UI to invoke tools and inspect returned content — faster than debugging inside Claude.\n\n**One real limit:** MCP has no built-in authentication. A stdio server only your account runs is safe. A remote Streamable HTTP server others can reach needs you to implement auth yourself — the 2026-07-28 spec outlines an OAuth 2.1 handshake, but the SDK does not enforce it. An unauthenticated public MCP server that can write to your systems is a privilege escalation surface. A [2026 arXiv taxonomy of MCP implementation faults](https://arxiv.org/html/2603.05637v1) found auth gaps as the most common class of real-world vulnerability. Build the tool before you expose it; decide who can call it before you deploy it.\n\n**Sources:**\n- [Build an MCP server — official quickstart](https://modelcontextprotocol.io/quickstart/server) (modelcontextprotocol.io)\n- [TypeScript SDK v2](https://github.com/modelcontextprotocol/typescript-sdk)\n- [Real Faults in MCP Software: a Comprehensive Taxonomy](https://arxiv.org/html/2603.05637v1) — arXiv, independent analysis of implementation mistakes in production MCP servers"
+  },
+  {
     "id": "2026-09-15-03-omitclaudemd-subagent-context-isolation",
     "title": "Your Subagent Inherits Your Whole CLAUDE.md — Opt Out With One Frontmatter Line",
     "excerpt": "omitClaudeMd: true in a subagent's frontmatter strips project and user CLAUDE.md files before the agent runs — cleaner context, lower cost, more predictable behavior for utility agents.",

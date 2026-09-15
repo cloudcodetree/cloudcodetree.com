@@ -10,7 +10,125 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 15 Sep 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 15 Sep 2026 12:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your CI Was Designed for One PR a Day — Here Is the Architecture That Handles Agentic Code at Scale</title>
+      <link>https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic</link>
+      <guid isPermaLink="false">2026-09-15-05-ci-test-impact-analysis-claude-code-scale</guid>
+      <pubDate>Mon, 15 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>When AI writes 80% of your code, your CI sees 25x more jobs. Test impact analysis — mapping changes to the minimum valid test set — is the architecture fix Anthropic shipped.</description>
+      <content:encoded><![CDATA[**When AI authors 80% of your code and generates 25× more CI jobs in six months, "bigger machine" is a patch. Stateless test selection is the fix.**
+
+Anthropic's engineering blog published yesterday on a problem most teams running Claude Code will hit: agentic code generation creates exponential CI load, not linear. Their trajectory:
+
+| Change | Bought | How it broke |
+|---|---|---|
+| 2× machines | 70 days | Memory saturation |
+| Shard by package | 29 days | Package count kept growing |
+| Daily restart | <1 day | Hit load by mid-afternoon |
+| Stateless workers + TIA | Scales horizontally | — |
+
+The fix was **test impact analysis (TIA)**: a service that maps each code change to the minimum set of tests that could be affected, using past run data and the package dependency graph. Instead of running 10,000 tests on every agent commit, each change gets a targeted list — and agents self-verify against that. The service is stateless, runs as disposable workers, and scales out rather than up.
+
+Three things this implies for your stack:
+
+1. **Design for 5× your current CI load, not 1.1×.** If agents write 20% of your commits today, extrapolate forward. The curve is not linear.
+2. **A focused test set gives agents better feedback.** 200 targeted tests let an agent iterate; waiting 20 minutes on a full suite induces guessing. Tighter feedback loops produce fewer follow-up fixes.
+3. **Stateless beats stateful at scale.** A single process accumulating per-test history across thousands of changes becomes a bottleneck. Workers that process one change and exit scale horizontally without any coordination problem.
+
+For Python stacks: [`pytest-testmon`](https://testmon.org) tracks source-to-test dependencies and re-runs only affected tests. For polyglot monorepos, Bazel's affected-target analysis does this at the build graph level. The technique predates LLMs; agentic coding just made it load-bearing.
+
+**One real limit:** TIA depends on accurate static dependency data. Dynamic imports, generated code, and metaprogramming can cause under-selection — the service may skip tests it should have run. Anthropic validated coverage by running TIA alongside the full suite for the first few weeks before relying on it exclusively.
+
+**Sources:**
+- [Agentic coding is straining CI: how we scaled test impact analysis at Anthropic](https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic) (Anthropic engineering blog, Sept 14 2026)
+- [TDAD: Test-Driven Agentic Development — Graph-Based Impact Analysis](https://arxiv.org/html/2603.17973) — independent arXiv paper on automated test selection for AI coding agents
+- [pytest-testmon](https://testmon.org) — open-source Python TIA; the same principle applied to smaller stacks
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Agent Asks the Same Questions Every Session — Build the MCP Server That Answers Them Once</title>
+      <link>https://modelcontextprotocol.io/quickstart/server</link>
+      <guid isPermaLink="false">2026-09-15-04-build-mcp-server-typescript-sdk-tools-resources</guid>
+      <pubDate>Mon, 15 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>MCP</category>
+      <category>Agents</category>
+      <description>Build a TypeScript MCP server in 30 minutes with the official SDK — tools, resources, and prompts — and stop pasting the same context into every agent session.</description>
+      <media:content url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png?fit=max&amp;auto=format&amp;n=4ZXF1PrDkEaJvXpn&amp;q=85&amp;s=dce7b2f8a06c20ba358e4bd2e75fa4c7" medium="image" />
+      <media:thumbnail url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png?fit=max&amp;auto=format&amp;n=4ZXF1PrDkEaJvXpn&amp;q=85&amp;s=dce7b2f8a06c20ba358e4bd2e75fa4c7" />
+      <content:encoded><![CDATA[**Build a TypeScript MCP server in 30 minutes and turn repetitive context-pasting into persistent, callable tools your agent finds automatically.**
+
+**What you'll be able to do after this:** Give any MCP client — Claude Code, Cursor, Windsurf — a named server with tools it calls and data it reads, so recurring questions are answered without pasting context every session.
+
+Three things to know before writing a line of code:
+
+- **MCP has three capability types.** *Tools* = functions Claude calls (`get_build_status`, `search_codebase`). *Resources* = data it reads (a file, a database row, a config). *Prompts* = reusable message templates. Most servers start with just tools.
+- **Use stdio for local, Streamable HTTP for remote.** The HTTP+SSE transport from the 2024-era spec was deprecated on 2026-03-26. Local stdio servers are simpler to wire; anything deployed for a team needs Streamable HTTP.
+- **Never use `console.log` in a stdio server.** The protocol uses stdout for JSON-RPC frames. A stray log line corrupts the framing silently. Use `console.error()` for debugging output.
+
+**The 30-minute path:**
+
+```bash
+npm init -y
+npm install @modelcontextprotocol/sdk zod
+```
+
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+const server = new McpServer({ name: "my-server", version: "1.0.0" });
+
+server.tool(
+  "get_build_status",
+  "Returns current CI status for a branch",
+  { branch: z.string().describe("branch name") },
+  async ({ branch }) => ({
+    content: [{ type: "text", text: `Status for ${branch}: passing` }]
+  })
+);
+
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+Add to `claude_desktop_config.json` (or `~/.claude.json` for Claude Code):
+
+```json
+{
+  "mcpServers": {
+    "my-server": { "command": "node", "args": ["dist/index.js"] }
+  }
+}
+```
+
+Test tools before wiring to any client:
+
+```bash
+npx @modelcontextprotocol/inspector dist/index.js
+```
+
+MCP Inspector gives you a browser UI to invoke tools and inspect returned content — faster than debugging inside Claude.
+
+**One real limit:** MCP has no built-in authentication. A stdio server only your account runs is safe. A remote Streamable HTTP server others can reach needs you to implement auth yourself — the 2026-07-28 spec outlines an OAuth 2.1 handshake, but the SDK does not enforce it. An unauthenticated public MCP server that can write to your systems is a privilege escalation surface. A [2026 arXiv taxonomy of MCP implementation faults](https://arxiv.org/html/2603.05637v1) found auth gaps as the most common class of real-world vulnerability. Build the tool before you expose it; decide who can call it before you deploy it.
+
+**Sources:**
+- [Build an MCP server — official quickstart](https://modelcontextprotocol.io/quickstart/server) (modelcontextprotocol.io)
+- [TypeScript SDK v2](https://github.com/modelcontextprotocol/typescript-sdk)
+- [Real Faults in MCP Software: a Comprehensive Taxonomy](https://arxiv.org/html/2603.05637v1) — arXiv, independent analysis of implementation mistakes in production MCP servers
+]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5434,84 +5552,8 @@ print(response.choices[0].message.content)
 **Sources:** [What is Ollama: Run AI Models Locally — Thunder Compute](https://www.thundercompute.com/blog/what-is-ollama-run-ai-models-locally) · [Local LLM Inference 2026: Ollama, Python, and the Open Model Ecosystem — Programming Helper Tech](https://www.programming-helper.com/tech/local-llm-inference-2026-ollama-python-privacy)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Claude Code Sessions Can Now Coordinate: A Practical Guide to Agent Teams</title>
-      <link>https://code.claude.com/docs/en/agent-teams</link>
-      <guid isPermaLink="false">2026-08-27-06-claude-code-agent-teams-enable-parallel</guid>
-      <pubDate>Thu, 27 Aug 2026 20:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Claude Code's experimental agent teams (one flag away) let a lead session spawn independent teammates from a shared task list — parallel implementation, research, or review without manual coordination.</description>
-      <content:encoded><![CDATA[**TL;DR: One `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` flag turns your session into a team lead that spawns independent Claude Code teammates, each with their own context window, working from a shared task list. Still experimental — no resume support, and behavior changes without notice.**
-
-**What you'll be able to do after this:** run parallel implementation, review, or research across multiple Claude Code sessions without managing the coordination by hand.
-
-Claude Code's agent team mode lets one session act as team lead: it spawns teammates (separate Claude Code instances, each with their own context window), assigns tasks from a shared list, and receives idle notifications when they finish. Teammates can message each other directly — they don't route everything through the lead.
-
-**Enabling it:**
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  }
-}
-```
-
-Then describe what you want in natural language:
-
-```
-Spawn three teammates to review PR #142:
-- One focused on security implications
-- One checking performance impact
-- One validating test coverage
-```
-
-**Three rules that determine whether it works:**
-
-1. **Write spawn prompts as if teammates have never seen your conversation.** They haven't — teammates don't inherit the lead's history. Include the file path, the goal, and the constraints directly in the spawn prompt.
-
-2. **Size tasks so each produces one clear deliverable.** A function, a test file, a review. Too small: coordination overhead exceeds the benefit. Too large: a teammate works 20 minutes in the wrong direction before you notice.
-
-3. **Give each teammate ownership of separate files.** Two teammates editing the same file don't merge — they overwrite. Split work by module or file set before spawning.
-
-**When to prefer subagents instead:** sequential tasks, shared file dependencies, or any job where you need the result back in the lead's context before continuing — subagents return their output directly; teammates send an idle notification without their output.
-
-**Real limits:** experimental — `/resume` doesn't restore in-process teammates after a restart; enabling it can cause Claude to spawn teammates even when you asked for subagents; token cost scales linearly with active teammates; behavior changes without notice.
-
-**Sources:** [Agent teams — code.claude.com](https://code.claude.com/docs/en/agent-teams) · [Cross-session messaging — code.claude.com](https://code.claude.com/docs/en/cross-session-messaging) · [Claude Code Cross-Session Messaging Guide — kylon.io](https://kylon.io/blog/claude-code-cross-session-messaging-2026)
-]]></content:encoded>
-      <media:content url="https://mintcdn.com/claude-code/nsvRFSDNfpSU5nT7/images/subagents-vs-agent-teams-light.png" medium="image"/>
-      <media:thumbnail url="https://mintcdn.com/claude-code/nsvRFSDNfpSU5nT7/images/subagents-vs-agent-teams-light.png"/>
-    </item>
-
-    <item>
-      <title>The Research Bench Is Reshuffling: Google DeepMind's Brain Drain in Numbers</title>
-      <link>https://fortune.com/2026/08/27/google-deepmind-losing-talent-to-rival-ai-labs-startups-new-data-show/</link>
-      <guid isPermaLink="false">2026-08-27-07-deepmind-talent-exodus-anthropic-openai</guid>
-      <pubDate>Thu, 27 Aug 2026 20:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <description>DeepMind's share of top European AI hires fell from 49% to 18.6%. John Jumper (AlphaFold) joined Anthropic, Noam Shazeer (Gemini co-lead) joined OpenAI — data from Fortune, August 27.</description>
-      <content:encoded><![CDATA[**TL;DR: New data shows Google DeepMind's share of top European AI research hires fell from 49% (2022–23) to 18.6% (2025–26). AlphaFold co-creator John Jumper joined Anthropic; Gemini co-lead Noam Shazeer joined OpenAI; AlphaGo researcher David Silver founded Ineffable Intelligence.**
-
-New analysis published today by Fortune quantifies what had been visible as individual departures: DeepMind's grip on European AI research talent has loosened significantly. The exits include Jeff Dean (27-year Google veteran), Sanjay Ghemawat, Oriol Vinyals and Quoc Le (who launched Discovery Loop), AlphaFold co-creator John Jumper (now at Anthropic, along with AlphaFold researchers Jonas Adler and Alexander Pritzel), and Gemini co-lead Noam Shazeer (now at OpenAI). David Silver, the RL researcher behind AlphaGo, founded Ineffable Intelligence, now valued at $5.1 billion.
-
-Researchers who left cite frustration with DeepMind's shift from open-ended science toward Google product delivery and stricter publication restrictions introduced in 2025.
-
-**Why it matters:** Frontier model capability tends to follow research talent. Anthropic is capturing a notable share of DeepMind alumni — Jumper's AlphaFold work is foundational to modern protein-structure and multimodal reasoning research. For engineers deciding where to invest workflow time and which models to build around: the concentration of research expertise is shifting toward Anthropic and OpenAI, and that directionally affects where capability advances are most likely to land first.
-
-**Limits to note:** talent movement doesn't directly predict model quality — many breakthroughs have come from small, focused teams, and Google retains world-class compute infrastructure. Hiring data lags the actual model roadmap by 12–24 months at minimum, so DeepMind's Gemini roadmap is not suddenly derailed.
-
-**Sources:** [Google DeepMind losing talent to rival AI labs — Fortune](https://fortune.com/2026/08/27/google-deepmind-losing-talent-to-rival-ai-labs-startups-new-data-show/) · [Google's new AI boss inherits a race — CNBC](https://www.cnbc.com/2026/08/12/google-deepmind-koray-kavukcuoglu.html)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
