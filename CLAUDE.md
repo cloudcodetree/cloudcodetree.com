@@ -582,12 +582,16 @@ ignored by the Next dev watcher; never import from them in app code.
 
 Tutorial publication is closed by default and requires **two gates** in
 `app/tutorials/manifest.ts`: the course name must appear in
-`RELEASED_TUTORIAL_SERIES`, and the lesson must not have `draft: true`. The
-scaffolder always creates `page.draft.mdx` plus `draft: true`, including for an
-already released series. Commit and push drafts freely; they are not routes.
-Release a reviewed lesson by removing its draft flag. Release a new course only
-with a separate, explicit allowlist edit. The "Become a Full-Stack AI Engineer"
-course is intentionally absent from the allowlist while it is being developed.
+`RELEASED_TUTORIAL_SERIES`, and the lesson must carry `draft: false`. `draft` is
+a **required** field — a lesson that never states its status fails to compile, so
+it can never become public by omission. The scaffolder always creates
+`page.draft.mdx` plus `draft: true`, including for an already released series.
+Commit and push drafts freely; they are not routes. Release a reviewed lesson by
+flipping its flag to `draft: false`. Release a new course only with a separate,
+explicit allowlist edit — and because both gates are independent, adding a course
+to the allowlist publishes **nothing** on its own; each lesson still needs its own
+flip. The "Become a Full-Stack AI Engineer" course is intentionally absent from
+the allowlist while it is being developed, and all 37 of its lessons are held.
 
 `scripts/apply-drafts.mjs` runs at prebuild and renames every private tutorial's
 `page.mdx` → `page.draft.mdx`, which Next does not route. Private lessons are

@@ -20,8 +20,10 @@ export interface Tutorial {
   readTime: number;    // minutes
   image?: string;      // cover (site-absolute path or CDN URL)
   /** Held for review: hidden from lists/feeds/sitemap AND excluded from the
-   *  build (scripts/apply-drafts.mjs renames page.mdx → page.draft.mdx). */
-  draft?: boolean;
+   *  build (scripts/apply-drafts.mjs renames page.mdx → page.draft.mdx).
+   *  Required on purpose: a lesson that never states its status must not be
+   *  publishable by omission, so the compiler asks before the gate can. */
+  draft: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export const tutorials: Tutorial[] = [
     order: 1,
     readTime: 12,
     image: '/tutorials/covers/build-a-rag-over-your-blog.png',
+    draft: false,
   },
   {
     slug: 'vector-database-for-rag',
@@ -62,6 +65,7 @@ export const tutorials: Tutorial[] = [
     order: 2,
     readTime: 10,
     image: '/tutorials/covers/vector-database-for-rag.png',
+    draft: false,
   },
   {
     slug: 'chunking-strategies-for-rag',
@@ -75,6 +79,7 @@ export const tutorials: Tutorial[] = [
     order: 3,
     readTime: 9,
     image: '/tutorials/covers/chunking-strategies-for-rag.png',
+    draft: false,
   },
   {
     slug: 'hybrid-search-for-rag',
@@ -88,6 +93,7 @@ export const tutorials: Tutorial[] = [
     order: 4,
     readTime: 10,
     image: '/tutorials/covers/hybrid-search-for-rag.png',
+    draft: false,
   },
   {
     slug: 'reranking-for-rag',
@@ -101,6 +107,7 @@ export const tutorials: Tutorial[] = [
     order: 5,
     readTime: 10,
     image: '/tutorials/covers/reranking-for-rag.png',
+    draft: false,
   },
   {
     slug: 'evaluating-rag',
@@ -114,6 +121,7 @@ export const tutorials: Tutorial[] = [
     order: 6,
     readTime: 11,
     image: '/tutorials/covers/evaluating-rag.png',
+    draft: false,
   },
   {
     slug: 'fine-tuning-vs-rag',
@@ -127,6 +135,7 @@ export const tutorials: Tutorial[] = [
     order: 7,
     readTime: 8,
     image: '/tutorials/covers/fine-tuning-vs-rag.png',
+    draft: false,
   },
   {
     slug: 'lora-qlora-fine-tuning',
@@ -140,6 +149,7 @@ export const tutorials: Tutorial[] = [
     order: 8,
     readTime: 9,
     image: '/tutorials/covers/lora-qlora-fine-tuning.png',
+    draft: false,
   },
   {
     slug: 'serve-with-vllm',
@@ -153,6 +163,7 @@ export const tutorials: Tutorial[] = [
     order: 9,
     readTime: 8,
     image: '/tutorials/covers/serve-with-vllm.png',
+    draft: false,
   },
   {
     slug: 'dev-machine-in-your-pocket',
@@ -166,6 +177,7 @@ export const tutorials: Tutorial[] = [
     order: 10,
     readTime: 12,
     image: '/tutorials/covers/dev-machine-in-your-pocket.png',
+    draft: false,
   },
   {
     slug: 'dealfinder-part-01',
@@ -179,6 +191,7 @@ export const tutorials: Tutorial[] = [
     order: 11,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-01.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-02',
@@ -192,6 +205,7 @@ export const tutorials: Tutorial[] = [
     order: 12,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-02.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-03',
@@ -205,6 +219,7 @@ export const tutorials: Tutorial[] = [
     order: 13,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-03.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-04',
@@ -218,6 +233,7 @@ export const tutorials: Tutorial[] = [
     order: 14,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-04.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-05',
@@ -231,6 +247,7 @@ export const tutorials: Tutorial[] = [
     order: 15,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-05.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-06',
@@ -244,6 +261,7 @@ export const tutorials: Tutorial[] = [
     order: 16,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-06.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-07',
@@ -257,6 +275,7 @@ export const tutorials: Tutorial[] = [
     order: 17,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-07.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-08',
@@ -270,6 +289,7 @@ export const tutorials: Tutorial[] = [
     order: 18,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-08.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-09',
@@ -283,6 +303,7 @@ export const tutorials: Tutorial[] = [
     order: 19,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-09.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-10',
@@ -296,6 +317,7 @@ export const tutorials: Tutorial[] = [
     order: 20,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-10.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-11',
@@ -309,6 +331,7 @@ export const tutorials: Tutorial[] = [
     order: 21,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-11.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-12',
@@ -322,6 +345,7 @@ export const tutorials: Tutorial[] = [
     order: 22,
     readTime: 9,
     image: '/tutorials/covers/dealfinder-part-12.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-13',
@@ -335,6 +359,7 @@ export const tutorials: Tutorial[] = [
     order: 23,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-13.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-14',
@@ -348,6 +373,7 @@ export const tutorials: Tutorial[] = [
     order: 24,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-14.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-15',
@@ -361,6 +387,7 @@ export const tutorials: Tutorial[] = [
     order: 25,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-15.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-16',
@@ -374,6 +401,7 @@ export const tutorials: Tutorial[] = [
     order: 26,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-16.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-17',
@@ -387,6 +415,7 @@ export const tutorials: Tutorial[] = [
     order: 27,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-17.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-18',
@@ -400,6 +429,7 @@ export const tutorials: Tutorial[] = [
     order: 28,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-18.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-25',
@@ -413,6 +443,7 @@ export const tutorials: Tutorial[] = [
     order: 35,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-25.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-23',
@@ -426,6 +457,7 @@ export const tutorials: Tutorial[] = [
     order: 33,
     readTime: 9,
     image: '/tutorials/covers/dealfinder-part-23.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-26',
@@ -439,6 +471,7 @@ export const tutorials: Tutorial[] = [
     order: 36,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-26.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-22',
@@ -452,6 +485,7 @@ export const tutorials: Tutorial[] = [
     order: 32,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-22.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-24',
@@ -465,6 +499,7 @@ export const tutorials: Tutorial[] = [
     order: 34,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-24.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-27',
@@ -478,6 +513,7 @@ export const tutorials: Tutorial[] = [
     order: 37,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-27.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-28',
@@ -491,6 +527,7 @@ export const tutorials: Tutorial[] = [
     order: 38,
     readTime: 9,
     image: '/tutorials/covers/dealfinder-part-28.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-30',
@@ -504,6 +541,7 @@ export const tutorials: Tutorial[] = [
     order: 40,
     readTime: 10,
     image: '/tutorials/covers/dealfinder-part-30.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-37',
@@ -517,6 +555,7 @@ export const tutorials: Tutorial[] = [
     order: 47,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-37.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-36',
@@ -530,6 +569,7 @@ export const tutorials: Tutorial[] = [
     order: 46,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-36.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-19',
@@ -543,6 +583,7 @@ export const tutorials: Tutorial[] = [
     order: 29,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-19.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-21',
@@ -556,6 +597,7 @@ export const tutorials: Tutorial[] = [
     order: 31,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-21.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-20',
@@ -569,6 +611,7 @@ export const tutorials: Tutorial[] = [
     order: 30,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-20.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-33',
@@ -582,6 +625,7 @@ export const tutorials: Tutorial[] = [
     order: 43,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-33.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-35',
@@ -595,6 +639,7 @@ export const tutorials: Tutorial[] = [
     order: 45,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-35.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-29',
@@ -608,6 +653,7 @@ export const tutorials: Tutorial[] = [
     order: 39,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-29.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-31',
@@ -621,6 +667,7 @@ export const tutorials: Tutorial[] = [
     order: 41,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-31.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-32',
@@ -634,6 +681,7 @@ export const tutorials: Tutorial[] = [
     order: 42,
     readTime: 11,
     image: '/tutorials/covers/dealfinder-part-32.png',
+    draft: true,
   },
   {
     slug: 'dealfinder-part-34',
@@ -647,6 +695,7 @@ export const tutorials: Tutorial[] = [
     order: 44,
     readTime: 12,
     image: '/tutorials/covers/dealfinder-part-34.png',
+    draft: true,
   },
 ];
 

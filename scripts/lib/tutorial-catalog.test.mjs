@@ -27,6 +27,23 @@ describe('tutorial catalog', () => {
     expect(generated.filter((t) => t.series === series).every((t) => !t.published)).toBe(true);
     expect(publishedTutorials.some((t) => t.series === series)).toBe(false);
   });
+  it('holds each lesson of an unreleased course behind its own release flag', () => {
+    // The brake that matters: adding a course to RELEASED_TUTORIAL_SERIES must not
+    // publish the whole course in a single edit. Once the series gate opens, the only
+    // thing left is each lesson's own flag — so every held lesson must carry one.
+    const series = 'Become a Full-Stack AI Engineer';
+    const lessons = readTutorials().filter((t) => t.series === series);
+    expect(lessons).not.toHaveLength(0);
+    const wouldGoLiveOnRelease = lessons.filter((t) => !t.draft).map((t) => t.slug);
+    expect(wouldGoLiveOnRelease).toEqual([]);
+  });
+  it('makes every lesson declare its own draft status explicitly', () => {
+    // An omitted flag must never mean "publishable". The manifest's TypeScript type
+    // requires it, and this pins the .mjs parser — which has no type checking — to
+    // the same rule, so the app and the build scripts cannot drift apart.
+    const undeclared = readTutorials().filter((t) => !t.draftDeclared).map((t) => t.slug);
+    expect(undeclared).toEqual([]);
+  });
   it('combines OR topics with search and course scope, excluding drafts', () => {
     expect(filterTutorials(list, { topics: ['RAG', 'Fine-Tuning'], query: 'python vectors' })).toEqual([list[0]]);
     expect(filterTutorials(list, { series: 'Tuning', query: 'lora' })).toEqual([list[1]]);

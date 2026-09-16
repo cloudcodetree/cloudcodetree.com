@@ -65,8 +65,10 @@ For verified tutorials, `--with-repo` also scaffolds the local companion repo
 ## Releasing is a separate action
 
 Do not publish merely because authoring is complete. After explicit release direction,
-remove the lesson's `draft: true`. For a new course, also add its exact series name to
-`RELEASED_TUTORIAL_SERIES`. Both gates live in `app/tutorials/manifest.ts`. Build and
+flip the lesson's `draft: true` to `draft: false` — never delete the field, which is
+required and will fail the type check. For a new course, also add its exact series name
+to `RELEASED_TUTORIAL_SERIES`; that alone publishes nothing, since each lesson still
+holds its own flag. Both gates live in `app/tutorials/manifest.ts`. Build and
 verify the live URL, feed, topic pages, and sitemap before calling the release complete.
 
 ## Conventions (reference)

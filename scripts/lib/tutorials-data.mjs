@@ -51,9 +51,12 @@ export function readTutorials() {
     .map((c) => c.trim())
     .filter((c) => c.startsWith('{'))
     .map((c) => {
-      const draft = /draft:\s*true/.test(c);
+      // An omitted flag is NOT the same as `draft: false` — the manifest type requires
+      // an explicit choice, and `draftDeclared` lets the tests hold this parser to it.
+      const declared = c.match(/draft:\s*(true|false)/);
+      const draft = declared?.[1] === 'true';
       const series = str(c, 'series');
-      return { slug: str(c, 'slug'), title: str(c, 'title'), series, part: num(c, 'part'), order: num(c, 'order'), date: str(c, 'date'), excerpt: str(c, 'excerpt'), tags: tags(c), draft, published: released.has(series) && !draft };
+      return { draftDeclared: Boolean(declared), slug: str(c, 'slug'), title: str(c, 'title'), series, part: num(c, 'part'), order: num(c, 'order'), date: str(c, 'date'), excerpt: str(c, 'excerpt'), tags: tags(c), draft, published: released.has(series) && !draft };
     })
     .filter((t) => t.slug);
 }
