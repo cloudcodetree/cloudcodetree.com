@@ -1,5 +1,59 @@
 [
   {
+    "id": "2026-09-16-03-claude-code-gateway-session-agent-headers-cost-attribution",
+    "title": "Your Gateway Logs Every Claude Code Request as \"claude-sonnet-4-6\" — These Headers Let You Track Them by Session and Agent",
+    "excerpt": "Claude Code sends x-claude-code-session-id and x-claude-code-agent-id on every API request — extract them in your LLM gateway to attribute costs per session and per subagent without parsing request…",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/llm-gateway-protocol",
+    "content": "**When Claude Code routes through an LLM gateway, extract three built-in request headers to attribute API costs per session and per subagent — no request-body parsing needed.**\n\nWhen Claude Code routes through an LLM gateway (LiteLLM, Portkey, or a custom FastAPI proxy), every request arrives looking identical: `POST /v1/messages`, model `claude-sonnet-4-6`. Your logs show token counts but no way to tell which requests belong to which developer session, which are from subagents running in parallel, or which background tasks are burning the budget.\n\nClaude Code sends three attribution headers on every request to an `ANTHROPIC_BASE_URL` gateway:\n\n| Header | When present | Tells you |\n|---|---|---|\n| `x-claude-code-session-id` | Always | Unique ID for this session — aggregate all requests from one run |\n| `x-claude-code-agent-id` | Subagent requests only | ID of the spawned subagent that issued the request |\n| `x-claude-code-parent-agent-id` | Nested agents only | ID of the parent agent (for multi-level agent trees) |\n\nExtract them in your gateway middleware before forwarding:\n\n```python\n# FastAPI gateway proxy (simplified)\nfrom fastapi import Request\n\n@app.post(\"/v1/messages\")\nasync def proxy(request: Request):\n    session_id = request.headers.get(\"x-claude-code-session-id\")\n    agent_id    = request.headers.get(\"x-claude-code-agent-id\")\n    parent_id   = request.headers.get(\"x-claude-code-parent-agent-id\")\n\n    log_request_attribution(\n        session_id=session_id,\n        is_subagent=bool(agent_id),\n        agent_depth=2 if parent_id else (1 if agent_id else 0),\n    )\n    # ... forward to upstream\n```\n\nWith these tags your dashboards go from \"1,000 Sonnet calls\" to \"120 interactive sessions, 680 subagent calls, 200 nested-agent calls\" — actionable enough for per-project chargeback or per-developer budget alerts.\n\n**New in v2.1.273 (opt-in):** Set `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1` on the developer's machine to add five more request headers — `x-claude-code-request-class`, `x-claude-code-agent-type`, `x-claude-code-prev-tool-durations`, `x-claude-code-compaction`, and `x-claude-code-context-compacted` — that give the gateway finer-grained signal about what Claude Code is doing with each request.\n\n**Limits:** These headers are sent only when routing through `ANTHROPIC_BASE_URL`; they are not present on Bedrock-format (`CLAUDE_CODE_USE_BEDROCK=1`) or Vertex-format connections. The `x-claude-code-agent-id` is generated fresh each time a subagent spawns, so it cannot be used to track the same logical agent across different sessions. Do not treat agent IDs as user identifiers.\n\n**Sources:** [Gateway protocol reference — Claude Code docs](https://code.claude.com/docs/en/llm-gateway-protocol) · [Claude Code changelog v2.1.273](https://code.claude.com/docs/en/changelog) · [LiteLLM gateway setup](https://docs.litellm.ai/docs/proxy/configs) (independent gateway reference)"
+  },
+  {
+    "id": "2026-09-16-02-supabase-vecs-pgvector-semantic-knowledge-base-python",
+    "title": "Your Text Is Already in Postgres — Build Semantic Search on Top of It With Supabase vecs in 25 Lines",
+    "excerpt": "Use Supabase's vecs Python client to embed documents, store them in pgvector, filter by metadata, and run semantic similarity searches — from connection to first query in 25 lines.",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Vectors"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://supabase.com/docs/guides/ai/vecs-python-client",
+    "content": "**Use Supabase's vecs Python library to build a metadata-filtered semantic knowledge base on pgvector — create a collection, upsert embeddings, index once, and query with filters in under 25 lines.**\n\n**What you'll be able to do after this:**\n- Connect a Python app to Supabase's pgvector extension using the vecs client\n- Embed and upsert documents with arbitrary metadata (source, date, department) for filtered retrieval\n- Run semantic similarity queries constrained by metadata without writing any SQL\n\nThe resource: [Getting Started with Supabase Vector Databases](https://www.youtube.com/watch?v=6xchFWcHkaI) (YouTube, June 2026) walks the full workflow hands-on. The steps below match the vecs 0.4.x API.\n\n**Install:**\n```bash\npip install vecs sentence-transformers\n```\n\n**Complete workflow:**\n```python\nimport vecs\nfrom sentence_transformers import SentenceTransformer\n\n# 1. Connect to your Supabase Postgres instance\nvx = vecs.create_client(\n    \"postgresql://postgres:<password>@<project-ref>.supabase.co:5432/postgres\"\n)\n\n# 2. Create (or retrieve) a named collection\n#    dimension must match your embedding model's output size\nmodel = SentenceTransformer(\"sentence-transformers/all-MiniLM-L6-v2\")\ndocs = vx.get_or_create_collection(name=\"knowledge_base\", dimension=384)\n\n# 3. Embed and upsert documents with metadata\nrecords = []\nfor doc in my_documents:\n    vec = model.encode(doc[\"text\"]).tolist()\n    records.append((\n        doc[\"id\"],                                          # stable identifier (string)\n        vec,                                               # 384-dim list or np.array\n        {\"source\": doc[\"source\"], \"year\": doc[\"year\"]}     # arbitrary metadata dict\n    ))\ndocs.upsert(records=records)\n\n# 4. Build an HNSW index — run once as a migration, not on every upsert\ndocs.create_index()\n\n# 5. Semantic query with metadata filter\nquery_vec = model.encode(\"annual leave policy\").tolist()\nresults = docs.query(\n    data=query_vec,\n    limit=5,\n    filters={\"source\": {\"$eq\": \"hr_policies\"}}  # MongoDB-style filter operators\n)\n# returns: [\"doc-42\", \"doc-19\", \"doc-77\", ...]\n```\n\n**The key decisions:**\n- `dimension` must match your embedding model exactly — set it once at collection creation\n- `create_index()` builds an HNSW graph synchronously; on large collections (>100,000 records) this takes minutes. Run it as a one-time schema migration\n- Metadata filters use MongoDB-style operators: `$eq`, `$lt`, `$gt`, `$in`, `$contains`\n\n**Limits:** vecs is Python-only — there is no official JS/TypeScript equivalent; JavaScript apps query pgvector through raw SQL or the Supabase client's `rpc()` method. vecs does not support hybrid (keyword + vector) search out of the box; for BM25 + vector retrieval you need to compose queries at the SQL layer directly. Index creation blocks the calling thread; do it in a migration script, not in a request handler.\n\n**Sources:** [vecs Python client docs — Supabase](https://supabase.com/docs/guides/ai/vecs-python-client) · [supabase/vecs — GitHub](https://github.com/supabase/vecs) · [Getting Started with Supabase Vector Databases — YouTube](https://www.youtube.com/watch?v=6xchFWcHkaI) · [Semantic Search with Supabase — OpenAI Cookbook](https://developers.openai.com/cookbook/examples/vector_databases/supabase/semantic-search) (independent implementation reference)"
+  },
+  {
+    "id": "2026-09-16-01-claude-code-v2-1-273-subshell-permission-mcp-disconnect",
+    "title": "Claude Code v2.1.273 Patches an Auto-Mode Permission Bypass and Adds MCP Disconnect Alerts",
+    "excerpt": "Claude Code 2.1.273 (Sept 15) closes two auto-mode permission-checker bugs including a subshell bypass, adds a visible MCP disconnect notification, and fixes an over-inflated context meter.",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T04:04:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Claude Code",
+      "Security"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/changelog",
+    "content": "**Claude Code 2.1.273 (Sept 15) closes two permission-checker bugs in auto mode — including a subshell bypass — and adds a notification when MCP reconnection gives up for good.**\n\nThree changes in the September 15 release worth acting on.\n\n**Auto-mode subshell bypass (fixed).** In auto mode, a destructive command wrapped inside a `$()` subshell — e.g. `echo $(rm -rf /build/cache)` — bypassed the permission checker and executed without a review prompt. Separately, Bash commands the analyzer couldn't fully parse were silently allowed under `blockReadsOutsideWorkingDirectories` instead of triggering a review. Both are patched.\n\n**MCP disconnect notification (new).** When an MCP server disconnects mid-session and automatic reconnection gives up, Claude Code now surfaces a notification pointing to `/mcp`. Previously the server disappeared silently and you'd notice only when a tool call returned an unexpected error.\n\n**Context meter fix.** Advisor-tool turns were being counted at roughly twice their real context size, causing premature \"running low\" warnings during tool-heavy sessions. The meter now reflects actual context usage.\n\n**The limit:** The permission checker analyzes command syntax statically. It cannot catch obfuscated commands built through dynamic string concatenation at runtime. In high-risk CI environments, pair auto mode with OS-level sandboxing as a second control layer rather than relying on the permission model alone.\n\n**Why it matters:** The subshell bypass was a real gap in auto mode's safety model. If you run Claude Code with `auto` permissions in CI pipelines, deploy v2.1.273 before your next run. The MCP fix removes a silent failure mode that was hard to debug.\n\n**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Sandboxed Bash tool — code.claude.com](https://code.claude.com/docs/en/sandboxing)"
+  },
+  {
     "id": "2026-09-15-06-ai-agents-papercut-attack-orchestration",
     "title": "Hundreds of AI Agents Coordinated a Real-World Attack at 395 Organizations — Here Is What the Logs Show",
     "excerpt": "A threat actor ran hundreds of Codex and DeepSeek agents against PaperCut NG/MF servers, hitting 440 instances at 395 orgs in 48 countries — first RCE in under four hours, domain admin in seven min…",

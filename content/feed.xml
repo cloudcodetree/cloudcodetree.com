@@ -10,7 +10,168 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 15 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 16 Sep 2026 04:06:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Your Gateway Logs Every Claude Code Request as "claude-sonnet-4-6" — These Headers Let You Track Them by Session and Agent</title>
+      <link>https://code.claude.com/docs/en/llm-gateway-protocol</link>
+      <guid isPermaLink="false">2026-09-16-03-claude-code-gateway-session-agent-headers-cost-attribution</guid>
+      <pubDate>Wed, 16 Sep 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Claude Code sends x-claude-code-session-id and x-claude-code-agent-id on every API request — extract them in your LLM gateway to attribute costs per session and per subagent without parsing request bodies.</description>
+      <content:encoded><![CDATA[**When Claude Code routes through an LLM gateway, extract three built-in request headers to attribute API costs per session and per subagent — no request-body parsing needed.**
+
+When Claude Code routes through an LLM gateway (LiteLLM, Portkey, or a custom FastAPI proxy), every request arrives looking identical: `POST /v1/messages`, model `claude-sonnet-4-6`. Your logs show token counts but no way to tell which requests belong to which developer session, which are from subagents running in parallel, or which background tasks are burning the budget.
+
+Claude Code sends three attribution headers on every request to an `ANTHROPIC_BASE_URL` gateway:
+
+| Header | When present | Tells you |
+|---|---|---|
+| `x-claude-code-session-id` | Always | Unique ID for this session — aggregate all requests from one run |
+| `x-claude-code-agent-id` | Subagent requests only | ID of the spawned subagent that issued the request |
+| `x-claude-code-parent-agent-id` | Nested agents only | ID of the parent agent (for multi-level agent trees) |
+
+Extract them in your gateway middleware before forwarding:
+
+```python
+# FastAPI gateway proxy (simplified)
+from fastapi import Request
+
+@app.post("/v1/messages")
+async def proxy(request: Request):
+    session_id = request.headers.get("x-claude-code-session-id")
+    agent_id    = request.headers.get("x-claude-code-agent-id")
+    parent_id   = request.headers.get("x-claude-code-parent-agent-id")
+
+    log_request_attribution(
+        session_id=session_id,
+        is_subagent=bool(agent_id),
+        agent_depth=2 if parent_id else (1 if agent_id else 0),
+    )
+    # ... forward to upstream
+```
+
+With these tags your dashboards go from "1,000 Sonnet calls" to "120 interactive sessions, 680 subagent calls, 200 nested-agent calls" — actionable enough for per-project chargeback or per-developer budget alerts.
+
+**New in v2.1.273 (opt-in):** Set `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1` on the developer's machine to add five more request headers — `x-claude-code-request-class`, `x-claude-code-agent-type`, `x-claude-code-prev-tool-durations`, `x-claude-code-compaction`, and `x-claude-code-context-compacted` — that give the gateway finer-grained signal about what Claude Code is doing with each request.
+
+**Limits:** These headers are sent only when routing through `ANTHROPIC_BASE_URL`; they are not present on Bedrock-format (`CLAUDE_CODE_USE_BEDROCK=1`) or Vertex-format connections. The `x-claude-code-agent-id` is generated fresh each time a subagent spawns, so it cannot be used to track the same logical agent across different sessions. Do not treat agent IDs as user identifiers.
+
+**Sources:** [Gateway protocol reference — Claude Code docs](https://code.claude.com/docs/en/llm-gateway-protocol) · [Claude Code changelog v2.1.273](https://code.claude.com/docs/en/changelog) · [LiteLLM gateway setup](https://docs.litellm.ai/docs/proxy/configs) (independent gateway reference)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Text Is Already in Postgres — Build Semantic Search on Top of It With Supabase vecs in 25 Lines</title>
+      <link>https://supabase.com/docs/guides/ai/vecs-python-client</link>
+      <guid isPermaLink="false">2026-09-16-02-supabase-vecs-pgvector-semantic-knowledge-base-python</guid>
+      <pubDate>Wed, 16 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Vectors</category>
+      <description>Use Supabase's vecs Python client to embed documents, store them in pgvector, filter by metadata, and run semantic similarity searches — from connection to first query in 25 lines.</description>
+      <content:encoded><![CDATA[**Use Supabase's vecs Python library to build a metadata-filtered semantic knowledge base on pgvector — create a collection, upsert embeddings, index once, and query with filters in under 25 lines.**
+
+**What you'll be able to do after this:**
+- Connect a Python app to Supabase's pgvector extension using the vecs client
+- Embed and upsert documents with arbitrary metadata (source, date, department) for filtered retrieval
+- Run semantic similarity queries constrained by metadata without writing any SQL
+
+The resource: [Getting Started with Supabase Vector Databases](https://www.youtube.com/watch?v=6xchFWcHkaI) (YouTube, June 2026) walks the full workflow hands-on. The steps below match the vecs 0.4.x API.
+
+**Install:**
+```bash
+pip install vecs sentence-transformers
+```
+
+**Complete workflow:**
+```python
+import vecs
+from sentence_transformers import SentenceTransformer
+
+# 1. Connect to your Supabase Postgres instance
+vx = vecs.create_client(
+    "postgresql://postgres:<password>@<project-ref>.supabase.co:5432/postgres"
+)
+
+# 2. Create (or retrieve) a named collection
+#    dimension must match your embedding model's output size
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+docs = vx.get_or_create_collection(name="knowledge_base", dimension=384)
+
+# 3. Embed and upsert documents with metadata
+records = []
+for doc in my_documents:
+    vec = model.encode(doc["text"]).tolist()
+    records.append((
+        doc["id"],                                          # stable identifier (string)
+        vec,                                               # 384-dim list or np.array
+        {"source": doc["source"], "year": doc["year"]}     # arbitrary metadata dict
+    ))
+docs.upsert(records=records)
+
+# 4. Build an HNSW index — run once as a migration, not on every upsert
+docs.create_index()
+
+# 5. Semantic query with metadata filter
+query_vec = model.encode("annual leave policy").tolist()
+results = docs.query(
+    data=query_vec,
+    limit=5,
+    filters={"source": {"$eq": "hr_policies"}}  # MongoDB-style filter operators
+)
+# returns: ["doc-42", "doc-19", "doc-77", ...]
+```
+
+**The key decisions:**
+- `dimension` must match your embedding model exactly — set it once at collection creation
+- `create_index()` builds an HNSW graph synchronously; on large collections (>100,000 records) this takes minutes. Run it as a one-time schema migration
+- Metadata filters use MongoDB-style operators: `$eq`, `$lt`, `$gt`, `$in`, `$contains`
+
+**Limits:** vecs is Python-only — there is no official JS/TypeScript equivalent; JavaScript apps query pgvector through raw SQL or the Supabase client's `rpc()` method. vecs does not support hybrid (keyword + vector) search out of the box; for BM25 + vector retrieval you need to compose queries at the SQL layer directly. Index creation blocks the calling thread; do it in a migration script, not in a request handler.
+
+**Sources:** [vecs Python client docs — Supabase](https://supabase.com/docs/guides/ai/vecs-python-client) · [supabase/vecs — GitHub](https://github.com/supabase/vecs) · [Getting Started with Supabase Vector Databases — YouTube](https://www.youtube.com/watch?v=6xchFWcHkaI) · [Semantic Search with Supabase — OpenAI Cookbook](https://developers.openai.com/cookbook/examples/vector_databases/supabase/semantic-search) (independent implementation reference)
+]]></content:encoded>
+      <media:content url="https://i.ytimg.com/vi/6xchFWcHkaI/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://i.ytimg.com/vi/6xchFWcHkaI/maxresdefault.jpg" />
+    </item>
+
+    <item>
+      <title>Claude Code v2.1.273 Patches an Auto-Mode Permission Bypass and Adds MCP Disconnect Alerts</title>
+      <link>https://code.claude.com/docs/en/changelog</link>
+      <guid isPermaLink="false">2026-09-16-01-claude-code-v2-1-273-subshell-permission-mcp-disconnect</guid>
+      <pubDate>Wed, 16 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Security</category>
+      <description>Claude Code 2.1.273 (Sept 15) closes two auto-mode permission-checker bugs including a subshell bypass, adds a visible MCP disconnect notification, and fixes an over-inflated context meter.</description>
+      <content:encoded><![CDATA[**Claude Code 2.1.273 (Sept 15) closes two permission-checker bugs in auto mode — including a subshell bypass — and adds a notification when MCP reconnection gives up for good.**
+
+Three changes in the September 15 release worth acting on.
+
+**Auto-mode subshell bypass (fixed).** In auto mode, a destructive command wrapped inside a `$()` subshell — e.g. `echo $(rm -rf /build/cache)` — bypassed the permission checker and executed without a review prompt. Separately, Bash commands the analyzer couldn't fully parse were silently allowed under `blockReadsOutsideWorkingDirectories` instead of triggering a review. Both are patched.
+
+**MCP disconnect notification (new).** When an MCP server disconnects mid-session and automatic reconnection gives up, Claude Code now surfaces a notification pointing to `/mcp`. Previously the server disappeared silently and you'd notice only when a tool call returned an unexpected error.
+
+**Context meter fix.** Advisor-tool turns were being counted at roughly twice their real context size, causing premature "running low" warnings during tool-heavy sessions. The meter now reflects actual context usage.
+
+**The limit:** The permission checker analyzes command syntax statically. It cannot catch obfuscated commands built through dynamic string concatenation at runtime. In high-risk CI environments, pair auto mode with OS-level sandboxing as a second control layer rather than relying on the permission model alone.
+
+**Why it matters:** The subshell bypass was a real gap in auto mode's safety model. If you run Claude Code with `auto` permissions in CI pipelines, deploy v2.1.273 before your next run. The MCP fix removes a silent failure mode that was hard to debug.
+
+**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Sandboxed Bash tool — code.claude.com](https://code.claude.com/docs/en/sandboxing)
+]]></content:encoded>
+    </item>
+
 
     <item>
       <title>Hundreds of AI Agents Coordinated a Real-World Attack at 395 Organizations — Here Is What the Logs Show</title>
@@ -5474,117 +5635,11 @@ The key limit: restricted mode is all-or-nothing on command execution. If you ne
 **Sources:** [Claude Code Changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code Changelog August 2026 — Gradually](https://www.gradually.ai/en/changelogs/claude-code/) · [Claude Code Subagents: 2026 Production Playbook — Totalum](https://www.totalum.app/blog/claude-code-subagents-totalum)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Anthropic Previews a Physical-Device Protocol Built on MCP: Same Pattern, Different Endpoints</title>
-      <link>https://www.anthropic.com/news/model-hardware-standard-research-preview</link>
-      <guid isPermaLink="false">2026-08-28-05-mhs-physical-device-mcp-preview</guid>
-      <pubDate>Thu, 28 Aug 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>MCP</category>
-      <category>Agents</category>
-      <description>Anthropic opened a research preview of the Model Hardware Standard (MHS), a spec for AI agents to control physical lab instruments using MCP-compatible tooling. Invite-only with research labs for now.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic's Model Hardware Standard, previewed August 27, extends the MCP pattern to physical instruments — same tool-call framing, new endpoint class; invite-only with research labs for now.**
-
-The [research preview](https://www.anthropic.com/news/model-hardware-standard-research-preview) opens MHS to a first cohort of scientific research labs and advanced manufacturers. Initial launch partner: HHMI Janelia Research Campus. AWS Strands Robots will support MHS for connecting agents to physical devices.
-
-**What it is technically.** MHS is model-agnostic: any device with a programmable interface can expose an MHS endpoint, and any MCP-compatible agent harness can discover and call it. An agent that can already write MCP servers can apply the same patterns to a robotic arm or a liquid handler — the specification handles device discovery and capability advertisement. Anthropic reports integration time dropping from weeks to hours for supported hardware.
-
-**Why it matters:** If your work never involves lab automation, file this as signal that the agent-control protocol is expanding beyond software APIs to physical effectors — the same mental model as MCP, a different endpoint class. If you do build agents for research or manufacturing, the standard is planned to go open-source after the preview period; safety evaluations are actively being built with launch partners.
-
-**Limits to know:** Invite-only preview; no general developer access yet. Safety evaluations for physical operation are still in progress — Anthropic is explicit that these are being built during the preview, not already validated.
-
-**Sources:** [Anthropic MHS research preview](https://www.anthropic.com/news/model-hardware-standard-research-preview) · [CNBC: Anthropic pushes into physical world](https://www.cnbc.com/2026/08/27/anthropic-pushes-into-physical-world-with-new-standard-to-help-ai-agents-operate-machines.html) · [SiliconANGLE: Anthropic previews MHS](https://siliconangle.com/2026/08/27/anthropic-previews-mhs-standard-for-ai-agents-that-operate-machines/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Agent Forgets Everything Between Sessions — mem0 Adds Persistent Memory in 10 Lines</title>
-      <link>https://mem0.ai/blog/how-to-create-ai-agents-with-long-term-memory</link>
-      <guid isPermaLink="false">2026-08-28-04-mem0-persistent-agent-memory</guid>
-      <pubDate>Thu, 28 Aug 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>mem0 adds a persistent memory layer to any LLM agent — store, retrieve, and update facts about users and tasks across sessions without managing a vector store yourself.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** add cross-session memory to any Claude-based agent — the agent remembers user preferences and project facts across sessions without you managing a vector store.
-
-Three things you'll take away:
-- How agents fail silently when context resets between sessions, and why stuffing everything into the system prompt doesn't scale
-- The three mem0 operations (`add`, `search`, `update`) that cover 90% of memory use cases, with copy-pasteable code
-- What to decide before production: cloud API vs. self-hosted, fact extraction quality, and memory poisoning as an attack surface
-
-**The problem.** A fresh agent session has no memory of what the user prefers, what the project requires, or what was tried last time. Putting everything in the system prompt bloats every call and hits context limits fast. Filtering what goes in requires a retrieval layer — which is exactly what a vector store + embedding call gives you, but wiring one up yourself takes hours and maintenance forever after.
-
-**[mem0](https://github.com/mem0ai/mem0)** (Apache-2.0, v2.0 released June 2026) handles the plumbing. Full hands-on walk-through: [DataCamp tutorial](https://www.datacamp.com/tutorial/mem0-tutorial).
-
-```python
-pip install mem0ai
-
-from mem0 import Memory
-m = Memory()
-
-# End of session: extract and store facts from the conversation
-m.add([
-    {"role": "user", "content": "I prefer TypeScript and Next.js for all new projects"},
-    {"role": "assistant", "content": "Got it, I'll default to TypeScript + Next.js."}
-], user_id="alice")
-
-# Start of next session: retrieve relevant context before calling Claude
-results = m.search("tech stack preferences", user_id="alice")
-context = "\n".join(r["memory"] for r in results["results"])
-# Inject context into system prompt before calling the Claude API
-```
-
-**Three production decisions before you ship:**
-
-1. **Cloud or self-hosted?** The default backend sends data to mem0's managed API — user conversation facts included. The self-hosted path (local Qdrant + Ollama embeddings) keeps data on your infrastructure but requires running two more services.
-2. **Extraction quality.** mem0 extracts facts automatically, which works well but imperfectly. For high-stakes preferences or security-relevant constraints, add an explicit verification step before storing.
-3. **Memory poisoning.** Any persistent context store that accepts writes from user input is an injection target. A crafted user message can store false facts that corrupt future sessions. Scope write access narrowly and build an expiry or review window for sensitive entries.
-
-**Sources:** [mem0: create AI agents with long-term memory](https://mem0.ai/blog/how-to-create-ai-agents-with-long-term-memory) · [DataCamp: mem0 hands-on tutorial](https://www.datacamp.com/tutorial/mem0-tutorial) · [mem0 GitHub](https://github.com/mem0ai/mem0) · [DEV Community: 5 Hidden Uses of the mem0 Engine](https://dev.to/_cbd692d476c5faf3b61bcf/mem0-memory-layer-5-hidden-uses-of-the-60k-star-agent-memory-engine-4g9p)]]></content:encoded>
-    </item>
+    
+    
 
 
-
-    <item>
-      <title>Auto-Continue When Your Claude Code Session Hits the Usage Limit: The Setting That Saves Overnight Runs</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w33</link>
-      <guid isPermaLink="false">2026-08-28-02-claude-code-auto-continue-session-limit</guid>
-      <pubDate>Thu, 28 Aug 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.234 auto-continues your session when a claude.ai usage limit resets — unattended sessions no longer stall indefinitely when they hit the cap. On by default in /config.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.234 added auto-continue at usage-limit reset — on by default. Background sessions no longer stall when they hit the plan cap; the interrupted turn picks up automatically once the limit resets.**
-
-If you've run a long background task — a multi-file refactor, a large test suite, an overnight codebase migration — and come back to find it frozen at a limit card, this is the fix. The feature shipped in v2.1.234 and is on by default. No config required to get it; one setting to turn it off if you want a hard stop.
-
-**How it works:**
-
-When Claude Code hits a claude.ai plan limit, the desktop app's Code tab shows a limit card with an "Auto-continue when limits reset" checkbox (pre-checked) and an "Auto-resuming at HH:MM" countdown. When the limit resets, the interrupted turn resumes automatically.
-
-**To configure it:**
-
-```
-/config  →  "Continue automatically at usage limit"  →  toggle off
-```
-
-Setting it off gives you the previous behavior: hard stop, you manually resume.
-
-**The limit you need to know:**
-
-Auto-continue resumes the *interrupted turn* — the exact turn that was cut off, using the same context window that was active when the limit hit. If your task requires fresh state after a multi-hour wait (CI results that changed, a file that was edited by another process, a dependency that updated), the resumed turn won't see those changes. Review the resumed output before accepting it; silent wrong-direction completions are the risk, not an error.
-
-**When to leave it on:** overnight or unattended agentic sessions where you want maximum continuity. **When to turn it off:** sessions doing write-sensitive operations where you want a review checkpoint before any further changes run.
-
-**Sources:** [Week 33 · August 10–14, 2026 — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w33) · [Claude Code Auto-Continue at Usage Limits: On by Default in 2.1.234 — AI Catchup](https://aicatchup.com/news/claude-code-desktop-auto-continue) · [Claude Code Auto-Resume at Usage Limit Reset — Get Claude Skills](https://www.getclaudeskills.com/blog/claude-code-auto-resume-usage-limit)]]></content:encoded>
-    </item>
-
+    
     
     
     
