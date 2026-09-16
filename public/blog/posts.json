@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-16-07-github-agentic-workflows-markdown-claude-code-ci",
+    "title": "Describe Your CI Task in Plain English — GitHub Agentic Workflows Runs It With Claude Code",
+    "excerpt": "Write a .github/workflows/*.md file in plain English, run `gh aw compile`, and GitHub Actions executes it with Claude Code or Copilot as the agent engine — no YAML authoring required.",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T20:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://github.blog/ai-and-ml/automate-repository-tasks-with-github-agentic-workflows/",
+    "content": "**Write a Markdown file in `.github/workflows/` describing what you want automated; `gh aw compile` turns it into a GitHub Actions workflow that runs a coding agent — Claude Code, Copilot, or Codex — on your triggers.**\n\nGitHub Agentic Workflows (in public preview since June 2026) let you automate reasoning-heavy repository tasks — issue triage, CI failure analysis, documentation updates — without writing Actions YAML. You describe the outcome in natural language; the `gh aw` CLI compiles it into a runnable workflow.\n\n## How it works\n\n```bash\ngh extension install github/gh-aw\ngh aw compile\n```\n\nA workflow file has two parts: YAML frontmatter (triggers, permissions, allowed outputs) and a freeform Markdown section describing the task.\n\n**CI failure analysis — `.github/workflows/investigate-failures.md`:**\n\n```markdown\n---\non:\n  workflow_run:\n    workflows: [\"tests\"]\n    types: [completed]\n\npermissions:\n  contents: read\n  checks: read\n\nsafe-outputs:\n  create-pull-request:\n    title-prefix: \"[fix] \"\n\nagent:\n  model: claude-code\n---\n\nWhen the test suite fails, inspect the failure logs, identify the root cause,\nand open a pull request with a targeted fix. Do not change unrelated files.\n```\n\n`gh aw compile` generates the corresponding `investigate-failures.lock.yml` that GitHub Actions executes. Setting `model: claude-code` in the frontmatter routes the run through your Anthropic account instead of Copilot.\n\n## What to know before wiring it up\n\n- **Read-only by default.** Write operations (opening PRs, creating issues) require explicit `safe-outputs` entries — the agent cannot push or merge autonomously.\n- **Humans approve PRs.** No auto-merge; every PR the agent opens needs a human sign-off.\n- **Per-run cost.** GitHub reports \"typically two premium requests per run\" using Copilot; using Claude Code as the engine bills your Anthropic usage instead.\n- **Good fit:** recurring reasoning tasks — issue labeling, stale PR summarization, test-failure triage. Poor fit: fast, deterministic operations a shell script already handles.\n\n**Sources:** [Automate repository tasks with GitHub Agentic Workflows — GitHub Blog](https://github.blog/ai-and-ml/automate-repository-tasks-with-github-agentic-workflows/) · [GitHub previews Agentic Workflows — The Register](https://www.theregister.com/2026/02/17/github_previews_agentic_workflows/) · [Public preview changelog — GitHub](https://github.blog/changelog/2026-06-11-github-agentic-workflows-is-now-in-public-preview/)"
+  },
+  {
+    "id": "2026-09-16-06-ollama-local-model-serve-rest-api",
+    "title": "Run Any Open Model Locally and Call It Like a REST API — Ollama in Three Commands",
+    "excerpt": "Ollama installs as one binary, pulls models on demand, and serves a local REST API on port 11434. Three commands from zero to a running inference server you can hit from Python.",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T20:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "Local AI"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://www.youtube.com/watch?v=UtSSMs6ObqY",
+    "content": "**Ollama installs as one binary, pulls open models on demand, and runs a local REST server on port 11434 — any OpenAI client can target it by swapping `base_url`.**\n\n**What you'll be able to do after this:** download and run open-weight models locally, serve them as a REST API, and call them from Python with either `requests` or the `openai` SDK — no cloud API key, no data leaving your machine.\n\n- `ollama pull` fetches and caches a model; `ollama run` opens an interactive REPL; `ollama serve` (or leaving the desktop app open) starts the HTTP server\n- The API at `http://localhost:11434/v1` is OpenAI-compatible — swap any client's `base_url` and set `api_key=\"ollama\"` to point at your local server\n- Models are stored locally (~4–8 GB per Q4 checkpoint); an 8B model needs roughly 8 GB of RAM to run at reasonable speed; 70B models won't fit on most laptops\n\n## Install and pull\n\n```bash\n# Linux / macOS\ncurl -fsSL https://ollama.ai/install.sh | sh\n\n# Pull a quantized 8B model (~5 GB download)\nollama pull llama3.1:8b-q4_K_M\n\n# Interactive chat\nollama run llama3.1:8b-q4_K_M\n```\n\nOn Windows, download the installer from [ollama.ai](https://ollama.ai). The daemon starts automatically and listens on `localhost:11434`.\n\n## Call the API from Python\n\n```python\nimport requests\n\nr = requests.post(\"http://localhost:11434/api/generate\", json={\n    \"model\": \"llama3.1:8b-q4_K_M\",\n    \"prompt\": \"Explain vector similarity in one sentence.\",\n    \"stream\": False\n})\nprint(r.json()[\"response\"])\n```\n\nOr with the OpenAI client library (no SDK change, just a different `base_url`):\n\n```python\nfrom openai import OpenAI\n\nclient = OpenAI(base_url=\"http://localhost:11434/v1\", api_key=\"ollama\")\nresp = client.chat.completions.create(\n    model=\"llama3.1:8b-q4_K_M\",\n    messages=[{\"role\": \"user\", \"content\": \"Explain vector similarity.\"}]\n)\nprint(resp.choices[0].message.content)\n```\n\n## What it won't do\n\n- Models larger than ~7B need 16+ GB RAM to run without painful slowdowns; 70B models require a 48 GB GPU or a heavily quantized GGUF\n- Port 11434 has no auth — don't expose it on the network without a reverse proxy or firewall rule\n- Ollama doesn't load-balance across multiple GPUs; for that, use vLLM instead\n\nThe best free resource is Tech with Tim's [Learn Ollama in 15 Minutes](https://www.youtube.com/watch?v=UtSSMs6ObqY) (YouTube, 2025) — covers install, API calls, Python integration, and custom Modelfiles in one sitting.\n\n**Sources:** [Learn Ollama in 15 Minutes — Tech with Tim (YouTube)](https://www.youtube.com/watch?v=UtSSMs6ObqY) · [Ollama official site — ollama.ai](https://ollama.ai) · [Ollama Tutorial: Running LLMs Locally Made Super Simple — KDnuggets](https://www.kdnuggets.com/ollama-tutorial-running-llms-locally-made-super-simple)"
+  },
+  {
     "id": "2026-09-16-05-path-scoped-rules-context-overhead-claude-code",
     "title": "Your CLAUDE.md Loads on Every Turn Whether Claude Needs It or Not — Path-Scoped Rules Fix That",
     "excerpt": "Path-scoped rules in .claude/rules/ load only when Claude touches a matching file — converting always-loaded rules to scoped ones can cut startup context by 40–50% on large projects.",
