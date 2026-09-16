@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-16-05-path-scoped-rules-context-overhead-claude-code",
+    "title": "Your CLAUDE.md Loads on Every Turn Whether Claude Needs It or Not — Path-Scoped Rules Fix That",
+    "excerpt": "Path-scoped rules in .claude/rules/ load only when Claude touches a matching file — converting always-loaded rules to scoped ones can cut startup context by 40–50% on large projects.",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T12:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/context-window",
+    "content": "**Every rule in your project CLAUDE.md is re-injected on every turn. Add a `paths:` frontmatter key and a rule loads only when Claude touches a matching file — 40–50% less startup context on large codebases.**\n\nEvery unscoped rule in your project-root `CLAUDE.md` and `.claude/rules/*.md` files is re-injected into Claude's context window on every turn — even your test-mock strategy, which only matters when Claude is editing `src/__tests__/`. Path-scoped rules change that: they load only when Claude reads or edits a file matching the glob you specify.\n\n**The setup:**\n\n```\n.claude/rules/\n  coding-standards.md    # no paths: frontmatter → always loaded\n  api/\n    CLAUDE.md            # auto-scoped to api/ by directory\n  src/__tests__/\n    CLAUDE.md            # auto-scoped to test files by directory\n  frontend.md            # add paths: frontmatter to scope it explicitly:\n```\n\n```markdown\n---\npaths: [\"src/components/**\", \"app/ui/**\"]\n---\n# Frontend rules\nAlways use the design system's Token type for any color value.\nNever reach outside the component's props for theme state.\n```\n\nA session working only in `worker/` or `scripts/` never loads `frontend.md`. A session touching `src/components/Button.tsx` loads it exactly once.\n\n**What to convert first:** Any rule that reads \"when working in [specific directory]\" or \"when editing [framework] files\" is the highest-priority candidate. Rules you added \"just in case Claude needs this\" are next — they're paying context cost on every turn where they're irrelevant.\n\nOne documented project (published on Zenn) reduced always-loaded rule overhead from 1,358 lines to 807 lines — 41% reduction — by converting procedure-heavy files into Skills and scoping domain-specific rules to their directories. For projects with many accumulated rules, 50%+ reduction is achievable.\n\n**The limit to understand:** Path-scoped rules don't survive context compaction the way root `CLAUDE.md` does. After compaction, they're gone until Claude touches a matching file again. A session that jumps between many directories pays a small reload cost at each boundary — that's the intended trade-off. Don't scope a rule you expect Claude to hold in mind throughout the whole session; keep those in the root CLAUDE.md.\n\n**Sources:** [Explore the context window — code.claude.com](https://code.claude.com/docs/en/context-window) · [Claude Code Rules Directory: Modular Instructions That Scale — claudefa.st](https://claudefa.st/blog/guide/mechanics/rules-directory) · [Path-Scoped Skills — claudefa.st](https://claudefa.st/blog/guide/mechanics/path-scoped-skills)"
+  },
+  {
+    "id": "2026-09-16-04-design-sync-claude-design-claude-code-workflow",
+    "title": "Your Design Canvas and Your Repo Drift Every Sprint — `/design-sync` Closes That Gap in Two Commands",
+    "excerpt": "The /design-sync command in Claude Code imports your real design system into Claude Design's canvas (pull), then syncs built components back to the canvas (push) — generated screens start from your…",
+    "author": "Chris Harper",
+    "date": "09-16-2026",
+    "publishedAt": "2026-09-16T12:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Claude Design"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design",
+    "content": "**`/design-sync` in Claude Code imports your real design tokens and components into Claude Design's canvas, and `--push` syncs built components back — generated screens start from your actual component library, not generic HTML.**\n\n**What you'll be able to do after this:** run a full sprint from canvas prompt to production component without manually copying tokens, describing screenshots to Claude Code, or discovering mid-PR that the generated code references components that don't exist in your repo.\n\n**Three things to know:**\n- `/design-sync` (pull mode) reads your design tokens and component definitions from the repo and populates the Claude Design canvas — generated screens reference your real `Button`, `Card`, and `Modal`, not scaffolded HTML\n- `/design-sync --push` runs the reverse: Claude Code scans your built components and updates the canvas so the design file reflects what's actually in the codebase\n- Claude Design validates generated output against the synced system before showing it — reducing the \"correct on canvas, broken in the codebase\" debugging loop\n\n**The four-step sprint workflow:**\n\n**1. Pull your design system (once per project; repeat when tokens change):**\n```\n# In Claude Code:\n/design-sync\n```\nClaude Code reads tokens and component definitions from the repo and uploads them to the Claude Design project you last had open. If the project already has a GitHub repo attached, `/design-sync` detects it automatically. Nothing writes to disk — it populates the canvas.\n\n**2. Prompt in Claude Design.** With your real components loaded, the canvas generates screens that reference your actual imports. Refine spacing and copy with the canvas editor or inline comments — no need to re-prompt the whole screen for small adjustments.\n\n**3. Hand off to Claude Code.** Use \"Send to Claude Code\" (or \"Send to local coding agent\") from the canvas. Claude Code receives the screen spec along with the component context it just synced and generates implementation that references your real component paths — not invented names it will hallucinate when building.\n\n**4. Push the built component back before review:**\n```\n/design-sync --push\n```\nThe canvas updates to reflect the as-built component. Run this before a design review so the reviewer is looking at what's in the codebase, not the original sketch — they approve what ships, not what was planned.\n\n**Two limits before you plan around this:**\n- Large repos (thousands of files) slow the pull sync; Anthropic's docs recommend \"linking from Claude Code\" rather than uploading for very large codebases — expect lag or browser issues otherwise\n- Multi-person canvas editing is listed as \"basic and may not work reliably\" in the current release — coordinate who edits before using it in a collaborative review\n\n**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + /design-sync: The Two-Way Bridge — skills-hub.ai](https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026) · [Claude Code and Claude Design Now Sync Both Ways — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync)"
+  },
+  {
     "id": "2026-09-16-03-claude-code-gateway-session-agent-headers-cost-attribution",
     "title": "Your Gateway Logs Every Claude Code Request as \"claude-sonnet-4-6\" — These Headers Let You Track Them by Session and Agent",
     "excerpt": "Claude Code sends x-claude-code-session-id and x-claude-code-agent-id on every API request — extract them in your LLM gateway to attribute costs per session and per subagent without parsing request…",

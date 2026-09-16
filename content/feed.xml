@@ -10,8 +10,101 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 16 Sep 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 16 Sep 2026 12:06:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your CLAUDE.md Loads on Every Turn Whether Claude Needs It or Not — Path-Scoped Rules Fix That</title>
+      <link>https://code.claude.com/docs/en/context-window</link>
+      <guid isPermaLink="false">2026-09-16-05-path-scoped-rules-context-overhead-claude-code</guid>
+      <pubDate>Wed, 16 Sep 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Path-scoped rules in .claude/rules/ load only when Claude touches a matching file — converting always-loaded rules to scoped ones can cut startup context by 40–50% on large projects.</description>
+      <content:encoded><![CDATA[**Every rule in your project CLAUDE.md is re-injected on every turn. Add a `paths:` frontmatter key and a rule loads only when Claude touches a matching file — 40–50% less startup context on large codebases.**
+
+Every unscoped rule in your project-root `CLAUDE.md` and `.claude/rules/*.md` files is re-injected into Claude's context window on every turn — even your test-mock strategy, which only matters when Claude is editing `src/__tests__/`. Path-scoped rules change that: they load only when Claude reads or edits a file matching the glob you specify.
+
+**The setup:**
+
+```
+.claude/rules/
+  coding-standards.md    # no paths: frontmatter → always loaded
+  api/
+    CLAUDE.md            # auto-scoped to api/ by directory
+  src/__tests__/
+    CLAUDE.md            # auto-scoped to test files by directory
+  frontend.md            # add paths: frontmatter to scope it explicitly:
+```
+
+```markdown
+---
+paths: ["src/components/**", "app/ui/**"]
+---
+# Frontend rules
+Always use the design system's Token type for any color value.
+Never reach outside the component's props for theme state.
+```
+
+A session working only in `worker/` or `scripts/` never loads `frontend.md`. A session touching `src/components/Button.tsx` loads it exactly once.
+
+**What to convert first:** Any rule that reads "when working in [specific directory]" or "when editing [framework] files" is the highest-priority candidate. Rules you added "just in case Claude needs this" are next — they're paying context cost on every turn where they're irrelevant.
+
+One documented project (published on Zenn) reduced always-loaded rule overhead from 1,358 lines to 807 lines — 41% reduction — by converting procedure-heavy files into Skills and scoping domain-specific rules to their directories. For projects with many accumulated rules, 50%+ reduction is achievable.
+
+**The limit to understand:** Path-scoped rules don't survive context compaction the way root `CLAUDE.md` does. After compaction, they're gone until Claude touches a matching file again. A session that jumps between many directories pays a small reload cost at each boundary — that's the intended trade-off. Don't scope a rule you expect Claude to hold in mind throughout the whole session; keep those in the root CLAUDE.md.
+
+**Sources:** [Explore the context window — code.claude.com](https://code.claude.com/docs/en/context-window) · [Claude Code Rules Directory: Modular Instructions That Scale — claudefa.st](https://claudefa.st/blog/guide/mechanics/rules-directory) · [Path-Scoped Skills — claudefa.st](https://claudefa.st/blog/guide/mechanics/path-scoped-skills)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Design Canvas and Your Repo Drift Every Sprint — `/design-sync` Closes That Gap in Two Commands</title>
+      <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
+      <guid isPermaLink="false">2026-09-16-04-design-sync-claude-design-claude-code-workflow</guid>
+      <pubDate>Wed, 16 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>The /design-sync command in Claude Code imports your real design system into Claude Design's canvas (pull), then syncs built components back to the canvas (push) — generated screens start from your actual component library.</description>
+      <content:encoded><![CDATA[**`/design-sync` in Claude Code imports your real design tokens and components into Claude Design's canvas, and `--push` syncs built components back — generated screens start from your actual component library, not generic HTML.**
+
+**What you'll be able to do after this:** run a full sprint from canvas prompt to production component without manually copying tokens, describing screenshots to Claude Code, or discovering mid-PR that the generated code references components that don't exist in your repo.
+
+**Three things to know:**
+- `/design-sync` (pull mode) reads your design tokens and component definitions from the repo and populates the Claude Design canvas — generated screens reference your real `Button`, `Card`, and `Modal`, not scaffolded HTML
+- `/design-sync --push` runs the reverse: Claude Code scans your built components and updates the canvas so the design file reflects what's actually in the codebase
+- Claude Design validates generated output against the synced system before showing it — reducing the "correct on canvas, broken in the codebase" debugging loop
+
+**The four-step sprint workflow:**
+
+**1. Pull your design system (once per project; repeat when tokens change):**
+```
+# In Claude Code:
+/design-sync
+```
+Claude Code reads tokens and component definitions from the repo and uploads them to the Claude Design project you last had open. If the project already has a GitHub repo attached, `/design-sync` detects it automatically. Nothing writes to disk — it populates the canvas.
+
+**2. Prompt in Claude Design.** With your real components loaded, the canvas generates screens that reference your actual imports. Refine spacing and copy with the canvas editor or inline comments — no need to re-prompt the whole screen for small adjustments.
+
+**3. Hand off to Claude Code.** Use "Send to Claude Code" (or "Send to local coding agent") from the canvas. Claude Code receives the screen spec along with the component context it just synced and generates implementation that references your real component paths — not invented names it will hallucinate when building.
+
+**4. Push the built component back before review:**
+```
+/design-sync --push
+```
+The canvas updates to reflect the as-built component. Run this before a design review so the reviewer is looking at what's in the codebase, not the original sketch — they approve what ships, not what was planned.
+
+**Two limits before you plan around this:**
+- Large repos (thousands of files) slow the pull sync; Anthropic's docs recommend "linking from Claude Code" rather than uploading for very large codebases — expect lag or browser issues otherwise
+- Multi-person canvas editing is listed as "basic and may not work reliably" in the current release — coordinate who edits before using it in a collaborative review
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + /design-sync: The Two-Way Bridge — skills-hub.ai](https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026) · [Claude Code and Claude Design Now Sync Both Ways — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Gateway Logs Every Claude Code Request as "claude-sonnet-4-6" — These Headers Let You Track Them by Session and Agent</title>
@@ -5539,102 +5632,8 @@ Both are drop-in replacements for the local pattern: same two-stage flow, API ca
 **Sources:** [TDS: Advanced RAG Retrieval — Cross-Encoders & Reranking](https://towardsdatascience.com/advanced-rag-retrieval-cross-encoders-reranking/) · [Local AI Master: BGE, Cohere, Jina reranking guide](https://localaimaster.com/blog/reranking-cross-encoders-guide) · [BAAI/bge-reranker-v2-m3 on HuggingFace](https://huggingface.co/BAAI/bge-reranker-v2-m3)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Run Claude Code in CI Without Shell Access: --restricted Mode Strips Commands Entirely</title>
-      <link>https://code.claude.com/docs/en/permission-modes</link>
-      <guid isPermaLink="false">2026-08-28-07-claude-code-restricted-mode-headless-ci</guid>
-      <pubDate>Thu, 28 Aug 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.248 adds --restricted mode: pass this flag in CI or headless automation to strip all command/code tools and WebFetch, leaving only file operations inside your working directory.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.248 adds --restricted mode: one flag strips all shell and command tools, leaving only file read/write inside your working directory — safer for unattended CI pipelines.**
-
-If you run Claude Code headlessly in CI — triggered by a PR, a nightly cron, a GitHub Actions step — the default toolset includes Bash, which can run arbitrary shell commands. That is useful in interactive sessions; in an automated pipeline it is an unnecessary attack surface.
-
-## The flag
-
-```bash
-# as a flag
-claude --restricted -p "Review the diff in src/ and suggest improvements"
-
-# or as an environment variable
-CLAUDE_CODE_RESTRICTED=1 claude -p "Generate JSDoc for all exported functions"
-```
-
-Requires v2.1.248 or later. Check with `claude --version`.
-
-## What it removes
-
-In restricted mode, Claude Code:
-- Strips all built-in tools that run commands or code (Bash, computer use, etc.)
-- Removes WebFetch (the agent cannot make outbound HTTP requests)
-- Keeps file tools (Read, Write, Edit, Glob, Grep) **confined to the working directory**
-- Refuses `bypassPermissions` even if your config tries to set it
-- Ignores user, project, and local settings files — the runtime is fully controlled by the caller
-
-The result is a file-only agent: it can read your codebase, propose edits, and write results, but it cannot run a shell command or reach the network.
-
-## When to reach for it
-
-Good fits:
-- **Automated code review** — Claude reads changed files and outputs a structured review; no commands needed
-- **Documentation generators** — reads source files, writes JSDoc or markdown in place
-- **Lint suggestion runners** — reads the file, proposes the fix, writes it; no linter invocation required
-- **Any pipeline where you control the tool invocation** and only want file-level access
-
-## When it breaks your pipeline
-
-If your pipeline needs the agent to run tests, compile, fetch external documentation, or invoke any CLI tool, restricted mode breaks those flows. Use `--allowedTools` instead to allow a specific subset:
-
-```bash
-# Allow only Read, Glob, and Grep — no writes, no commands
-claude --allowedTools "Read,Glob,Grep" -p "List all TODO comments in src/"
-```
-
-The key limit: restricted mode is all-or-nothing on command execution. If you need one command tool but not others, `--allowedTools` gives you the surgical control that `--restricted` does not.
-
-**Sources:** [Release v2.1.248 — GitHub](https://github.com/anthropics/claude-code/releases/tag/v2.1.248) · [Choose a permission mode — Claude Code Docs](https://code.claude.com/docs/en/permission-modes) · [Claude Code in CI/CD and headless automation — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_cicd_and_headless_automation.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Debug Your Loop's Token Spend in /usage — and Cap Subagent Cache Separately</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-08-28-06-loop-cost-usage-subagent-cache-ttl</guid>
-      <pubDate>Thu, 28 Aug 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code's /usage now breaks down token spend per named loop; the new subagentPromptCacheTtl setting lets you keep the main session cache hot while short-lived subagents expire quickly.</description>
-      <content:encoded><![CDATA[**TL;DR: Two new Claude Code additions make loop costs observable: /usage now shows tokens per loop iteration, and `subagentPromptCacheTtl` sets subagent cache lifetime independently from the main session.**
-
-**Why loops go expensive silently.** A `/loop` task runs in a shared session, so each iteration's tool output, file reads, and scratchpad writes accumulate in the context window. Tokens-per-run creeping upward is the tell — and until recently there was no easy way to see it.
-
-**The new /usage Loops breakdown** adds a table for each named loop task: run count, total tokens, tokens per run (the average), and last-run time.
-
-- **Flat tokens-per-run** → each iteration starts clean; no context bleed
-- **Rising tokens-per-run** → context is accumulating; trim the scratchpad or add an explicit reset step at the end of each iteration
-- **Single outlier run with 10× the tokens** → a tool call returned a large payload; consider truncating before it goes back to Claude
-
-**The `subagentPromptCacheTtl` setting** pairs with the `promptCacheTtl` covered [here on Aug 26](https://cloudcodetree.com/ai-news/2026-08-26-04-prompt-cache-ttl-api-key-claude-code). They work independently: keep the main session warm at 1 hour while short-lived subagents expire at 5 minutes — so a dozen quick subagents don't each hold a 1-hour cache slot you're paying for after they're done.
-
-```json
-// .claude/settings.json (API-key or cloud-provider sessions only)
-{
-  "promptCacheTtl": "1h",
-  "subagentPromptCacheTtl": "5m"
-}
-```
-
-**Limits:** Both settings apply only to API-key and cloud-provider (Vertex/Bedrock) sessions — regular claude.ai plan users don't control cache TTL. The /usage Loops table covers named loop tasks; anonymous or inline subagent spawns show in the overall session total only, not as labeled rows.
-
-**Sources:** [Claude Code Changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code Changelog August 2026 — Gradually](https://www.gradually.ai/en/changelogs/claude-code/) · [Claude Code Subagents: 2026 Production Playbook — Totalum](https://www.totalum.app/blog/claude-code-subagents-totalum)]]></content:encoded>
-    </item>
-
+    
+    
     
     
 
