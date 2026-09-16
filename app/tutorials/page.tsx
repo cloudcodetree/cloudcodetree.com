@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import TutorialsList from '../components/TutorialsList';
-import { siteTutorials as tutorials } from './manifest';
+import { siteTutorials as tutorials, allSeriesTotals } from './manifest';
 
 export const metadata: Metadata = {
   title: 'Tutorials · CloudCodeTree',
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 export default function TutorialsPage() {
   // Newest first (descending order), mirroring the AI News blog.
   const ordered = [...tutorials].sort((a, b) => b.order - a.order);
-  return <TutorialsList tutorials={ordered} />;
+  return <TutorialsList tutorials={ordered} seriesTotals={allSeriesTotals()} />;
 }

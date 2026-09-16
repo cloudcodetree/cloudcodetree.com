@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import TutorialsList from '../../../components/TutorialsList';
-import { siteTutorials } from '../../manifest';
+import { siteTutorials, allSeriesTotals } from '../../manifest';
 import { tutorialTopics } from '../../../../scripts/lib/tutorial-catalog.mjs';
 
 const topics = tutorialTopics(siteTutorials);
@@ -27,5 +27,5 @@ export default async function TutorialTopicPage({ params }: { params: Promise<{ 
   const topic = topics.find((t) => t.slug === slug);
   if (!topic) notFound();
   const tutorials = siteTutorials.filter((t) => t.tags.includes(topic.tag)).sort((a, b) => a.order - b.order);
-  return <TutorialsList tutorials={tutorials} variant="all" topic={topic} />;
+  return <TutorialsList tutorials={tutorials} seriesTotals={allSeriesTotals()} variant="all" topic={topic} />;
 }

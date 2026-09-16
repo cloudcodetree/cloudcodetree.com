@@ -1,10 +1,10 @@
-'use client';
-
 import { Container, Box, Button } from '@mui/material';
 import Link from 'next/link';
 import { SERIF, LINK } from '../../components/blogShared';
 import TutorialPagerNav from '../../components/TutorialPagerNav';
 import TutorialReaderControls from '../../components/TutorialReaderControls';
+import { siteTutorials } from '../manifest';
+import type { LessonRef } from '../lessonRef';
 
 // Styles raw MDX elements (the author writes the H1, so unlike the blog we keep
 // it). Mobile-safe: long URLs/code wrap or scroll instead of overflowing.
@@ -28,13 +28,18 @@ const tutorialSx = {
   '& table': { display: 'block', maxWidth: '100%', overflowX: 'auto', borderCollapse: 'collapse', mb: 2, '& th, & td': { border: '1px solid #222a35', p: 1, textAlign: 'left' } },
 } as const;
 
+// Gated on the server, so held lessons never reach the browser. The children are
+// client components (they read the pathname, which a layout has no param for under
+// the static export), and this is the only tutorial data they receive.
+const lessons: LessonRef[] = siteTutorials.map(({ slug, title, series, part }) => ({ slug, title, series, part }));
+
 export default function TutorialArticleLayout({ children }: { children: React.ReactNode }) {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 2, md: 4 } }}>
       <Button component={Link} href="/tutorials/" sx={{ mb: 3 }}>← Back to Tutorials</Button>
-      <TutorialReaderControls />
+      <TutorialReaderControls lessons={lessons} />
       <Box sx={tutorialSx}>{children}</Box>
-      <TutorialPagerNav />
+      <TutorialPagerNav lessons={lessons} />
     </Container>
   );
 }

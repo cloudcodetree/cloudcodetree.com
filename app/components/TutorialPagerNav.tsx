@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Box, Typography } from '@mui/material';
-import { tutorials, Tutorial } from '../tutorials/manifest';
+import type { LessonRef } from '../tutorials/lessonRef';
 import { LINK } from './blogShared';
 
 /**
@@ -12,21 +12,22 @@ import { LINK } from './blogShared';
  * `part`), so DealFinder Part 9 links to Parts 8 and 10 even if the global
  * manifest order interleaves other series. Standalone or unknown slugs
  * render nothing. Client component: layouts get no slug param under the
- * static export, so the pathname is the lookup key.
+ * static export, so the pathname is the lookup key. The lessons come from the
+ * server layout already gated — this never sees a held lesson.
  */
 
-function findNeighbors(pathname: string): { prev?: Tutorial; next?: Tutorial } {
+function findNeighbors(pathname: string, lessons: LessonRef[]): { prev?: LessonRef; next?: LessonRef } {
   const slug = pathname.replace(/\/+$/, '').split('/').pop() || '';
-  const current = tutorials.find((t) => t.slug === slug);
+  const current = lessons.find((t) => t.slug === slug);
   if (!current) return {};
-  const siblings = tutorials
+  const siblings = lessons
     .filter((t) => t.series === current.series)
     .sort((a, b) => a.part - b.part);
   const i = siblings.findIndex((t) => t.slug === slug);
   return { prev: siblings[i - 1], next: siblings[i + 1] };
 }
 
-function PagerCard({ t, dir }: { t: Tutorial; dir: 'prev' | 'next' }) {
+function PagerCard({ t, dir }: { t: LessonRef; dir: 'prev' | 'next' }) {
   const arrow = dir === 'prev' ? '←' : '→';
   return (
     <Box
@@ -56,9 +57,9 @@ function PagerCard({ t, dir }: { t: Tutorial; dir: 'prev' | 'next' }) {
   );
 }
 
-export default function TutorialPagerNav() {
+export default function TutorialPagerNav({ lessons }: { lessons: LessonRef[] }) {
   const pathname = usePathname();
-  const { prev, next } = findNeighbors(pathname);
+  const { prev, next } = findNeighbors(pathname, lessons);
   if (!prev && !next) return null;
 
   return (

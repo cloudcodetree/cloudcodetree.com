@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { SERIF, MONO, ACCENT, LINK, formatLongDate } from './blogShared';
 import type { Tutorial } from '../tutorials/manifest';
-import { seriesTotal } from '../tutorials/manifest';
 import SeriesCarouselCard from './SeriesCarouselCard';
 import { Corners } from './Blueprint';
 import CourseHomeCard from './CourseHomeCard';
@@ -28,12 +27,14 @@ const topicTags = (t: Tutorial) => t.tags.filter((x) => x.toLowerCase() !== 'ai'
 
 interface Props {
   tutorials: Tutorial[];
+  /** Canonical "of N" per series, computed on the server — see allSeriesTotals(). */
+  seriesTotals: Record<string, number>;
   variant?: 'series' | 'all';
   topic?: { tag: string; slug: string };
   onlySaved?: boolean;
 }
 
-export default function TutorialsList({ tutorials, variant = 'series', topic, onlySaved = false }: Props) {
+export default function TutorialsList({ tutorials, seriesTotals, variant = 'series', topic, onlySaved = false }: Props) {
   const reader = useReaderLibrary();
   const [view, setView] = useState<View>('cards');
   const [sizes, setSizes] = useState<Partial<Record<View, number>>>({});
@@ -149,7 +150,7 @@ export default function TutorialsList({ tutorials, variant = 'series', topic, on
         return (
           <Grid size={{ xs: 12, sm: feat ? 12 : 6 }} key={series}>
             <Box component={motion.div} initial={false} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }} sx={{ height: '100%' }}>
-              <SeriesCarouselCard series={series} parts={parts} featured={feat} readerControls={readerControls} />
+              <SeriesCarouselCard series={series} parts={parts} total={seriesTotals[series]} featured={feat} readerControls={readerControls} />
             </Box>
           </Grid>
         );
@@ -170,7 +171,7 @@ export default function TutorialsList({ tutorials, variant = 'series', topic, on
               </Box>
             )}
             <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.25, flexGrow: 1 }}>
-              <Typography sx={{ fontFamily: MONO, fontSize: 11, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{`${t.series} · Part ${t.part}/${seriesTotal(t.series)}`}</Typography>
+              <Typography sx={{ fontFamily: MONO, fontSize: 11, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{`${t.series} · Part ${t.part}/${seriesTotals[t.series]}`}</Typography>
               <Typography component={Link} prefetch={false} href={`/tutorials/${t.slug}/`} sx={{ fontFamily: SERIF, fontWeight: 600, fontSize: '1.3rem', lineHeight: 1.2, color: 'text.primary', textDecoration: 'none', ...clamp(3), '&:hover': { color: LINK } }}>{t.title}</Typography>
               <Typography sx={{ color: 'text.secondary', fontSize: '0.92rem', lineHeight: 1.5, ...clamp(3) }}>{t.excerpt}</Typography>
               <Typography sx={{ fontFamily: MONO, fontSize: 11, color: 'text.secondary' }}>{meta(t)}</Typography>
@@ -189,7 +190,7 @@ export default function TutorialsList({ tutorials, variant = 'series', topic, on
           sx={{ display: 'flex', gap: 2.5, py: 3, borderTop: border, alignItems: 'flex-start' }}>
           <Typography sx={{ fontFamily: MONO, fontSize: 13, color: ACCENT, pt: 0.5, flexShrink: 0 }}>{String(t.order).padStart(2, '0')}</Typography>
           <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography sx={{ fontFamily: MONO, fontSize: 10, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{`${t.series} · Part ${t.part}/${seriesTotal(t.series)}`}</Typography>
+            <Typography sx={{ fontFamily: MONO, fontSize: 10, color: ACCENT, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{`${t.series} · Part ${t.part}/${seriesTotals[t.series]}`}</Typography>
             <Typography component={Link} prefetch={false} href={`/tutorials/${t.slug}/`} sx={{ fontFamily: SERIF, fontWeight: 600, fontSize: { xs: '1.25rem', md: '1.5rem' }, lineHeight: 1.15, color: 'text.primary', textDecoration: 'none', ...clamp(2), '&:hover': { color: LINK } }}>{t.title}</Typography>
             <Typography sx={{ color: 'text.secondary', fontSize: '0.95rem', lineHeight: 1.5, ...clamp(2) }}>{t.excerpt}</Typography>
             <Typography sx={{ fontFamily: MONO, fontSize: 11, color: 'text.secondary' }}>{meta(t)}</Typography>

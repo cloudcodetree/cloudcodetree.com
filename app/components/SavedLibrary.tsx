@@ -9,7 +9,7 @@ import type { PostArchive } from '../lib/usePostArchive';
 import type { Tutorial } from '../tutorials/manifest';
 const TutorialsList = dynamic(() => import('./TutorialsList'));
 
-export default function SavedLibrary({ posts, archive, tutorials }: { posts: BlogPost[]; archive: PostArchive; tutorials: Tutorial[] }) {
+export default function SavedLibrary({ posts, archive, tutorials, seriesTotals }: { posts: BlogPost[]; archive: PostArchive; tutorials: Tutorial[]; seriesTotals: Record<string, number> }) {
   const [section, setSection] = useState<'blog' | 'tutorials'>('blog');
   useEffect(() => {
     const sync = () => setSection(new URLSearchParams(window.location.search).get('section') === 'tutorials' ? 'tutorials' : 'blog');
@@ -33,7 +33,7 @@ export default function SavedLibrary({ posts, archive, tutorials }: { posts: Blo
       </Tabs>
     </Container>
     <Box role="tabpanel" id={`saved-${section}-panel`} aria-labelledby={`saved-${section}`}>
-      {section === 'blog' ? <SavedPosts posts={posts} archive={archive} /> : <TutorialsList tutorials={tutorials} variant="all" onlySaved />}
+      {section === 'blog' ? <SavedPosts posts={posts} archive={archive} /> : <TutorialsList tutorials={tutorials} seriesTotals={seriesTotals} variant="all" onlySaved />}
     </Box>
   </>;
 }

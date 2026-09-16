@@ -1,5 +1,3 @@
-'use client';
-
 import { Box, Typography } from '@mui/material';
 import Link from 'next/link';
 import { tutorials, seriesParts, seriesTotal, SERIES_INFO } from '../../tutorials/manifest';
@@ -11,6 +9,9 @@ import { MONO, ACCENT, LINK } from '../blogShared';
  * clickable table of contents with the current part marked "you are here".
  * The .mdx still writes its own H1 below this.
  * Usage in .mdx:  <TutorialHero slug="vector-database-for-rag" />
+ *
+ * Server component on purpose: it needs no client hooks, so the manifest lookup
+ * stays on the server and unreleased lessons never enter the client bundle.
  */
 export default function TutorialHero({ slug }: { slug: string }) {
   const t = tutorials.find((x) => x.slug === slug);

@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SERIF, MONO, ACCENT, LINK, formatLongDate } from './blogShared';
 import type { Tutorial } from '../tutorials/manifest';
-import { seriesTotal } from '../tutorials/manifest';
 
 const border = '1px solid rgba(148,163,184,0.12)';
 const clamp = (n: number) =>
@@ -26,10 +25,9 @@ const slide = {
  * a progress bar, drag/swipe, and arrow keys. Each slide links to its part.
  * Degrades to a plain card for a single-part series.
  */
-export default function SeriesCarouselCard({ series, parts, featured = false, readerControls }: { series: string; parts: Tutorial[]; featured?: boolean; readerControls?: (tutorial: Tutorial) => React.ReactNode }) {
+export default function SeriesCarouselCard({ series, parts, total, featured = false, readerControls }: { series: string; parts: Tutorial[]; total: number; featured?: boolean; readerControls?: (tutorial: Tutorial) => React.ReactNode }) {
   const [[i, dir], setState] = useState<[number, number]>([0, 0]);
   const n = parts.length;
-  const total = seriesTotal(series);
   const idx = ((i % n) + n) % n;
   const t = parts[idx];
   const go = useCallback((d: number) => setState(([cur]) => [cur + d, d]), []);

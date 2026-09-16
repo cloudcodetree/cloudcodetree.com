@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import TutorialsList from '../../components/TutorialsList';
-import { siteTutorials as tutorials } from '../manifest';
+import { siteTutorials as tutorials, allSeriesTotals } from '../manifest';
 
 export const metadata: Metadata = {
   title: 'All Tutorials · CloudCodeTree',
@@ -21,5 +21,5 @@ export const metadata: Metadata = {
 export default function AllTutorialsPage() {
   // Ascending (course order) so each course reads Part 1 -> last, not reversed.
   const ordered = [...tutorials].sort((a, b) => a.order - b.order);
-  return <TutorialsList tutorials={ordered} variant="all" />;
+  return <TutorialsList tutorials={ordered} seriesTotals={allSeriesTotals()} variant="all" />;
 }

@@ -738,6 +738,17 @@ export function seriesTotal(series: string): number {
   );
 }
 
+/**
+ * Canonical "of N" total for every series, as a plain object a server component
+ * can hand to a client one. Client components must not call seriesTotal() —
+ * that would import this module and ship every held lesson to the browser.
+ */
+export function allSeriesTotals(): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const t of tutorials) totals[t.series] ??= seriesTotal(t.series);
+  return totals;
+}
+
 /** All parts of a series, in reading order. */
 export function seriesParts(series: string): Tutorial[] {
   return tutorials.filter((t) => t.series === series).sort((a, b) => a.part - b.part);
