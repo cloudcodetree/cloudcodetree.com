@@ -25,7 +25,7 @@ This is **Part 12 of Become a Full-Stack AI Engineer**. The work here is the pro
 <Callout tone="tip">
 **Code along, version by version.** Full project at
 [github.com/cloudcodetree/tutorial-dealfinder](https://github.com/cloudcodetree/tutorial-dealfinder).
-Step tag for this part: `step-12`. A `.devcontainer/` gives you Python 3.11 in one click.
+Step tag for this part: `step-24`. A `.devcontainer/` gives you Python 3.11 in one click.
 </Callout>
 
 ## Table of contents
@@ -80,17 +80,17 @@ None of the three is a catch-all. Putting everything in tools is the wrong answe
 
 ## Install and initialize the server
 
-`mcp_server.py` lives in the `dealfinder/` package. It is introduced in `step-12` and does not touch `dealscore.py`, `search.py`, `recommend.py`, or `snapshot.py`.
+`mcp_server.py` lives in the `dealfinder/` package. It is introduced in `step-24` and does not touch `dealscore.py`, `search.py`, `recommend.py`, or `snapshot.py`.
 
 ```bash
-pip install "mcp[fastmcp]>=1.0,<2"
+pip install "mcp>=2"
 ```
 
-`FastMCP` initializes with a human-readable server name. `stdio` is the default transport — it works out of the box with Claude Code's subprocess model:
+`MCPServer` initializes with a human-readable server name. `stdio` is the default transport — it works out of the box with Claude Code's subprocess model:
 
 ```python
 # dealfinder/mcp_server.py
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from .dealscore import fair_price, median_signal, residual_fraction, verdict
 from .dealmodel import LinearModel
 from .features import feature_matrix, featurize
@@ -116,7 +116,7 @@ def _fair_price(p) -> float:
     model = _models.get(p.category)
     return fair_price(model, featurize(p)) if model else p.price
 
-mcp = FastMCP("dealfinder")
+mcp = MCPServer("dealfinder")
 ```
 
 The catalog state — 270 products, their cached title embeddings, per-category linear models, and the query medians — is built once at import. All tool calls read from this in-memory snapshot. No live API call is made in this part.
@@ -368,7 +368,7 @@ The session transcript is illustrative. The exact wording varies across runs; th
 
 This server runs over **stdio**: it exists only as a subprocess of the client that spawned it, reachable by nothing else. That is not a limitation — it is the correct default posture. The moment an MCP server listens on a network port, it inherits every classic network-service risk, and the ecosystem is young enough that the classics keep landing: July 2026 alone brought a **CVSS 10.0 unauthenticated RCE** in a popular MCP bridge (CVE-2026-59726 — an open port plus no auth equals anyone-on-the-network runs your tools), and the MCP spec's 2026-07-28 release moved the protocol toward stateless HTTP designs partly to make server hardening tractable. If you later deploy an HTTP MCP server (the Part 26+ serving stack makes it tempting), treat it like any other API: authentication before tools, an allowlisted tool set per client, and never put read-only `score_deal`-class tools and anything that mutates state on the same unauthenticated surface. Part 25's tool supply-chain layer covers the other direction — vetting the servers *you* connect to.
 
-**If you must expose over HTTP, FastMCP does auth in one argument.** The MCP spec mandates OAuth 2.1 + PKCE for any network-reachable server, and FastMCP 3.x wires it at construction time without touching a line of tool code:
+**If you must expose over HTTP, put authentication in front of the tools.** The MCP spec mandates OAuth 2.1 + PKCE for any network-reachable server. The separate [FastMCP](https://github.com/jlowin/fastmcp) project — a different package from the official `mcp` SDK used above — wires it at construction time without touching a line of tool code:
 
 ```python
 from fastmcp.server.auth import JWTVerifier  # or OAuthProxy / RemoteOAuth
@@ -394,6 +394,8 @@ These tests cover the tool functions and the resource directly — no MCP client
 
 ```python
 # tests/test_mcp.py
+import asyncio
+
 from dealfinder import mcp_server
 
 
@@ -402,7 +404,7 @@ def _id(needle):
 
 
 def test_server_registers_expected_tools():
-    names = {t.name for t in mcp_server.mcp._tool_manager.list_tools()}
+    names = {t.name for t in asyncio.run(mcp_server.mcp.list_tools())}
     assert names == {"score_deal", "recommend", "search_deals"}
 
 
