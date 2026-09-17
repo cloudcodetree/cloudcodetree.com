@@ -10,7 +10,124 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 17 Sep 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 17 Sep 2026 20:05:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Describe the Goal, Not the Steps: Claude Projects' Coordinator-Thread Model for Parallel Autonomous Work</title>
+      <link>https://claude.com/blog/projects-redesigned</link>
+      <guid isPermaLink="false">2026-09-17-04-claude-projects-coordinator-thread-pattern</guid>
+      <pubDate>Thu, 17 Sep 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>Claude Projects redesigned as a coordinator: describe the goal once and Claude creates parallel branch-scoped threads, shares memory across them, opens PRs, and assembles results.</description>
+      <content:encoded><![CDATA[**Claude Projects redesigned today: describe your goal once and Claude acts as coordinator — spawning parallel thread sessions on separate branches, sharing memory across them, opening PRs, and assembling results.**
+
+Anthropic shifted Projects from a folder-based system to a coordinator model. You describe what needs to happen; Claude scopes it into parallelizable chunks, spins up concurrent threads (each an independent cloud session on its own branch), and coordinates them through shared project memory.
+
+**What this looks like:**
+
+Set a performance optimization goal. Claude profiles each endpoint in parallel threads, opens PRs per thread, and runs your tests. The coordinator reads all outputs and assembles the result. Each thread can itself spawn subagents, loops, or workflows for its slice.
+
+The shared memory component is the key architectural change: every thread reads from and writes to the same project memory, so the coordinator doesn't re-explain project decisions, conventions, or preferences per delegation.
+
+**When to reach for it:** work that genuinely parallelizes — profiling a set of endpoints, refactoring across independent services, sweeping a parameter space. The pattern validates against real data: GitHub's Copilot Rust migration used 15 child sessions with a 10:1 read-to-edit ratio. Reading the codebase in parallel is cheap; the edit-validate-merge loop is the bottleneck that threads parallelize.
+
+**Real limits to know before you use it:**
+- Cloud-only today. Running threads on your own machine (with your local tools and network) is coming but not live yet.
+- Concurrent threads consume your usage quota faster — Projects can hit limits faster than a single session.
+- Merge conflicts between overlapping thread work land as standard PRs — you still review and resolve.
+- Beta: currently limited to select Claude Pro/Max users with cloud sessions.
+
+**When NOT to reach for it:** sequential work where context from step A gates step B, tasks that need local tooling or private network access, or anything where you need direct control over context-trimming and retry semantics.
+
+**Sources:** [Claude Projects redesign](https://claude.com/blog/projects-redesigned) · [GitHub Copilot Rust migration (independent parallel-agent case study)](https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Agent Forgets Everything at Session End — A Free 90-Minute Course Builds the Two-Tier Memory That Fixes It</title>
+      <link>https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory</link>
+      <guid isPermaLink="false">2026-09-17-05-agent-memory-letta-deeplearning-ai-two-tier</guid>
+      <pubDate>Thu, 17 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>Free 90-min DeepLearning.AI course by Letta co-founders covers two-tier agent memory: in-context core blocks + external archival storage that agents self-edit via tool calls.</description>
+      <content:encoded><![CDATA[**Build agents with persistent memory that survives session end — a free DeepLearning.AI course covers the two-tier architecture that replaces "it forgot everything" with searchable, self-updating state.**
+
+**What you'll be able to do after this:** Implement in-context core memory blocks paired with external archival storage, let agents self-edit their own memory using tool calls, and share memory blocks across a multi-agent coordinator pattern.
+
+**Three takeaways:**
+1. **Two tiers, one agent.** In-context core memory holds immediate context (user info, task state, preferences). External archival storage is a searchable database the agent queries when it needs something that's been evicted from the window — bridging sessions without re-prompting.
+2. **Agents edit their own memory via tool calls.** The agent inserts, updates, and prunes its stored knowledge as it learns, rather than you managing state externally. You can audit these edits in the conversation log.
+3. **Shared memory blocks enable coordinator patterns.** A coordinator agent writes state that worker agents read — no context-passing in prompts; the memory layer is the coordination mechanism.
+
+**Concrete setup (Letta):**
+
+```python
+from letta import create_client
+from letta.schemas.memory import BasicBlockMemory, Block
+
+client = create_client()
+agent = client.create_agent(
+    memory=BasicBlockMemory(
+        blocks=[
+            Block(name="human", value="User: Alice — working on RAG pipeline with Qdrant"),
+            Block(name="persona", value="Expert coding assistant focused on retrieval systems"),
+        ]
+    )
+)
+
+# Agent updates core memory as it learns new context
+client.send_message(
+    agent_id=agent.id, role="user",
+    message="Note: Alice prefers Python and Qdrant runs on localhost:6333"
+)
+# Core memory block now updated — persists across sessions
+```
+
+The memory update is a tool call visible in the conversation — auditable, reversible.
+
+**The course:** [LLMs as Operating Systems: Agent Memory](https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory) — free, 90 minutes, 8 lessons with 5 code examples, taught by Charles Packer and Sarah Wooders (Letta co-founders, MemGPT paper authors).
+
+**Limits:** Letta's perpetual-single-thread model is opinionated — it suits long-running assistants well but adds overhead for stateless task agents where you don't need persistence. If you're already on LangGraph, [LangMem](https://langchain-ai.github.io/langmem/) is a lower-ceremony alternative that integrates natively with LangGraph's store and distinguishes semantic, episodic, and procedural memory without Letta's architectural constraints.
+
+**Sources:** [DeepLearning.AI course](https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory) · [Letta agent memory docs](https://docs.letta.com/guides/agents/memory/) · [LangMem docs](https://langchain-ai.github.io/langmem/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Claude Optimized 30 ML Models in 4 Weeks — Anthropic Is Open-Sourcing the Code</title>
+      <link>https://www.anthropic.com/research/claude-uplifts-biomolecular-modeling</link>
+      <guid isPermaLink="false">2026-09-17-03-anthropic-claude-ml-kernel-optimization-open-source</guid>
+      <pubDate>Thu, 17 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Best Practices</category>
+      <description>Anthropic used Claude to write custom CUDA kernels for 30+ bioscience ML models, averaging 4x speedup in under four weeks — the optimized code is now open-source on GitHub.</description>
+      <content:encoded><![CDATA[**Claude generated custom CUDA kernels for 30+ bioscience ML models in under four weeks, averaging a 4× speedup — Anthropic reports all optimized code is now open-source.**
+
+Anthropic published results of a project where Claude optimized deep learning models used for biomolecular prediction and protein design. Claude wrote custom kernels — including a FlashPairformer implementation Anthropic reports outperforms field standards by 2.7–3.2× on triangle operations — and reduced memory requirements enough to handle systems over 10,000 tokens on a single GPU node.
+
+The comparison the post draws: "It normally takes an experienced team of engineers weeks to produce such optimizations for each model." Claude covered 30 in parallel in under four weeks.
+
+The [open-source repo](https://github.com/anthropics/uplifting-biomolecular-modeling) includes reference implementations across structure prediction, protein language modeling, and genomics. The kernel optimization patterns (fused operations, attention reformulations) are worth reading even if you're not working on bioscience models.
+
+**Limits:** The 4× average Anthropic reports covers variants with "minimal precision loss"; the strictly lossless path is closer to 2×. The target models are bioscience-specific — transferring patterns to NLP or vision architectures requires additional work.
+
+**Why it matters:** kernel-level ML optimization is now a task where Claude can do genuine low-level engineering work, not just high-level glue code. The repo is a concrete artifact to study and adapt.
+
+**Sources:** [Anthropic research post](https://www.anthropic.com/research/claude-uplifts-biomolecular-modeling) · [Open-source code](https://github.com/anthropics/uplifting-biomolecular-modeling)
+]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5521,140 +5638,9 @@ print(next(b.text for b in final.content if b.type == "text"))
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Code Now Warns When Your Bash Rules Are Too Wide — and Shows You the Auto Mode Classifier</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-08-29-07-claude-code-bash-permission-wildcard-warning</guid>
-      <pubDate>Sat, 29 Aug 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.246 (Aug 25) warns at startup when a Bash allow rule has a wildcard before the subcommand, and adds an Auto mode tab to /permissions so you can see and edit what the classifier approves.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.246 (Aug 25): a startup warning fires when any Bash allow rule lets a wildcard precede the subcommand, and a new Auto mode tab in `/permissions` exposes the classifier ruleset you can review and edit in-app.**
-
-The warning fires for rules like `"Bash(npm *)"`, `"Bash(git *)"`, or `"Bash(*:*)"`. These pass any argument: a prompt injection that adds `--force` to a `git push`, or installs a package you didn't ask for, slips through unchecked.
-
-Scope each rule to the exact subcommands you actually need:
-
-```json
-// Warns at startup — too broad
-"Bash(npm *)",
-
-// Preferred — explicit subcommands only
-"Bash(npm install:*)",
-"Bash(npm run:*)",
-"Bash(npm test:*)"
-```
-
-The same principle applies to git rules: `"Bash(git *)"` passes `git push --force` and `git reset --hard`; `"Bash(git status:*)"` and `"Bash(git diff:*)"` don't.
-
-**The Auto mode tab in `/permissions`** is the companion change: it lists every tool-call pattern the auto-mode classifier currently approves without prompting, and lets you add or remove patterns without editing `settings.json` by hand. If you have auto mode enabled and haven't opened this tab, now is the time — the classifier ruleset is not always what you expect.
-
-**Limit:** The startup warning covers Bash allow rules only. Overly broad patterns on other tools — `Read(*)`, custom MCP tools with wildcard params — don't trigger the same warning yet.
-
-**Sources:** [Claude Code changelog — v2.1.246](https://code.claude.com/docs/en/changelog) · [Auto mode docs](https://code.claude.com/docs/en/auto-mode) · [Havoptic release summaries](https://www.havoptic.com/tools/claude-code)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Copilot for Teams: Org-Level Custom Agents, Thinking Controls, and Git Pre-PR Review</title>
-      <link>https://github.blog/changelog/2026-08-28-github-copilot-in-visual-studio-august-update-2/</link>
-      <guid isPermaLink="false">2026-08-29-06-github-copilot-org-agents-thinking-git-review</guid>
-      <pubDate>Sat, 29 Aug 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <description>GitHub Copilot's August 28 VS update: org owners publish a custom agent once and it auto-populates every repo's picker; thinking effort controls arrive for supported models; Git agent reviews uncommitted changes before you open a PR.</description>
-      <content:encoded><![CDATA[**GitHub Copilot's August 28 Visual Studio update ships three team-scale features: org-owned custom agents auto-populate every repo's picker, supported models get Low/Medium/High thinking effort controls, and the Git agent can review uncommitted changes before you open a PR.**
-
-**Org-level custom agents**: org and enterprise owners publish a custom agent once — it appears automatically in every repository's agent picker with its description and org label. Any Copilot tier can use an org agent; you need org or enterprise owner permissions to publish one. Per-repo setup is no longer required to distribute team knowledge.
-
-**Thinking effort controls** (Low/Medium/High): available on supported models to trade reasoning depth for token cost per request — the same per-request pattern as Claude Code's `/effort` and Gemini 3.7 Flash's `thinking_level`.
-
-**Git agent pre-PR review**: from the Git Changes panel, trigger the Git agent to review uncommitted changes or specific commits; findings surface inline with a navigable list. Supports both GitHub and Azure DevOps repositories.
-
-**Why it matters:** Org agents solve the distribution problem — the same runbook or review-style agent your team maintains, automatically available in every repo without per-repo configuration.
-
-**Sources:** [GitHub Changelog Aug 28](https://github.blog/changelog/2026-08-28-github-copilot-in-visual-studio-august-update-2/) · [GitHub Copilot What's New](https://github.com/features/copilot/whats-new) · [DevOps.com: Copilot model choice](https://devops.com/github-copilots-latest-update-bets-on-model-choice-not-model-loyalty/)
-]]></content:encoded>
-      <media:content url="https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg" medium="image"/>
-      <media:thumbnail url="https://github.blog/wp-content/themes/github-2021-child/assets/img/featured-v3-new-releases.svg"/>
-    </item>
-
-    <item>
-      <title>Put a Hard Ceiling on Your Managed Agent Before It Overruns: Session Budgets</title>
-      <link>https://platform.claude.com/docs/en/managed-agents/budgets</link>
-      <guid isPermaLink="false">2026-08-29-05-managed-agents-session-budget-spend-cap</guid>
-      <pubDate>Sat, 29 Aug 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Pass budget.max_list_cost at session creation and a Claude Managed Agents run pauses cleanly — state intact — the moment it crosses your spend cap.</description>
-      <content:encoded><![CDATA[**TL;DR: Pass `budget={"type":"limit","max_list_cost":{"currency":"USD","amount":"2500"}}` when you create a Managed Agents session and it pauses — files and tool state intact — the moment it crosses $25.00.**
-
-Without a spend cap, a Managed Agents session running multiple subagents can bill hundreds of dollars before a job finishes — or before you notice it got stuck. Session budgets set a hard ceiling at creation that pauses the session cleanly when it hits your limit.
-
-**Set it at creation:**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-BETAS = ["managed-agents-2026-04-01"]
-
-session = client.beta.sessions.create(
-    agent=my_agent.id,
-    environment_id=env.id,
-    title="Weekly competitive analysis",
-    budget={
-        "type": "limit",
-        "max_list_cost": {
-            "currency": "USD",
-            "amount": "2500",   # $25.00 — amount is in whole US cents as a string
-        },
-    },
-    betas=BETAS,
-)
-```
-
-**Detect and handle the pause:**
-
-```python
-with client.beta.sessions.events.stream(session.id, betas=BETAS) as stream:
-    for ev in stream:
-        if ev.type == "session.status_idle":
-            if ev.stop_reason.type == "budget_reached":
-                # Files and tool state are preserved — raise the cap to resume
-                client.beta.sessions.update(
-                    session.id,
-                    budget={"type": "limit", "max_list_cost": {"currency": "USD", "amount": "5000"}},
-                    betas=BETAS,
-                )
-            break
-```
-
-Track spend as it accumulates with `session.usage` events, which stream the cumulative `list_cost` against your cap.
-
-**The constraints that catch people:**
-
-- Budget can only be set at session **creation** — you cannot add one to a session already running
-- Amount is in whole US cents as a string: `"100"` = $1.00, `"2500"` = $25.00
-- You can **raise** the cap but not lower it below already-consumed cost
-- Removing the budget (`budget=None`) is permanent — you cannot re-add it to the same session
-- Enforcement happens **between** model requests, not mid-turn, so actual spend can slightly overshoot your cap
-- Requires `anthropic>=0.121.0`
-
-The same SDK version also shipped inference geo pinning (`model.inference_geo: "us"` or `"global"`) and GitHub-hosted skills for Managed Agents. The advisor model pattern ships as a separate roster entry covered in [a previous post](https://cloudcodetree.com/ai-news/2026-08-26-06-managed-agents-advisor-model-pattern).
-
-**Sources:** [Session budgets — Anthropic Managed Agents Docs](https://platform.claude.com/docs/en/managed-agents/budgets) · [Cookbook: cap what a session can spend — platform.claude.com](https://platform.claude.com/cookbook/managed-agents-cma-cap-session-spend) · [AI Agent Cost Control: 2026's Shift to Session Caps — Nerd Level Tech](https://nerdleveltech.com/ai-agent-cost-control-session-spend-caps)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
