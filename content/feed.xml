@@ -10,7 +10,86 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 16 Sep 2026 20:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 17 Sep 2026 12:04:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Agents Spent 10× More Time Reading Than Writing — Orchestration Lessons From GitHub&#x27;s 800K-Line Rust Port</title>
+      <link>https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/</link>
+      <guid isPermaLink="false">2026-09-17-02-multi-agent-orchestration-github-copilot-rust-port</guid>
+      <pubDate>Thu, 17 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>One developer used AI agents to port 430K lines of TypeScript to 832K lines of Rust in 3-4 months. Tool call logs show 10:1 reads-to-edits and 96% cache hit rate — two numbers that change how you structure agent sessions.</description>
+      <media:content url="https://github.blog/wp-content/uploads/2026/01/generic-github-copilot-logo-stripe.png" medium="image"/>
+      <media:thumbnail url="https://github.blog/wp-content/uploads/2026/01/generic-github-copilot-logo-stripe.png"/>
+      <content:encoded><![CDATA[**One developer and AI agents ported 430K lines of TypeScript to 832K lines of Rust in 3-4 months — tool call logs show 591K reads, 282K searches, and 41K edits: a 10:1 investigation-to-mutation ratio.**
+
+GitHub published a detailed engineering account of rewriting the Copilot agent runtime (CLI, Desktop app, six-language SDK) using AI agents. One developer directed the effort; agents handled most code exploration and porting while the human operated the "control loop" — reviewing decisions, enforcing quality gates, pushing agents that treated intermediate states as done.
+
+The numbers are worth reading as agent design guidance:
+
+**1. Separate the orchestrator from the workers.** The largest component used a primary session coordinating 15 concurrent child sessions across 7 waves. Each child received a bounded slice (~1,100-character kickoff prompt — specific enough to define scope, loose enough for autonomy) and handled its own implementation decisions. The parent enforced constraints and reviewed outputs.
+
+**2. Prefix-cache aggressively to keep costs manageable.** The project ran thousands of model calls and hit a 96.22% prompt-cache hit rate. Per the provider's pricing, cached tokens carry a ~90% discount. The author estimates an uncached equivalent would have cost an order of magnitude more. If your agent loop repeatedly reads the same context, structure prompts so the invariant portion sits at the top and gets cached.
+
+**3. Plan for more exploration than generation.** Of all tool calls: `view` (read file) = 590,988; `rg` (search) = 281,783; `edit` = 40,591. The author: "The popular image of AI spewing code is almost backwards — at this scale, the work looked much more like iterative investigation." If your agent is generating more than it is reading, it is probably cutting corners on context.
+
+**Limits:** A senior developer operated the control loop throughout. The regression count was "dozens," spread across ambiguous TypeScript semantics, ambient behaviors (timezone, env var handling), incomplete migrations, and lifecycle management. Fully autonomous migration without human oversight would have shipped those bugs silently.
+
+**Sources:** [Migrating the GitHub Copilot runtime to Rust, using Copilot — GitHub Blog](https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Bi-Encoder Found 100 Candidates — A Cross-Encoder Takes Two Seconds to Tell You Which 5 Matter</title>
+      <link>https://www.sbert.net/docs/sentence_transformer/usage/semantic_search/retrieve_rerank/README.html</link>
+      <guid isPermaLink="false">2026-09-17-01-cross-encoder-reranking-sentence-transformers-rag</guid>
+      <pubDate>Thu, 17 Sep 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <description>Bi-encoders retrieve fast but score documents independently. Cross-encoders score query+document jointly for higher precision — two stages give you both speed at scale and accuracy at the top.</description>
+      <content:encoded><![CDATA[**Bi-encoders retrieve fast but score documents independently; cross-encoders score query and document together in one forward pass — running both in sequence gives your RAG pipeline speed at scale and precision at the top.**
+
+**What you'll be able to do after this:** add a re-ranking stage to your existing RAG retriever that improves the precision of chunks sent to the LLM, without replacing your vector store.
+
+- Bi-encoders encode query and document separately, then compare by dot product. Fast enough to scan millions of docs; embeddings pre-compute offline.
+- Cross-encoders take query + one candidate document as a pair, run them through a transformer together, and output a single relevance score. More accurate — the model attends across both inputs — but cannot pre-compute embeddings, so only practical on a short candidate list.
+- Standard pipeline: retrieve top 100 with a bi-encoder → re-rank with a cross-encoder → pass top 5–10 to the LLM.
+
+**Walk-through using `sentence-transformers`:**
+
+```python
+from sentence_transformers import SentenceTransformer, CrossEncoder, util
+
+# Stage 1 — retrieve candidates (pre-compute corpus embeddings once)
+bi_encoder = SentenceTransformer("multi-qa-mpnet-base-dot-v1")
+corpus_embeddings = bi_encoder.encode(corpus, convert_to_tensor=True)
+
+query_embedding = bi_encoder.encode(query, convert_to_tensor=True)
+hits = util.semantic_search(query_embedding, corpus_embeddings, top_k=100)[0]
+
+# Stage 2 — re-rank the top-100 candidates
+cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L6-v2")
+pairs = [(query, corpus[hit["corpus_id"]]) for hit in hits]
+cross_scores = cross_encoder.predict(pairs)
+
+# Sort by cross-encoder score, pass top 5 to your LLM
+ranked = sorted(zip(hits, cross_scores), key=lambda x: x[1], reverse=True)
+top_chunks = [corpus[h["corpus_id"]] for h, _ in ranked[:5]]
+```
+
+`cross-encoder/ms-marco-MiniLM-L6-v2` scores 74.30 NDCG@10 on the TREC Deep Learning 2019 track — an independent IR community evaluation run by NIST, not by Hugging Face. It runs at roughly 1,800 documents per second on a V100.
+
+**Limits:** You cannot pre-compute cross-encoder scores — re-ranking happens at query time. A top-100 re-rank at 1,800 docs/sec adds negligible latency; a top-1,000 re-rank gets noticeable. For production scale, Cohere Rerank (`co.rerank(model="rerank-v3.5", ...)`) offloads the compute. Also: if your bi-encoder misses the right documents in stage 1, the cross-encoder cannot recover them — retrieval recall still sets the ceiling.
+
+**Sources:** [Retrieve & Re-Rank tutorial — sbert.net](https://www.sbert.net/docs/sentence_transformer/usage/semantic_search/retrieve_rerank/README.html) · [Retrieve & Rerank Colab notebook — sentence-transformers/GitHub](https://colab.research.google.com/github/huggingface/sentence-transformers/blob/main/examples/sentence_transformer/applications/retrieve_rerank/retrieve_rerank_simple_wikipedia.ipynb) · [ms-marco-MiniLM-L6-v2 model card — HuggingFace](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L6-v2) · [TREC Deep Learning 2019 overview — NIST/TREC](https://trec.nist.gov/pubs/trec28/papers/OVERVIEW.DL.pdf) (independent IR evaluation)]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5576,102 +5655,8 @@ The same SDK version also shipped inference geo pinning (`model.inference_geo: "
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Before the Splitter and the Vector Store, There's the Loader: LangChain Document Loaders for Any Source</title>
-      <link>https://python.langchain.com/docs/how_to/#document-loaders</link>
-      <guid isPermaLink="false">2026-08-29-04-langchain-document-loaders-rag-ingestion</guid>
-      <pubDate>Sat, 29 Aug 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Developer Tools</category>
-      <description>LangChain's document loaders give you a uniform Document interface for PDFs, web pages, CSV files, and directories — the first step in any RAG pipeline.</description>
-      <content:encoded><![CDATA[**TL;DR: Three LangChain loaders — PDF, web, and directory — cover most RAG ingestion cases in under 15 lines each, and they all hand you the same `Document(page_content, metadata)` interface your chunker already expects.**
-
-**What you'll be able to do after this:** load PDFs, web pages, and entire folders into a LangChain RAG pipeline using the right loader for each source, and know which limits to plan around before they bite you in production.
-
-**Three things to know before you start:**
-- Every loader returns the same `Document(page_content=…, metadata={…})` type — swap loaders without touching your splitter or embedder
-- `.lazy_load()` streams documents one at a time; use it for large corpora where `.load()` would hold everything in memory at once
-- Metadata (`metadata["source"]`, `metadata["page"]`) is added automatically — these fields are what `SelfQueryRetriever` and `RecordManager` use for filtering and deduplication later
-
-**Install:**
-```bash
-pip install langchain-community pypdf
-```
-
-**The three loaders you'll use most:**
-
-```python
-# PDF: one Document per page
-from langchain_community.document_loaders import PyPDFLoader
-docs = PyPDFLoader("technical-spec.pdf").load()
-
-# Web page: raw text from a public URL (uses BeautifulSoup under the hood)
-from langchain_community.document_loaders import WebBaseLoader
-docs = WebBaseLoader("https://docs.example.com/guide").load()
-
-# Whole directory of Markdown or text files
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
-docs = DirectoryLoader("./knowledge-base", glob="**/*.md", loader_cls=TextLoader).load()
-```
-
-All three outputs plug straight into `RecursiveCharacterTextSplitter.split_documents(docs)` — [the chunker from a previous post](https://cloudcodetree.com/ai-news/2026-08-20-06-langchain-recursive-splitter-chunking-foundations).
-
-**The limits that catch people:**
-- `PyPDFLoader` loses table structure. Scanned (image-only) PDFs come back as empty or garbled — use `UnstructuredPDFLoader` for layout-sensitive docs, though it requires extra dependencies and is slower.
-- `WebBaseLoader` runs BeautifulSoup on raw HTML. JavaScript-rendered pages (React/Vue apps, SPAs) return navigation-only content — swap in `AsyncChromiumLoader` when you need JS execution.
-- `DirectoryLoader` processes files sequentially. For corpora with thousands of files, call `.alazy_load()` with `asyncio` to load in parallel without blocking.
-
-For sources beyond these three — Notion, Google Drive, Slack, GitHub — LangChain ships integrations at [python.langchain.com/docs/integrations/document_loaders](https://python.langchain.com/docs/integrations/document_loaders/).
-
-**Sources:** [Document loaders how-to — LangChain Python docs](https://python.langchain.com/docs/how_to/#document-loaders) · [LangChain Document Loaders: A Practical Guide (2026) — fast.io](https://fast.io/resources/langchain-document-loader/) · [Loading PDFs, web pages, and directories with code examples — Latenode](https://latenode.com/blog/ai-frameworks-technical-infrastructure/langchain-setup-tools-agents-memory/langchain-document-loaders-complete-guide-to-loading-files-code-examples-2025)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Start a Claude Code Session on Your Dev Box From Your Phone in One Tap</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
-      <guid isPermaLink="false">2026-08-29-03-claude-code-remote-control-device-card-phone</guid>
-      <pubDate>Sat, 29 Aug 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Week 34 (Aug 17–21): any machine running `claude remote-control` shows up as a device card in the Claude app — tap it, pick a directory, start a session there.</description>
-      <media:content url="https://mintcdn.com/claude-code/2SnAdpL4dJ18nKb3/images/whats-new/remote-control-phone-start.jpg" medium="image" />
-      <media:thumbnail url="https://mintcdn.com/claude-code/2SnAdpL4dJ18nKb3/images/whats-new/remote-control-phone-start.jpg" />
-      <content:encoded><![CDATA[**Run `claude remote-control` on your dev machine, then tap its card in the Claude mobile app to start a full session there — no SSH, no port forwarding.**
-
-Claude Code's Week 34 release (Aug 17–21) added the device card flow: your machine registers itself with the Claude service, appears as a named card in the "Code" tab of the Claude app on your phone, and a tap opens a directory picker so you can start a session in any project folder without leaving the couch.
-
-**Two-step setup:**
-
-1. On your dev machine: `claude remote-control` (keep it running — it holds the connection)
-2. On your phone: open the Claude app → Code tab → tap your machine's card → pick a project directory → session starts
-
-**When this is actually useful:**
-
-- Checking in on a long-running overnight job without opening a laptop
-- Kicking off a session from the kitchen while coffee brews
-- Quick away-from-desk debugging when your laptop is in another room
-- Verifying a background agent completed before you sit back down
-
-**Honest limits to know before you rely on it:**
-
-- The `claude remote-control` process must be running on the machine — it is not a persistent daemon; if the machine sleeps or the process exits, the card disappears
-- You must be signed in to the same Anthropic account on both devices
-- This is not a full terminal or SSH replacement — you get a Claude Code session, not a shell prompt
-- Session quality depends on your network; a flaky connection can drop the session mid-task
-- The phone UI is optimized for starting and monitoring sessions, not for extended coding work
-
-The feature was confirmed stable after the Week 34 release by independent reports noting that mobile connections now stay alive across app backgrounding, which was the main complaint in the beta.
-
-**Sources:** [Claude Code What's New Week 34](https://code.claude.com/docs/en/whats-new/2026-w34) · [itechguides: remote control explained](https://www.itechguides.com/claude-code-remote-control-explained-use-your-phone-to-control-a-local-session/) · [AlphaSignal: remote control stays connected on mobile](https://alphasignal.ai/news/anthropic-s-claude-code-remote-control-finally-stays-connected-on-mobile)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
