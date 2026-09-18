@@ -10,9 +10,119 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 18 Sep 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 18 Sep 2026 12:04:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your Agent SDK System Prompt Re-Caches on Every Request — One Array Fixes That</title>
+      <link>https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts</link>
+      <guid isPermaLink="false">2026-09-18-05-agent-sdk-system-prompt-dynamic-boundary-cache</guid>
+      <pubDate>Fri, 18 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Split your Claude Agent SDK system prompt at SYSTEM_PROMPT_DYNAMIC_BOUNDARY so static instructions hit the prompt cache and per-request context doesn't invalidate them.</description>
+      <content:encoded><![CDATA[**TL;DR: Concatenating static instructions + per-request context into one string costs full input tokens every request. An array with SYSTEM_PROMPT_DYNAMIC_BOUNDARY gives each section its own cache breakpoint.**
+
+When you build a custom-system-prompt agent with the Claude Agent SDK, it's easy to concatenate fixed instructions and per-request context into one string. That works — but destroys your prompt cache. Any change to the dynamic part (a ticket ID, a customer tier, the current PR diff) invalidates the entire string. Claude pays full input-token cost on every request for instructions it has seen a thousand times.
+
+**The fix in TypeScript:**
+
+```typescript
+import { ClaudeCode, SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
+
+const agent = new ClaudeCode({
+  systemPrompt: [
+    `You are a support agent. ${STATIC_RULES}`,   // cached after first request
+    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
+    `Ticket: ${ticket.summary}\nCustomer tier: ${customer.tier}`,  // never cached
+  ],
+});
+```
+
+The SDK wraps the strings before the marker in one text block (with its own cache breakpoint) and the strings after it in a second block. After the first request, the static section is served from cache; only the dynamic half counts as fresh input.
+
+**What breaks:**
+- Array form is TypeScript-only — the Python SDK does not accept an array yet.
+- If your "static" section includes anything per-user — a name, permissions, a feature flag — those are dynamic. Move them after the boundary or they invalidate the cache for every distinct user.
+- A change to the static section (new instructions, a version bump) still pays full input cost on the first request after the change. The cache is not pre-warmed; it fills on the first real call.
+
+**Sources:** [Modifying system prompts — Claude Agent SDK docs](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts) · [Why your custom system prompt silently kills Claude's prompt cache — mer.vin](https://mer.vin/2026/08/why-your-custom-system-prompt-silently-kills-claudes-prompt-cache/) · [Prompt caching — Claude Platform docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your RAG Index Answers Questions About Last Month's Docs — LlamaIndex IngestionPipeline Keeps It Current</title>
+      <link>https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/</link>
+      <guid isPermaLink="false">2026-09-18-04-llamaindex-ingestion-pipeline-document-management</guid>
+      <pubDate>Fri, 18 Sep 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>Attach a docstore to LlamaIndex's IngestionPipeline and only new or changed documents re-embed on each run — hash-based dedup, automatic skip, one config flag.</description>
+      <content:encoded><![CDATA[**TL;DR: Without a docstore, IngestionPipeline re-embeds every document on every run. Add one and only changed docs pay the embedding cost.**
+
+**What you'll be able to do after this:**
+- Keep a RAG knowledge base synchronized as files change, without re-ingesting the full corpus each time
+- Cut embedding costs on runs where most documents are unchanged
+- Detect and re-process only the documents that changed since the last run
+
+**Resource:** [Ingestion Pipeline + Document Management — LlamaIndex official docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/)
+
+**Three takeaways:**
+1. `IngestionPipeline` hashes each document by ID + content. Attach a `SimpleDocumentStore` and the pipeline skips any document whose hash matches the stored value.
+2. Transformation outputs are also cached step by step — if you swap only the embedding model, only the embedding step re-runs, not the splitter.
+3. With `DocstoreStrategy.UPSERTS` and a vector store attached, the pipeline replaces only the nodes whose source document changed; orphaned nodes from unchanged documents are left alone.
+
+**Setup:**
+
+```python
+from llama_index.core.ingestion import IngestionPipeline
+from llama_index.core.ingestion.pipeline import DocstoreStrategy
+from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.core.node_parser import SentenceSplitter
+
+pipeline = IngestionPipeline(
+    transformations=[
+        SentenceSplitter(chunk_size=512, chunk_overlap=64),
+        embed_model,        # HuggingFaceEmbedding, OpenAIEmbedding, etc.
+    ],
+    docstore=SimpleDocumentStore(),
+    docstore_strategy=DocstoreStrategy.UPSERTS,
+    vector_store=vector_store,  # pgvector, Chroma, Qdrant, …
+)
+
+# First run: embeds and stores everything
+nodes = pipeline.run(documents=load_all_docs())
+
+# Later runs: only new/changed docs go through embeddings
+nodes = pipeline.run(documents=load_all_docs())
+```
+
+Set `doc_id` on each `Document` to a stable identifier — a file path, a database row ID, a URL. That is the key the pipeline deduplicates on. If you let LlamaIndex assign IDs, two runs on the same file may generate different IDs and re-embed unnecessarily.
+
+**Persist the docstore between runs:**
+
+```python
+pipeline.docstore.persist("./docstore.json")
+# load on next startup:
+from llama_index.core.storage.docstore import SimpleDocumentStore
+docstore = SimpleDocumentStore.from_persist_path("./docstore.json")
+```
+
+**Real limits:**
+- `SimpleDocumentStore` is a single JSON file — correct for one process, not for multi-worker deploys. Use `RedisDocumentStore` or `MongoDocumentStore` for distributed pipelines.
+- The hash check covers document ID + content only. A metadata-only change (e.g., a `last_updated` timestamp field) is invisible to the dedup logic; if you need it indexed, include it in the document text.
+- The pipeline transformation cache grows unbounded on long-running processes; call `pipeline.cache.clear()` periodically if disk space matters.
+
+**Sources:** [Ingestion Pipeline + Document Management — LlamaIndex docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/) · [Document Management module guide — LlamaIndex](https://developers.llamaindex.ai/python/framework/module_guides/indexing/document_management/) · [IngestionPipeline source — GitHub](https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/ingestion/pipeline.py) (independent codebase reference)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Fine-Tune Looks Good on Training Loss — Three Checks That Tell You If It&apos;s Actually Better</title>
@@ -5477,166 +5587,8 @@ The practical limit: the forced migration timeline assumes ongoing contract talk
 **Sources:** [OpenAI cuts off Cursor after SpaceX acquisition — The Decoder](https://the-decoder.com/openai-cuts-off-cursor-after-spacex-acquisition-citing-musks-history-of-breaking-contracts/) · [OpenAI terminates contract with Cursor — Neowin](https://www.neowin.net/news/openai-terminates-contract-with-cursor-following-acquisition-by-elon-musks-spacex/) · [OpenAI to end model access to Cursor — CNBC](https://www.cnbc.com/2026/08/29/openai-cursor-spacex-model-access.html) · [OpenAI will pull its models from Cursor — Engadget](https://www.engadget.com/2246969/openai-pull-its-models-from-cursor-due-to-spacexai-acquisition/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Skip the While Loop: The Anthropic SDK's Tool Runner Runs Your Agent For You</title>
-      <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner</link>
-      <guid isPermaLink="false">2026-08-30-05-anthropic-sdk-tool-runner-agent-loop</guid>
-      <pubDate>Sun, 30 Aug 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>The Anthropic SDK beta tool runner iterates the tool-call loop for you — decorate your functions with @beta_tool and pass them to client.beta.messages.tool_runner. Use the manual loop when you need logging or conditional execution.</description>
-      <content:encoded><![CDATA[**TL;DR: The Anthropic SDK's beta `@beta_tool` decorator + `client.beta.messages.tool_runner` runs the tool-call loop automatically — the same four-step round trip, with no explicit `tool_result` handling code.**
-
-The four-step tool-use loop (define tool → get `stop_reason: "tool_use"` → execute → send `tool_result` back) is the right pattern when you need per-call logging, cost gating, or conditional execution. When you do not need those, the SDK ships a wrapper that handles the loop for you.
-
-**Two decorators, one loop:**
-
-```python
-import json
-from anthropic import Anthropic, beta_tool
-
-client = Anthropic()
-
-@beta_tool
-def get_weather(location: str, unit: str = "fahrenheit") -> str:
-    """Get the current weather in a given location.
-
-    Args:
-        location: The city and state, e.g. San Francisco, CA
-        unit: Temperature unit, either 'celsius' or 'fahrenheit'
-    """
-    # your real implementation here
-    return json.dumps({"temperature": "18°C", "condition": "Cloudy"})
-
-@beta_tool
-def calculate_sum(a: int, b: int) -> str:
-    """Add two numbers together.
-
-    Args:
-        a: First number
-        b: Second number
-    """
-    return str(a + b)
-
-runner = client.beta.messages.tool_runner(
-    model="claude-sonnet-5-20260801",
-    max_tokens=1024,
-    tools=[get_weather, calculate_sum],
-    messages=[{"role": "user", "content": "Weather in Berlin, and what is 15 + 27?"}],
-)
-
-for message in runner:
-    # each iteration is a BetaMessage — the loop stops on end_turn
-    if message.stop_reason == "end_turn":
-        for block in message.content:
-            if block.type == "text":
-                print(block.text)
-```
-
-`@beta_tool` inspects the function's type hints and the `Args:` section of its docstring to generate the JSON schema Claude receives — the same schema you would write by hand in a manual loop. The runner handles the `stop_reason` check, calls your function, wraps the return value as a `tool_result`, and sends the next request. It stops when Claude returns `stop_reason: "end_turn"`.
-
-**When to use which pattern:**
-
-| Pattern | Use when |
-|---|---|
-| Tool Runner | Quick scripts, prototyping, simple single-agent tasks |
-| Manual loop | Per-call logging, cost gating, approval before execution, result transformation |
-
-The runner is iterable — each loop iteration yields a `BetaMessage` — so you still have access to intermediate messages when you need them. What you cannot do is intercept a call *before* it runs, which is what human-in-the-loop and conditional retry patterns need.
-
-**The real limit:** Tool Runner is in beta (`client.beta.messages.tool_runner`). The API surface has changed between SDK minor versions; pin your `anthropic` version in `requirements.txt` and check the GitHub release notes when upgrading. An async variant (`@beta_async_tool`) is available for `asyncio`-based code.
-
-**Sources:** [Tool Runner — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [Anthropic SDK Python tools.md — GitHub](https://github.com/anthropics/anthropic-sdk-python/blob/main/tools.md) · [Claude Agent SDK complete guide — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_agent_sdk_complete_guide.html) · [Anthropic Agent SDK: What It Ships vs. What It Leaves to You — Augment Code](https://www.augmentcode.com/guides/anthropic-agent-sdk-what-ships-vs-what-you-build)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>From pip install vllm to a Production OpenAI-Compatible API: The Five Commands That Matter</title>
-      <link>https://docs.vllm.ai/en/latest/getting_started/quickstart.html</link>
-      <guid isPermaLink="false">2026-08-30-04-vllm-production-openai-compatible-serving</guid>
-      <pubDate>Sun, 30 Aug 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>Local AI</category>
-      <description>vLLM serves any open-weight HuggingFace model as an OpenAI-compatible HTTP API with continuous batching and PagedAttention. Five production commands and three Prometheus metrics to watch before traffic hits.</description>
-      <content:encoded><![CDATA[**TL;DR: vLLM turns any HuggingFace open-weight model into an OpenAI-compatible HTTP API in one command — continuous batching and PagedAttention give you production throughput; here are the flags and metrics that matter before you put it in front of traffic.**
-
-**What you will be able to do after this:**
-- Launch a vLLM server that speaks the OpenAI chat completions API
-- Configure it for production with auth, memory limits, and context capping
-- Monitor KV cache pressure and queue depth before something breaks
-
-vLLM is the standard GPU serving framework for open-weight deployments. Its two core mechanisms: **PagedAttention** — a paged virtual memory manager for the KV cache, which eliminates memory fragmentation that wastes GPU RAM in naive serving — and **continuous batching**, which adds new incoming requests to an in-flight batch rather than waiting for a batch boundary. Together they turn the same GPU into substantially higher effective throughput than a simple request-per-slot server. The trade-off: NVIDIA GPU required; AMD is in beta; Apple Silicon (MPS) is not supported.
-
-**Install**
-
-```bash
-pip install vllm==0.27.1   # pin the version; minor releases break flag names
-python -c "import torch; print(torch.cuda.get_device_name(0))"  # verify GPU
-```
-
-**Start the dev server**
-
-```bash
-export HF_TOKEN="hf_..."   # for gated models like Llama
-vllm serve meta-llama/Llama-3.1-8B-Instruct     --host 127.0.0.1     --port 8000     --gpu-memory-utilization 0.85
-```
-
-`--gpu-memory-utilization 0.85` leaves 15% headroom for CUDA context overhead. Skip it and you will hit OOM under concurrent load.
-
-**Production configuration**
-
-```bash
-vllm serve hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4     --host 0.0.0.0     --port 8000     --gpu-memory-utilization 0.88     --max-model-len 4096     --max-num-seqs 64     --api-key "$(openssl rand -hex 32)"
-```
-
-Set `--api-key` *before* binding to `0.0.0.0` — unauthenticated access returns HTTP 401 once the key is set. `--max-model-len` caps context per request; set it to what your use case actually needs, not the model maximum. Shorter context = more requests fit in KV cache simultaneously. `--max-num-seqs` caps concurrent requests.
-
-**Call it from any OpenAI-compatible client**
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="your-key")
-response = client.chat.completions.create(
-    model="meta-llama/Llama-3.1-8B-Instruct",
-    messages=[{"role": "user", "content": "Explain PagedAttention in one paragraph."}],
-)
-print(response.choices[0].message.content)
-```
-
-**Three metrics to watch from day one**
-
-```bash
-curl localhost:8000/health          # 200 OK = server up; check before traffic
-curl localhost:8000/metrics | grep -E "kv_cache|requests_waiting|requests_running"
-```
-
-- `vllm:kv_cache_usage_perc` — when this approaches 1.0, new requests queue rather than start
-- `vllm:num_requests_waiting` — sustained > 0 means you are over capacity; the fix is fewer concurrent users or a smaller `--max-model-len`
-- `vllm:num_requests_running` — active in-flight requests
-
-Wire these to Grafana before you route production traffic. KV cache pressure is the first failure mode, not CPU.
-
-**When to pick vLLM vs. alternatives**
-
-| Use case | Pick |
-|---|---|
-| NVIDIA production serving, multi-LoRA adapter hot-swapping | vLLM |
-| Long shared prefixes — agent system prompts, RAG context | SGLang (29% faster than vLLM on H100 in independent benchmarks) |
-| Local chat, quick experiments, Apple Silicon | Ollama |
-
-**Where it breaks:** MoE models with large expert pools (e.g. 320B total parameters) require multi-GPU tensor parallelism — set `--tensor-parallel-size N` to match your GPU count; a single GPU cannot hold the full model. AMD ROCm support is in beta and not production-ready. vLLM serves plain HTTP — add TLS termination at your reverse proxy layer, not inside vLLM.
-
-**Sources:** [vLLM Quickstart — docs.vllm.ai](https://docs.vllm.ai/en/latest/getting_started/quickstart.html) · [How to Deploy vLLM in Production 2026 — Markaicode](https://markaicode.com/tutorial/how-to-deploy-vllm-production/) · [Install vLLM on Linux for Production — computingforgeeks.com](https://computingforgeeks.com/install-vllm-linux-production/) · [vLLM Production Deployment 2026 — Spheron Blog](https://www.spheron.network/blog/vllm-production-deployment-2026/)
-]]></content:encoded>
-    </item>
-
+    
+    
 
     
     

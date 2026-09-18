@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-18-05-agent-sdk-system-prompt-dynamic-boundary-cache",
+    "title": "Your Agent SDK System Prompt Re-Caches on Every Request — One Array Fixes That",
+    "excerpt": "Split your Claude Agent SDK system prompt at SYSTEM_PROMPT_DYNAMIC_BOUNDARY so static instructions hit the prompt cache and per-request context doesn't invalidate them.",
+    "author": "Chris Harper",
+    "date": "09-18-2026",
+    "publishedAt": "2026-09-18T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts",
+    "content": "**TL;DR: Concatenating static instructions + per-request context into one string costs full input tokens every request. An array with SYSTEM_PROMPT_DYNAMIC_BOUNDARY gives each section its own cache breakpoint.**\n\nWhen you build a custom-system-prompt agent with the Claude Agent SDK, it's easy to concatenate fixed instructions and per-request context into one string. That works — but destroys your prompt cache. Any change to the dynamic part (a ticket ID, a customer tier, the current PR diff) invalidates the entire string. Claude pays full input-token cost on every request for instructions it has seen a thousand times.\n\n**The fix in TypeScript:**\n\n```typescript\nimport { ClaudeCode, SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';\n\nconst agent = new ClaudeCode({\n  systemPrompt: [\n    `You are a support agent. ${STATIC_RULES}`,   // cached after first request\n    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,\n    `Ticket: ${ticket.summary}\\nCustomer tier: ${customer.tier}`,  // never cached\n  ],\n});\n```\n\nThe SDK wraps the strings before the marker in one text block (with its own cache breakpoint) and the strings after it in a second block. After the first request, the static section is served from cache; only the dynamic half counts as fresh input.\n\n**What breaks:**\n- Array form is TypeScript-only — the Python SDK does not accept an array yet.\n- If your \"static\" section includes anything per-user — a name, permissions, a feature flag — those are dynamic. Move them after the boundary or they invalidate the cache for every distinct user.\n- A change to the static section (new instructions, a version bump) still pays full input cost on the first request after the change. The cache is not pre-warmed; it fills on the first real call.\n\n**Sources:** [Modifying system prompts — Claude Agent SDK docs](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts) · [Why your custom system prompt silently kills Claude's prompt cache — mer.vin](https://mer.vin/2026/08/why-your-custom-system-prompt-silently-kills-claudes-prompt-cache/) · [Prompt caching — Claude Platform docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)"
+  },
+  {
+    "id": "2026-09-18-04-llamaindex-ingestion-pipeline-document-management",
+    "title": "Your RAG Index Answers Questions About Last Month's Docs — LlamaIndex IngestionPipeline Keeps It Current",
+    "excerpt": "Attach a docstore to LlamaIndex's IngestionPipeline and only new or changed documents re-embed on each run — hash-based dedup, automatic skip, one config flag.",
+    "author": "Chris Harper",
+    "date": "09-18-2026",
+    "publishedAt": "2026-09-18T12:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/",
+    "content": "**TL;DR: Without a docstore, IngestionPipeline re-embeds every document on every run. Add one and only changed docs pay the embedding cost.**\n\n**What you'll be able to do after this:**\n- Keep a RAG knowledge base synchronized as files change, without re-ingesting the full corpus each time\n- Cut embedding costs on runs where most documents are unchanged\n- Detect and re-process only the documents that changed since the last run\n\n**Resource:** [Ingestion Pipeline + Document Management — LlamaIndex official docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/)\n\n**Three takeaways:**\n1. `IngestionPipeline` hashes each document by ID + content. Attach a `SimpleDocumentStore` and the pipeline skips any document whose hash matches the stored value.\n2. Transformation outputs are also cached step by step — if you swap only the embedding model, only the embedding step re-runs, not the splitter.\n3. With `DocstoreStrategy.UPSERTS` and a vector store attached, the pipeline replaces only the nodes whose source document changed; orphaned nodes from unchanged documents are left alone.\n\n**Setup:**\n\n```python\nfrom llama_index.core.ingestion import IngestionPipeline\nfrom llama_index.core.ingestion.pipeline import DocstoreStrategy\nfrom llama_index.core.storage.docstore import SimpleDocumentStore\nfrom llama_index.core.node_parser import SentenceSplitter\n\npipeline = IngestionPipeline(\n    transformations=[\n        SentenceSplitter(chunk_size=512, chunk_overlap=64),\n        embed_model,        # HuggingFaceEmbedding, OpenAIEmbedding, etc.\n    ],\n    docstore=SimpleDocumentStore(),\n    docstore_strategy=DocstoreStrategy.UPSERTS,\n    vector_store=vector_store,  # pgvector, Chroma, Qdrant, …\n)\n\n# First run: embeds and stores everything\nnodes = pipeline.run(documents=load_all_docs())\n\n# Later runs: only new/changed docs go through embeddings\nnodes = pipeline.run(documents=load_all_docs())\n```\n\nSet `doc_id` on each `Document` to a stable identifier — a file path, a database row ID, a URL. That is the key the pipeline deduplicates on. If you let LlamaIndex assign IDs, two runs on the same file may generate different IDs and re-embed unnecessarily.\n\n**Persist the docstore between runs:**\n\n```python\npipeline.docstore.persist(\"./docstore.json\")\n# load on next startup:\nfrom llama_index.core.storage.docstore import SimpleDocumentStore\ndocstore = SimpleDocumentStore.from_persist_path(\"./docstore.json\")\n```\n\n**Real limits:**\n- `SimpleDocumentStore` is a single JSON file — correct for one process, not for multi-worker deploys. Use `RedisDocumentStore` or `MongoDocumentStore` for distributed pipelines.\n- The hash check covers document ID + content only. A metadata-only change (e.g., a `last_updated` timestamp field) is invisible to the dedup logic; if you need it indexed, include it in the document text.\n- The pipeline transformation cache grows unbounded on long-running processes; call `pipeline.cache.clear()` periodically if disk space matters.\n\n**Sources:** [Ingestion Pipeline + Document Management — LlamaIndex docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/) · [Document Management module guide — LlamaIndex](https://developers.llamaindex.ai/python/framework/module_guides/indexing/document_management/) · [IngestionPipeline source — GitHub](https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/ingestion/pipeline.py) (independent codebase reference)"
+  },
+  {
     "id": "2026-09-18-03-claude-code-skills-sync-account-team-config",
     "title": "Stop Committing Skills to Every Repo — Your claude.ai Account Is Now a Config Source of Truth",
     "excerpt": "A September 17 Claude Code update syncs skills and plugins from your claude.ai account to every signed-in terminal session — team config without dotfiles or a git commit.",
