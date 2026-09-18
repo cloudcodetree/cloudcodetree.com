@@ -10,7 +10,149 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 17 Sep 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 18 Sep 2026 04:04:00 +0000</lastBuildDate>
+
+
+
+    <item>
+      <title>Your Fine-Tune Looks Good on Training Loss — Three Checks That Tell You If It&apos;s Actually Better</title>
+      <link>https://www.youtube.com/watch?v=yR6v-Hnp8fc</link>
+      <guid isPermaLink="false">2026-09-18-01-evaluate-fine-tuned-llm-three-tier-holdout</guid>
+      <pubDate>Fri, 18 Sep 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>Best Practices</category>
+      <description>Three evaluation tiers that reveal whether your fine-tuned model actually beats the base: task holdout, capability drift check, and LLM-as-judge on real production inputs.</description>
+      <content:encoded><![CDATA[**TL;DR: Training loss goes down, but that doesn't mean your fine-tuned model beats the base. Three evaluation tiers catch what a loss curve misses.**
+
+**What you'll be able to do after this:** Build a reliable evaluation pipeline for a fine-tuned model — one that checks whether it beat the base on its intended task, didn't silently break other capabilities, and holds up on real production examples.
+
+Resource: **[How to Actually Evaluate Fine-Tuned LLMs (3-Tier Framework)](https://www.youtube.com/watch?v=yR6v-Hnp8fc)** — June 24, 2026, hands-on walkthrough with code.
+
+**Three takeaways:**
+1. Training loss is a training signal, not an evaluation. A model that memorized your training set can have near-zero loss and fail every real task.
+2. A fine-tune that improves task performance often quietly degrades other capabilities — instruction-following, refusals, output formatting. Your task holdout only catches what it was designed to test.
+3. LLM-as-judge on paired production examples — base vs. fine-tune on the same inputs, same judge, pinned rubric — is more signal-dense than any off-the-shelf benchmark.
+
+**Tier 1 — Task holdout (did it improve on the job it was hired for?)**
+
+Hold out at least 10–20% of your curated data; score both the fine-tune and the base model on this partition. The fine-tune must beat the base here or it is not deployable. For structured-output fine-tunes, score JSON schema validity and field-level accuracy. For generation fine-tunes, use task-completion rate and rubric scoring.
+
+**Tier 2 — Capability drift (what did it break?)**
+
+Run both models on tasks the fine-tune was not supposed to change: general instruction-following, refusals on safety prompts, formatting conventions. A 5% drift on refusals shows up here, not in Tier 1. This is the check most teams skip and the one that bites them in production.
+
+**Tier 3 — Paired LLM-as-judge on production inputs**
+
+Take 50–100 real inputs from your production log. Run both models. Use a strong judge model (e.g., Claude Opus) to compare outputs on your rubric: completeness, on-tone, no hallucinations, format. Pin the judge model and rubric version alongside the prompt — a different judge is a different test.
+
+**Statistical check on small sample sizes:**
+
+A 2-point lift on 50 examples can be judge noise. Bootstrap confidence intervals catch this:
+
+```python
+import numpy as np
+deltas = [fine_tune[i] - base[i] for i in range(len(examples))]
+bootstrap = [np.mean(np.random.choice(deltas, len(deltas), replace=True))
+             for _ in range(1000)]
+lower = np.percentile(bootstrap, 5)   # 90% CI lower bound
+print(f"Lower bound: {lower:.3f}")    # Ship only if positive
+```
+
+Only ship the fine-tune if the lower bound is positive. A 3-point mean lift with a negative lower bound means your sample size is too small to conclude anything.
+
+**Real limit:** This evaluation assumes you have a representative holdout drawn from the same distribution as production traffic. A holdout built from the training corpus's leftovers is not a holdout; it is a test set that shares the same biases. Collect it independently.
+
+**Sources:** [How to Actually Evaluate Fine-Tuned LLMs — YouTube](https://www.youtube.com/watch?v=yR6v-Hnp8fc) · [LLM-as-a-Judge Complete Guide — Evidently AI](https://www.evidentlyai.com/llm-guide/llm-as-a-judge) · [Evaluating Fine-Tuned LLMs: A 2026 Playbook — FutureAGI](https://futureagi.com/blog/evaluating-fine-tuned-llms-2026/)
+]]></content:encoded>
+      <media:content url="https://img.youtube.com/vi/yR6v-Hnp8fc/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/yR6v-Hnp8fc/maxresdefault.jpg" />
+    </item>
+
+    <item>
+      <title>Claude Leads 26% of Anthropic's AI R&amp;D — and the Framework for Measuring Your Team's Level</title>
+      <link>https://www.anthropic.com/institute/measuring-pace-of-ai-development</link>
+      <guid isPermaLink="false">2026-09-18-02-anthropic-rd-automation-index-epoch-ai-al-framework</guid>
+      <pubDate>Fri, 18 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Best Practices</category>
+      <description>Anthropic's R&amp;D Automation Index (Sept 17): Claude leads 26% of AI R&amp;D as of Aug 2026, up from &lt;1% in Feb, using Epoch AI's AL0-AL5 automation-level scale.</description>
+      <content:encoded><![CDATA[**TL;DR: Anthropic's R&D Automation Index shows Claude leads 26% of their AI research work, up from <1% in February, using Epoch AI's AL0–AL5 scale — a reusable measurement for any engineering team.**
+
+On September 17, Anthropic's research institute published the first results from a prototype R&D Automation Index. Claude models "lead" 26% of Anthropic's AI R&D work as of August 2026, up from under 1% in February. The index uses Epoch AI's Automation Level (AL) scale, developed independently.
+
+**"Leads" means AL4 — not autonomous.** 90%+ of Anthropic's AI R&D sits at AL3 or above ("collaborates"); 0% is at AL5 (fully autonomous). The 26% at AL4 means Claude can complete most of a task from a high-level prompt while a human supervises.
+
+**The Epoch AI AL scale — a reusable framework:**
+
+| Level | What it means |
+|-------|---------------|
+| AL0 | No AI involvement |
+| AL1 | AI suggests; human decides |
+| AL2 | AI completes the step; human reviews every output |
+| AL3 | AI and human work interactively through the task |
+| AL4 | AI leads from a high-level prompt; human supervises |
+| AL5 | Fully autonomous; no human in the loop |
+
+This framework is the useful part regardless of Anthropic's specific numbers. The most actionable question it generates: at what AL level is each type of engineering work your team does most of?
+
+Anthropic's projection — "could reach 80% AL4 by end of 2026 if the trend holds" — is their own forecast based on extrapolating eight months of growth, not an independent estimate. Treat it accordingly.
+
+**Also this week:** Google DeepMind launched an AGI research institute on September 16–17, led by Shane Legg (DeepMind co-founder) and Google SVP James Manyika, to examine AGI's economic and social impacts. Its inaugural papers cover economic policy, model transparency, and global access. Less directly actionable for engineers writing code today, but the institutional momentum here mirrors what Anthropic's automation index describes — the question of "what AL does AI reach, and how fast" is becoming something frontier labs track explicitly and publish.
+
+**Why it matters:** "We use AI" is too vague to act on. "Our PR review pipeline is AL3; our architecture decisions are AL1" is not. The Epoch AI framework gives teams a shared vocabulary to track their actual progress.
+
+**Sources:** [Measurements for understanding the pace of AI development — Anthropic Institute](https://www.anthropic.com/institute/measuring-pace-of-ai-development) · [Anthropic Says Claude Leads 26% of AI R&D — Unite.AI](https://www.unite.ai/anthropic-says-claude-leads-26-of-its-ai-research-and-development/) · [Claude leads 26% — Engadget](https://www.engadget.com/2261909/anthropic-says-claude-leads-26-percent-of-its-ai-research-and-development/) · [Google DeepMind launches AGI institute — TechCrunch](https://techcrunch.com/2026/09/17/google-deepmind-launches-institute-to-widen-the-agi-debate/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Stop Committing Skills to Every Repo — Your claude.ai Account Is Now a Config Source of Truth</title>
+      <link>https://code.claude.com/docs/en/changelog</link>
+      <guid isPermaLink="false">2026-09-18-03-claude-code-skills-sync-account-team-config</guid>
+      <pubDate>Fri, 18 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>A September 17 Claude Code update syncs skills and plugins from your claude.ai account to every signed-in terminal session — team config without dotfiles or a git commit.</description>
+      <content:encoded><![CDATA[**TL;DR: A September 17, 2026 Claude Code update syncs the skills and plugins enabled on your claude.ai account to your terminal sessions. Team config without a dotfile convention or git commit.**
+
+Claude Code skills have historically lived in two places: project `.claude/skills/` (committed to the repo, project-scoped) and `~/.claude/skills/` (per-machine, managed manually). Getting a whole team onto the same set of utility skills meant either committing them to every repo's `.claude/` directory or maintaining a shared dotfiles convention that someone had to enforce.
+
+The September 17, 2026 Claude Code changelog adds a third source: **your claude.ai account**. Enable skills and plugins in the web UI, and every terminal session signed into that account picks them up automatically — across machines.
+
+**What this creates: a three-tier config hierarchy**
+
+| Tier | Source | Scope |
+|------|--------|-------|
+| Project | `.claude/skills/` in the repo | This codebase only |
+| Account | claude.ai skills/plugins sync | Per user, all machines |
+| Org | Managed settings / `managed-mcp.json` | Org-wide, enforced |
+
+Project-level skills override account-synced ones when names collide. Org-managed settings (`managed-mcp.json`) override both — a skill blocked in managed settings cannot be re-enabled by account sync.
+
+**The practical team workflow:**
+
+1. **Org layer:** Deploy company-wide MCP servers and shared policies via managed settings — these ship to everyone automatically.
+2. **Account layer:** Each engineer enables their personal utility skills on claude.ai (e.g., their preferred code-review or doc-search skill) — syncs to their terminal sessions on any machine.
+3. **Project layer:** Each repo carries skills specific to that codebase in `.claude/skills/` — version-controlled, reviewed in PRs.
+
+**Limits to know:**
+- Sync requires an active `claude auth login` session. A session running off a raw `ANTHROPIC_API_KEY` with no sign-in gets no account-synced skills.
+- Signing out drops the synced skills for that session. Signing into a different account switches to that account's skills.
+- CI and headless runs that use the API key path are unaffected — no change needed there.
+- Same release also adds `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`, an env var that bounds how long a non-interactive turn waits for connecting MCP servers — useful if your CI MCP servers are slow to start.
+
+**Sources:** [Claude Code Changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code September 2026 updates — Havoptic](https://www.havoptic.com/tools/claude-code) · [Control MCP access for your organization — Claude Code Docs](https://code.claude.com/docs/en/managed-mcp)
+]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5496,148 +5638,9 @@ Wire these to Grafana before you route production traffic. KV cache pressure is 
     </item>
 
 
-    <item>
-      <title>Stop Your Claude Agent From Calling Three Tools at Once: Two Settings for Predictable Execution</title>
-      <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools</link>
-      <guid isPermaLink="false">2026-08-30-03-tool-choice-sequential-disable-parallel</guid>
-      <pubDate>Sun, 30 Aug 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>disable_parallel_tool_use forces one tool call per turn; tool_choice: required forces a tool call on the first turn. Two settings for more predictable Claude agent execution, with the latency cost explained.</description>
-      <content:encoded><![CDATA[**Two tool_choice settings make Claude agents more predictable: `disable_parallel_tool_use` for sequential one-at-a-time calls, and `{"type": "required"}` to force retrieval on the first turn instead of answering from training data.**
-
-By default, Claude may call several independent tools in a single turn. For agents where you need to inspect each result — or where each tool call hits a rate-limited or side-effectful API — two settings give you explicit control.
-
-**Force the first turn to call a tool — not answer from memory:**
-
-```python
-response = client.messages.create(
-    model="claude-opus-5",
-    max_tokens=1024,
-    tools=tools,
-    tool_choice={"type": "required"},   # must call a tool this turn
-    messages=messages,
-)
-```
-
-Use this when your agent should always retrieve before it answers — preventing it from skipping the search step and responding from training data. `"required"` forces at least one tool call; Claude chooses which one. Use `{"type": "tool", "name": "search"}` to require a specific tool.
-
-**Sequence calls one at a time:**
-
-```python
-tool_choice={"type": "auto", "disable_parallel_tool_use": True}
-```
-
-With `disable_parallel_tool_use: True`, Claude returns at most one `tool_use` block per turn. You run it, inspect the result, decide whether to continue, then send it back. Useful when each call hits an external API you want to audit or rate-limit.
-
-**The latency cost:** you add one full API round trip per tool call. A task that would have run three parallel calls in one turn now takes three sequential turns — three times the latency plus three times the per-request overhead. Use parallel calls when tools are independent and intermediate results don't need inspection.
-
-**Skip the handling loop with Tool Runner:** The Anthropic SDK includes Tool Runner, which executes the tool-call loop automatically — register your callables by name and run the loop without explicit `tool_result` handling. See [Tool Runner docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) for the exact SDK API. The trade-off: less visibility into intermediate calls for debugging.
-
-**Sources:** [Define tools — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools) · [Parallel tool use — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) · [Claude API Function Calling: Complete Guide — DEV Community](https://dev.to/kalyna_pro/claude-api-function-calling-complete-guide-to-tool-use-2026-1kh3)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>The Model the Internet Fingerprinted as OX Alpha Is Now Officially Open Weight</title>
-      <link>https://huggingface.co/blog/state-of-open-models-summer-2026</link>
-      <guid isPermaLink="false">2026-08-30-02-glm-flash-transformers-open-weight</guid>
-      <pubDate>Sun, 30 Aug 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <description>GLM-5.3-Flash — the model community analysis linked to OpenRouter's OX Alpha mystery — is now official open-weight in HuggingFace Transformers v5.16.1. Needs server-class hardware unless you quantize.</description>
-      <content:encoded><![CDATA[**Zhipu AI's GLM-5.3-Flash landed in HuggingFace Transformers v5.16.1 as official open weights — the same model architecture the developer community fingerprinted to OpenRouter's OX Alpha with high confidence in late August.**
-
-The design: a mixture-of-experts model with 320B total parameters and 18B active per forward pass. Per Zhipu AI's own release notes (not independently verified), it claims to approach Claude Opus 4.8 on coding and agentic benchmarks. Text, image, and video input; tool-calling supported.
-
-**The hardware reality:** 18B active parameters sounds locally runnable, but loading the full 320B expert pool requires server-class storage and memory — you're looking at quantized GPTQ or GGUF builds before Ollama is realistic. The OX Alpha free-tier window on OpenRouter has closed; if you want to experiment, the open-weight path is now the practical one. Watch the HuggingFace model page for community quantizations.
-
-**Why it matters:** If you need a strong open-weight model with native tool-calling for self-hosted inference, GLM-5.3-Flash is now a testable option — your existing MCP or function-calling wiring shouldn't need changes.
-
-**Sources:** [State of Open Models Summer 2026 — HuggingFace Blog](https://huggingface.co/blog/state-of-open-models-summer-2026) · [HuggingFace Transformers releases](https://github.com/huggingface/transformers/releases) · [OX Alpha mystery model reporting — The Next Web](https://thenextweb.com/news/ox-alpha-stealth-model-openrouter-anonymous-provider)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Give Claude a Function to Call: The Tool-Use Round Trip Every Agent Runs</title>
-      <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview</link>
-      <guid isPermaLink="false">2026-08-30-01-claude-tool-use-round-trip-agent-loop</guid>
-      <pubDate>Sun, 30 Aug 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Tool use is how agents connect to the real world. Define a JSON schema, catch stop_reason: tool_use, execute your function, feed the result back — the four-step loop every Claude agent uses, with cost reality included.</description>
-      <content:encoded><![CDATA[**What you will be able to do after this:** wire any Python function — a database lookup, a search API, an internal retrieval call — into Claude as a callable tool, handle the result correctly, and understand the token overhead so costs don't surprise you.
-
-**Three things to take away:**
-- Claude never executes your function — it returns a `tool_use` block with structured arguments; your code runs the function and sends a `tool_result` back so Claude can continue
-- `stop_reason: "tool_use"` is the signal to handle a call; `stop_reason: "end_turn"` means Claude is done with tools and has its final answer
-- `strict: true` in a tool definition guarantees Claude's output always matches your JSON schema — catch argument type errors before they reach your function
-
-**The loop, step by step:**
-
-```python
-import anthropic, json
-
-client = anthropic.Anthropic()
-
-# 1. Define the tool — Claude gets the name, description, and schema
-tools = [{
-    "name": "get_order_status",
-    "description": "Look up the current status of a customer order by order ID.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "order_id": {"type": "string", "description": "The order ID, e.g. A42"}
-        },
-        "required": ["order_id"]
-    },
-    "strict": True   # output always matches this schema exactly
-}]
-
-messages = [{"role": "user", "content": "What is the status of order A42?"}]
-
-# 2. First turn: Claude decides to call the tool, returns stop_reason="tool_use"
-response = client.messages.create(
-    model="claude-opus-5", max_tokens=1024,
-    tools=tools, messages=messages,
-)
-tool_call = next(b for b in response.content if b.type == "tool_use")
-
-# 3. Your code runs the actual function
-result = lookup_order(tool_call.input["order_id"])  # your DB / API call
-
-# 4. Send the result back — Claude continues and gives the final answer
-messages += [
-    {"role": "assistant", "content": response.content},
-    {"role": "user", "content": [{
-        "type": "tool_result",
-        "tool_use_id": tool_call.id,
-        "content": json.dumps(result)
-    }]}
-]
-final = client.messages.create(
-    model="claude-opus-5", max_tokens=1024,
-    tools=tools, messages=messages,
-)
-print(next(b.text for b in final.content if b.type == "text"))
-```
-
-**The cost reality:** Every tool schema adds tokens to every request. On Claude Opus 5, the tool-use system prompt overhead alone is 286 tokens for `tool_choice: auto` and 406 tokens when using `any` or `tool`. Add ~50–150 tokens per tool definition. Ten detailed tool schemas on a short conversation can easily add 2–3k tokens per turn — size your descriptions to what Claude needs to choose correctly, not to what a human reader would want.
-
-**To skip the round-trip loop:** use [Tool Runner](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) — the Anthropic SDK can execute your tools automatically and send results back without explicit handling code. Useful for simple loops; keep the manual loop when you need to log, gate, or transform results.
-
-**Sources:** [Tool use overview — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Build a tool-using agent tutorial — Anthropic](https://platform.claude.com/docs/en/agents-and-tools/tool-use/build-a-tool-using-agent) · [Claude API Function Calling: Complete Guide (2026) — DEV Community](https://dev.to/kalyna_pro/claude-api-function-calling-complete-guide-to-tool-use-2026-1kh3)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
