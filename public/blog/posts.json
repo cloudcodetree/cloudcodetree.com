@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-18-06-on-demand-compaction-agentic-workflows",
+    "title": "Auto Compaction Blocks Your Next Agent Turn — On-Demand Mode Runs the Summary Off the Critical Path",
+    "excerpt": "The compact-2026-09-04 beta header (Sept 14) splits context summarization from conversation turns: fire a background compaction request, receive a signed summary block, swap it in when ready.",
+    "author": "Chris Harper",
+    "date": "09-18-2026",
+    "publishedAt": "2026-09-18T20:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Agents",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/build-with-claude/compaction",
+    "content": "**TL;DR: Auto-compaction pauses your agent mid-task while Claude writes a summary. On-demand mode lets you trigger that summary in the background and inject it only when your queue is idle.**\n\nEvery long-running Claude agent eventually hits the context limit. The default behavior — auto-compaction — is convenient: when the window fills, Claude automatically summarizes the conversation and continues. The problem is timing: that summary write happens synchronously, blocking the next agent turn. For an interactive agent, the user sees a multi-second stall at the worst possible moment.\n\n**The new on-demand option (released September 14, 2026):**\n\nPass the `compact-2026-09-04` beta header and set `compaction_mode: \"on_demand\"` in your API request. Instead of blocking to compact, the API returns a `compaction_required` event. You call the compaction endpoint separately, get back a signed `summary_block`, then include it in the next conversation turn.\n\n```python\n# Conceptual flow — check the docs for current parameter names\nresponse = anthropic.beta.messages.create(\n    model=\"claude-opus-4-7\",\n    system=system_prompt,\n    messages=conversation_history,\n    betas=[\"compact-2026-09-04\"],\n    compaction_mode=\"on_demand\",\n)\n\nif response.stop_reason == \"compaction_required\":\n    # Fire this while your agent is processing other work\n    summary = anthropic.beta.compaction.create(\n        conversation_id=response.conversation_id\n    )\n    # Swap into history when ready; agent doesn't stall\n    conversation_history = [{\"role\": \"user\", \"content\": [summary.block]}]\n```\n\n**The custom instructions field:** The compaction API accepts a `custom_instructions` string so you can tell the summarizer what to preserve — current task state, key decisions made, variables in scope — rather than hoping the default summary captures what your agent needs.\n\n**Three limits to know:**\n- Beta header required on every request; on-demand is API-only (no Workbench support yet)\n- Thinking blocks in your history require special handling — the compaction endpoint documentation covers the `thinking` preservation flag\n- **Billing gotcha:** `response.usage` only covers the current turn. Full compaction cost appears in `response.usage.iterations` — sum across all iterations to get the real token spend for a long-running session\n\n**The architectural shift:** auto-compaction treats summarization as a blocking step in the conversation loop; on-demand treats it as a background task you schedule. If your agent has any period of low activity (waiting on a tool call, an API response, a human review), that's when you run the compaction. The turn that would have stalled never sees the delay.\n\n[GitHub discussion: PinkyBot #1266](https://github.com/anthropics/anthropic-sdk-python/discussions/1266) has community notes on conversation_id scoping and session management patterns that complement the official docs."
+  },
+  {
+    "id": "2026-09-18-07-vllm-semantic-router-mixture-models-inference-routing",
+    "title": "Your Inference Bill Scales With Your Hardest Requests — Route the Easy Ones to a Cheap Model With vLLM Semantic Router",
+    "excerpt": "vLLM Semantic Router classifies each request in sub-milliseconds and routes it to the right model pool — cheap local model for simple tasks, frontier API for complex ones.",
+    "author": "Chris Harper",
+    "date": "09-18-2026",
+    "publishedAt": "2026-09-18T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "LLM"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://vllm.ai/blog/2026-07-21-vllm-sr-new-chapter-mom",
+    "content": "**What you'll be able to do after this:** configure a two-pool vLLM setup where 80% of your requests (the simple ones) never touch your expensive model.\n\nRunning a single frontier model for every request — whether it's \"summarize this paragraph\" or \"debug this multi-file refactor\" — is like taking a taxi to the corner store. The model that can handle your hardest 20% of requests is overkill for the other 80%, and you're paying frontier-model prices for all of it.\n\nvLLM Semantic Router solves this with a Mixture-of-Models (MoM) approach: a classifier inspects each incoming request and sends it to the appropriate model pool before any generation tokens are spent.\n\n**How the signal pipeline works:**\n\nThe router runs two stages in sequence:\n\n1. **Heuristic rules (<1ms):** Pattern matching on prompt length, presence of code blocks, explicit complexity markers. Cheap and fast — catches the obvious cases without inference.\n2. **Neural classifier (5–10ms):** A small embedded classifier scores complexity for requests that pass the heuristic filter. This is where the routing actually happens for ambiguous prompts.\n\nTotal overhead per request: 5–15ms, which is negligible against the latency difference between a 7B local model and a frontier API call.\n\n**Minimal working config (two pools):**\n\n```yaml\n# vllm-sr-config.yaml\nrouter:\n  strategy: semantic\n  pools:\n    - name: fast\n      model: Qwen/Qwen2.5-7B-Instruct\n      endpoint: http://localhost:8001/v1\n      threshold: 0.65   # route here if complexity score < threshold\n    - name: capable\n      model: claude-opus-4-7\n      endpoint: https://api.anthropic.com/v1\n      threshold: 1.0    # fallback for everything above 0.65\n```\n\n**Getting started:**\n\n```bash\npip install vllm-sr\n# Start your local model pool first (vLLM, Ollama, etc.)\nvllm-sr start --config vllm-sr-config.yaml --port 8080\n# Your application points at port 8080 — same OpenAI-compatible API\n```\n\nThe router exposes a standard OpenAI-compatible endpoint. No application code changes: swap your `base_url` and the router handles the rest.\n\n**Two limits that trip people up:**\n\n- **Routing latency overhead:** The 5–15ms overhead matters for real-time applications where the fast pool handles most traffic. If your fast pool is a local 7B model answering in 200ms, 15ms overhead is 7.5%. If your fast pool is a GPU farm answering in 50ms, it's 30%. Profile your actual pools before assuming the routing is free.\n- **Session-aware routing:** The router routes each request independently by default. If your application relies on multi-turn coherence (a conversation where turn 3 depends on turn 1's reasoning), configure `sticky_routing: true` in the pool config. Without it, turn 1 might hit the capable pool and turn 3 might hit the fast pool, producing inconsistent behavior.\n\nFor a deeper walkthrough of the neural classifier training and threshold calibration, the Red Hat Developer tutorial (March 2026) covers building a custom classifier for domain-specific routing rather than relying on the generic complexity score."
+  },
+  {
     "id": "2026-09-18-05-agent-sdk-system-prompt-dynamic-boundary-cache",
     "title": "Your Agent SDK System Prompt Re-Caches on Every Request — One Array Fixes That",
     "excerpt": "Split your Claude Agent SDK system prompt at SYSTEM_PROMPT_DYNAMIC_BOUNDARY so static instructions hit the prompt cache and per-request context doesn't invalidate them.",

@@ -10,9 +10,125 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 18 Sep 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 18 Sep 2026 20:04:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Auto Compaction Blocks Your Next Agent Turn — On-Demand Mode Runs the Summary Off the Critical Path</title>
+      <link>https://platform.claude.com/docs/en/build-with-claude/compaction</link>
+      <guid isPermaLink="false">2026-09-18-06-on-demand-compaction-agentic-workflows</guid>
+      <pubDate>Fri, 18 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>The compact-2026-09-04 beta header (Sept 14) splits context summarization from conversation turns: fire a background compaction request, receive a signed summary block, swap it in when ready.</description>
+      <content:encoded><![CDATA[**TL;DR: Auto-compaction pauses your agent mid-task while Claude writes a summary. On-demand mode lets you trigger that summary in the background and inject it only when your queue is idle.**
+
+Every long-running Claude agent eventually hits the context limit. The default behavior — auto-compaction — is convenient: when the window fills, Claude automatically summarizes the conversation and continues. The problem is timing: that summary write happens synchronously, blocking the next agent turn. For an interactive agent, the user sees a multi-second stall at the worst possible moment.
+
+**The new on-demand option (released September 14, 2026):**
+
+Pass the `compact-2026-09-04` beta header and set `compaction_mode: "on_demand"` in your API request. Instead of blocking to compact, the API returns a `compaction_required` event. You call the compaction endpoint separately, get back a signed `summary_block`, then include it in the next conversation turn.
+
+```python
+# Conceptual flow — check the docs for current parameter names
+response = anthropic.beta.messages.create(
+    model="claude-opus-4-7",
+    system=system_prompt,
+    messages=conversation_history,
+    betas=["compact-2026-09-04"],
+    compaction_mode="on_demand",
+)
+
+if response.stop_reason == "compaction_required":
+    # Fire this while your agent is processing other work
+    summary = anthropic.beta.compaction.create(
+        conversation_id=response.conversation_id
+    )
+    # Swap into history when ready; agent doesn't stall
+    conversation_history = [{"role": "user", "content": [summary.block]}]
+```
+
+**The custom instructions field:** The compaction API accepts a `custom_instructions` string so you can tell the summarizer what to preserve — current task state, key decisions made, variables in scope — rather than hoping the default summary captures what your agent needs.
+
+**Three limits to know:**
+- Beta header required on every request; on-demand is API-only (no Workbench support yet)
+- Thinking blocks in your history require special handling — the compaction endpoint documentation covers the `thinking` preservation flag
+- **Billing gotcha:** `response.usage` only covers the current turn. Full compaction cost appears in `response.usage.iterations` — sum across all iterations to get the real token spend for a long-running session
+
+**The architectural shift:** auto-compaction treats summarization as a blocking step in the conversation loop; on-demand treats it as a background task you schedule. If your agent has any period of low activity (waiting on a tool call, an API response, a human review), that's when you run the compaction. The turn that would have stalled never sees the delay.
+
+[GitHub discussion: PinkyBot #1266](https://github.com/anthropics/anthropic-sdk-python/discussions/1266) has community notes on conversation_id scoping and session management patterns that complement the official docs.
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Inference Bill Scales With Your Hardest Requests — Route the Easy Ones to a Cheap Model With vLLM Semantic Router</title>
+      <link>https://vllm.ai/blog/2026-07-21-vllm-sr-new-chapter-mom</link>
+      <guid isPermaLink="false">2026-09-18-07-vllm-semantic-router-mixture-models-inference-routing</guid>
+      <pubDate>Fri, 18 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <media:content url="https://vllm.ai/blog-assets/figures/2026-07-21-vllm-sr-new-chapter/hero.png" medium="image" />
+      <media:thumbnail url="https://vllm.ai/blog-assets/figures/2026-07-21-vllm-sr-new-chapter/hero.png" />
+      <description>vLLM Semantic Router classifies each request in sub-milliseconds and routes it to the right model pool — cheap local model for simple tasks, frontier API for complex ones.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** configure a two-pool vLLM setup where 80% of your requests (the simple ones) never touch your expensive model.
+
+Running a single frontier model for every request — whether it's "summarize this paragraph" or "debug this multi-file refactor" — is like taking a taxi to the corner store. The model that can handle your hardest 20% of requests is overkill for the other 80%, and you're paying frontier-model prices for all of it.
+
+vLLM Semantic Router solves this with a Mixture-of-Models (MoM) approach: a classifier inspects each incoming request and sends it to the appropriate model pool before any generation tokens are spent.
+
+**How the signal pipeline works:**
+
+The router runs two stages in sequence:
+
+1. **Heuristic rules (<1ms):** Pattern matching on prompt length, presence of code blocks, explicit complexity markers. Cheap and fast — catches the obvious cases without inference.
+2. **Neural classifier (5–10ms):** A small embedded classifier scores complexity for requests that pass the heuristic filter. This is where the routing actually happens for ambiguous prompts.
+
+Total overhead per request: 5–15ms, which is negligible against the latency difference between a 7B local model and a frontier API call.
+
+**Minimal working config (two pools):**
+
+```yaml
+# vllm-sr-config.yaml
+router:
+  strategy: semantic
+  pools:
+    - name: fast
+      model: Qwen/Qwen2.5-7B-Instruct
+      endpoint: http://localhost:8001/v1
+      threshold: 0.65   # route here if complexity score < threshold
+    - name: capable
+      model: claude-opus-4-7
+      endpoint: https://api.anthropic.com/v1
+      threshold: 1.0    # fallback for everything above 0.65
+```
+
+**Getting started:**
+
+```bash
+pip install vllm-sr
+# Start your local model pool first (vLLM, Ollama, etc.)
+vllm-sr start --config vllm-sr-config.yaml --port 8080
+# Your application points at port 8080 — same OpenAI-compatible API
+```
+
+The router exposes a standard OpenAI-compatible endpoint. No application code changes: swap your `base_url` and the router handles the rest.
+
+**Two limits that trip people up:**
+
+- **Routing latency overhead:** The 5–15ms overhead matters for real-time applications where the fast pool handles most traffic. If your fast pool is a local 7B model answering in 200ms, 15ms overhead is 7.5%. If your fast pool is a GPU farm answering in 50ms, it's 30%. Profile your actual pools before assuming the routing is free.
+- **Session-aware routing:** The router routes each request independently by default. If your application relies on multi-turn coherence (a conversation where turn 3 depends on turn 1's reasoning), configure `sticky_routing: true` in the pool config. Without it, turn 1 might hit the capable pool and turn 3 might hit the fast pool, producing inconsistent behavior.
+
+For a deeper walkthrough of the neural classifier training and threshold calibration, the Red Hat Developer tutorial (March 2026) covers building a custom classifier for domain-specific routing rather than relying on the generic complexity score.
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Agent SDK System Prompt Re-Caches on Every Request — One Array Fixes That</title>
@@ -5483,110 +5599,8 @@ trainer.train()
 **Sources:** [TRL SFTTrainer &#8212; huggingface.co/docs/trl/sft_trainer](https://huggingface.co/docs/trl/sft_trainer) &#xB7; [smol-course Ch. 1: Instruction tuning &#8212; github.com/huggingface/smol-course](https://github.com/huggingface/smol-course/tree/main/1_instruction_tuning) &#xB7; [AMD ROCm TRL fine-tuning tutorial (independent)](https://rocm.docs.amd.com/projects/ai-developer-hub/en/latest/notebooks/fine_tune/fine_tuning_lora_qwen2vl.html)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Pipe a Build Log, Get a Root Cause: Four `claude -p` Patterns for Shell Scripts and CI</title>
-      <link>https://code.claude.com/docs/en/headless</link>
-      <guid isPermaLink="false">2026-08-30-07-claude-p-print-mode-shell-scripting</guid>
-      <pubDate>Sun, 30 Aug 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>claude -p turns Claude Code into a composable one-shot CLI: pipe in stdin, get output, exit. Four patterns — triage, typed JSON, lint step in package.json, chained sessions — that drop into any shell workflow today.</description>
-      <content:encoded><![CDATA[**TL;DR: `claude -p` makes Claude Code behave like `grep` or `jq` — one prompt in, one result out, then exit. Four shell patterns you can use today.**
-
-The interactive TUI is the right tool for exploratory work. But for a repeated pipeline step — triage a build error, extract function names, review a diff before commit — you want a command that composes with the rest of your shell. `claude -p` is that command.
-
-**Pattern 1: Triage in one pipe**
-
-```bash
-cat build-error.txt | claude -p 'concisely explain the root cause of this build error' > output.txt
-```
-
-Stdin is read as context; output goes to stdout. Pipe in up to 10 MB (use a file path in the prompt for larger inputs). Exit code 0 on success, non-zero on failure — branch on it in scripts.
-
-**Pattern 2: A `lint:claude` step in package.json**
-
-```json
-{
-  "scripts": {
-    "lint:claude": "git diff main | claude -p \"you are a typo linter. for each typo, report filename:line then the issue. return nothing else.\""
-  }
-}
-```
-
-Run with `npm run lint:claude`. Claude sees the diff without Bash permission to read git internals.
-
-**Pattern 3: Typed JSON output**
-
-```bash
-claude -p "Extract the main function names from auth.py" \
-  --output-format json \
-  --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}' \
-  | jq '.structured_output'
-```
-
-`--output-format json` also includes `total_cost_usd` and a per-model breakdown — useful for tracking spend per invocation in CI without consulting the dashboard.
-
-**Pattern 4: Chained review sessions**
-
-```bash
-session_id=$(claude -p "Review this codebase for performance issues" --output-format json | jq -r '.session_id')
-claude -p "Now focus on the database queries" --resume "$session_id"
-claude -p "Generate a summary of all issues" --resume "$session_id"
-```
-
-Each subsequent call continues the same conversation. `--continue` resumes the most recent session when you don't need to capture the ID.
-
-**Key flags to know**
-
-- `--bare`: skips hooks, plugins, CLAUDE.md, and MCP servers — use in CI for reproducible, machine-agnostic runs. Will become the default for `-p` in a future release.
-- `--allowedTools "Bash,Read,Edit"`: auto-approves tools without prompting.
-- `--permission-mode acceptEdits`: Claude writes files without asking; other shell commands still need an `--allowedTools` entry.
-- `--append-system-prompt "..."`: add a reviewer role without a full session setup (`"You are a security engineer. Review for vulnerabilities."`).
-
-**Real limits**
-
-- `--bare` mode cannot use your Claude subscription OAuth; set `ANTHROPIC_API_KEY` before running.
-- Stdin capped at 10 MB; reference a file path in the prompt for larger inputs.
-- Background Bash tasks started during a `-p` run are terminated about 5 seconds after the final result — don't rely on them for cleanup or post-processing.
-- `--restricted` (strips command tools entirely) and `-p` (single-shot exit) are complementary, not synonyms: use `--restricted` for long-running CI agents that should not touch the network; use `-p` for one-off pipeline steps that exit.
-
-**Sources:** [Run Claude Code programmatically — code.claude.com](https://code.claude.com/docs/en/headless) · [Claude Code in CI/CD and Headless Automation — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_cicd_and_headless_automation.html) · [Claude Code Headless Scripting 2026 — StackNotice](https://stacknotice.com/blog/claude-code-headless-scripting-2026)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>OpenAI Is Cutting Off Cursor's GPT Models on November 12 After SpaceX Acquired Anysphere</title>
-      <link>https://the-decoder.com/openai-cuts-off-cursor-after-spacex-acquisition-citing-musks-history-of-breaking-contracts/</link>
-      <guid isPermaLink="false">2026-08-30-06-openai-cursor-spacex-model-cutoff</guid>
-      <pubDate>Sun, 30 Aug 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>LLM</category>
-      <description>OpenAI announced August 28 it is terminating Cursor's direct GPT model access on November 12, invoking a change-of-control clause after SpaceX acquired Anysphere. Claude is expected to become the default path.</description>
-      <content:encoded><![CDATA[**TL;DR: SpaceX acquired Cursor's parent Anysphere in mid-August; OpenAI invoked its change-of-control clause and will cut off direct GPT model access on November 12, 2026.**
-
-SpaceX finalized its acquisition of Anysphere — the company behind Cursor — in mid-August 2026. OpenAI announced on August 28 that it is winding down its contract and will terminate direct GPT model access to Cursor on November 12, the maximum contractual notice period.
-
-OpenAI cited trust concerns. Its statement pointed to Musk's track record with contracts: the data cutoff after X's acquisition in 2022 and sworn testimony involving xAI training data. Cursor's co-founder Michael Truell responded that OpenAI accounts for just 5% of Cursor's AI traffic and that talks with OpenAI's team are ongoing.
-
-**What changes for engineers**
-
-- Direct model access (the embedded GPT models Cursor supplies to users) ends November 12.
-- Your own OpenAI API key still works inside Cursor after that date — bring-your-own-key access is unaffected.
-- OpenAI will continue providing models through its VS Code and IDE extensions.
-- Anthropic's co-founder has signaled expanded Claude model capacity for Cursor, and Claude is the current plurality model across Cursor's traffic.
-
-**Why it matters:** If your Cursor workflow depends on specific GPT-4-series models — o3, GPT-5, or proprietary Cursor-routed variants — test the Claude path now rather than scrambling in October. The November 12 deadline gives you ten weeks; the migration itself is typically a settings change, not a workflow rewrite.
-
-The practical limit: the forced migration timeline assumes ongoing contract talks fail. If OpenAI and SpaceX/xAI reach an agreement, the cutoff date could change. Watch Cursor's changelog for updates.
-
-**Sources:** [OpenAI cuts off Cursor after SpaceX acquisition — The Decoder](https://the-decoder.com/openai-cuts-off-cursor-after-spacex-acquisition-citing-musks-history-of-breaking-contracts/) · [OpenAI terminates contract with Cursor — Neowin](https://www.neowin.net/news/openai-terminates-contract-with-cursor-following-acquisition-by-elon-musks-spacex/) · [OpenAI to end model access to Cursor — CNBC](https://www.cnbc.com/2026/08/29/openai-cursor-spacex-model-access.html) · [OpenAI will pull its models from Cursor — Engadget](https://www.engadget.com/2246969/openai-pull-its-models-from-cursor-due-to-spacexai-acquisition/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
 
