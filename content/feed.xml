@@ -10,9 +10,144 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 19 Sep 2026 04:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 19 Sep 2026 12:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your Claude Code Sessions Forget Everything at Session End — funes Indexes Past Decisions So the Agent Can Recall Them</title>
+      <link>https://huggingface.co/blog/funes</link>
+      <guid isPermaLink="false">2026-09-19-04-funes-claude-code-persistent-memory-owned</guid>
+      <pubDate>Sat, 19 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>funes (HuggingFace) gives your coding agents durable local memory: one command wires recall and ask tools into Claude Code, indexing raw session traces you own via vector + BM25 search.</description>
+      <content:encoded><![CDATA[**funes is a single binary that indexes Claude Code session traces locally, gives agents a `recall` tool to search past decisions, and keeps the data on your machine — no account or external service required.**
+
+Every Claude Code session starts cold. Decisions made two projects ago — why you chose that architecture, why that approach was abandoned, what the workaround was for a specific edge case — are gone from the agent's context the moment the session closes. funes solves this by indexing the raw trace files your agent already writes, building a hybrid vector + BM25 index on your machine, and wiring a `recall` tool directly into the next agent session.
+
+**One-time setup:**
+
+```bash
+pip install funes
+funes add claude-code   # wires recall + ask tools; builds first index
+```
+
+After setup, Claude Code sessions automatically have access to `recall("why did we avoid direct S3 writes")` — the agent uses it spontaneously when a decision looks like something it might have seen before.
+
+**Searching from the CLI:**
+
+```bash
+funes search "how did we handle rate limiting in that API project"
+```
+
+**Optional cross-machine sync** — memory stays local by default, you own the dataset:
+
+```bash
+funes sync --repo your-hf-username/my-agent-memory --private
+```
+
+The memory store is a private HuggingFace Hub dataset in your account. Another machine or a teammate can bind to the same repo; the index merges, and every hit shows which agent and session it came from.
+
+**Limits:** funes indexes *finished* sessions only — there is no real-time recall of the current session until it ends. Index quality depends on trace verbosity; short sessions with minimal output produce sparse, less-useful entries. As of the current release, supported agents are Claude Code, Codex, pi, and Hermes — other agent runtimes are not yet indexed.
+
+**Sources:** [Give Your Coding Agents a Memory You Own — HuggingFace Blog](https://huggingface.co/blog/funes) · [huggingface/funes — GitHub](https://github.com/huggingface/funes) · [Hugging Face releases funes to give coding agents durable, local memory — korshunov.ai](https://korshunov.ai/en/article/23053-hugging-face-releases-funes-to-give-coding-agents-durable-local-memory/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Ollama v0.34: Local Models Now Appear in ChatGPT Desktop, Plus Structured Output and Tool Search Improvements</title>
+      <link>https://github.com/ollama/ollama/releases/tag/v0.34.0</link>
+      <guid isPermaLink="false">2026-09-19-05-ollama-v034-chatgpt-desktop-structured-outputs</guid>
+      <pubDate>Sat, 19 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Self-Hosting</category>
+      <category>Local AI</category>
+      <description>Ollama v0.34 adds ChatGPT Desktop integration on macOS so local models show in Codex mode alongside GPT, improves Apple Silicon structured output, and adds OpenAI-compatible tool search.</description>
+      <content:encoded><![CDATA[**Ollama v0.34 lets you select local Ollama models from ChatGPT Desktop's Codex model picker on macOS, and ships faster structured output on Apple Silicon and OpenAI-compatible tool search in the same release.**
+
+Three changes for engineers on the local-model stack:
+
+1. **ChatGPT Desktop integration (macOS only):** Enable from the Ollama desktop app → Apps → toggle ChatGPT Desktop on. Installed Ollama models then appear in ChatGPT Desktop's model picker alongside cloud models — but only in Codex mode. Regular Chat and voice still use ChatGPT's own connection. Requires Ollama v0.34.0+ and ChatGPT Desktop on macOS.
+
+2. **Structured output on Apple Silicon:** Per Ollama's changelog, constrained generation throughput improved in this release. No independent benchmark has been published yet; treat the performance claim as Ollama's own until tested independently.
+
+3. **OpenAI-compatible tool search and response compaction:** Clients using Ollama's OpenAI-compatible endpoint can pass `tool_search` for vector-retrievable tool descriptions and `compact_response` to trim redundant fields from multi-turn structured completions. Useful if you're running Ollama as a drop-in local backend for code that targets the OpenAI SDK.
+
+**Why it matters:** The ChatGPT Desktop hook is mainly useful for comparative testing — same prompt, local model vs. cloud model, same interface. The tool search and response compaction improvements matter more for teams running Ollama as a development proxy.
+
+**Limits:** ChatGPT Desktop integration is Mac-only in v0.34; the Windows path is not yet in the release notes. The `typical_p` sampling parameter was removed in this release — models created with it will not transfer cleanly.
+
+**Sources:** [Release v0.34.0 — ollama/ollama](https://github.com/ollama/ollama/releases/tag/v0.34.0) · [Release v0.34.2 — ollama/ollama](https://github.com/ollama/ollama/releases/tag/v0.34.2) · [ChatGPT Desktop integration — Ollama docs](https://docs.ollama.com/integrations/chatgpt)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>You've Learned Embeddings and Chunking Separately — Here's the Complete Pipeline That Wires Them Together</title>
+      <link>https://www.youtube.com/watch?v=iKzYPBC5c5Y</link>
+      <guid isPermaLink="false">2026-09-19-06-end-to-end-rag-pipeline-foundations-langchain</guid>
+      <pubDate>Sat, 19 Sep 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <media:content url="https://img.youtube.com/vi/iKzYPBC5c5Y/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/iKzYPBC5c5Y/maxresdefault.jpg" />
+      <description>A step-by-step minimal RAG pipeline: load a document, chunk it, embed with sentence-transformers, store in Chroma, retrieve on a query, generate a grounded response — under 40 lines of Python.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** build a complete RAG pipeline from scratch — document loading, chunking, embedding, vector store, retrieval, and grounded generation — in under 40 lines of Python you actually understand.
+
+**Three things this makes concrete:**
+- Embeddings and chunking are not useful alone — they only matter inside a pipeline that retrieves the right chunks and passes them to a model
+- The ingestion phase (load → chunk → embed → store) runs once when documents change; the query phase (embed query → retrieve → generate) runs on every request
+- Every "Better RAG" technique (reranking, hybrid search, metadata filtering) is an optimization of one of these four steps — run the baseline first to know which step is your bottleneck
+
+**Anchor resource:** [RAG Explained from Scratch with LangChain](https://www.youtube.com/watch?v=iKzYPBC5c5Y) (August 2026, ~35 min) — builds the complete pipeline live, shows the Chroma and sentence-transformers wiring, and walks through what breaks when chunks are too large, too small, or semantically misaligned with the query.
+
+**Minimal working pipeline (~35 lines):**
+
+```python
+# pip install langchain langchain-anthropic langchain-chroma \
+#             langchain-huggingface sentence-transformers
+
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_chroma import Chroma
+from langchain_anthropic import ChatAnthropic
+from langchain.chains import RetrievalQA
+
+# INGESTION (run once, or when documents change)
+docs = TextLoader("my_docs.txt").load()
+chunks = RecursiveCharacterTextSplitter(
+    chunk_size=500, chunk_overlap=50
+).split_documents(docs)
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+vectorstore = Chroma.from_documents(
+    chunks, embeddings, persist_directory="./chroma_db"
+)
+
+# QUERY (run on each user request)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+llm = ChatAnthropic(model="claude-sonnet-5")
+qa = RetrievalQA.from_chain_type(
+    llm=llm, retriever=retriever, return_source_documents=True
+)
+
+result = qa.invoke("What does the document say about X?")
+print(result["result"])
+# result["source_documents"] shows exactly which chunks were retrieved
+```
+
+**Where to look when it fails:** `return_source_documents=True` is your first debugging tool — if the retrieved chunks don't contain the answer, the problem is in retrieval (chunk size, k, or embedding model), not generation. `search_kwargs={"k": 4}` is the highest-impact tuning knob: too few chunks misses context; too many dilutes relevance.
+
+**Limits:** `all-MiniLM-L6-v2` is fast (22M parameters) but degrades on technical queries with rare vocabulary — swap in `all-mpnet-base-v2` when precision matters more than inference speed. Chroma with `persist_directory` reloads the existing index on startup — add new documents with `vectorstore.add_documents(new_chunks)` without rebuilding from scratch.
+
+**Sources:** [RAG Explained from Scratch with LangChain — YouTube](https://www.youtube.com/watch?v=iKzYPBC5c5Y) · [LangChain RAG documentation](https://docs.langchain.com/oss/python/langchain/rag) · [sentence-transformers pretrained models — SBERT.net](https://www.sbert.net/docs/pretrained_models.html)]]></content:encoded>
+    </item>
 
     <item>
       <title>OpenAI Discloses Six Agent Failure Modes — A Catalog of What to Test Before You Deploy</title>
@@ -5426,153 +5561,9 @@ resp = client.chat.completions.create(
       <media:thumbnail url="https://openrouter.ai/blog/images/lowest-cost-llm-inference.png" />
     </item>
 
-    <item>
-      <title>Run a Command in Your Claude Code Session and Skip the Copy-Paste Step: The `!` Prefix</title>
-      <link>https://code.claude.com/docs/en/interactive-mode#shell-mode-with-prefix</link>
-      <guid isPermaLink="false">2026-08-31-05-claude-code-shell-mode-bang-prefix</guid>
-      <pubDate>Mon, 31 Aug 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>In a Claude Code interactive session, `! npm test` runs the command and immediately gets an explanation of the output — no second prompt needed. Different from `claude -p` piping: the response knows your full conversation context.</description>
-      <content:encoded><![CDATA[**TL;DR: In an interactive Claude Code session, prefix any command with `!` and Claude automatically explains its output — no second prompt, no copy-pasting. The explanation has full conversation context.**
-
-When you're debugging inside a Claude Code session, the usual loop is: run a command in your terminal, copy the output, paste it back into Claude, ask "what's wrong?" The `!` prefix collapses that into one step.
-
-**How it works**
-
-Type `! npm test` at the Claude Code prompt. The command runs in the session's shell, the output lands in the transcript, and Claude explains it immediately — as if you had pasted the log and asked "diagnose this." No second prompt. The response inherits everything in your current conversation: the file you're working on, the change you just made, the error you mentioned three turns ago.
-
-**Practical patterns**
-
-```
-> ! npm test
-> ! cargo build --release
-> ! git diff --stat
-> ! python -m pytest tests/auth.py -v
-> ! docker logs --tail 50 api-container
-```
-
-Each one runs, and Claude explains the result in context. "Why is this build failing?" becomes implicit — Claude already knows what you were building.
-
-The key difference from `claude -p "explain this" < output.txt`: the `!` variant runs inside a live session, so Claude's answer can reference earlier decisions, the files it has already read, and the specific changes that might have caused the failure. The `-p` pattern is for scripts and pipelines with no conversation history.
-
-**Turn it off if you don't want it**
-
-Set `respondToBashCommands: false` in `settings.json` to restore the old behavior where `!` commands add output to context without triggering a response. Useful in a long diagnostic loop where you want to run several commands before asking Claude to synthesize the results.
-
-**Real limit:** Each `!` response is billed the same as a normal turn — a token cost against your session budget. Running many commands in quick succession (a debug loop of twenty `! pytest` runs) can eat through your context budget faster than typed turns alone. If you're in a tight session, run the commands together and ask once rather than triggering a response on each.
-
-**Sources:** [Shell mode with the ! prefix — Claude Code docs](https://code.claude.com/docs/en/interactive-mode#shell-mode-with-prefix) · [Week 26 What's New — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w26)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Six Models Leave GitHub Copilot Tomorrow, Including Claude Sonnet 4.6</title>
-      <link>https://github.blog/changelog/2026-07-31-upcoming-august-2026-model-deprecations-in-github-copilot/</link>
-      <guid isPermaLink="false">2026-08-31-04-github-copilot-sept1-model-deprecations</guid>
-      <pubDate>Mon, 31 Aug 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <description>GitHub Copilot retires Claude Opus 4.5/4.6, Sonnet 4.5/4.6, Gemini 3.1 Pro, and Raptor Mini on September 1. If a config or extension pins one of these model IDs, requests will fail silently starting tomorrow.</description>
-      <content:encoded><![CDATA[**TL;DR: GitHub Copilot retires six models on September 1 — including Claude Sonnet 4.6. If any config, extension setting, or CI step pins one of these model IDs, it will fail silently starting tomorrow morning.**
-
-The models going away and their replacements:
-
-| Retired | Replacement |
-|---|---|
-| Claude Opus 4.5 | Opus 4.7, 4.8, or 5 |
-| Claude Opus 4.6 | Opus 4.7, 4.8, or 5 |
-| Claude Sonnet 4.5 | Sonnet 5 |
-| Claude Sonnet 4.6 | Sonnet 5 (annual individual subscribers keep access temporarily) |
-| Gemini 3.1 Pro | Gemini 3.6 Flash |
-| Raptor Mini | MAI-Code-1-Flash |
-
-Most Copilot users are unaffected — when you haven't pinned a model, Copilot selects one for you and will route to a supported model automatically. The risk is in any place that hardcodes a model ID: `.github/copilot.yaml` files, IDE extension settings, GitHub Actions steps that call the Copilot API by model name.
-
-A quick text search for `claude-opus-4.5`, `claude-opus-4.6`, `claude-sonnet-4.5`, `claude-sonnet-4.6` across your repos and CI configs will surface everything that needs updating before tomorrow.
-
-**Why it matters:** Deprecated Copilot models return errors, not fallback responses. Pinned workflows break silently on deprecation day — the error doesn't appear until the next time that path runs in production.
-
-**Sources:** [Upcoming August 2026 model deprecations — GitHub Changelog](https://github.blog/changelog/2026-07-31-upcoming-august-2026-model-deprecations-in-github-copilot/) · [GitHub Copilot in Visual Studio August 2026 update](https://github.blog/changelog/2026-08-28-github-copilot-in-visual-studio-august-update-2/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your LLM App Is a Black Box Without This: Langfuse Traces Every Call in 5 Lines</title>
-      <link>https://langfuse.com/docs/observability/get-started</link>
-      <guid isPermaLink="false">2026-08-31-06-langfuse-llm-observability-tracing</guid>
-      <pubDate>Mon, 31 Aug 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Langfuse is open-source LLM observability: one import swap or @observe decorator gives you every prompt, response, token count, and latency in a searchable trace dashboard. Self-hostable; integrates with LangChain, OpenAI SDK, and the Anthropic SDK.</description>
-      <content:encoded><![CDATA[**TL;DR: Add Langfuse to any LLM app with one import swap and get a searchable trace of every prompt, response, token cost, and latency — open-source, self-hostable, works with LangChain and the Anthropic SDK.**
-
-**What you'll be able to do after this:** trace why a specific request returned wrong output; compare latency and token cost across model versions; catch regressions when you update a prompt or switch models.
-
-**Three things to know going in:**
-- Langfuse is open-source (Apache 2), self-hostable with Docker Compose in about 15 minutes, and has a managed cloud option for getting started
-- Traces are async — events queue locally and flush in batches, so adding tracing doesn't add latency to your app's response time
-- Beyond traces, you can attach evaluation scores to any generation and run batch evals across prompt versions — the trace store doubles as your evaluation dataset
-
-**Set it up:**
-```bash
-pip install langfuse
-export LANGFUSE_SECRET_KEY=sk-lf-...
-export LANGFUSE_PUBLIC_KEY=pk-lf-...
-export LANGFUSE_BASE_URL=https://cloud.langfuse.com  # or your self-hosted URL
-```
-
-**For the OpenAI SDK — one import swap, zero other changes:**
-```python
-from langfuse.openai import openai  # replaces: from openai import OpenAI
-
-completion = openai.chat.completions.create(
-    name="classify-support-ticket",   # shows as the trace name in the UI
-    model="gpt-4o",
-    messages=[
-        {"role": "system", "content": "You are a support ticket classifier."},
-        {"role": "user", "content": ticket_body},
-    ],
-)
-```
-
-Every call now appears in the Langfuse dashboard with its latency, token count, cost estimate, and the exact prompt-response pair. "Why did this ticket get classified wrong?" becomes a 10-second search.
-
-**For the Anthropic SDK — use `@observe`:**
-```python
-from langfuse.decorators import observe, langfuse_context
-from anthropic import Anthropic
-
-client = Anthropic()
-
-@observe(as_type="generation")
-def classify(ticket: str) -> str:
-    response = client.messages.create(
-        model="claude-sonnet-5-20260628",
-        max_tokens=256,
-        messages=[{"role": "user", "content": ticket}],
-    )
-    langfuse_context.update_current_observation(
-        usage={"input": response.usage.input_tokens, "output": response.usage.output_tokens}
-    )
-    return response.content[0].text
-```
-
-Call `langfuse.flush()` at the end of any short-lived script — without it, buffered traces may not upload before the process exits.
-
-**Real limits:** The managed cloud tier has trace volume and retention limits; self-hosting removes both but adds infrastructure. The `flush()` call is easy to forget in scripts. And the import-swap approach for OpenAI captures calls automatically but doesn't capture calls made through LangChain, LlamaIndex, or custom wrappers — for those, use the callback integrations or the `@observe` decorator on your pipeline functions.
-
-**Sources:** [Get Started with Tracing — Langfuse docs](https://langfuse.com/docs/observability/get-started) · [Complete Langfuse Observability and Evaluation Pipeline — MarkTechPost](https://www.marktechpost.com/2026/05/24/build-a-complete-langfuse-observability-and-evaluation-pipeline-for-tracing-prompt-management-scoring-and-experiments/) · [Get Started with Langfuse — YouTube](https://www.youtube.com/watch?v=epnPfe5am3I) · [Langfuse 2026 Guide — QASkills](https://qaskills.sh/blog/langfuse-llm-observability-guide-2026)]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/epnPfe5am3I/hqdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/epnPfe5am3I/hqdefault.jpg" />
-    </item>
-
+    
+    
+    
     
     
     
