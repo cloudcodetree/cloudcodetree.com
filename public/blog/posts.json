@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-19-07-claude-code-agents-md-cross-tool-instructions",
+    "title": "Your CLAUDE.md Is Claude-Specific — Put Shared Coding-Agent Rules in AGENTS.md Instead",
+    "excerpt": "Claude Code v2.1.278 reads AGENTS.md as fallback when CLAUDE.md is absent. Keep shared project rules in AGENTS.md for all agents; use CLAUDE.md for Claude-specific config only.",
+    "author": "Chris Harper",
+    "date": "09-19-2026",
+    "publishedAt": "2026-09-19T20:11:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/changelog",
+    "content": "**Claude Code v2.1.278 reads AGENTS.md as a fallback when no CLAUDE.md is found — the same file OpenAI Codex, GitHub Copilot, and Gemini CLI already respect, letting you maintain one instruction set for the whole repo.**\n\nAGENTS.md is a tool-agnostic Markdown file for project-level agent configuration. It is already adopted in over 60,000 repositories (per Cryptobriefing), with OpenAI Codex, GitHub Copilot, and Gemini CLI all reading it. Claude Code v2.1.278 joins the standard: when it cannot find CLAUDE.md (or any of its variants) in the project hierarchy, it reads AGENTS.md instead.\n\n**The practical split for mixed-agent repos:**\n\n- **AGENTS.md** — shared rules every agent in the repo should follow: coding standards, architecture decisions, naming conventions, test patterns, commit format. All agents read this.\n- **CLAUDE.md** — Claude-specific config: tool permissions, hooks, memory instructions, subagent setup. When present, Claude Code uses it and ignores AGENTS.md unless you configure otherwise.\n\nTo load both — AGENTS.md as a supplement to CLAUDE.md — go to `/config` → \"Project instructions\" and configure priority or dual-load there.\n\n**One limit worth knowing:** When both files exist, CLAUDE.md wins and other agents see only AGENTS.md. In repos where Copilot, Codex, or Gemini CLI are also running, this means they receive a different instruction set than Claude Code does. Audit for conflicts before assuming a single source of truth. Also: AGENTS.md fallback is not yet available on AWS Bedrock, Google Vertex, or Anthropic Foundry.\n\n**Sources:** [Claude Code changelog v2.1.278 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code adds AGENTS.md fallback for multi-agent repos — RuntimeWire](https://runtimewire.com/article/claude-code-adds-agents-md-support) · [Anthropic Claude Code joins cross-tool AI coding standard — Cryptobriefing](https://cryptobriefing.com/anthropic-claude-code-agents-md-support/)"
+  },
+  {
+    "id": "2026-09-19-08-supervised-fine-tuning-sfttrainer-chat-template-trl",
+    "title": "Your Fine-Tuning Script Probably Skips apply_chat_template — Here Is the SFT Walkthrough That Does Not",
+    "excerpt": "The chat template step most SFT tutorials skip. HuggingFace LLM Course Ch. 11 shows the complete TRL SFTTrainer workflow: dataset format, apply_chat_template, training, and what validation loss tel…",
+    "author": "Chris Harper",
+    "date": "09-19-2026",
+    "publishedAt": "2026-09-19T20:10:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Fine-Tuning",
+      "HuggingFace"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://huggingface.co/learn/llm-course/chapter11/3",
+    "content": "**The chat template step most SFT tutorials skip: without apply_chat_template, your model trains on raw text instead of the structured format it was pre-trained on — and validation loss hides the problem until inference.**\n\n**What you will be able to do after this:**\n\n- Convert a JSONL instruction dataset into properly formatted inputs that match your model's chat template (Qwen-style, Llama-style, etc.)\n- Configure and run TRL SFTTrainer in under 20 lines with LoRA — a free T4 Colab GPU handles models up to 3B parameters\n- Read training logs correctly: distinguish training loss drop from genuine generalization; catch overfitting before it bakes in\n\n[HuggingFace LLM Course Chapter 11: Supervised Fine-Tuning](https://huggingface.co/learn/llm-course/chapter11/3) is the anchor resource — official, current (2026), and covers the three things most quickstarts skip.\n\n**The step most tutorials gloss over:**\n\nYour dataset has entries shaped like `{\"messages\": [{\"role\": \"user\", \"content\": \"...\"}, {\"role\": \"assistant\", \"content\": \"...\"}]}`. Before training, each example must be converted into the model's actual token format. `tokenizer.apply_chat_template(messages, tokenize=False)` does this — it produces the model-specific string (`<|im_start|>user` for Qwen-style, `[INST]...[/INST]` for older Llama-style). SFTTrainer calls this automatically when your dataset has a `messages` column, but if you are manually preprocessing and skip this step, the model trains on formatting noise: the role keys become literal text in the input, not structural tokens the model already understands.\n\n**Minimal SFT loop (under 20 lines):**\n\n```python\nfrom trl import SFTTrainer, SFTConfig\nfrom transformers import AutoModelForCausalLM, AutoTokenizer\nfrom datasets import load_dataset\n\nmodel = AutoModelForCausalLM.from_pretrained(\"Qwen/Qwen3-0.6B\")\ntokenizer = AutoTokenizer.from_pretrained(\"Qwen/Qwen3-0.6B\")\ndataset = load_dataset(\"json\", data_files=\"train.jsonl\")[\"train\"]\n\ntrainer = SFTTrainer(\n    model=model,\n    args=SFTConfig(output_dir=\"./sft-out\", num_train_epochs=3, per_device_train_batch_size=4),\n    train_dataset=dataset,\n    processing_class=tokenizer,\n)\ntrainer.train()\n```\n\nSFTTrainer formats your `messages` column automatically. When training loss drops below 1.0 while validation loss rises, that is overfitting — the fix is fewer epochs or more training data, not a lower learning rate.\n\n**Two limits:** SFTTrainer handles instruction following; it does not do preference alignment. Use TRL's DPOTrainer for that. SFT alone also will not make a model refuse harmful requests — that requires RLHF or RLVR on top. For a model that needs to decline certain outputs, SFT is table stakes, not the finish line.\n\n**Sources:** [Supervised Fine-Tuning — HuggingFace LLM Course Ch. 11](https://huggingface.co/learn/llm-course/chapter11/3) · [SFTTrainer — TRL documentation](https://huggingface.co/docs/trl/sft_trainer) · [How to Fine-Tune an LLM (SFT): Complete Tutorial — YouTube](https://www.youtube.com/watch?v=JbgZKWqN4fI)"
+  },
+  {
     "id": "2026-09-19-04-funes-claude-code-persistent-memory-owned",
     "title": "Your Claude Code Sessions Forget Everything at Session End — funes Indexes Past Decisions So the Agent Can Recall Them",
     "excerpt": "funes (HuggingFace) gives your coding agents durable local memory: one command wires recall and ask tools into Claude Code, indexing raw session traces you own via vector + BM25 search.",

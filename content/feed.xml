@@ -10,9 +10,90 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 19 Sep 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 19 Sep 2026 20:11:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your CLAUDE.md Is Claude-Specific — Put Shared Coding-Agent Rules in AGENTS.md Instead</title>
+      <link>https://code.claude.com/docs/en/changelog</link>
+      <guid isPermaLink="false">2026-09-19-07-claude-code-agents-md-cross-tool-instructions</guid>
+      <pubDate>Sat, 19 Sep 2026 20:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Claude Code v2.1.278 reads AGENTS.md as fallback when CLAUDE.md is absent. Keep shared project rules in AGENTS.md for all agents; use CLAUDE.md for Claude-specific config only.</description>
+      <content:encoded><![CDATA[**Claude Code v2.1.278 reads AGENTS.md as a fallback when no CLAUDE.md is found — the same file OpenAI Codex, GitHub Copilot, and Gemini CLI already respect, letting you maintain one instruction set for the whole repo.**
+
+AGENTS.md is a tool-agnostic Markdown file for project-level agent configuration. It is already adopted in over 60,000 repositories (per Cryptobriefing), with OpenAI Codex, GitHub Copilot, and Gemini CLI all reading it. Claude Code v2.1.278 joins the standard: when it cannot find CLAUDE.md (or any of its variants) in the project hierarchy, it reads AGENTS.md instead.
+
+**The practical split for mixed-agent repos:**
+
+- **AGENTS.md** — shared rules every agent in the repo should follow: coding standards, architecture decisions, naming conventions, test patterns, commit format. All agents read this.
+- **CLAUDE.md** — Claude-specific config: tool permissions, hooks, memory instructions, subagent setup. When present, Claude Code uses it and ignores AGENTS.md unless you configure otherwise.
+
+To load both — AGENTS.md as a supplement to CLAUDE.md — go to `/config` → "Project instructions" and configure priority or dual-load there.
+
+**One limit worth knowing:** When both files exist, CLAUDE.md wins and other agents see only AGENTS.md. In repos where Copilot, Codex, or Gemini CLI are also running, this means they receive a different instruction set than Claude Code does. Audit for conflicts before assuming a single source of truth. Also: AGENTS.md fallback is not yet available on AWS Bedrock, Google Vertex, or Anthropic Foundry.
+
+**Sources:** [Claude Code changelog v2.1.278 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code adds AGENTS.md fallback for multi-agent repos — RuntimeWire](https://runtimewire.com/article/claude-code-adds-agents-md-support) · [Anthropic Claude Code joins cross-tool AI coding standard — Cryptobriefing](https://cryptobriefing.com/anthropic-claude-code-agents-md-support/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Fine-Tuning Script Probably Skips apply_chat_template — Here Is the SFT Walkthrough That Does Not</title>
+      <link>https://huggingface.co/learn/llm-course/chapter11/3</link>
+      <guid isPermaLink="false">2026-09-19-08-supervised-fine-tuning-sfttrainer-chat-template-trl</guid>
+      <pubDate>Sat, 19 Sep 2026 20:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>The chat template step most SFT tutorials skip. HuggingFace LLM Course Ch. 11 shows the complete TRL SFTTrainer workflow: dataset format, apply_chat_template, training, and what validation loss tells you.</description>
+      <media:content url="https://i.ytimg.com/vi/JbgZKWqN4fI/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://i.ytimg.com/vi/JbgZKWqN4fI/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**The chat template step most SFT tutorials skip: without apply_chat_template, your model trains on raw text instead of the structured format it was pre-trained on — and validation loss hides the problem until inference.**
+
+**What you will be able to do after this:**
+
+- Convert a JSONL instruction dataset into properly formatted inputs that match your model's chat template (Qwen-style, Llama-style, etc.)
+- Configure and run TRL SFTTrainer in under 20 lines with LoRA — a free T4 Colab GPU handles models up to 3B parameters
+- Read training logs correctly: distinguish training loss drop from genuine generalization; catch overfitting before it bakes in
+
+[HuggingFace LLM Course Chapter 11: Supervised Fine-Tuning](https://huggingface.co/learn/llm-course/chapter11/3) is the anchor resource — official, current (2026), and covers the three things most quickstarts skip.
+
+**The step most tutorials gloss over:**
+
+Your dataset has entries shaped like `{"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}`. Before training, each example must be converted into the model's actual token format. `tokenizer.apply_chat_template(messages, tokenize=False)` does this — it produces the model-specific string (`<|im_start|>user` for Qwen-style, `[INST]...[/INST]` for older Llama-style). SFTTrainer calls this automatically when your dataset has a `messages` column, but if you are manually preprocessing and skip this step, the model trains on formatting noise: the role keys become literal text in the input, not structural tokens the model already understands.
+
+**Minimal SFT loop (under 20 lines):**
+
+```python
+from trl import SFTTrainer, SFTConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from datasets import load_dataset
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+dataset = load_dataset("json", data_files="train.jsonl")["train"]
+
+trainer = SFTTrainer(
+    model=model,
+    args=SFTConfig(output_dir="./sft-out", num_train_epochs=3, per_device_train_batch_size=4),
+    train_dataset=dataset,
+    processing_class=tokenizer,
+)
+trainer.train()
+```
+
+SFTTrainer formats your `messages` column automatically. When training loss drops below 1.0 while validation loss rises, that is overfitting — the fix is fewer epochs or more training data, not a lower learning rate.
+
+**Two limits:** SFTTrainer handles instruction following; it does not do preference alignment. Use TRL's DPOTrainer for that. SFT alone also will not make a model refuse harmful requests — that requires RLHF or RLVR on top. For a model that needs to decline certain outputs, SFT is table stakes, not the finish line.
+
+**Sources:** [Supervised Fine-Tuning — HuggingFace LLM Course Ch. 11](https://huggingface.co/learn/llm-course/chapter11/3) · [SFTTrainer — TRL documentation](https://huggingface.co/docs/trl/sft_trainer) · [How to Fine-Tune an LLM (SFT): Complete Tutorial — YouTube](https://www.youtube.com/watch?v=JbgZKWqN4fI)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Claude Code Sessions Forget Everything at Session End — funes Indexes Past Decisions So the Agent Can Recall Them</title>
@@ -5430,137 +5511,8 @@ Two August 31 Anthropic publications that every engineer building on AI models s
 **Sources:** [Improving our alignment and security practices — Anthropic](https://www.anthropic.com/news/improving-alignment-security-efforts) · [Automated researchers can reliably mitigate alignment failures — Anthropic](https://www.anthropic.com/research/automated-researchers-mitigate-alignment-failures) · [Anthropic uses Claude to fix its own alignment failures — ResultSense](https://www.resultsense.com/news/2026-08-31-anthropic-automated-alignment-research/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your RAG Pipeline Needs a Storage Layer: Add One in 10 Lines With Chroma</title>
-      <link>https://www.youtube.com/watch?v=InlB5-3-nR4</link>
-      <guid isPermaLink="false">2026-09-01-03-chroma-vector-database-rag-foundations</guid>
-      <pubDate>Tue, 01 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>Chroma is the shortest path from raw text to a queryable local vector store: pip install chromadb, create a collection, add documents, and semantic search works in under 10 lines.</description>
-      <media:content url="https://i.ytimg.com/vi/InlB5-3-nR4/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://i.ytimg.com/vi/InlB5-3-nR4/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**TL;DR: Chroma is the shortest path from raw text to a queryable local vector store — `pip install chromadb`, create a collection, add documents, and semantic search works in under 10 lines.**
-
-**What you'll be able to do after this:**
-- Understand what a vector database does that a regular database cannot
-- Run a working local vector store with persistent storage in minutes
-- Know when Chroma is the right choice versus pgvector or FAISS
-
-**Why your RAG pipeline needs a vector store.** A sentence embedding is a fixed-size array of floats that encodes the meaning of text. A vector database stores those arrays and finds the ones closest to a query embedding — that's what makes semantic search work at scale. Without a vector store, retrieval means re-embedding the entire corpus every query. With one, nearest-neighbor search runs in milliseconds across millions of documents.
-
-**Set up Chroma locally:**
-
-```bash
-pip install chromadb
-```
-
-```python
-import chromadb
-
-# PersistentClient saves to disk; use EphemeralClient() for tests
-client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_or_create_collection(name="docs")
-
-# Add documents — Chroma embeds them automatically (all-MiniLM-L6-v2 by default)
-collection.add(
-    documents=[
-        "Claude Code runs agents on your machine",
-        "Ollama serves open-weight models locally via an OpenAI-compatible API",
-    ],
-    ids=["doc-1", "doc-2"],
-    metadatas=[{"source": "docs"}, {"source": "docs"}],
-)
-
-# Query — returns results ranked by semantic similarity
-results = collection.query(
-    query_texts=["run a model on my laptop"],
-    n_results=2,
-)
-print(results["documents"])
-# [['Ollama serves open-weight models locally...', 'Claude Code runs agents...']]
-```
-
-Chroma's built-in embedder handles the embedding step automatically, so you do not need a separate call to an embedding API for prototypes. When accuracy matters, swap in your own `EmbeddingFunction` — the swap changes one constructor argument, not your calling code.
-
-**When NOT to use Chroma:**
-- **You are already on Postgres:** `pgvector` adds vector search to your existing database with no new service to run.
-- **You need production-scale multi-tenancy:** Qdrant, Weaviate, or Pinecone are more battle-tested for high-concurrency SaaS workloads.
-- **Speed is the priority:** FAISS is a pure in-memory C++ library with GPU support; Chroma adds more overhead.
-- **You need an undo on deletes:** collection deletion in Chroma is permanent with no built-in recovery.
-
-Best hands-on resource: [RAG Made Simple: ChromaDB + Python (All Local)](https://www.youtube.com/watch?v=InlB5-3-nR4) walks the entire pipeline end-to-end with no external API — local embeddings and local retrieval.
-
-**Sources:** [Chroma docs — docs.trychroma.com](https://docs.trychroma.com) · [DataCamp: ChromaDB step-by-step tutorial](https://www.datacamp.com/tutorial/chromadb-tutorial-step-by-step-guide) · [RAG Made Simple: ChromaDB + Python (All Local) — YouTube](https://www.youtube.com/watch?v=InlB5-3-nR4) · [FAISS vs Chroma vs Pinecone for RAG — Medium](https://medium.com/@priyaskulkarni/vector-databases-for-rag-faiss-vs-chroma-vs-pinecone-6797bd98277d)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Switch Hosted LLM Providers at Runtime With `:floor`: OpenRouter&#8217;s Cost Routing for Production Inference</title>
-      <link>https://openrouter.ai/blog/tutorials/how-to-get-the-lowest-cost-llm-inference-on-openrouter/</link>
-      <guid isPermaLink="false">2026-08-31-07-openrouter-hosted-inference-model-routing</guid>
-      <pubDate>Mon, 31 Aug 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Developer Tools</category>
-      <category>Cloud</category>
-      <description>OpenRouter wraps 400+ hosted models behind one OpenAI-compatible endpoint; append :floor to route to the cheapest current provider, or set max_price to cap per-call spend.</description>
-      <content:encoded><![CDATA[**TL;DR: OpenRouter wraps 400+ hosted models behind one OpenAI-compatible endpoint; append `:floor` to route to the cheapest current provider, or set `max_price` to cap per-call spend.**
-
-**What you'll be able to do after this:** swap or A/B-test hosted LLMs without changing client code, route high-volume tasks to cheaper providers automatically, and set hard per-request cost ceilings — all through the OpenAI SDK you already use.
-
-**The problem.** You've built a pipeline around one hosted model. Now you want a cheaper open-weight model for the classify step, automatic fallback when your primary provider rate-limits you, or a quick A/B test across providers. Wiring that yourself means separate SDK clients, custom retry logic, and provider-specific rate-limit handling.
-
-**How it works.** One endpoint: `https://openrouter.ai/api/v1`. Drop it in as a `base_url` override — your existing OpenAI SDK client works without other changes:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="sk-or-...",          # your OpenRouter key
-)
-```
-
-Pass any `<provider>/<model-slug>` as the model. Append `:floor` and OpenRouter picks the cheapest provider currently serving that model:
-
-```python
-resp = client.chat.completions.create(
-    model="meta-llama/llama-3.3-70b-instruct:floor",   # cheapest provider, right now
-    messages=[{"role": "user", "content": "Classify this support ticket: ..."}],
-)
-```
-
-Set a hard ceiling with `max_price` (dollars per million tokens) so a call fails fast rather than silently overcharging:
-
-```python
-resp = client.chat.completions.create(
-    model="meta-llama/llama-3.3-70b-instruct",
-    extra_body={
-        "provider": {"max_price": {"prompt": 1.0, "completion": 2.0}}
-    },
-    messages=[...],
-)
-```
-
-**Production patterns:**
-- **Cost-tier routing:** classify with `:floor`, reason with Sonnet 5 — same client, different model strings, one endpoint.
-- **BYOK:** if you have existing contracts with AWS Bedrock, Together, or Fireworks, OpenRouter can route through your own credentials. Per OpenRouter's docs, this carries a 5% platform fee with the first 1M requests/month waived.
-
-**Real limits to know:**
-- `:floor` rebalances continuously — you can land on different backends across runs, which complicates reproducibility testing. Pin a provider explicitly when that matters.
-- Hard budget enforcement is account-level, not run-level. `max_price` caps a single call, but an agentic loop can still exceed a daily budget. Add application-level spend tracking for unattended workloads.
-- Independent 2026 reviews flag account security and support incidents as pain points for paying customers; evaluate SLA requirements before routing critical production traffic.
-- Free-tier models ($0/MTok, 20+ available) may log requests for model improvement. Check per-model privacy policies before routing sensitive data.
-
-**Sources:** [OpenRouter cost routing guide](https://openrouter.ai/blog/tutorials/how-to-get-the-lowest-cost-llm-inference-on-openrouter/) · [TrueFondry independent review, 2026](https://www.truefoundry.com/blog/openrouter-reviews) · [Miles K., practical OpenRouter guide (Medium)](https://medium.com/@milesk_33/a-practical-guide-to-openrouter-unified-llm-apis-model-routing-and-real-world-use-d3c4c07ed170) · [DeployHQ team guide (incl. LiteLLM graduation path)](https://www.deployhq.com/blog/openrouter-practical-guide-teams)]]></content:encoded>
-      <media:content url="https://openrouter.ai/blog/images/lowest-cost-llm-inference.png" medium="image" />
-      <media:thumbnail url="https://openrouter.ai/blog/images/lowest-cost-llm-inference.png" />
-    </item>
-
+    
+    
     
     
     
