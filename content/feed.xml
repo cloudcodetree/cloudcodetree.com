@@ -10,7 +10,115 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 21 Sep 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 21 Sep 2026 20:09:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your Agent Uses a Full LLM to Pick Between Options — Jev Returns a Typed Decision in Under 500ms</title>
+      <link>https://www.langchain.com/blog/building-a-harness-with-jev</link>
+      <guid isPermaLink="false">2026-09-21-08-jev-typesafe-decision-model-agent-routing</guid>
+      <pubDate>Mon, 21 Sep 2026 20:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>TypeSafe's Jev takes a schema of possible answers and returns a ranked choice with confidence — suited for routing and classification inside agent pipelines where text generation is overkill.</description>
+      <content:encoded><![CDATA[**TypeSafe's Jev is a schema-first decision model: give it a typed set of possible answers upfront, and it scores them all in a single pass — returning a choice with confidence rather than generating text.**
+
+Every multi-agent pipeline has decision points — "which specialist handles this?", "is this query in scope?", "escalate or resolve?" — where a generative LLM does far more work than the task requires. Jev (launched September 15, 2026) is a different category: define the answer space upfront, and it returns a probability-ranked result in 70–500ms (per TypeSafe's benchmarks on their classification tasks). Input costs $0.042 per million tokens; output is free because there is no generated output.
+
+**Where this fits in an agent pipeline:**
+- **Routing decisions** between sub-agents or service paths, where the set of routes is fixed
+- **Intent classification** at the API boundary before dispatching to a slower reasoning step
+- **Fast triage** — is this in-scope, off-topic, or needs escalation — before any expensive LLM call
+
+**Integrating Jev:**
+
+Jev is available at `typesafe/jev` on OpenRouter. The model expects a structured input describing the state and the available options, and returns a typed choice with confidence. See the [LangChain integration guide](https://www.langchain.com/blog/building-a-harness-with-jev) for the exact request schema and how to wire it as a router node in a LangChain agent. Vercel, Cloudflare, and Langfuse each published integrations within the first three days of release.
+
+**When to reach for Jev vs. a full LLM:**
+- **Use Jev:** the set of valid answers is fixed and known upfront; you need fast triage; you want a probability rather than a string to parse.
+- **Keep the LLM:** the answer space is open-ended; you need the reasoning, not just the label; the decision involves nuance you cannot enumerate ahead of time.
+
+**Where it breaks:**
+- Only works for fixed-schema decisions — cannot handle open-ended queries where the answer space is unknown
+- Proprietary; no self-hosted option exists
+- Speed and cost claims are TypeSafe's vendor-reported benchmarks for their classification tasks; results on your actual decision distributions will vary
+- The model launched 6 days ago — treat the API surface as potentially unstable
+
+**Sources:** [LangChain — building a harness with Jev](https://www.langchain.com/blog/building-a-harness-with-jev) · [Tom's Hardware — Jev analysis](https://www.tomshardware.com/tech-industry/artificial-intelligence/typesafe-ais-jev-offers-an-alternative-to-llms-that-claims-to-be-193x-faster-and-445x-cheaper-system-one-type-model-is-bespoke-for-probabilistic-decision-making) · [beam.ai — Jev overview](https://beam.ai/agentic-insights/jev-typesafe-ai-agents) · [OpenRouter typesafe models](https://openrouter.ai/typesafe)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your SFT Fine-Tune Follows Instructions — DPO Adds the Preference Layer That Chooses Between Good and Better</title>
+      <link>https://huggingface.co/learn/smol-course/unit2/2</link>
+      <guid isPermaLink="false">2026-09-21-07-dpo-trl-dpotrainer-preference-alignment</guid>
+      <pubDate>Mon, 21 Sep 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>SFT teaches format and domain; DPO trains the model which of two responses to prefer, using a (prompt, chosen, rejected) dataset and TRL's DPOTrainer — no reward model required.</description>
+      <content:encoded><![CDATA[**SFT trains a model to produce a format or domain. DPO trains it which of two responses to prefer — using (prompt, chosen, rejected) pairs and TRL's DPOTrainer, with no reward model or RL complexity.**
+
+**What you'll be able to do after this:** Run a preference alignment pass on top of your SFT checkpoint — so the model not only follows your format, but consistently chooses the better answer when it could produce either.
+
+**Three takeaways:**
+1. SFT and DPO are sequential, not alternatives. SFT first (teach domain and format), DPO second (teach which responses are preferred).
+2. The dataset is three columns: `prompt`, `chosen`, `rejected`. Collect pairs by running your SFT model twice and having a stronger model (or human raters) label which output is better.
+3. The `beta` hyperparameter controls how far the trained model can drift from the frozen SFT reference. Start at 0.1; higher values constrain it closer to the baseline.
+
+**Walk-through:**
+
+TRL's `DPOTrainer` follows the same HuggingFace pattern as `SFTTrainer`. The key addition is loading your SFT checkpoint as both the trainable model and a frozen reference:
+
+```python
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from trl import DPOConfig, DPOTrainer
+
+model_name = "your-sft-checkpoint"
+model     = AutoModelForCausalLM.from_pretrained(model_name)
+ref_model = AutoModelForCausalLM.from_pretrained(model_name)  # frozen — never updated
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+# Dataset columns: "prompt", "chosen", "rejected"
+dataset = load_dataset("json", data_files="preferences.jsonl")["train"]
+
+training_args = DPOConfig(
+    output_dir="./dpo-output",
+    beta=0.1,            # divergence penalty vs. SFT reference
+    num_train_epochs=3,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=4,
+    learning_rate=5e-7,  # lower than SFT — DPO is sensitive to this
+)
+
+trainer = DPOTrainer(
+    model=model,
+    ref_model=ref_model,
+    args=training_args,
+    tokenizer=tokenizer,
+    train_dataset=dataset,
+)
+trainer.train()
+```
+
+**Building your preference dataset:**
+
+The simplest path: run your SFT model on 1,000–2,000 prompts with temperature > 0 to get two different completions per prompt, then have a stronger model (GPT-4 class or Claude Sonnet 5) label which is better. Even noisy preferences produce meaningful alignment improvement on targeted tasks.
+
+```json
+{"prompt": "Explain a TCP handshake to a junior dev",
+ "chosen": "TCP uses three messages — SYN, SYN-ACK, ACK — to confirm both sides can send and receive before data flows.",
+ "rejected": "It's a network thing where your computer and the server agree to talk to each other."}
+```
+
+**Limits:** DPO requires a preference dataset — harder to collect than plain instruction-following data. `beta` set too high, or low-quality preferences, can degrade general capability. DPO alone does not reliably produce refusal behavior; that requires RLHF or RLVR on top. Online DPO (also in TRL) can be more sample-efficient but needs a reward model running at training time.
+
+**Sources:** [HuggingFace SMOL Course Unit 2.2 — DPO](https://huggingface.co/learn/smol-course/unit2/2) · [TRL DPOTrainer docs](https://huggingface.co/docs/trl/dpo_trainer) · [ADHDecode — DPO and RLHF with TRL 2026](https://adhdecode.com/articles/huggingface/huggingface-dpo-rlhf-alignment-fine-tuning/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your LLM Returns Free Text When the Pipeline Needs a Schema — instructor Enforces It and Retries Until Valid</title>
@@ -5360,74 +5468,8 @@ Three practical facts:
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Fine-Tune Has No Data Yet. Here's How to Build the Dataset Without Annotators.</title>
-      <link>https://huggingface.co/blog/synthetic-data-generator</link>
-      <guid isPermaLink="false">2026-09-02-03-build-fine-tuning-dataset-synthetic-distilabel</guid>
-      <pubDate>Wed, 02 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>HuggingFace's Synthetic Data Generator builds chat-format JSONL datasets from a task description and seed examples — LLM generates, LLM judges, push to Hub, load in SFTTrainer.</description>
-      <content:encoded><![CDATA[**TL;DR: Generate a JSONL fine-tuning dataset without annotators — describe your task, seed it with examples, HuggingFace's Synthetic Data Generator drafts and LLM-judges them, then push straight to the Hub.**
-
-**What you'll be able to do after this:** Generate a chat-format fine-tuning dataset from a task description and five seed examples, filter it with an LLM judge, push the result to HuggingFace Hub, and load it into TRL's SFTTrainer in a single `datasets.load_dataset()` call.
-
-**Three key ideas:**
-- **LLM as teacher.** A frontier model (default: Llama 3.3 70B via the free HuggingFace Inference API) generates diverse variations of your seed examples. The seed shapes the style; the LLM fills the volume.
-- **LLM as judge.** A second pass scores each generated example for quality and task alignment. Low-scoring examples are filtered before the dataset is pushed. The 2026 finding from synthetic-data research: an unfiltered dataset is reliably worse than a smaller filtered one.
-- **JSONL chat format.** Each entry is `{"messages": [{"role": "system", ...}, {"role": "user", ...}, {"role": "assistant", ...}]}` — the same format TRL's SFTTrainer and Unsloth's FastLanguageModel both consume directly.
-
-**Walk-through:**
-1. Open the [Synthetic Data Generator Space](https://huggingface.co/spaces/argilla/synthetic-data-generator) — free, no GPU required.
-2. Describe your dataset in plain language: "customer support chat for a Python SDK, questions about rate limits and auth errors."
-3. Add 3–5 seed examples to anchor the style and vocabulary.
-4. Select **Chat Dataset**, set sample count (200 is enough to verify quality), click Generate.
-5. Review a sample in the Argilla panel; re-generate any section that's off.
-6. Push to Hub → `datasets.load_dataset("your-org/dataset-name")` in your training script.
-
-**Limits:** The Spaces version only handles text classification and chat datasets; RAG, preference, and eval tasks require the distilabel Python SDK directly. Generation speed is ~20 samples/minute on the free Inference API — budget an hour for 1,000 examples. Quality is bounded by your seed: vague seeds produce coherent but useless data. Switch to a local or paid inference endpoint for larger volumes.
-
-**Sources:** [Introducing the Synthetic Data Generator — HuggingFace Blog](https://huggingface.co/blog/synthetic-data-generator) · [Synthetic Data for LLM Fine-Tuning in 2026 — Future AGI](https://futureagi.com/blog/synthetic-data-fine-tuning-llms/) · [distilabel docs — Argilla/HuggingFace](https://distilabel.argilla.io)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Fable 5.1 Ships Today: Cache Reads Drop From $1.00 to $0.25 per Million Tokens</title>
-      <link>https://www.anthropic.com/claude-fable-and-mythos-5-1</link>
-      <guid isPermaLink="false">2026-09-01-08-fable-5-1-mythos-5-1-cache-read-price-cut</guid>
-      <pubDate>Tue, 01 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Agents</category>
-      <description>Anthropic launched Fable 5.1 and Mythos 5.1 today. Cache reads drop to $0.25/M — 75% cheaper, cutting agentic workload costs 25-45%, per Anthropic.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic launched Fable 5.1 and Mythos 5.1 today (September 1). Cache reads drop from $1.00 to $0.25 per million tokens — Anthropic reports this cuts effective costs 25% on typical workloads and up to 45% on heavily agentic ones.**
-
-Cache reads are the compounding cost in agentic systems: every time an agent revisits the same system prompt, tool definitions, or accumulated context, it triggers a read. Fable 5's $1.00/M rate made this expensive for long-running Claude Code sessions and multi-step pipelines. At $0.25/M, the same re-use is 75% cheaper. Cache write prices are unchanged ($12.50/M for 5-min, $20/M for 1-hr); the savings are entirely on reads.
-
-Input and output prices are unchanged at $10/$50 per million tokens. The model outperforms Fable 5 on Anthropic's internal evals, with the biggest gains in computer use, long-horizon agentic work, and terminal-based engineering tasks. Knowledge cutoff is June 2026. Fable 5.1's cybersecurity capabilities are strong enough that some queries in that domain are automatically rerouted to Opus models — test any security tooling built on the API before assuming behavior is identical to Fable 5.
-
-**Mythos 5.1** ships alongside with restricted access to vetted US organizations (cyberdefenders and life scientists only, via a separate application process). Not broadly available.
-
-**What to do today**
-
-If you've enabled prompt caching in your pipeline (via the `cache_control` parameter), update your model string to the Fable 5.1 identifier (see the [Anthropic announcement](https://www.anthropic.com/claude-fable-and-mythos-5-1) for the exact string). No other code changes needed — the 75% read savings apply automatically to any already-cached context.
-
-**Limits:**
-- The 25–45% effective cost reduction is Anthropic's own estimate; independent controlled comparisons don't exist yet. Treat it as directionally correct.
-- At $10/$50/M input/output, Fable 5.1 remains the most expensive tier in the Anthropic lineup. Cache savings help pipelines with heavy context re-use; fresh-context requests see no change.
-- Knowledge cutoff June 2026 means it has no awareness of events from the past three months.
-
-**Why it matters:** Agentic pipelines that re-use context pay 75% less per cache read starting today — update the model string and the savings apply automatically.
-
-**Sources:** [Introducing Fable 5.1 and Mythos 5.1 — Anthropic](https://www.anthropic.com/claude-fable-and-mythos-5-1) · [System Card, Sep 1 2026 — Anthropic](https://www-cdn.anthropic.com/0339e6a7c5c7b87f5c07798616dc32c215d14235/Claude%20Fable%205.1%20%26%20Claude%20Mythos%205.1%20System%20Card.pdf) · [Cache reads 75% cheaper — VentureBeat](https://venturebeat.com/technology/anthropics-claude-fable-5-1-and-mythos-5-1-arrive-with-a-75-cost-reduction-for-fable-cache-reads) · [Fable 5.1: cheaper, smarter, refuses less — The New Stack](https://thenewstack.io/anthropic-fable-5-1-launch/)
-]]></content:encoded>
-    </item>
-
+    
+    
     
 
     
