@@ -10,7 +10,137 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 19 Sep 2026 20:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 21 Sep 2026 04:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your Agent Has a Bug Two Levels Deep — One Decorator Tells You Exactly Where It Went Wrong</title>
+      <link>https://docs.wandb.ai/weave/tutorial-eval</link>
+      <guid isPermaLink="false">2026-09-21-01-weave-llm-tracing-agent-observability</guid>
+      <pubDate>Mon, 21 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>W&amp;B Weave traces every LLM call, tool use, and sub-agent step with @weave.op — one decorator per function turns your agent into an inspectable, scoreable system you can compare across versions.</description>
+      <content:encoded><![CDATA[**W&B Weave traces every LLM call, tool use, and sub-agent step with `@weave.op` — one decorator per function turns your agent into an inspectable, scoreable system you can compare across model versions and prompt changes.**
+
+**What you will be able to do after this:**
+
+- Trace a multi-step agent so every LLM call, tool call, and sub-agent session is recorded with inputs, outputs, latency, and cost
+- Build a `weave.Evaluation` that scores model output against a labelled dataset, then run it in CI to catch regressions before they reach users
+- Compare two versions of your prompt or model side-by-side on the same set of test cases and see which graders changed
+
+[W&B Weave Evaluation Tutorial](https://docs.wandb.ai/weave/tutorial-eval) is the anchor resource — official, runnable, covers the full cycle from tracing to scoring to comparison.
+
+**The two-line start:**
+
+```python
+import weave
+weave.init("your-project")
+```
+
+Weave automatically patches Anthropic, OpenAI, and Gemini SDKs at import time — every `client.messages.create()` call is captured without further change. For your own functions (retrieval, chunking, tool wrappers), add `@weave.op` and Weave records inputs, output, and timing, nested inside the parent LLM trace.
+
+**Building an evaluation:**
+
+```python
+@weave.op
+def score_response(model_output: str, expected: str) -> dict:
+    return {"match": expected.lower() in model_output.lower()}
+
+evaluation = weave.Evaluation(
+    dataset=[{"question": "What is pgvector?", "expected": "postgres extension"}],
+    scorers=[score_response],
+)
+asyncio.run(evaluation.evaluate(your_model))
+```
+
+The Weave UI shows pass/fail per case, score distribution, and a side-by-side diff between runs on the same inputs. Two scores appear per case: WITH and W/OUT any change you're A/B-ing.
+
+**Two limits to know before you start:** Every LLM-as-judge scorer fires a real API call per test case — on a 100-case suite that is 100 additional completions, and the cost adds up fast. Start with regex and tool-call graders; reserve model-judge graders for open-ended outputs where nothing else works. Weave also stores all traces in W&B cloud by default; if your traces include PII or proprietary code, configure data masking before you initialise — self-hosted options exist but require separate setup.
+
+**Sources:** [W&B Weave Evaluation Tutorial — docs.wandb.ai](https://docs.wandb.ai/weave/tutorial-eval) · [Weave Quickstart — docs.wandb.ai](https://docs.wandb.ai/weave/quickstart) · [AI Observability in 2026: LangSmith vs Langfuse vs Arize vs W&B Weave — AppScale Blog](https://appscale.blog/en/blog/ai-observability-monitoring-llms-langsmith-langfuse-arize-wandb-2026)]]></content:encoded>
+    </item>
+    <item>
+      <title>Plugin4Shell: SHA Pin Bypass Lets a Repo Serve Malicious Code — Claude Code Patched, Copilot Still Open</title>
+      <link>https://www.air.security/blog-posts/plugin4shell</link>
+      <guid isPermaLink="false">2026-09-21-02-plugin4shell-sha-pin-bypass-coding-agents</guid>
+      <pubDate>Mon, 21 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Claude Code</category>
+      <description>AIR Security disclosed Plugin4Shell Sept 17: a SHA-pinning bypass enabling zero-click RCE in Claude Code, Codex, Copilot, and Gemini CLI. Claude Code and Codex are patched; Copilot is not; Gemini CLI is deprecated.</description>
+      <content:encoded><![CDATA[**AIR Security disclosed Plugin4Shell on September 17: a zero-click vulnerability that breaks SHA pinning across all four major coding agents. Claude Code and Codex are patched; GitHub Copilot is not; Google deprecated Gemini CLI rather than fix it.**
+
+SHA pinning is how coding agents lock a plugin to a specific, reviewed commit — the stated defense against plugin supply-chain attacks. Plugin4Shell breaks it: the agents check out the pinned 40-character commit SHA but never verify the commit they actually land on. A repository owner who creates a branch named after that SHA can silently serve different code under an intact-looking pin.
+
+**Status by tool:**
+
+- **Claude Code**: patched — update to the latest version
+- **Codex**: patched in v0.146.0
+- **GitHub Copilot**: Microsoft was notified but has not shipped a fix; users remain exposed
+- **Gemini CLI**: Google deprecated the CLI entirely instead of patching; all existing installs stay exposed
+
+No exploitation in the wild has been reported. AIR says the researchers found it through a source-code audit, not an active attack.
+
+**What to do:** Update Claude Code. Audit which plugins you have installed — even a patched client is only as safe as the plugin repos it points to. Until Copilot ships a fix, treat its plugin ecosystem as unverified regardless of the pinned SHA.
+
+**Why it matters:** This is the first public advisory showing a shared assumption failure across all four major coding agents simultaneously. SHA pinning was the stated supply-chain control; this finding means it was never end-to-end verified in any of them. If you run plugins in Claude Code, the update is the minimum action; auditing the repos is the actual fix.
+
+**Sources:** [Plugin4Shell — AIR Security](https://www.air.security/blog-posts/plugin4shell) · [Zero-click RCE hits four major AI coding agents, two remain unpatched — Help Net Security](https://www.helpnetsecurity.com/2026/09/18/plugin4shell-ai-coding-agents-vulnerability/) · [Claude Code and Codex Patched, Copilot and Gemini CLI Remain Exposed — AiCybr](https://aicybr.com/blog/plugin4shell-ai-coding-agents-claude-code-codex-copilot-gemini-cli)]]></content:encoded>
+    </item>
+    <item>
+      <title>Ship Plugins With Confidence: claude plugin eval Tests Them Against Real Claude Sessions</title>
+      <link>https://code.claude.com/docs/en/plugin-evals</link>
+      <guid isPermaLink="false">2026-09-21-03-claude-plugin-eval-test-score-plugins</guid>
+      <pubDate>Mon, 21 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>claude plugin eval runs your plugin against test cases, scores each WITH and W/OUT the plugin, and shows you the delta — so you know what your plugin actually contributes before shipping.</description>
+      <content:encoded><![CDATA[**`claude plugin eval` runs your plugin against test cases you describe in plain language, scores each case WITH and WITHOUT the plugin, and shows you the delta — so you know what your plugin actually contributes before you ship it.**
+
+The problem with the current approach: you run the plugin manually, eyeball the output, and guess whether it helped. That does not catch regressions, it does not tell you whether the plugin makes things better or just different, and it gives you no baseline to regress against.
+
+**The two-step workflow (shipped in v2.1.269):**
+
+**Step 1 — Generate test cases:**
+
+```
+claude plugin eval init
+```
+
+Tell Claude what a good result looks like for your plugin. Claude proposes test cases and graders, runs the suite once, and writes the files. Exit the session when the test cases look right.
+
+**Step 2 — Score:**
+
+```
+claude plugin eval
+```
+
+Each case runs multiple times WITH the plugin and WITHOUT. Output:
+
+```
+CASE                           WITH   W/OUT   Δ
+search-intent-detection        0.92   0.41   +0.51   ✓
+fallback-to-web                0.78   0.80   −0.02   ✗
+error-format-normalization     1.00   0.60   +0.40   ✓
+
+Overall: 2/3 cases passed threshold (default 1.0)
+```
+
+**Grader types:** regex over the reply, whether a specific tool was called, or a rubric checked by a second model. The model-judge grader fires a real API call per test case per run — on a 50-case suite that is real cost. Start with regex and tool-call graders; use model-judge graders only for open-ended prose output where nothing more precise works.
+
+**The limit that changes how you design plugins:** The WITHOUT baseline runs with the plugin fully unloaded, not mocked. If Claude crashes or errors without your plugin, the baseline fails too and the comparison is useless. Design plugins to degrade gracefully — the WITHOUT case is effectively a unit test of your plugin's absence.
+
+**Sources:** [Test plugins with evals — Claude Code Docs](https://code.claude.com/docs/en/plugin-evals) · [Week 37 What's New (v2.1.269) — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w37) · [Dev Weekly Sep 14-20, 2026 — Ajit Singh](https://singhajit.com/dev-weekly/2026/sep-14-20/claude-code-projects-plugin4shell-gemini-38-live/)]]></content:encoded>
+    </item>
+
 
 
 
@@ -5425,92 +5555,8 @@ DPO is most useful **after** SFT, not instead of it. SFT gets the model producin
 **Sources:** [DPO Trainer — HuggingFace TRL docs](https://huggingface.co/docs/trl/main/en/dpo_trainer) · [How to align open LLMs with DPO and synthetic data — philschmid.de](https://www.philschmid.de/rl-with-llms-in-2025-dpo) · [Preference alignment — smol-course (HuggingFace)](https://github.com/huggingface/smol-course/tree/main/2_preference_alignment)]]></content:encoded>
     </item>
 
-    <item>
-      <title>The OpenAI Assistants API Is Gone: Your Threads Are Already Broken</title>
-      <link>https://developers.openai.com/api/docs/assistants/migration</link>
-      <guid isPermaLink="false">2026-09-01-04-openai-assistants-api-sunset-migration</guid>
-      <pubDate>Tue, 01 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>LLM</category>
-      <description>The OpenAI Assistants API shut down August 26; production code still calling it returns errors. Migrate to Responses API + Conversations API — there's no automated migration for Threads.</description>
-      <content:encoded><![CDATA[**TL;DR: The OpenAI Assistants API shut down on August 26; any production code still calling it returns errors. The migration is manual — Responses API for generation, Conversations API for persistent history.**
-
-The Assistants API — OpenAI's first official framework for building thread-based agents — went offline on August 26, one year after its deprecation notice. If your code creates Assistants, creates Threads, or polls runs, it is broken now.
-
-**What you must do:**
-
-- Rebuild Assistants as stateless Responses API calls. OpenAI provides no automated conversion tool.
-- Recreate chat history in the Conversations API; Thread data does NOT migrate automatically and must be ported by hand or abandoned.
-- Vector stores and files uploaded via the Files API **do persist** into the new file search tool — only Thread and Assistant objects require manual migration.
-
-The new architecture is stateless: the Responses API is a request/response call with tool support, closer in structure to the Anthropic SDK than the old run-polling loop. For most apps built on the Assistants API, this is a rewrite, not a swap.
-
-**Why it matters:** If you have production code, an internal tool, or a CI script that uses the Assistants API, it is returning errors to users right now. The migration guide is the only path forward.
-
-**Sources:** [Assistants migration guide — OpenAI](https://developers.openai.com/api/docs/assistants/migration) · [Assistants deprecation community thread](https://community.openai.com/t/assistants-api-beta-deprecation-august-26-2026-sunset/1354666) · [OpenAI API changelog — August 26 shutdown entry](https://developers.openai.com/api/docs/changelog)]]></content:encoded>
-    </item>
-    <item>
-      <title>Your GitLab MR Gets Its Own Claude Code Session: Pass a Merge Request URL to --worktree</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w33</link>
-      <guid isPermaLink="false">2026-09-01-02-claude-code-gitlab-mr-worktree</guid>
-      <pubDate>Tue, 01 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Since v2.1.233, pass a GitLab MR URL to claude --worktree and Claude Code opens a session on that MR branch in its own worktree, with a colored !N badge in the footer when glab is authenticated.</description>
-      <content:encoded><![CDATA[**TL;DR: Since v2.1.233, pass a GitLab MR URL to `--worktree` and Claude Code opens the session on the MR branch in its own worktree; the `claude agents` view labels that session `!N` for quick identification.**
-
-Teams on GitLab have been manually checking out branches and creating directories for each MR review session. Since v2.1.232–v2.1.233, this is a one-command operation.
-
-**Branching from a merge request:**
-
-```bash
-claude --worktree https://gitlab.com/group/project/-/merge_requests/42
-```
-
-Claude Code fetches `merge-requests/42/head`, branches from it, and opens the session in a dedicated worktree. Your main checkout stays untouched. The `claude agents` view labels MR-linked sessions `!N` so you can tell at a glance which session is reviewing which MR.
-
-**The footer MR badge.** Authenticate `glab` once (`glab auth login`), and on any branch with an open GitLab MR, the footer shows a colored badge — green for open, orange for draft, a checkmark when mergeable. It updates without any command.
-
-**Other GitLab additions landing in the same release:**
-- Plugin marketplaces clone bare `gitlab.com` URLs including nested subgroups
-- GitLab token families (`glpat-`, `glrt-`) are now redacted in logs and transcripts
-- `glab` CLI's config store is protected the same way `gh`'s is
-
-**The real limit:** `--worktree` gives you a session on the MR branch — it does not post review comments back to GitLab. For automated MR feedback, you still need `glab` CLI commands or a CI pipeline that calls the GitLab API. The session reads the code; what you do next with Claude's output is up to you.
-
-**Sources:** [Week 33 — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w33) · [How We Automated Our GitLab PR Review Workflow with Claude Code — Medium](https://medium.com/@diptom/how-we-automated-our-gitlab-pr-review-workflow-with-claude-code-17324d1306d5) · [Claude Code and GitLab: Three Workflows That Ship — GitLab Blog](https://about.gitlab.com/blog/claude-code-and-gitlab/) · [Claude Code 2.1.233 GitLab support — AI/TLDR](https://ai-tldr.dev/releases/anthropic-claude-code-gitlab-support/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic Discloses a CoT Training Accident and Shows Claude Fixing Its Own Alignment Gaps</title>
-      <link>https://www.anthropic.com/news/improving-alignment-security-efforts</link>
-      <guid isPermaLink="false">2026-09-01-01-anthropic-alignment-cot-accident</guid>
-      <pubDate>Tue, 01 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Best Practices</category>
-      <description>Anthropic disclosed a spring 2026 CoT training accident and published results showing automated AI researchers fix alignment failures across 10 categories — both released August 31.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic disclosed that some spring 2026 training runs accidentally trained on Claude's chain-of-thought, and on the same day published results showing Claude-run alignment research fixed safety failures across 10 categories and transferred to models 5x larger.**
-
-Two August 31 Anthropic publications that every engineer building on AI models should read.
-
-**The disclosure.** "Improving our alignment and security practices" reveals that by spring 2026, RL environment monitoring was under strain — environments were being produced faster than vetting systems could process them. More specifically: a fraction of training runs accidentally trained on Claude's chain-of-thought. Anthropic explicitly avoids this practice "out of concern that it teaches a model to hide its actual reasoning." The leak was traced to production stack misconfigurations. Anthropic reports flagging over 10% of environments during an April production freeze, when all RL environment changes were halted for roughly a month to overhaul the monitoring stack.
-
-**The fix.** A companion paper reports letting Claude run its own alignment research — searching literature, proposing methods, training models, testing across ten failure categories including deception, sycophancy, and privacy violations. The automated approach worked on all ten, transferred to models nearly five times larger, and outperformed a human researcher cohort.
-
-**Why it matters:** If your application depends on Claude's chain-of-thought reflecting actual reasoning, know that this guarantee can break silently if training monitoring degrades. Plan for defense-in-depth beyond the model provider's safety claims: treat CoT as a useful but unverified signal, not a ground truth.
-
-**Sources:** [Improving our alignment and security practices — Anthropic](https://www.anthropic.com/news/improving-alignment-security-efforts) · [Automated researchers can reliably mitigate alignment failures — Anthropic](https://www.anthropic.com/research/automated-researchers-mitigate-alignment-failures) · [Anthropic uses Claude to fix its own alignment failures — ResultSense](https://www.resultsense.com/news/2026-08-31-anthropic-automated-alignment-research/)]]></content:encoded>
-    </item>
-
+        
+    
     
     
     
