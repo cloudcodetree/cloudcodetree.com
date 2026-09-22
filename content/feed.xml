@@ -10,7 +10,164 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 21 Sep 2026 20:09:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 22 Sep 2026 04:04:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Add @claude to Your Repo and It Reviews PRs, Fixes Test Failures, and Takes Issue Assignments — From a 30-Line YAML</title>
+      <link>https://code.claude.com/docs/en/github-actions</link>
+      <guid isPermaLink="false">2026-09-22-03-claude-code-github-actions-pr-automation</guid>
+      <pubDate>Tue, 22 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Anthropic's claude-code-action@v1 runs full Claude Code sessions inside GitHub Actions — interactive on @claude mentions, or automated on any workflow trigger.</description>
+      <content:encoded><![CDATA[**`anthropics/claude-code-action@v1` runs a full Claude Code session inside your GitHub Actions runner — triggered by `@claude` in a comment, or automatically on any workflow event.**
+
+The action has two modes. Both install in minutes.
+
+**Interactive mode** — Claude enters a session whenever anyone comments `@claude` on a PR or issue. It reads the full diff, the thread, and linked code, then pushes commits, leaves inline review comments, and handles follow-up replies in the same thread. Set it up by running `/install-github-app` inside a Claude Code session; it creates the workflow file and installs the GitHub app for you.
+
+**Automation mode** — runs on any workflow trigger: PR opened, push to main, scheduled cron, failed CI run. You write a prompt in the YAML; Claude executes it without a human trigger.
+
+```yaml
+# .github/workflows/claude-review.yml
+name: Claude PR Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this PR for correctness bugs and security issues.
+            If you find anything, leave inline review comments.
+```
+
+For `@claude` interactive mode, add a second workflow that triggers on `issue_comment` events — the [action's setup doc](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md) includes a copy-paste template and the required `permissions` block.
+
+**Practical patterns that work well:** automated changelog generation on merge to main; test-failure triage when CI goes red (pass the failing log as context); `@claude /fix` for quick one-shot patches without switching to the terminal.
+
+**Where it differs from GitHub Agentic Workflows** (covered earlier): this is Anthropic's Action running the full Claude Code runtime; GitHub Agentic Workflows compiles plain-English Markdown into standard Actions YAML. They're complementary — one is a direct Claude Code session in CI; the other is GitHub's agent orchestration layer.
+
+**Limits:** Every trigger consumes real API tokens — this runs against the Anthropic API rate limit, not your Claude Code subscription. Use `if:` conditions to avoid runaway usage (e.g. only trigger on labels, not every push). Interactive mode can be invoked by any commenter with write access; restrict with branch protection rules. The action needs `contents: write` and `pull-requests: write` permissions — scope carefully.
+
+**Sources:** [Claude Code GitHub Actions — code.claude.com](https://code.claude.com/docs/en/github-actions) · [anthropics/claude-code-action — GitHub](https://github.com/anthropics/claude-code-action) · [Set Up Claude Code GitHub Actions for PR Review — systemprompt.io](https://systemprompt.io/guides/claude-code-github-actions) · [Claude Code + GitHub Actions Complete Guide — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-github-actions-cicd-complete-guide-2026/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your SFT Run Is Only as Good as Your Data — Generate 5,000 Training Examples From 50 Seeds With distilabel</title>
+      <link>https://huggingface.co/blog/dvilasuero/synthetic-data-with-llama3-distilabel</link>
+      <guid isPermaLink="false">2026-09-22-02-distilabel-synthetic-instruction-dataset-fine-tuning</guid>
+      <pubDate>Tue, 22 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>Write 50 domain-specific seed examples, run a distilabel pipeline with a teacher LLM, filter by quality score, and export to HuggingFace Hub — ready for TRL SFTTrainer.</description>
+      <content:encoded><![CDATA[**Write 50 domain-specific examples, run a distilabel pipeline with a teacher model, score and filter the outputs, and export a fine-tuning dataset to HuggingFace Hub — ready for SFTTrainer.**
+
+**What you'll be able to do after this:**
+- Build a domain-specific instruction-tuning dataset at scale without hand-labeling thousands of rows
+- Filter synthetic outputs using an LLM-as-judge quality score before fine-tuning
+- Export directly to HuggingFace Hub in a format `SFTTrainer` reads without transformation
+
+---
+
+Every SFT run relies on training data, and for domain-specific tasks, generic instruction datasets rarely fit. The pattern that scales: write 50 gold examples yourself, then use a stronger teacher model to generate variations.
+
+**The distilabel pipeline:**
+
+```bash
+pip install "distilabel[hf-inference-endpoints]"
+```
+
+```python
+from distilabel.steps.tasks import TextGeneration, UltraFeedback
+from distilabel.models import InferenceEndpointsLLM
+from distilabel.pipeline import Pipeline
+from datasets import load_dataset
+
+# Your 50 seed examples as a HuggingFace Dataset with "instruction" column
+seeds = load_dataset("json", data_files="seeds.jsonl")["train"]
+
+with Pipeline(name="instruction-dataset") as pipeline:
+    generate = TextGeneration(
+        llm=InferenceEndpointsLLM(
+            model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
+        ),
+        num_generations=100,     # 50 seeds × 100 variations = 5,000 candidates
+        system_prompt="You are an expert assistant. Answer clearly and concisely.",
+    )
+    rate = UltraFeedback(
+        llm=InferenceEndpointsLLM(
+            model_id="meta-llama/Meta-Llama-3.1-70B-Instruct",
+        ),
+    )
+    generate >> rate
+
+distiset = pipeline.run(dataset=seeds)
+```
+
+**Quality filtering before fine-tuning:**
+
+`UltraFeedback` scores each generation on helpfulness, honesty, and instruction-following (0–5). Filter to score ≥ 3.5 — this typically removes 20–40% of outputs but measurably improves downstream SFT quality:
+
+```python
+filtered = distiset["train"].filter(lambda x: x["rating"] >= 3.5)
+filtered.push_to_hub("your-org/my-domain-dataset")
+```
+
+**Hand off to TRL:**
+
+```python
+from trl import SFTTrainer, SFTConfig
+
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=filtered,
+    args=SFTConfig(output_dir="./ft-output", max_seq_length=2048),
+)
+trainer.train()
+```
+
+**Limits:** Synthetic data amplifies flaws in your seed examples — bad seeds produce bad scale. Llama 3.1 8B works for many narrow tasks; complex reasoning benefits from 70B+ as the teacher. Generating 5K candidates on a free Colab T4 takes 4–8 hours; use HuggingFace Inference Endpoints for speed ($0.0006–$0.002/call depending on model). The UltraFeedback scoring step adds significant latency — budget accordingly or rate with a faster judge.
+
+**Sources:** [Using Llama3 and distilabel to build fine-tuning datasets — HuggingFace Blog](https://huggingface.co/blog/dvilasuero/synthetic-data-with-llama3-distilabel) · [argilla-io/distilabel — GitHub](https://github.com/argilla-io/distilabel) · [Synthetic Data for LLM Fine-Tuning 2026 — FutureAGI](https://futureagi.com/blog/synthetic-data-fine-tuning-llms/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>OpenAI's Sora API Ends September 24 — Two Days to Redirect Your Video Generation Calls</title>
+      <link>https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation</link>
+      <guid isPermaLink="false">2026-09-22-01-sora-api-shutdown-sept-24</guid>
+      <pubDate>Tue, 22 Sep 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Video AI</category>
+      <category>Video Generation</category>
+      <description>The Sora-2 API endpoint terminates September 24; the consumer app was already removed in April. Any pipeline or agent calling it will start returning errors on Wednesday.</description>
+      <content:encoded><![CDATA[**The Sora-2 API endpoint terminates September 24. Any pipeline, agent, or background job calling it will start returning errors on Wednesday.**
+
+OpenAI is completing a full discontinuation of Sora: the consumer app went offline in April 2026, and the API follows on September 24. No direct OpenAI replacement has been announced. Programmatic video generation alternatives currently with API access: Runway Gen-3 Alpha (REST endpoint, mp4/webm), Kling 2.0 (cloud API), and Google Veo 2 via Vertex AI. Export any stored assets from the Sora dashboard now — access ends with the API.
+
+**Why it matters:** A two-day window before a hard failure. Scope your codebase for `sora`, `video.generations.create`, or any `openai` call that routes to a video model and redirect or stub before Wednesday.
+
+**Limit:** This is a migration notice, not a capability comparison — test alternatives against your quality and latency requirements before switching.
+
+**Sources:** [What to know about the Sora discontinuation — OpenAI Help Center](https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation) · [Sora's App Is Dead, But the API Still Works Until September — Pixo](https://pixo.video/blog/sora-api-still-available) · [OpenAI Is Shutting Down Sora — CodeToDeploy/Medium](https://medium.com/codetodeploy/openai-is-shutting-down-sora-that-says-more-than-most-product-launches-05db8b07c136)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Agent Uses a Full LLM to Pick Between Options — Jev Returns a Typed Decision in Under 500ms</title>
@@ -5349,125 +5506,9 @@ claude
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your RAG Pipeline Returns Answers. Here's How to Tell If They're True: Ragas in 10 Lines</title>
-      <link>https://langfuse.com/guides/cookbook/evaluation_of_rag_with_ragas</link>
-      <guid isPermaLink="false">2026-09-02-05-ragas-rag-quality-evaluation-faithfulness</guid>
-      <pubDate>Wed, 02 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>Ragas scores any RAG pipeline's hallucination rate, answer relevancy, and retrieval quality using LLM-as-judge — four metrics, one evaluate() call, each localizing a different failure mode.</description>
-      <media:content url="https://img.youtube.com/vi/jZqrprZWfsg/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/jZqrprZWfsg/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**TL;DR: Ragas adds four LLM-as-judge metrics to any RAG pipeline — faithfulness, answer relevancy, context precision, and context recall — so you can measure where it hallucinates and which stage to fix.**
-
-**What you'll be able to do after this:** score a RAG pipeline's accuracy, relevance, and retrieval quality programmatically, so you know whether a change helped or hurt before it reaches users.
-
-**Three things to take away:**
-
-- **Faithfulness catches hallucinations.** Ragas extracts claims from the answer and checks each against the retrieved chunks. If an answer claims something the chunks don't support, faithfulness drops below 1.0.
-- **Context precision catches retrieval ordering failures.** It scores whether the chunks that actually helped generate the answer were ranked near the top of what was retrieved — poor ranking wastes your context window on irrelevant content.
-- **LLM-as-judge costs real tokens.** Each metric makes several LLM calls per sample. Batch your evaluation set and run it on a random sample of production queries, not a hand-picked "good" set, or the scores tell you nothing.
-
-**Install and run a basic evaluation:**
-
-```bash
-pip install ragas openai datasets
-```
-
-```python
-from datasets import Dataset
-from ragas import evaluate
-from ragas.metrics import faithfulness, answer_relevancy, context_precision
-
-data = {
-    "question": ["What is chunking in RAG?"],
-    "answer": ["Chunking splits documents into segments that match the embedding model's token limit."],
-    "contexts": [["Document chunking divides text into segments sized to fit the embedding model."]],
-    # "ground_truth": ["..."]  # only needed for context_recall
-}
-dataset = Dataset.from_dict(data)
-
-result = evaluate(dataset, metrics=[faithfulness, answer_relevancy, context_precision])
-print(result)
-# {'faithfulness': 1.0, 'answer_relevancy': 0.91, 'context_precision': 0.88}
-```
-
-**How to read the scores.** Low faithfulness (< 0.8): your model is adding facts the retrieved chunks don't contain — tighten your prompt or fix chunking. Low context precision: useful chunks are buried in retrieval results — check your embedding model or similarity threshold. Low answer relevancy: the answer is drifting from the question — revisit your generation prompt.
-
-**Best starting video:** [RAG Evaluation Matrix — RAGAS Metrics: Faithfulness, Context Precision, Recall](https://www.youtube.com/watch?v=jZqrprZWfsg) walks through all four metrics with code (April 2026).
-
-**Real limits.** Faithfulness only checks consistency with retrieved context, not world-truth: a pipeline can score 1.0 faithfulness while still being factually wrong if the retrieved chunks themselves contain errors. `context_recall` requires ground-truth reference answers — without labeled data, skip it. LLM-as-judge scores carry the judge model's biases toward longer, more fluent outputs and toward its own family's style. Ragas is a floor, not a ceiling: 1.0 faithfulness means you passed, not that the answers are correct.
-
-**Sources:** [Ragas documentation — docs.ragas.io](https://docs.ragas.io) · [Evaluation of RAG pipelines with Ragas — Langfuse](https://langfuse.com/guides/cookbook/evaluation_of_rag_with_ragas) · [Evaluate RAG with Ragas + watsonx — IBM](https://www.ibm.com/think/tutorials/evaluate-rag-pipeline-using-ragas-in-python-with-watsonx)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Auto Mode Now Blocks the Credential-Exfiltration Path Most Prompt Injections Use: Cloud Metadata Fetches</title>
-      <link>https://code.claude.com/docs/en/changelog#2-1-257</link>
-      <guid isPermaLink="false">2026-09-02-02-claude-code-auto-mode-containment-escape</guid>
-      <pubDate>Wed, 02 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Security</category>
-      <description>Claude Code v2.1.257 adds a Containment Escape rule: auto mode now blocks tool calls targeting cloud metadata credential endpoints before execution, surfacing them for operator approval.</description>
-      <content:encoded><![CDATA[**TL;DR: v2.1.257 adds a Containment Escape rule — auto mode hard-blocks metadata credential endpoint fetches (AWS 169.254.169.254, GCP IMDS, Azure IMDS) and surfaces them for approval rather than executing silently.**
-
-**What the threat is.** A prompt injection in a document your agent reads can instruct it to `curl http://169.254.169.254/latest/meta-data/iam/security-credentials/role-name` — the AWS metadata endpoint that returns temporary IAM credentials. If auto mode's classifier doesn't catch this as a containment escape, the injected instruction runs and your cloud credentials leak. This is one of the most practical attack paths against agents running on cloud VMs or ECS tasks.
-
-**What changed.** Before v2.1.257, auto mode evaluated metadata endpoint fetches case-by-case through the general safety classifier. Now they trigger a hard block: auto mode surfaces the operation for your approval before running it, even in fully unattended sessions.
-
-**What to check if your agent legitimately fetches instance metadata** — for example, to retrieve its own region or IAM role name at startup — you'll see approval prompts where none appeared before. The fix is a scoped allow rule in your session config for that specific tool call pattern, not disabling auto mode:
-
-```json
-// .claude/settings.json
-{
-  "permissions": {
-    "allow": ["Bash(curl http://169.254.169.254/latest/meta-data/placement/region)"]
-  }
-}
-```
-
-**Real limit:** the Containment Escape rule applies only in auto mode. Standard permission-prompt mode was already surfacing unrecognized Bash commands; `--dangerously-skip-permissions` remains entirely outside this protection. If you're running unattended agents without auto mode, the metadata endpoint is still reachable.
-
-**Sources:** [Claude Code changelog v2.1.257 — code.claude.com](https://code.claude.com/docs/en/changelog#2-1-257) · [Breaking Claude Code Opus 5 Auto Mode with Indirect Prompt Injection — embracethered.com](https://embracethered.com/blog/posts/2026/breaking-claude-code-opus-5-and-automode/) · [Claude Code 2.1.251 security hardening — AI Stack Current](https://aistackcurrent.com/news/claude-code-2-1-251-security-hardening/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic Adds Customer-Controlled Storage for Frontier Model API Traffic</title>
-      <link>https://www.anthropic.com/news/enterprise-frontier-safeguards</link>
-      <guid isPermaLink="false">2026-09-02-01-anthropic-enterprise-frontier-safeguards</guid>
-      <pubDate>Wed, 02 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Security</category>
-      <description>Enterprise Frontier Safeguards store Claude Fable 5/5.1 API traffic in your own S3/Azure/GCS bucket — customer encryption keys, no Anthropic human review. Phased rollout this fall.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic's Enterprise Frontier Safeguards store Fable 5/5.1 API traffic in your own S3/Azure/GCS bucket — customer encryption keys, automated misuse detection, no Anthropic human review.**
-
-Anthropic introduced a 30-day data retention requirement with Fable 5 in June, citing the need to detect sophisticated misuse patterns that span multiple sessions and accounts. Enterprise customers with data-sovereignty requirements pushed back. EFS is the fix: interaction data stays in infrastructure you control. Anthropic's pattern-detection runs against your storage and returns only category-level signals — not the underlying prompts.
-
-Three practical facts:
-- Anthropic doesn't charge for EFS; your cloud provider bills storage and data operations at standard rates.
-- Works whether you access Claude directly or through AWS Bedrock, Azure AI Foundry, or GCP Vertex.
-- Phased rollout through fall 2026; eligible customers receive zero retention on Fable 5/5.1 as an interim measure now.
-
-**Limit to note:** customer-controlled storage is not the same as zero retention — data still exists, in your cloud account. Fully automated review also means Anthropic cannot assist with incident reconstruction that would require content review.
-
-**Why it matters:** If a data-residency or compliance requirement has been blocking your team from Fable 5 or 5.1, EFS is the unlock — customer-owned storage satisfies most data-sovereignty policies without losing the frontier model tier.
-
-**Sources:** [Developing Enterprise Frontier Safeguards — Anthropic](https://www.anthropic.com/news/enterprise-frontier-safeguards) · [Anthropic changes data retention policy — CNBC](https://www.cnbc.com/2026/09/01/anthropic-data-retention.html) · [Anthropic EFS: customer-controlled AI data, not zero retention — Windows Forum](https://windowsforum.com/windows-news.4/anthropic-efs-customer-controlled-ai-data-not-zero-retention.443948/)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
