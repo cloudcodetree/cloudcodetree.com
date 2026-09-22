@@ -10,7 +10,140 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 22 Sep 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 22 Sep 2026 12:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your Orchestrator Session Guesses When to Delegate — A Ten-Line .claude/agents/ File Tells It Exactly</title>
+      <link>https://code.claude.com/docs/en/sub-agents</link>
+      <guid isPermaLink="false">2026-09-22-06-claude-code-custom-subagent-agents-dir</guid>
+      <pubDate>Tue, 22 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>A markdown file in .claude/agents/ defines a named subagent with its own tools, model, and permissionMode — the description field is what the orchestrator reads to decide when to call it.</description>
+      <content:encoded><![CDATA[**Define a named subagent in `.claude/agents/<name>.md` — its description field is how the orchestrator knows when to call it instead of handling the task itself.**
+
+When you run Claude Code in an orchestrator session, it decides what to handle directly and what to delegate. Without a named agent definition, it improvises from context. With `.claude/agents/<name>.md`, you supply the decision function: a description that states exactly when to spawn that agent.
+
+```yaml
+---
+name: security-reviewer
+description: >
+  Reviews code for injection, SSRF, and auth bugs. Invoke when a PR
+  adds user-input handling, external requests, or auth flows.
+tools:
+  - Read
+  - Glob
+  - Grep
+permissionMode: default
+model: claude-haiku-4-5-20251001
+---
+When reviewing for security:
+1. Check user-controlled data flows to SQL, shell, and file ops.
+2. Flag outbound requests with user-supplied URLs (SSRF surface).
+3. Look for auth checks applied after sensitive operations.
+Return findings as a markdown list with file:line references.
+```
+
+Save this to `.claude/agents/security-reviewer.md`. From any orchestrator session you or your team starts, `@security-reviewer` invokes it directly — and Claude Code also calls it automatically when the context matches the description.
+
+**Three things to tune:**
+
+- **`tools`** — drop write tools (`Write`, `Edit`, `Bash`) for agents that should only read. A scoped tool list is the simplest way to enforce "this agent reviews, it doesn't change things."
+- **`model`** — route light tasks (file scanning, search, review) to Haiku; reserve Sonnet/Opus for agents that write or plan. The orchestrator's cost drops when the heavy model only runs for work that needs it.
+- **`permissionMode`** — `"default"` asks for each sensitive action; `"acceptEdits"` auto-approves file writes; `"bypassPermissions"` is for CI-only agents that run unattended.
+
+Both `~/.claude/agents/` (user-level, all sessions) and `.claude/agents/` (project-level, checked into the repo) are scanned recursively. Project-level definitions are the useful ones — they travel with the repo and are automatically available to everyone working on it.
+
+**Limits:** The description field is natural-language routing — there's no strict pattern-matching or guaranteed trigger. If your orchestrator misses calls that should go to a named agent, make the description more specific about the inputs or outputs that distinguish it.
+
+**Sources:** [Create custom sub-agents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagents orchestration guide — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_subagents_and_orchestration_guide.html) · [Claude Code Subagents reference 2026 — The Prompt Shelf](https://thepromptshelf.dev/blog/claude-code-subagents-official-documentation-reference-2026/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>pgvector Needs Postgres Running, FAISS Has No Delete — Chroma Fills the Dev Gap With upsert(), delete(), and Zero Server Setup</title>
+      <link>https://realpython.com/chromadb-vector-database/</link>
+      <guid isPermaLink="false">2026-09-22-05-chromadb-persistent-knowledge-base-upsert-delete</guid>
+      <pubDate>Tue, 22 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Vectors</category>
+      <description>ChromaDB runs inside your Python process, persists to disk, and handles upsert and delete — the three methods that let you update a local RAG knowledge base without rebuilding it.</description>
+      <media:content url="https://img.youtube.com/vi/god8Pox1laE/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/god8Pox1laE/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**ChromaDB runs in-process with no server setup, persists to disk, and supports `upsert` and `delete` — the three methods that let you keep a local RAG knowledge base current without a full re-embed.**
+
+**What you'll be able to do after this:** build a persistent local vector store that you can incrementally update as source documents change — add new ones, replace stale ones by id, and delete removed ones — without re-embedding the entire corpus.
+
+- Chroma's `PersistentClient` writes embeddings and metadata to a local directory on first run and reloads on restart — no server process, works in any Python environment, survives process restarts.
+- `collection.upsert()` is the one-call interface for keeping a document set in sync: it adds by id if new, replaces if the id already exists. Store a content hash in metadata to skip re-embedding unchanged docs.
+- `collection.delete(ids=[...])` removes by id; `collection.query(where={"source": "handbook"})` limits retrieval to a metadata scope. Together, these turn knowledge base updates into a targeted batch operation rather than a full reindex.
+
+**Walk-through:**
+
+```python
+import chromadb
+
+# PersistentClient writes to ./chroma_db; reloads on restart
+client = chromadb.PersistentClient(path="./chroma_db")
+collection = client.get_or_create_collection("docs")
+
+# Upsert: adds if id is new, replaces if it already exists
+collection.upsert(
+    documents=["PTO policy: 15 days per year, accrued monthly."],
+    metadatas=[{"source": "handbook", "version": "2026-09", "hash": "abc123"}],
+    ids=["policy-pto"]
+)
+
+# Metadata-scoped retrieval
+results = collection.query(
+    query_texts=["how many vacation days do I get?"],
+    n_results=3,
+    where={"source": "handbook"}
+)
+
+# Remove a document that no longer exists in the source
+collection.delete(ids=["policy-pto-v1"])
+```
+
+Chroma uses its bundled `all-MiniLM-L6-v2` embedding model by default. Pass `embedding_function=` to swap in sentence-transformers, the OpenAI API, or anything that implements the `EmbeddingFunction` interface.
+
+**Limits:** Chroma's embedded mode serializes writes through a single process — running parallel indexing workers against the same `./chroma_db` directory causes corruption. For that, start `chroma run --path ./chroma_db` and connect via `chromadb.HttpClient`. Query throughput degrades past ~100k embeddings in the default HNSW config; at that scale pgvector or Qdrant with tuned index parameters is the better fit.
+
+**Anchor resource:** [Embeddings and Vector Databases With ChromaDB](https://realpython.com/chromadb-vector-database/) (Real Python, April 2026) — walks through collections, metadata, cosine similarity, and a full RAG pipeline. The most complete hands-on reference for the full Chroma API.
+
+**Sources:** [Real Python — ChromaDB guide](https://realpython.com/chromadb-vector-database/) · [Chroma Cookbook](https://cookbook.chromadb.dev/) · [Chroma docs — trychroma.com](https://docs.trychroma.com/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>xAI Shipped Grok 4.7 Yesterday — Live on OpenRouter Now With a 500k Context Window and the Same Base Pricing as Grok 4.6</title>
+      <link>https://docs.x.ai/developers/grok-4-7</link>
+      <guid isPermaLink="false">2026-09-22-04-grok-4-7-openrouter-api</guid>
+      <pubDate>Tue, 22 Sep 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>xAI released Grok 4.7 on September 21 with a 500k context window. It is live on OpenRouter as x-ai/grok-4.7 at $1.60/$4.80 per million tokens — one string change from Grok 4.6.</description>
+      <content:encoded><![CDATA[**xAI released Grok 4.7 on September 21. It is on OpenRouter as `x-ai/grok-4.7` at $1.60/$4.80 per million tokens, with a 500k context window — one string change from Grok 4.6 in any existing routing config.**
+
+[Per xAI's release notes](https://docs.x.ai/developers/grok-4-7), Grok 4.7 uses a larger base model and a longer reinforcement learning run focused on difficult tasks involving self-verification and long-context management. xAI reports improvements on software engineering benchmarks where the task runs for minutes — long agentic loops, not single-turn completions.
+
+Grok 4.7 routes through the same platforms as Grok 4.6: OpenRouter (at the prices above), Cloudflare Workers AI, and Vercel. If you use OpenRouter for dynamic model selection in a coding agent or long-context task, `x-ai/grok-4.7` is now a valid option to add to your routing config.
+
+**One limit:** xAI's benchmark improvements are measured on multi-step software engineering tasks. For quick, single-turn completions, the performance delta over Grok 4.6 is likely small relative to any routing overhead. No independent benchmark replication is available yet.
+
+**Why it matters:** Another 500k-context model at sub-$2 input pricing gives model routers one more competitive option for the "need long context, budget-sensitive" slot.
+
+**Sources:** [Grok 4.7 docs — xAI](https://docs.x.ai/developers/grok-4-7) · [Grok 4.7 on OpenRouter](https://openrouter.ai/x-ai/grok-4.7) · [xAI releases Grok 4.7 — MarkTechPost](https://www.marktechpost.com/2026/09/21/spacexai-releases-grok-4-7/)]]></content:encoded>
+    </item>
+
+
 
 
     <item>
@@ -5368,144 +5501,9 @@ Also new: a spend limit bar in `/usage` and a `rate_limits.spend_limit` field fo
 **Sources:** [Claude Code v2.1.251 release — github.com/anthropics/claude-code](https://github.com/anthropics/claude-code/releases/tag/v2.1.251) · [Claude Code v2.1.250 to v2.1.251 key updates — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20260829-cc-updates-v2-1-251/) · [Claude Code sub-agents — code.claude.com](https://code.claude.com/docs/en/sub-agents)]]></content:encoded>
     </item>
 
-    <item>
-      <title>OpenAI's Astra Is the First AI Model Rated "Critical" for Cybersecurity — It Found Zero-Days on Its Own</title>
-      <link>https://openai.com/index/path-to-astra/</link>
-      <guid isPermaLink="false">2026-09-02-07-openai-astra-critical-cyber-threshold</guid>
-      <pubDate>Wed, 02 Sep 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>LLM</category>
-      <description>OpenAI's Astra is the first model rated "Critical" under its Preparedness Framework — it autonomously found zero-day vulnerabilities and built working exploit chains. Access will be gated, not blocked.</description>
-      <content:encoded><![CDATA[**TL;DR: OpenAI's Astra is the first model rated "Critical" under its Preparedness Framework — it autonomously found zero-day vulnerabilities and built working browser-escape and OS privilege-escalation chains during evaluations.**
-
-In expert-led assessments, Astra scored 100% on ExploitBench (which measures exploit-chain generation from known CVEs), discovered two previously unknown zero-days during separate evaluations on recently disclosed flaws, built a full browser-compromise chain that escaped a sandbox and executed host OS commands, and chained multiple hardened-OS vulnerabilities into a privilege-escalation path.
-
-OpenAI reports the model declines 91.5% of cyber-related jailbreak attempts — up from 59% for GPT-5.6 Sol. That still means roughly 1 in 11 targeted attempts succeeds, which is a real failure rate for security-sensitive deployments.
-
-The "Critical" designation means Astra will be released, not blocked, but with gated access through OpenAI's Daybreak Blue program for vetted security researchers — the same capability-gated access pattern Anthropic applied last month for Enterprise Frontier Safeguards.
-
-**Why it matters:** Autonomous exploit-chain discovery — no per-step human guidance — changes the threat model for agentic systems with broad tool access to shell, file system, or network. If you're building agents with those permissions, ExploitBench capability rating is now the reference point for what adversarial misuse looks like.
-
-**Sources:** [Path to Astra: critical capabilities and frontier safeguards — OpenAI](https://openai.com/index/path-to-astra/) · [OpenAI's Astra becomes first model to cross "Critical" cybersecurity threshold — SecurityWeek](https://www.securityweek.com/openais-astra-becomes-first-model-to-cross-critical-cybersecurity-threshold/) · [OpenAI Astra: First AI Model With "Critical" Hacking Abilities — Decrypt](https://decrypt.co/377180/openai-astra-first-ai-model-critical-hacking)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Retriever Returns 10 Chunks. Your LLM Needs One. Contextual Compression Fixes the Gap.</title>
-      <link>https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/contextual_compression.ipynb</link>
-      <guid isPermaLink="false">2026-09-02-06-rag-contextual-compression-langchain-retriever</guid>
-      <pubDate>Wed, 02 Sep 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>LangChain's ContextualCompressionRetriever wraps any retriever and strips irrelevant content from retrieved chunks before the LLM call. Two compressor options: EmbeddingsFilter (fast) or LLMChainExtractor (precise).</description>
-      <content:encoded><![CDATA[**TL;DR: LangChain's `ContextualCompressionRetriever` wraps your existing retriever and strips irrelevant content from retrieved chunks before they reach the LLM — no architecture change, two compressor options.**
-
-**What you'll be able to do after this:** Add a compression layer that either drops low-relevance chunks entirely (EmbeddingsFilter, no extra LLM call) or extracts only the relevant sentences from each chunk (LLMChainExtractor, one cheap LLM call per chunk).
-
-**Three things to know:**
-1. **EmbeddingsFilter** is the fast path: embed the query and each chunk, drop anything below a cosine similarity threshold (`0.76` is a reasonable starting value). No LLM call, sub-millisecond overhead per chunk.
-2. **LLMChainExtractor** is the quality path: send each chunk to the LLM and ask it to extract only what's relevant to the query. Adds one call per chunk but can compress a 2,000-token chunk to 80 tokens when most of it is noise.
-3. **DocumentCompressorPipeline** chains them: filter first (EmbeddingsFilter removes irrelevant chunks cheaply), then extract (LLMChainExtractor compresses the survivors). Best of both at the cost of both.
-
-**Walk-through — EmbeddingsFilter (fast, cheap):**
-
-```python
-from langchain.retrievers import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import EmbeddingsFilter
-from langchain_openai import OpenAIEmbeddings
-
-# Your existing retriever — Chroma, FAISS, pgvector, etc.
-base_retriever = vectorstore.as_retriever(search_kwargs={"k": 10})
-
-embeddings_filter = EmbeddingsFilter(
-    embeddings=OpenAIEmbeddings(),
-    similarity_threshold=0.76  # tune per corpus: lower = more permissive
-)
-compression_retriever = ContextualCompressionRetriever(
-    base_compressor=embeddings_filter,
-    base_retriever=base_retriever
-)
-
-docs = compression_retriever.invoke("What are the failure modes of RAG pipelines?")
-# Typically returns 2-4 chunks instead of 10
-```
-
-**Walk-through — LLMChainExtractor (highest quality):**
-
-```python
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain_anthropic import ChatAnthropic
-
-extractor = LLMChainExtractor.from_llm(
-    ChatAnthropic(model="claude-haiku-4-5-20251001")  # cheap model works fine here
-)
-compression_retriever = ContextualCompressionRetriever(
-    base_compressor=extractor,
-    base_retriever=base_retriever
-)
-```
-
-Drop-in replacement: use `compression_retriever` anywhere you'd use `base_retriever`.
-
-**Real limits.** `similarity_threshold` needs per-corpus tuning — a value that works on one dataset may over-filter on another, silently dropping relevant chunks. `LLMChainExtractor` adds one LLM call *per retrieved chunk*: at `k=10`, that's 10 extra calls before the main generation; on high-traffic systems this doubles both latency and cost. Neither technique fixes a bad retriever — if your vector search returns the wrong documents, compression gives you a smaller wrong set.
-
-**Sources:** [LangChain contextual compression how-to](https://python.langchain.com/docs/how_to/contextual_compression/) · [NirDiamant RAG_Techniques: contextual_compression.ipynb](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/contextual_compression.ipynb) · [LangChain OpenTutorial: ContextualCompressionRetriever](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/10-retriever/02-contextualcompressionretriever)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Put a Cost Ceiling on Every Subagent in Your Workflow: CLAUDE_CODE_SUBAGENT_MODEL_FORCE</title>
-      <link>https://code.claude.com/docs/en/sub-agents</link>
-      <guid isPermaLink="false">2026-09-02-04-claude-code-subagent-model-force-cost-cap</guid>
-      <pubDate>Wed, 02 Sep 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 pins every subagent, teammate, and workflow agent in your Claude Code session to one model — overriding per-definition settings. Two env vars, one settings.json entry. Requires v2.1.257.</description>
-      <content:encoded><![CDATA[**TL;DR: Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` and `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` to cap every subagent, teammate, and workflow agent in your session to one model — even if their definitions request Opus. New in v2.1.257.**
-
-When you fan out work across 10 subagents, each one inherits your main session's model by default. If that's Opus 5, a 10-agent workflow burns 10 times the context at Opus rates. Two environment variables give you a ceiling.
-
-**What each variable does:**
-
-- `CLAUDE_CODE_SUBAGENT_MODEL` sets the fallback model for subagents when nothing else specifies one — but it does NOT override agent definition frontmatter or the built-in Explore and Plan agents.
-- `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` overrides everything: per-invocation model parameters, agent definition frontmatter, and the built-in Explore and Plan agents.
-
-**Add both to `.claude/settings.json` for project-wide enforcement:**
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "claude-haiku-4-5-20251001",
-    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
-  }
-}
-```
-
-Or set per-session in your shell:
-
-```bash
-export CLAUDE_CODE_SUBAGENT_MODEL=sonnet
-export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
-claude
-```
-
-**Model resolution order without FORCE:** per-invocation `model` param → agent definition frontmatter → `CLAUDE_CODE_SUBAGENT_MODEL` → main session model.
-
-**With FORCE=1:** `CLAUDE_CODE_SUBAGENT_MODEL` wins for everything above — except forks and skills with `model: inherit`, which still run on the main conversation's model by design (you don't control the skills you didn't write).
-
-**Real limits.** Forcing Explore and Plan to Haiku degrades their quality on complex research tasks — those built-in agents are tuned for thoroughness. If your workflow's search or planning quality drops, set `CLAUDE_CODE_SUBAGENT_MODEL` to Sonnet instead, or remove FORCE and pin specific agent definitions individually via their frontmatter. The env var covers the entire session; there's no per-workflow override within a single session.
-
-**Sources:** [Claude Code v2.1.257 changelog — code.claude.com](https://code.claude.com/docs/en/changelog#2-1-257) · [Sub-agent model configuration — code.claude.com](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagents: A 2026 Practical Guide — Tembo.io](https://www.tembo.io/blog/claude-code-subagents)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
