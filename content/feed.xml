@@ -10,7 +10,109 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 22 Sep 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 22 Sep 2026 20:04:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Opus 5.5 Launches Today as claude-opus-5-5 — Cache Reads Drop 60%, Input Tokens 20% Cheaper, 5-Hour Caps Removed</title>
+      <link>https://platform.claude.com/docs/en/about-claude/pricing</link>
+      <guid isPermaLink="false">2026-09-22-07-claude-opus-5-5-api-cost-cut</guid>
+      <pubDate>Tue, 22 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>Claude Opus 5.5 launched today as claude-opus-5-5. Cache reads drop 60% to $0.20/MTok, input 20% cheaper at $4/MTok. Anthropic claims Fable 5.1 performance on most workloads and 40% lower run cost vs Opus 5.</description>
+      <content:encoded><![CDATA[**claude-opus-5-5 is in the API now. Cache reads are 60% cheaper, input tokens 20% cheaper — Anthropic claims Fable 5.1 performance on most workloads.**
+
+Anthropic shipped Claude Opus 5.5 today under the model ID `claude-opus-5-5`. Key pricing changes vs Opus 5 per Anthropic's pricing page:
+
+| | Opus 5 | Opus 5.5 | Change |
+|---|---|---|---|
+| Input | $5/MTok | $4/MTok | −20% |
+| Output | $25/MTok | $20/MTok | −20% |
+| Cache read | $0.50/MTok | $0.20/MTok | −60% |
+| 5m cache write | $6.25/MTok | $5/MTok | −20% |
+| Fast mode in/out | $10/$50/MTok | $8/$40/MTok | −20% |
+| Batch in/out | $2.50/$12.50/MTok | $2/$10/MTok | −20% |
+
+The cache-read cut matters most for agent workflows: a Claude Code session or multi-step chain that reuses a large system prompt every turn is paying 60% less per cache hit.
+
+Anthropic says Opus 5.5 "performs at the level of Claude Fable 5.1 on most work" and claims 40% lower total run cost versus Opus 5 on typical workloads — the reported savings combine the rate cut with the model reportedly generating more concise outputs and running 30%+ faster. These are Anthropic's own figures; independent benchmarks are not yet published.
+
+Alongside the model launch, Anthropic removed 5-hour usage caps for Pro, Max, Team, and Enterprise subscribers and added a rate-limit reset feature.
+
+**Limits to know:** No new capabilities versus Opus 5 — this is a cost and speed refresh, not a capability expansion. Opus 5.5 uses the same tokenizer as Opus 5 and later models (~30% more tokens per task than pre-4.7 builds), so if you're migrating from Claude Opus 4.x code, the rate cut won't translate directly to equal savings. Sonnet 5.5 and Haiku 5.5 are "coming in the coming weeks" — the full 5.5 family isn't yet available.
+
+To test: swap `"claude-opus-5"` → `"claude-opus-5-5"` in your model string.
+
+**Why it matters:** Cache reads powering system-prompt prefills in agent workflows just got 60% cheaper per Anthropic's official pricing page — the largest per-unit saving in this launch for Claude Code sessions and multi-step chains that reuse large contexts.
+
+**Sources:** [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing), [Benzinga](https://www.benzinga.com/markets/private-markets/26/09/61933271/anthropic-launches-claude-opus-5-5-cuts-costs-40-and-scraps-5-hour-usage-caps), [OpenRouter Opus 5.5](https://openrouter.ai/anthropic/claude-opus-5.5), [LLM stats analysis](https://llm-stats.com/blog/research/claude-opus-5-5-launch)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Dense Retriever Compares Questions to Documents — HyDE Generates a Hypothetical Answer First and Closes the Vocabulary Gap</title>
+      <link>https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html</link>
+      <guid isPermaLink="false">2026-09-22-08-hyde-hypothetical-document-embeddings-query-expansion-rag</guid>
+      <pubDate>Tue, 22 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <description>HyDE improves retrieval by embedding a hypothetical answer instead of the raw query. LangChain's HypotheticalDocumentEmbedder wraps any existing embedder in a few lines of code.</description>
+      <content:encoded><![CDATA[**HyDE asks an LLM to draft a hypothetical answer, embeds that instead of your raw query, and retrieves against the right semantic space — a two-line wrapper around any existing LangChain embedder.**
+
+**What you'll be able to do after this:** Wrap your existing vector retriever with LangChain's `HypotheticalDocumentEmbedder` so queries that miss because the question vocabulary doesn't match the document vocabulary start hitting the right chunks.
+
+## Why your retriever misses
+
+When you embed a bare question like "cost effective inference routing", the resulting vector sits in question-space. Your corpus contains passages with phrases like "latency vs cost tradeoff" or "model multiplexing" — semantically related, but distant from the raw question embedding. Document-to-document similarity is consistently easier than question-to-document.
+
+## What HyDE does
+
+Instead of embedding the question, ask an LLM to draft a one-paragraph answer first, then embed *that*. The hypothetical document uses the vocabulary of actual answers, which lands it near your real corpus chunks even if the generated facts are wrong — the encoder's bottleneck filters for semantic shape and discards factual specifics.
+
+**Three takeaways:**
+1. Most useful when queries are short and sparse, or when the corpus uses jargon the query doesn't contain — specialist domains, code documentation, internal knowledge bases.
+2. The LLM generates the hypothetical in a single call; hallucinated facts are largely washed out during embedding because only semantic patterns survive the dense bottleneck.
+3. Trade-off: one extra LLM call per query (roughly 400 input + 200 output tokens with `claude-haiku-4-5-20251001` at ~$0.001) plus 50–100ms latency.
+
+## Implementation with LangChain
+
+```python
+from langchain.chains import HypotheticalDocumentEmbedder
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import OpenAIEmbeddings  # swap for your embedder
+
+# Your existing embedder — nothing changes here
+base_embeddings = OpenAIEmbeddings()
+
+# The LLM that drafts the hypothetical answer
+llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
+
+# Wrap: now embed_query generates a hypothesis first
+hyde = HypotheticalDocumentEmbedder.from_llm(
+    llm=llm,
+    base_embeddings=base_embeddings,
+    custom_prompt=None,  # uses built-in instruction-following prompt
+)
+
+# Drop-in replacement — same embed_query / embed_documents API
+query_vector = hyde.embed_query("cost effective inference routing")
+# LLM drafts: "Efficient inference routing balances model cost and latency..."
+# Encoder embeds that paragraph → closer to corpus than the raw question
+```
+
+Connect `hyde` to any `VectorStoreRetriever` the same way you'd connect `base_embeddings` — it's a drop-in swap.
+
+## When to skip it
+
+For well-formed queries that already use your corpus vocabulary, standard dense retrieval is good enough — HyDE adds cost and latency without benefit. Measure recall on a sample of your actual queries before and after; if your baseline already retrieves the right chunk in the top 3, skip it.
+
+**Sources:** [LangChain HypotheticalDocumentEmbedder (Python)](https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html), [NirDiamant RAG Techniques notebook](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/HyDe_Hypothetical_Document_Embedding.ipynb), [Haystack HyDE documentation](https://docs.haystack.deepset.ai/docs/hypothetical-document-embeddings-hyde)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Orchestrator Session Guesses When to Delegate — A Ten-Line .claude/agents/ File Tells It Exactly</title>
@@ -5411,96 +5513,8 @@ Two things to verify before routing workloads to it: the knowledge cutoff varies
 **Sources:** [Gemini 3.8 Flash rolling out — 9to5Google](https://9to5google.com/2026/09/02/gemini-3-8-flash-launch/) · [Google Debuts Gemini 3.8 Flash Cyber Variants — AndroidHeadlines](https://www.androidheadlines.com/2026/09/google-debuts-gemini-3-8-flash-cyber-variants.html) · [Gemini 3.8 Flash Launches at $0.75/1M Input — tech-insider.org](https://tech-insider.org/gemini-3-8-flash-launch-pricing-2026/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Agent Returns Free-Form Text. Add `outputFormat` to Get Validated JSON Instead.</title>
-      <link>https://code.claude.com/docs/en/agent-sdk/structured-outputs</link>
-      <guid isPermaLink="false">2026-09-03-01-claude-agents-sdk-structured-outputs</guid>
-      <pubDate>Thu, 03 Sep 2026 04:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Add one field to your Claude Agents SDK query() call and get back a Zod- or Pydantic-validated object instead of free-form text — the SDK re-prompts automatically on schema mismatch.</description>
-      <content:encoded><![CDATA[**Add one field to your Claude Agents SDK `query()` call and the SDK validates the model's response against your Zod or Pydantic schema, re-prompting automatically on mismatch.**
-
-**What you'll be able to do after this:** define the exact shape of data you need — a `BugReport`, a `FeaturePlan`, an array of extracted TODOs with git blame — and get back a validated TypeScript or Python object instead of a string you'd have to parse yourself.
-
-**Why free-form text breaks pipelines:** agents return unstructured text by default. That works for chat. It fails when the agent's output feeds a database, a UI component, or the next automated stage — because parsing "the model's summary" is fragile and breaks on edge cases.
-
-**The `outputFormat` option in TypeScript:**
-
-```typescript
-import { z } from "zod";
-import { query } from "@anthropic-ai/claude-agent-sdk";
-
-const BugReport = z.object({
-  file: z.string(),
-  line: z.number(),
-  severity: z.enum(["low", "medium", "high"]),
-  description: z.string()
-});
-
-// Draft-07 is required — Zod defaults to 2020-12, which the SDK rejects
-const schema = z.toJSONSchema(BugReport, { target: "draft-7" });
-
-for await (const message of query({
-  prompt: "Find the most critical bug in this codebase",
-  options: { outputFormat: { type: "json_schema", schema } }
-})) {
-  if (message.type === "result" && message.subtype === "success" && message.structured_output) {
-    const bug = BugReport.safeParse(message.structured_output);
-    if (bug.success) console.log(`${bug.data.file}:${bug.data.line} — ${bug.data.severity}`);
-  }
-}
-```
-
-Python uses `output_format` and Pydantic: `output_format={"type": "json_schema", "schema": BugReport.model_json_schema()}`. Pydantic targets draft-07 by default — no extra flag.
-
-**Three gotchas:**
-
-1. **Zod must target draft-07.** Pass `{ target: "draft-7" }` to `z.toJSONSchema()` or the SDK rejects the schema at startup with a named error. Before v2.1.205, an invalid schema was silently ignored.
-2. **`format` annotations are accepted but not enforced.** `{ "format": "email" }` annotates, it doesn't validate.
-3. **Complex schemas fail more.** Many required nested fields make the SDK's retry loop harder to close. Start flat — add nesting only when you need it.
-
-On failure, the result subtype is `error_max_structured_output_retries`. Check `message.errors` to distinguish a schema mismatch from a model-fallback retraction mid-stream — the two have different root causes and different fixes.
-
-**Sources:** [Get structured output from agents — code.claude.com](https://code.claude.com/docs/en/agent-sdk/structured-outputs) · [Structured outputs — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) · [Structured Output from Claude Agent SDK Workflows — heyclau.de](https://heyclau.de/entry/guides/structured-output-from-claude-agent-sdk-workflows)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>See Every Subagent Tool Call From Your Phone — and Know If Your Cache Is Working: Claude Code v2.1.251</title>
-      <link>https://github.com/anthropics/claude-code/releases/tag/v2.1.251</link>
-      <guid isPermaLink="false">2026-09-02-08-claude-code-subagent-streaming-cost-visibility</guid>
-      <pubDate>Wed, 02 Sep 2026 20:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.251 streams foreground subagent tool calls live to Remote Control clients, and /cost now shows per-session cache hit ratio. Two signals for monitoring long agentic runs from anywhere.</description>
-      <content:encoded><![CDATA[**TL;DR: Claude Code v2.1.251 (August 28) streams foreground subagent tool calls live to Remote Control clients, and `/cost` now shows per-session cache hit ratio, misses, and re-cached tokens — the two signals you need to monitor a long agentic run from anywhere.**
-
-**Foreground subagent live streaming.** When a subagent runs in the foreground, its tool calls and results — file reads, bash executions, writes — now stream in real time to connected Remote Control clients (phone or desktop companion). Background subagents (the default) still show status only.
-
-This gives you per-step visibility on a running multi-agent session without staying at the terminal. It's most useful for tasks where you want to be able to interrupt mid-operation: security-sensitive file changes, anything involving credentials, or workflows where a bad tool call deep in the chain would be expensive to roll back.
-
-**Cache visibility in `/cost`.** A new `prompt_cache` line shows: hit ratio, misses, tokens re-cached from the last run, and whether the cache is warm or cold for this session. If you're relying on prompt caching to keep session costs down and haven't been able to confirm it's working, this is the output that tells you.
-
-```
-/cost now includes:
-  Cache:  82% hit ratio · 4.2K misses · 38K tokens re-cached · warm
-```
-
-Also new: a spend limit bar in `/usage` and a `rate_limits.spend_limit` field for status line scripts, for environments behind a Claude apps gateway with a monthly spend ceiling.
-
-**When to use foreground vs. background subagents.** Foreground streaming is best when you need per-step accountability — security-sensitive operations, anything involving credentials, or workflows where you want to be able to interrupt cleanly. Background subagents remain the right default for parallelized, fire-and-forget work (batch analysis, test runs, research pipelines).
-
-**Real limit.** Foreground subagent streaming relays through the Remote Control service — each tool call result waits for that relay. On tight agentic loops this adds measurable latency. Don't switch to foreground just for visibility unless you actually need per-step control; the overhead is real, not just theoretical.
-
-**Sources:** [Claude Code v2.1.251 release — github.com/anthropics/claude-code](https://github.com/anthropics/claude-code/releases/tag/v2.1.251) · [Claude Code v2.1.250 to v2.1.251 key updates — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20260829-cc-updates-v2-1-251/) · [Claude Code sub-agents — code.claude.com](https://code.claude.com/docs/en/sub-agents)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     

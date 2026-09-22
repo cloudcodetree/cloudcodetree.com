@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-22-07-claude-opus-5-5-api-cost-cut",
+    "title": "Opus 5.5 Launches Today as claude-opus-5-5 — Cache Reads Drop 60%, Input Tokens 20% Cheaper, 5-Hour Caps Removed",
+    "excerpt": "Claude Opus 5.5 launched today as claude-opus-5-5. Cache reads drop 60% to $0.20/MTok, input 20% cheaper at $4/MTok. Anthropic claims Fable 5.1 performance on most workloads and 40% lower run cost…",
+    "author": "Chris Harper",
+    "date": "09-22-2026",
+    "publishedAt": "2026-09-22T20:04:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/about-claude/pricing",
+    "content": "**claude-opus-5-5 is in the API now. Cache reads are 60% cheaper, input tokens 20% cheaper — Anthropic claims Fable 5.1 performance on most workloads.**\n\nAnthropic shipped Claude Opus 5.5 today under the model ID `claude-opus-5-5`. Key pricing changes vs Opus 5 per Anthropic's pricing page:\n\n| | Opus 5 | Opus 5.5 | Change |\n|---|---|---|---|\n| Input | $5/MTok | $4/MTok | −20% |\n| Output | $25/MTok | $20/MTok | −20% |\n| Cache read | $0.50/MTok | $0.20/MTok | −60% |\n| 5m cache write | $6.25/MTok | $5/MTok | −20% |\n| Fast mode in/out | $10/$50/MTok | $8/$40/MTok | −20% |\n| Batch in/out | $2.50/$12.50/MTok | $2/$10/MTok | −20% |\n\nThe cache-read cut matters most for agent workflows: a Claude Code session or multi-step chain that reuses a large system prompt every turn is paying 60% less per cache hit.\n\nAnthropic says Opus 5.5 \"performs at the level of Claude Fable 5.1 on most work\" and claims 40% lower total run cost versus Opus 5 on typical workloads — the reported savings combine the rate cut with the model reportedly generating more concise outputs and running 30%+ faster. These are Anthropic's own figures; independent benchmarks are not yet published.\n\nAlongside the model launch, Anthropic removed 5-hour usage caps for Pro, Max, Team, and Enterprise subscribers and added a rate-limit reset feature.\n\n**Limits to know:** No new capabilities versus Opus 5 — this is a cost and speed refresh, not a capability expansion. Opus 5.5 uses the same tokenizer as Opus 5 and later models (~30% more tokens per task than pre-4.7 builds), so if you're migrating from Claude Opus 4.x code, the rate cut won't translate directly to equal savings. Sonnet 5.5 and Haiku 5.5 are \"coming in the coming weeks\" — the full 5.5 family isn't yet available.\n\nTo test: swap `\"claude-opus-5\"` → `\"claude-opus-5-5\"` in your model string.\n\n**Why it matters:** Cache reads powering system-prompt prefills in agent workflows just got 60% cheaper per Anthropic's official pricing page — the largest per-unit saving in this launch for Claude Code sessions and multi-step chains that reuse large contexts.\n\n**Sources:** [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing), [Benzinga](https://www.benzinga.com/markets/private-markets/26/09/61933271/anthropic-launches-claude-opus-5-5-cuts-costs-40-and-scraps-5-hour-usage-caps), [OpenRouter Opus 5.5](https://openrouter.ai/anthropic/claude-opus-5.5), [LLM stats analysis](https://llm-stats.com/blog/research/claude-opus-5-5-launch)"
+  },
+  {
+    "id": "2026-09-22-08-hyde-hypothetical-document-embeddings-query-expansion-rag",
+    "title": "Your Dense Retriever Compares Questions to Documents — HyDE Generates a Hypothetical Answer First and Closes the Vocabulary Gap",
+    "excerpt": "HyDE improves retrieval by embedding a hypothetical answer instead of the raw query. LangChain's HypotheticalDocumentEmbedder wraps any existing embedder in a few lines of code.",
+    "author": "Chris Harper",
+    "date": "09-22-2026",
+    "publishedAt": "2026-09-22T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Embeddings"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html",
+    "content": "**HyDE asks an LLM to draft a hypothetical answer, embeds that instead of your raw query, and retrieves against the right semantic space — a two-line wrapper around any existing LangChain embedder.**\n\n**What you'll be able to do after this:** Wrap your existing vector retriever with LangChain's `HypotheticalDocumentEmbedder` so queries that miss because the question vocabulary doesn't match the document vocabulary start hitting the right chunks.\n\n## Why your retriever misses\n\nWhen you embed a bare question like \"cost effective inference routing\", the resulting vector sits in question-space. Your corpus contains passages with phrases like \"latency vs cost tradeoff\" or \"model multiplexing\" — semantically related, but distant from the raw question embedding. Document-to-document similarity is consistently easier than question-to-document.\n\n## What HyDE does\n\nInstead of embedding the question, ask an LLM to draft a one-paragraph answer first, then embed *that*. The hypothetical document uses the vocabulary of actual answers, which lands it near your real corpus chunks even if the generated facts are wrong — the encoder's bottleneck filters for semantic shape and discards factual specifics.\n\n**Three takeaways:**\n1. Most useful when queries are short and sparse, or when the corpus uses jargon the query doesn't contain — specialist domains, code documentation, internal knowledge bases.\n2. The LLM generates the hypothetical in a single call; hallucinated facts are largely washed out during embedding because only semantic patterns survive the dense bottleneck.\n3. Trade-off: one extra LLM call per query (roughly 400 input + 200 output tokens with `claude-haiku-4-5-20251001` at ~$0.001) plus 50–100ms latency.\n\n## Implementation with LangChain\n\n```python\nfrom langchain.chains import HypotheticalDocumentEmbedder\nfrom langchain_anthropic import ChatAnthropic\nfrom langchain_openai import OpenAIEmbeddings  # swap for your embedder\n\n# Your existing embedder — nothing changes here\nbase_embeddings = OpenAIEmbeddings()\n\n# The LLM that drafts the hypothetical answer\nllm = ChatAnthropic(model=\"claude-haiku-4-5-20251001\")\n\n# Wrap: now embed_query generates a hypothesis first\nhyde = HypotheticalDocumentEmbedder.from_llm(\n    llm=llm,\n    base_embeddings=base_embeddings,\n    custom_prompt=None,  # uses built-in instruction-following prompt\n)\n\n# Drop-in replacement — same embed_query / embed_documents API\nquery_vector = hyde.embed_query(\"cost effective inference routing\")\n# LLM drafts: \"Efficient inference routing balances model cost and latency...\"\n# Encoder embeds that paragraph → closer to corpus than the raw question\n```\n\nConnect `hyde` to any `VectorStoreRetriever` the same way you'd connect `base_embeddings` — it's a drop-in swap.\n\n## When to skip it\n\nFor well-formed queries that already use your corpus vocabulary, standard dense retrieval is good enough — HyDE adds cost and latency without benefit. Measure recall on a sample of your actual queries before and after; if your baseline already retrieves the right chunk in the top 3, skip it.\n\n**Sources:** [LangChain HypotheticalDocumentEmbedder (Python)](https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html), [NirDiamant RAG Techniques notebook](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/HyDe_Hypothetical_Document_Embedding.ipynb), [Haystack HyDE documentation](https://docs.haystack.deepset.ai/docs/hypothetical-document-embeddings-hyde)"
+  },
+  {
     "id": "2026-09-22-06-claude-code-custom-subagent-agents-dir",
     "title": "Your Orchestrator Session Guesses When to Delegate — A Ten-Line .claude/agents/ File Tells It Exactly",
     "excerpt": "A markdown file in .claude/agents/ defines a named subagent with its own tools, model, and permissionMode — the description field is what the orchestrator reads to decide when to call it.",
