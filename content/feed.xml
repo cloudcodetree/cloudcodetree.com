@@ -10,8 +10,145 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 23 Sep 2026 04:13:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 23 Sep 2026 12:07:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your MCP Tool Description Gets Cut at 2,048 Characters — The Model Sees [truncated] Where Your Parameters Should Be</title>
+      <link>https://github.com/anthropics/claude-code/releases/tag/v2.1.280</link>
+      <guid isPermaLink="false">2026-09-23-04-mcp-description-length-cap-override</guid>
+      <pubDate>Wed, 23 Sep 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>MCP</category>
+      <description>Claude Code cuts MCP tool descriptions at 2,048 chars — the /mcp UI shows the full text, so the cut is invisible. CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH sets a new limit session-wide.</description>
+      <content:encoded><![CDATA[**Claude Code's 2,048-character cap on MCP tool descriptions truncates silently — and the /mcp inspector shows the full text, so you won't see the problem until the model starts calling your tools wrong.**
+
+v2.1.280 (Sep 22) adds `CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` to override the limit for every MCP server in the session.
+
+**The failure mode.** The cap applies to the description field of each tool and to the server instructions block. When text exceeds 2,048 characters, Claude Code appends `[truncated]` and drops the rest before the model ever sees it — but the `/mcp` panel always shows the untruncated text. If a required parameter's semantics are documented past the 2,048-character mark, the model confidently calls the tool with a wrong, narrowed contract, with no signal that anything is missing.
+
+The parameter schema itself is not affected — shapes and types arrive whole (up to ~14.9 KB). Only the prose description field is cut.
+
+**The fix.** Set the env var before launching Claude Code:
+
+```bash
+CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH=8192 claude
+```
+
+Add it to your shell profile or `.env` to make it permanent. A value of 4,096 covers most complex servers; 8,192 gives room for detailed parameter contracts with full enum docs.
+
+**Also in v2.1.280:** the `hook_execution_complete` OpenTelemetry event now includes hook output sizes and the count of oversized outputs written to disk — useful for debugging hooks that generate unexpectedly large results.
+
+**Limits:** Each extra character in a description is a token consumed before the first message is sent. Raising the limit on a server with many tools will increase per-session base token usage. The 2,048-character default is deliberate — it exists to prevent runaway context growth from poorly-written tool descriptions. Measure your baseline token cost before raising it significantly.
+
+**Sources:** [MCP tool description truncation issue #87650 — GitHub](https://github.com/anthropics/claude-code/issues/87650) · [Claude Code v2.1.280 release notes — Anthropic](https://github.com/anthropics/claude-code/releases/tag/v2.1.280) · [HexIDE PR #639: trim tool descriptions to fit the cap — GitHub](https://github.com/hexide-io/HexIDE/pull/639)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>OpenAI Adds Cache Miss Diagnostics and Explicit Prefix Breakpoints to GPT-6 Caching</title>
+      <link>https://openai.com/index/better-prompt-caching-for-gpt-6/</link>
+      <guid isPermaLink="false">2026-09-23-05-openai-gpt6-prompt-caching-dashboard</guid>
+      <pubDate>Wed, 23 Sep 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>OpenAI shipped a Prompt Caching Dashboard (hit rate, token breakdowns), a diagnostics tool explaining individual cache misses, and explicit breakpoints to mark where the cached prefix ends.</description>
+      <content:encoded><![CDATA[**OpenAI added a cache miss debugger, a hit-rate dashboard, and explicit breakpoints to GPT-6 prompt caching — shipped Sep 22 alongside Sol/Luna but separate from the model tier news.**
+
+Four things landed in the GPT-6 caching API:
+
+- **Prompt Caching Dashboard**: tracks cache hit rate over time, reads-per-write, and the breakdown between cache-read, cache-write, and uncached tokens, filterable by model and service tier.
+- **Cache miss diagnostics**: explains why an individual request missed — prefix structure changed, TTL expired, tool call invalidated it — so you can fix the structure rather than guess.
+- **Explicit breakpoints**: a new API parameter marks exactly where the cached prefix should end. Previously, OpenAI determined the split automatically; now you control it, which matters when your prompt has a stable preamble followed by a dynamic section.
+- **Reasoning effort changes without cache invalidation**: changing the reasoning budget mid-conversation no longer flushes the cache prefix.
+
+Prior to this, developers structured prompts to maximize cache hits but had no visibility into whether it was working or why misses happened.
+
+Cache windows are 30 minutes for eligible shared prefixes. The diagnostics tool and explicit breakpoints require GPT-6 API v2 headers; the dashboard is in the OpenAI platform portal today.
+
+**Why it matters:** Invisible cache misses were the biggest impediment to treating prompt caching as an engineering discipline. Explicit breakpoints and miss diagnostics let you verify your caching structure actually holds — the same discipline Anthropic brought to Claude caching but now with tools to measure it on OpenAI's side too.
+
+**Limits:** The 30-minute TTL is unchanged — long-lived sessions that idle between requests will still miss frequently. Explicit breakpoints require restructuring prompts written before this API existed; not a one-line change for codebases with deeply embedded prompt templates.
+
+**Sources:** [Better prompt caching for GPT-6 — OpenAI](https://openai.com/index/better-prompt-caching-for-gpt-6/) · [OpenAI improves prompt caching in GPT-6 Sol and Luna — CryptoBriefing](https://cryptobriefing.com/openai-gpt6-prompt-caching-efficiency/) · [OpenAI API Changelog](https://developers.openai.com/api/docs/changelog)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your RAG Evaluation Is "The Answer Looks Right" — RAGAS Gives You Four Hard Numbers Instead</title>
+      <link>https://docs.ragas.io/en/stable/getstarted/rag_eval/</link>
+      <guid isPermaLink="false">2026-09-23-06-ragas-rag-evaluation-four-metrics</guid>
+      <pubDate>Wed, 23 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>RAGAS computes faithfulness, answer relevancy, context precision, and context recall in one evaluate() call — separating retriever from generator failures with hard numbers.</description>
+      <media:content url="https://img.youtube.com/vi/SjwTae-dLrw/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/SjwTae-dLrw/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**RAGAS runs four RAG quality metrics in one `evaluate()` call, separating retriever failures from generator failures so you can measure whether a change made things better, worse, or just different.**
+
+**What you'll be able to do after this:** run a short test set through your RAG pipeline and get four interpretable scores that separately measure the retriever and the generator — so a retrieval change and a prompt change don't look the same in the output.
+
+---
+
+**The four metrics and what they catch:**
+
+| Metric | What it measures | What a low score means |
+|---|---|---|
+| **Faithfulness** | Answer claims supported by retrieved context | Hallucination — the LLM invented content not in the docs |
+| **Answer relevancy** | Answer actually addresses the question | Generic or off-topic generation |
+| **Context precision** | Relevant chunks ranked near the top | Right content found but ranked poorly — a reranker helps |
+| **Context recall** | Retrieved context covers everything needed | Missing chunks — retriever left something out |
+
+TruLens (covered [Sep 13](/ai-news/2026-09-13-01-trulens-rag-triad-evaluation)) evaluates with a proprietary RAG Triad. RAGAS is reference-free and open-source — you can embed it in CI without an external API key.
+
+---
+
+**Quick setup:**
+
+```bash
+pip install ragas langchain-openai
+```
+
+```python
+from ragas import evaluate
+from ragas.metrics import (
+    faithfulness, answer_relevancy, context_precision, context_recall
+)
+from datasets import Dataset
+
+data = {
+    "question":    ["What is pgvector?"],
+    "answer":      ["pgvector is a PostgreSQL extension for vector similarity search."],
+    "contexts":    [["pgvector adds vector types and index methods to Postgres..."]],
+    "ground_truth":["pgvector is a Postgres extension for vector operations."]
+}
+
+result = evaluate(Dataset.from_dict(data),
+                  metrics=[faithfulness, answer_relevancy,
+                           context_precision, context_recall])
+print(result)  # DataFrame with per-row scores
+```
+
+**What to watch for:** faithfulness below 0.7 typically means your context window is too small or you're over-stuffing chunks. Context precision below 0.6 means your retriever found the right content but ranked it poorly — a cross-encoder reranker (covered [Sep 17](/ai-news/2026-09-17-01-cross-encoder-reranking-sentence-transformers-rag)) often fixes this without rebuilding the index.
+
+---
+
+**Limits:** RAGAS uses an LLM to judge each output, which adds 1–3 inference calls per test row. At scale, an eval run can cost as much as the pipeline being tested. Most teams gate CI evals to a stable gold set of 50–200 rows and run full evals manually before releases. Context recall requires ground-truth answers — if your test set has none, run the other three metrics alone.
+
+**Resource:** [How to Evaluate Your RAG Pipeline with RAGAS — Full End-to-End Project (YouTube, Apr 2026)](https://www.youtube.com/watch?v=SjwTae-dLrw) · [Official RAGAS tutorial — docs.ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/)
+
+**Sources:** [RAGAS documentation — ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/) · [Evaluating RAG Applications with RAGAs — Leonie Monigatti](https://www.leoniemonigatti.com/blog/rag-evaluation-with-ragas.html) · [Complete RAG Evaluation Tutorial for AI Engineers — YouTube](https://www.youtube.com/watch?v=RD73XAjaT9M)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Evaluation Loop Runs Synchronously — Batching 100K Claude Calls Costs Half and Usually Finishes in Under an Hour</title>
@@ -5438,157 +5575,9 @@ Claude Code reads the design artifact — component specs, tokens, layout intent
 **Sources:** [Claude Design — support.claude.com](https://support.claude.com) · [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Anthropic overhauled Claude Design to fix the handoff — The New Stack](https://thenewstack.io/anthropic-claude-design-overhaul/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>One Config File, Every Team Member: Deploy Shared MCP Servers Org-Wide in Claude Code 2.1.259</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-03-05-claude-code-managed-mcp-servers-org-deploy</guid>
-      <pubDate>Thu, 03 Sep 2026 12:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>MCP</category>
-      <description>Claude Code 2.1.259 adds managedMcpServers — push HTTP/SSE MCP servers to every engineer in your org without per-machine .mcp.json edits.</description>
-      <content:encoded><![CDATA[**Claude Code 2.1.259 adds `managedMcpServers` — a managed setting that pushes HTTP/SSE MCP servers to every user in your org without per-machine `.mcp.json` setup.**
-
-When you run Claude Code across a team, each engineer configures their own `.mcp.json`. Add a new internal tool — a knowledge base connector, a database MCP, a CI runner — and every engineer needs to update their config manually. `managedMcpServers` removes that friction.
-
-**How to configure it:**
-
-In your org's managed settings file (deployed via MDM, a dotfile repo, or the Claude console for Enterprise users), add:
-
-```json
-{
-  "managedMcpServers": {
-    "company-wiki": {
-      "url": "https://mcp.internal.example.com/wiki/sse",
-      "type": "sse"
-    },
-    "jira-connector": {
-      "url": "https://mcp.internal.example.com/jira",
-      "type": "http"
-    }
-  }
-}
-```
-
-Every Claude Code session on a managed machine sees these servers immediately — no `.mcp.json` edit, no restart. The entry shape is identical to `.mcp.json`.
-
-**One hard constraint:** `managedMcpServers` accepts HTTP/SSE endpoints only. Entries that name a command to run are silently skipped. If your MCP servers are stdio/command-based, you need an HTTP adapter (a small FastAPI wrapper over the stdio session is the common pattern) or you keep per-user setup for those.
-
-**When to use this vs. `.mcp.json`:** Use managed settings for shared org services (internal knowledge bases, company-specific integrations, compliance tools). Use per-project `.mcp.json` for tools that vary by repo. User-level `~/.mcp.json` still handles personal one-off servers.
-
-Also new in 2.1.259: `--permission-prompts none` for unattended headless environments — anything that would prompt is auto-denied, useful for CI runs where a hanging prompt would silently block the job.
-
-**Sources:** [Claude Code changelog v2.1.259 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Install and Configure MCP Servers in Claude Code — systemprompt.io](https://systemprompt.io/guides/claude-code-mcp-servers-extensions) · [How to Add an MCP Server to Claude Code — TrueFoundry](https://www.truefoundry.com/blog/how-to-add-an-mcp-server-to-claude-code)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Sony and Warner Sue Anthropic for Training-Data Scraping — What It Means for AI Product Builders</title>
-      <link>https://techcrunch.com/2026/08/29/sony-music-warner-sue-anthropic-alleging-a-brazen-campaign-of-intellectual-property-theft/</link>
-      <guid isPermaLink="false">2026-09-03-06-anthropic-music-copyright-lawsuit-sony-warner</guid>
-      <pubDate>Thu, 03 Sep 2026 12:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Policy</category>
-      <category>LLM</category>
-      <description>Sony and Warner filed a multi-billion dollar copyright lawsuit against Anthropic on August 29 over training-data scraping. What it means for engineers building on Claude.</description>
-      <content:encoded><![CDATA[**Sony Music Publishing and Warner Chappell filed a multi-billion dollar copyright lawsuit against Anthropic on August 29, alleging Claude was trained on unlicensed song lyrics scraped at scale. Dario Amodei and Benjamin Mann are named personally.**
-
-The complaint, filed in Northern California federal court, accuses Anthropic of "torrenting, scraping, and downloading copyrighted works on a massive scale" — naming tens of thousands of song compositions. The publishers seek up to $150,000 per infringed work plus $25,000 per copyright management information violation, yielding potential multi-billion dollar exposure. Anthropic says it will defend itself.
-
-**Three things this does and doesn't mean for engineers building on Claude:**
-
-1. **Downstream liability doesn't automatically flow to API users.** If Anthropic's training data is found infringing, the exposure is Anthropic's, not the product builder's — you're using a deployed model via API, not replicating the training run. The downstream question for API customers remains unsettled in case law; there's no clear precedent yet.
-
-2. **This is the third major music suit against an AI lab** — following earlier cases against Google and Meta. A win for the publishers would force industry-wide reckoning with training data provenance, affecting every major foundation model.
-
-3. **Claude's API and capabilities are unaffected.** Fable 5.1, Mythos 5.1, and the Claude API remain in production. The suit challenges training methodology, not inference behavior.
-
-**What it doesn't mean:** "Unsafe to build on." IP litigation over training data is structurally separate from model safety or operational risk. Monitor the case alongside the Google and Meta precedents — the outcomes will define what responsible AI training means in law, not just in policy.
-
-**Why it matters:** The legal framework for AI training data is being written in real time. The combined multi-billion dollar exposure, if liability is found, would reshape how every AI lab approaches training data sourcing and licensing.
-
-**Sources:** [Sony, Warner sue Anthropic — TechCrunch](https://techcrunch.com/2026/08/29/sony-music-warner-sue-anthropic-alleging-a-brazen-campaign-of-intellectual-property-theft/) · [Sony, Warner sue Anthropic — Axios](https://www.axios.com/2026/08/29/anthropic-sony-warner-music-copyright) · [Sony Music Publishing and Warner Chappell sue Anthropic — Music Business Worldwide](https://www.musicbusinessworldwide.com/now-sony-music-publishing-and-warner-chappell-sue-anthropic-in-multi-billion-dollar-lawsuit-one-of-the-largest-and-most-blatant-ongoing-thefts-of-intellectual-property-in-history/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>You're Already on Postgres — Add Vector Search in Five SQL Lines With pgvector</title>
-      <link>https://supabase.com/docs/guides/database/extensions/pgvector</link>
-      <guid isPermaLink="false">2026-09-03-07-pgvector-postgres-vector-search-rag-foundations</guid>
-      <pubDate>Thu, 03 Sep 2026 12:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>pgvector adds a vector column type and similarity search operators to PostgreSQL — add vector search to your existing database with one extension, no new infra.</description>
-      <media:content url="https://img.youtube.com/vi/erNoI9COOn0/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/erNoI9COOn0/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**pgvector turns your existing PostgreSQL database into a vector store with one extension — no separate service, no new infra. Here's the minimal path from embeddings to similarity search for RAG.**
-
-**What you'll be able to do after this:**
-- Add a `vector` column to any Postgres table and store embeddings alongside relational data
-- Run cosine similarity search in SQL with two lines
-- Add an HNSW index so queries stay fast at 100k+ rows
-
-## Enable the extension
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-On Supabase: one toggle in Database → Extensions. On AWS RDS (PostgreSQL 15+) or Azure Database for PostgreSQL: enable from the extensions list. For a local Postgres install: `apt install postgresql-16-pgvector`, then run the SQL above.
-
-## Store embeddings
-
-```sql
-CREATE TABLE documents (
-  id        SERIAL PRIMARY KEY,
-  content   TEXT,
-  embedding VECTOR(1536)  -- match your model's output dimension
-);
-```
-
-From Python, generate embeddings with `sentence-transformers` or any embedding endpoint and insert with `psycopg2`:
-
-```python
-import psycopg2
-cur.execute(
-    "INSERT INTO documents (content, embedding) VALUES (%s, %s)",
-    (chunk_text, embedding_list)
-)
-```
-
-## Query by similarity
-
-```sql
-SELECT content, 1 - (embedding <=> %s::vector) AS score
-FROM documents
-ORDER BY embedding <=> %s::vector
-LIMIT 5;
-```
-
-`<=>` is cosine distance; `<->` is L2 (Euclidean); `<#>` is negative inner product. For normalized embeddings, all three produce the same ranking — cosine (`<=>`) is the safe default.
-
-## Add an index before production
-
-```sql
-CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops);
-```
-
-Without an index, pgvector does a full table scan — fine under ~10k rows, noticeable past that. HNSW keeps query time in low milliseconds at 100k+ rows.
-
-## When to use something else
-
-pgvector uses Postgres CPU and I/O budget. If you're storing millions of vectors with heavy concurrent load, a dedicated vector database (Qdrant, Chroma, Pinecone) offloads the index pressure and keeps your Postgres instance uncontested. For a typical RAG app under ~500k documents, staying in Postgres means one fewer service to run, one fewer connection to manage, and free joins against your existing tables.
-
-**The best starting resource:** [pgvector: Embeddings and vector similarity — Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector) covers setup, LangChain integration, and metadata filtering. For a hands-on video: [PGVector: Turn PostgreSQL into Vector Database (Python Tutorial) — YouTube](https://www.youtube.com/watch?v=erNoI9COOn0).
-
-**Sources:** [pgvector extension — Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector) · [pgvector tutorial — DataCamp](https://www.datacamp.com/tutorial/pgvector-tutorial) · [You probably don't need a vector database — Encore](https://encore.dev/blog/you-probably-dont-need-a-vector-database)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     

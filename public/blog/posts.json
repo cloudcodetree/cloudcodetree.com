@@ -1,5 +1,59 @@
 [
   {
+    "id": "2026-09-23-04-mcp-description-length-cap-override",
+    "title": "Your MCP Tool Description Gets Cut at 2,048 Characters — The Model Sees [truncated] Where Your Parameters Should Be",
+    "excerpt": "Claude Code cuts MCP tool descriptions at 2,048 chars — the /mcp UI shows the full text, so the cut is invisible. CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH sets a new limit session-wide.",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T12:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "MCP"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://github.com/anthropics/claude-code/releases/tag/v2.1.280",
+    "content": "**Claude Code's 2,048-character cap on MCP tool descriptions truncates silently — and the /mcp inspector shows the full text, so you won't see the problem until the model starts calling your tools wrong.**\n\nv2.1.280 (Sep 22) adds `CLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH` to override the limit for every MCP server in the session.\n\n**The failure mode.** The cap applies to the description field of each tool and to the server instructions block. When text exceeds 2,048 characters, Claude Code appends `[truncated]` and drops the rest before the model ever sees it — but the `/mcp` panel always shows the untruncated text. If a required parameter's semantics are documented past the 2,048-character mark, the model confidently calls the tool with a wrong, narrowed contract, with no signal that anything is missing.\n\nThe parameter schema itself is not affected — shapes and types arrive whole (up to ~14.9 KB). Only the prose description field is cut.\n\n**The fix.** Set the env var before launching Claude Code:\n\n```bash\nCLAUDE_CODE_MAX_MCP_DESCRIPTION_LENGTH=8192 claude\n```\n\nAdd it to your shell profile or `.env` to make it permanent. A value of 4,096 covers most complex servers; 8,192 gives room for detailed parameter contracts with full enum docs.\n\n**Also in v2.1.280:** the `hook_execution_complete` OpenTelemetry event now includes hook output sizes and the count of oversized outputs written to disk — useful for debugging hooks that generate unexpectedly large results.\n\n**Limits:** Each extra character in a description is a token consumed before the first message is sent. Raising the limit on a server with many tools will increase per-session base token usage. The 2,048-character default is deliberate — it exists to prevent runaway context growth from poorly-written tool descriptions. Measure your baseline token cost before raising it significantly.\n\n**Sources:** [MCP tool description truncation issue #87650 — GitHub](https://github.com/anthropics/claude-code/issues/87650) · [Claude Code v2.1.280 release notes — Anthropic](https://github.com/anthropics/claude-code/releases/tag/v2.1.280) · [HexIDE PR #639: trim tool descriptions to fit the cap — GitHub](https://github.com/hexide-io/HexIDE/pull/639)"
+  },
+  {
+    "id": "2026-09-23-05-openai-gpt6-prompt-caching-dashboard",
+    "title": "OpenAI Adds Cache Miss Diagnostics and Explicit Prefix Breakpoints to GPT-6 Caching",
+    "excerpt": "OpenAI shipped a Prompt Caching Dashboard (hit rate, token breakdowns), a diagnostics tool explaining individual cache misses, and explicit breakpoints to mark where the cached prefix ends.",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T12:06:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://openai.com/index/better-prompt-caching-for-gpt-6/",
+    "content": "**OpenAI added a cache miss debugger, a hit-rate dashboard, and explicit breakpoints to GPT-6 prompt caching — shipped Sep 22 alongside Sol/Luna but separate from the model tier news.**\n\nFour things landed in the GPT-6 caching API:\n\n- **Prompt Caching Dashboard**: tracks cache hit rate over time, reads-per-write, and the breakdown between cache-read, cache-write, and uncached tokens, filterable by model and service tier.\n- **Cache miss diagnostics**: explains why an individual request missed — prefix structure changed, TTL expired, tool call invalidated it — so you can fix the structure rather than guess.\n- **Explicit breakpoints**: a new API parameter marks exactly where the cached prefix should end. Previously, OpenAI determined the split automatically; now you control it, which matters when your prompt has a stable preamble followed by a dynamic section.\n- **Reasoning effort changes without cache invalidation**: changing the reasoning budget mid-conversation no longer flushes the cache prefix.\n\nPrior to this, developers structured prompts to maximize cache hits but had no visibility into whether it was working or why misses happened.\n\nCache windows are 30 minutes for eligible shared prefixes. The diagnostics tool and explicit breakpoints require GPT-6 API v2 headers; the dashboard is in the OpenAI platform portal today.\n\n**Why it matters:** Invisible cache misses were the biggest impediment to treating prompt caching as an engineering discipline. Explicit breakpoints and miss diagnostics let you verify your caching structure actually holds — the same discipline Anthropic brought to Claude caching but now with tools to measure it on OpenAI's side too.\n\n**Limits:** The 30-minute TTL is unchanged — long-lived sessions that idle between requests will still miss frequently. Explicit breakpoints require restructuring prompts written before this API existed; not a one-line change for codebases with deeply embedded prompt templates.\n\n**Sources:** [Better prompt caching for GPT-6 — OpenAI](https://openai.com/index/better-prompt-caching-for-gpt-6/) · [OpenAI improves prompt caching in GPT-6 Sol and Luna — CryptoBriefing](https://cryptobriefing.com/openai-gpt6-prompt-caching-efficiency/) · [OpenAI API Changelog](https://developers.openai.com/api/docs/changelog)"
+  },
+  {
+    "id": "2026-09-23-06-ragas-rag-evaluation-four-metrics",
+    "title": "Your RAG Evaluation Is \"The Answer Looks Right\" — RAGAS Gives You Four Hard Numbers Instead",
+    "excerpt": "RAGAS computes faithfulness, answer relevancy, context precision, and context recall in one evaluate() call — separating retriever from generator failures with hard numbers.",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T12:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.ragas.io/en/stable/getstarted/rag_eval/",
+    "content": "**RAGAS runs four RAG quality metrics in one `evaluate()` call, separating retriever failures from generator failures so you can measure whether a change made things better, worse, or just different.**\n\n**What you'll be able to do after this:** run a short test set through your RAG pipeline and get four interpretable scores that separately measure the retriever and the generator — so a retrieval change and a prompt change don't look the same in the output.\n\n---\n\n**The four metrics and what they catch:**\n\n| Metric | What it measures | What a low score means |\n|---|---|---|\n| **Faithfulness** | Answer claims supported by retrieved context | Hallucination — the LLM invented content not in the docs |\n| **Answer relevancy** | Answer actually addresses the question | Generic or off-topic generation |\n| **Context precision** | Relevant chunks ranked near the top | Right content found but ranked poorly — a reranker helps |\n| **Context recall** | Retrieved context covers everything needed | Missing chunks — retriever left something out |\n\nTruLens (covered [Sep 13](/ai-news/2026-09-13-01-trulens-rag-triad-evaluation)) evaluates with a proprietary RAG Triad. RAGAS is reference-free and open-source — you can embed it in CI without an external API key.\n\n---\n\n**Quick setup:**\n\n```bash\npip install ragas langchain-openai\n```\n\n```python\nfrom ragas import evaluate\nfrom ragas.metrics import (\n    faithfulness, answer_relevancy, context_precision, context_recall\n)\nfrom datasets import Dataset\n\ndata = {\n    \"question\":    [\"What is pgvector?\"],\n    \"answer\":      [\"pgvector is a PostgreSQL extension for vector similarity search.\"],\n    \"contexts\":    [[\"pgvector adds vector types and index methods to Postgres...\"]],\n    \"ground_truth\":[\"pgvector is a Postgres extension for vector operations.\"]\n}\n\nresult = evaluate(Dataset.from_dict(data),\n                  metrics=[faithfulness, answer_relevancy,\n                           context_precision, context_recall])\nprint(result)  # DataFrame with per-row scores\n```\n\n**What to watch for:** faithfulness below 0.7 typically means your context window is too small or you're over-stuffing chunks. Context precision below 0.6 means your retriever found the right content but ranked it poorly — a cross-encoder reranker (covered [Sep 17](/ai-news/2026-09-17-01-cross-encoder-reranking-sentence-transformers-rag)) often fixes this without rebuilding the index.\n\n---\n\n**Limits:** RAGAS uses an LLM to judge each output, which adds 1–3 inference calls per test row. At scale, an eval run can cost as much as the pipeline being tested. Most teams gate CI evals to a stable gold set of 50–200 rows and run full evals manually before releases. Context recall requires ground-truth answers — if your test set has none, run the other three metrics alone.\n\n**Resource:** [How to Evaluate Your RAG Pipeline with RAGAS — Full End-to-End Project (YouTube, Apr 2026)](https://www.youtube.com/watch?v=SjwTae-dLrw) · [Official RAGAS tutorial — docs.ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/)\n\n**Sources:** [RAGAS documentation — ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/) · [Evaluating RAG Applications with RAGAs — Leonie Monigatti](https://www.leoniemonigatti.com/blog/rag-evaluation-with-ragas.html) · [Complete RAG Evaluation Tutorial for AI Engineers — YouTube](https://www.youtube.com/watch?v=RD73XAjaT9M)"
+  },
+  {
     "id": "2026-09-23-02-anthropic-message-batches-api-eval-cost-half",
     "title": "Your Evaluation Loop Runs Synchronously — Batching 100K Claude Calls Costs Half and Usually Finishes in Under an Hour",
     "excerpt": "The Anthropic Message Batches API submits up to 100K Claude requests at half the per-token price; results come back async within a 24-hour window. The pattern is: custom_id on each request, poll fo…",
