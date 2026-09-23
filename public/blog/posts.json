@@ -1,5 +1,59 @@
 [
   {
+    "id": "2026-09-23-02-anthropic-message-batches-api-eval-cost-half",
+    "title": "Your Evaluation Loop Runs Synchronously — Batching 100K Claude Calls Costs Half and Usually Finishes in Under an Hour",
+    "excerpt": "The Anthropic Message Batches API submits up to 100K Claude requests at half the per-token price; results come back async within a 24-hour window. The pattern is: custom_id on each request, poll fo…",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T04:13:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Best Practices",
+      "LLM"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.anthropic.com/en/api/creating-message-batches",
+    "content": "**The Anthropic Message Batches API sends up to 100,000 Claude requests in a single call at half the per-token price — the practical path for evaluation suites, document labeling, and content generation at scale.**\n\n**When to reach for it.** Evaluations, data labeling, document classification, and content generation pipelines are the three places where teams burn most of their token budget. If the work doesn't need an answer right now — you can wait 30–90 minutes for a batch to finish — Anthropic reports a 50% discount on all input and output tokens.\n\n**The pattern.** Each request in a batch carries a `custom_id` you set; results come back unordered, and `custom_id` is the only join key between your source data and the response.\n\n```python\nimport anthropic, time\n\nclient = anthropic.Anthropic()\n\n# 1. Submit (up to 100,000 requests per batch)\nbatch = client.messages.batches.create(requests=[\n    {\n        \"custom_id\": f\"doc-{i}\",\n        \"params\": {\n            \"model\": \"claude-sonnet-5\",\n            \"max_tokens\": 256,\n            \"messages\": [{\"role\": \"user\", \"content\": f\"Classify sentiment: {text}\"}],\n        },\n    }\n    for i, text in enumerate(corpus)\n])\n\n# 2. Poll for completion\nwhile batch.processing_status == \"in_progress\":\n    time.sleep(60)\n    batch = client.messages.batches.retrieve(batch.id)\n\n# 3. Collect — results are unordered; custom_id is the join key\nresults = {}\nfor result in client.messages.batches.results(batch.id):\n    if result.result.type == \"succeeded\":\n        results[result.custom_id] = result.result.message.content[0].text\n```\n\nFor large corpora, split into chunks of 50K–100K rows and submit parallel batches; chain them when the output of one job feeds the next.\n\n**The limit that matters.** The processing window is 24 hours — a ceiling, not a target. Most batches finish in under an hour, but the API makes no tighter guarantee. Don't schedule a batch that a downstream step needs within the hour. Also: no streaming. If your evaluation requires partial results as they arrive, or you need the request-response chain for tracing, keep synchronous calls. The Batch API trades latency control for cost.\n\n**Why it matters:** Swapping your synchronous eval loop for a batch call is a one-function change that immediately halves the token cost on every eval run — the most reliable cost optimization available at the API level.\n\n**Sources:** [Message Batches API — Anthropic Docs](https://docs.anthropic.com/en/api/creating-message-batches) · [LLM Batch Processing with Anthropic SDK in production — DevOpsBoys](https://devopsboys.com/blog/llm-batch-processing-anthropic-sdk-production-2026) · [Batch inference cost tradeoffs — Chirag Hasija](https://chiraghasija.cc/posts/llm-batch-inference-cost-optimization-2026/)"
+  },
+  {
+    "id": "2026-09-23-01-openai-gpt6-sol-luna-google-antigravity-api",
+    "title": "Two New GPT-6 Tiers and Google's Antigravity Coding Agent Hit the API on the Same Day",
+    "excerpt": "OpenAI released GPT-6 Sol ($2/$10 per MTok) and Luna ($0.10/$0.50) on Sep 22; Google opened its Antigravity coding agent via the Gemini Interactions API on the same day.",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T04:12:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/",
+    "content": "**OpenAI expanded GPT-6 with two tiered models yesterday; Google opened its Antigravity sandboxed coding agent through the Gemini Interactions API — both on September 22.**\n\n**OpenAI GPT-6 Sol and Luna.** GPT-6 Sol lands at $2/$10 per MTok (in/out) and GPT-6 Luna at $0.10/$0.50 per MTok. Both are rolling out to ChatGPT Plus, Pro, Business, and Enterprise, and to the API. OpenAI claims Sol makes \"about half as many mistakes\" as its GPT-5.6 predecessor and reaches Astra-level reliability at lower cost — independent benchmarks are not yet published. Luna is positioned for high-volume or latency-sensitive tasks where Astra's price ceiling is prohibitive.\n\n**Google Antigravity in the Gemini API.** The `antigravity-preview-09-2026` build brings Antigravity's autonomous coding agent to the Gemini Interactions API and AI Studio, running on Gemini 3.8 Flash (model is configurable). A single API call gives you an agent that can plan, reason, write and execute code, manage files, and browse the web inside an isolated Linux sandbox — no container to provision yourself. Developers with existing Antigravity integrations should update before deploying: local tool call parameters shifted to PascalCase and file edits now arrive as line-range replacements rather than full-file rewrites — both are breaking changes.\n\n**Why it matters:** Two separately-controlled agent tiers are now available through the OpenAI API with pricing that extends the range downward. The Antigravity API trades execution control for setup simplicity — you don't manage the sandbox, but you can't restrict what the agent runs inside it. Both are worth evaluating against your current provider choices.\n\n**Sources:** [OpenAI launches GPT-6 Sol and Luna — TechCrunch](https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/) · [Gemini API Managed Agents Update — Google AI Studio](https://aistudio.google.com/learn/managed-agents-updated-harness-files-credentials?e=0) · [Antigravity coding agent hits Gemini API — Startup Fortune](https://startupfortune.com/google-turns-its-antigravity-coding-agent-into-a-free-gemini-api-tool/)"
+  },
+  {
+    "id": "2026-09-23-03-modal-vllm-serverless-gpu-zero-scale-python",
+    "title": "Your vLLM Server Runs 24/7 and You Pay for Idle Capacity — Modal Scales It to Zero with Three Decorators",
+    "excerpt": "Three Python decorators — @app.server(), modal.Volume for weights, @modal.enter() for startup — deploy a vLLM inference server that scales to zero when idle. modal deploy is the only command you run.",
+    "author": "Chris Harper",
+    "date": "09-23-2026",
+    "publishedAt": "2026-09-23T04:11:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "LLM"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://modal.com/blog/how-to-deploy-vllm",
+    "content": "**Three Python decorators deploy a vLLM inference server on Modal that scales to zero when idle — pay only when you serve, no GPU to provision or manage, with an OpenAI-compatible endpoint at the end.**\n\n**What you'll be able to do after this:** deploy any HuggingFace model as a serverless vLLM endpoint that cold-starts on demand, serves at full GPU throughput, and scales back to zero — without managing a VM or container registry.\n\n- A `modal.Volume` persists model weights across container restarts so the first inference call after a cold start skips the model download\n- `@modal.enter()` runs vLLM's subprocess once when a container starts, not on every request\n- Memory snapshots (`FAST_BOOT=true`) cut cold-start time from ~90s to ~15s, but must be rebuilt whenever the model or server config changes\n\n## Walk-through\n\n```python\nimport modal, subprocess, httpx\n\napp = modal.App(\"vllm-server\")\n\nimage = (\n    modal.Image.from_registry(\"nvidia/cuda:12.4.0-devel-ubuntu22.04\", add_python=\"3.11\")\n    .uv_pip_install(\n        \"vllm==0.7.2\",\n        \"flashinfer-python\",\n        extra_index_url=\"https://flashinfer.ai/whl/cu124/torch2.4\",\n    )\n    .env({\"FAST_BOOT\": \"true\"})\n)\n\nvol = modal.Volume.from_name(\"vllm-weights\", create_if_missing=True)\n\n@app.server(\n    image=image,\n    gpu=\"A100\",\n    volumes={\"/cache\": vol},\n    allow_concurrent_inputs=64,\n    scaledown_window=300,   # container shuts down 5 min after last request\n)\nclass VllmServer:\n    @modal.enter()\n    def start(self):\n        self.proc = subprocess.Popen([\n            \"python\", \"-m\", \"vllm.entrypoints.openai.api_server\",\n            \"--model\", \"Qwen/Qwen3-8B-FP8\",\n            \"--download-dir\", \"/cache\",\n            \"--max-model-len\", \"8192\",\n        ])\n        # wait for vLLM to be ready\n        import time\n        time.sleep(30)\n\n    @modal.fastapi_endpoint(path=\"/v1/chat/completions\", method=\"POST\")\n    def chat(self, request: dict):\n        return httpx.post(\n            \"http://localhost:8000/v1/chat/completions\", json=request\n        ).json()\n```\n\n```bash\nmodal deploy vllm_server.py\n# → https://your-workspace--vllm-server.modal.run/v1/chat/completions\n```\n\nThe endpoint is OpenAI-compatible — swap `base_url` in any existing client and it works.\n\n## The limit that shapes your architecture\n\nCold starts. With `scaledown_window=300`, Modal shuts the container after 5 minutes idle. The next request after that waits for GPU allocation plus vLLM startup: ~90 seconds for an 8B FP8 model without `FAST_BOOT`, ~15 seconds with it. The snapshot locks the startup state, so changing the model or vLLM flags requires a `modal deploy` to rebuild it.\n\nPer Modal's pricing, an A100 runs approximately $5.50/hr after the $30/month free credit. Scale-to-zero is cheaper than a dedicated endpoint when your traffic is below roughly 3–5 requests per hour; sustained high-throughput workloads are better served by a kept-warm container or a dedicated inference provider.\n\n**Sources:** [Deploy vLLM on Modal — Modal Blog](https://modal.com/blog/how-to-deploy-vllm) · [Modal LLM Deployment Tutorial: vLLM and LoRA — YouTube](https://www.youtube.com/watch?v=ABF5WRPeaEE) · [Best practices for serverless inference — Modal Blog](https://modal.com/blog/serverless-inference-article)"
+  },
+  {
     "id": "2026-09-22-07-claude-opus-5-5-api-cost-cut",
     "title": "Opus 5.5 Launches Today as claude-opus-5-5 — Cache Reads Drop 60%, Input Tokens 20% Cheaper, 5-Hour Caps Removed",
     "excerpt": "Claude Opus 5.5 launched today as claude-opus-5-5. Cache reads drop 60% to $0.20/MTok, input 20% cheaper at $4/MTok. Anthropic claims Fable 5.1 performance on most workloads and 40% lower run cost…",

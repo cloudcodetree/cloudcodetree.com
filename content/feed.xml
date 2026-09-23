@@ -10,8 +10,173 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 22 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 23 Sep 2026 04:13:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your Evaluation Loop Runs Synchronously — Batching 100K Claude Calls Costs Half and Usually Finishes in Under an Hour</title>
+      <link>https://docs.anthropic.com/en/api/creating-message-batches</link>
+      <guid isPermaLink="false">2026-09-23-02-anthropic-message-batches-api-eval-cost-half</guid>
+      <pubDate>Wed, 23 Sep 2026 04:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Best Practices</category>
+      <category>LLM</category>
+      <description>The Anthropic Message Batches API submits up to 100K Claude requests at half the per-token price; results come back async within a 24-hour window. The pattern is: custom_id on each request, poll for status, stream results back.</description>
+      <content:encoded><![CDATA[**The Anthropic Message Batches API sends up to 100,000 Claude requests in a single call at half the per-token price — the practical path for evaluation suites, document labeling, and content generation at scale.**
+
+**When to reach for it.** Evaluations, data labeling, document classification, and content generation pipelines are the three places where teams burn most of their token budget. If the work doesn't need an answer right now — you can wait 30–90 minutes for a batch to finish — Anthropic reports a 50% discount on all input and output tokens.
+
+**The pattern.** Each request in a batch carries a `custom_id` you set; results come back unordered, and `custom_id` is the only join key between your source data and the response.
+
+```python
+import anthropic, time
+
+client = anthropic.Anthropic()
+
+# 1. Submit (up to 100,000 requests per batch)
+batch = client.messages.batches.create(requests=[
+    {
+        "custom_id": f"doc-{i}",
+        "params": {
+            "model": "claude-sonnet-5",
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": f"Classify sentiment: {text}"}],
+        },
+    }
+    for i, text in enumerate(corpus)
+])
+
+# 2. Poll for completion
+while batch.processing_status == "in_progress":
+    time.sleep(60)
+    batch = client.messages.batches.retrieve(batch.id)
+
+# 3. Collect — results are unordered; custom_id is the join key
+results = {}
+for result in client.messages.batches.results(batch.id):
+    if result.result.type == "succeeded":
+        results[result.custom_id] = result.result.message.content[0].text
+```
+
+For large corpora, split into chunks of 50K–100K rows and submit parallel batches; chain them when the output of one job feeds the next.
+
+**The limit that matters.** The processing window is 24 hours — a ceiling, not a target. Most batches finish in under an hour, but the API makes no tighter guarantee. Don't schedule a batch that a downstream step needs within the hour. Also: no streaming. If your evaluation requires partial results as they arrive, or you need the request-response chain for tracing, keep synchronous calls. The Batch API trades latency control for cost.
+
+**Why it matters:** Swapping your synchronous eval loop for a batch call is a one-function change that immediately halves the token cost on every eval run — the most reliable cost optimization available at the API level.
+
+**Sources:** [Message Batches API — Anthropic Docs](https://docs.anthropic.com/en/api/creating-message-batches) · [LLM Batch Processing with Anthropic SDK in production — DevOpsBoys](https://devopsboys.com/blog/llm-batch-processing-anthropic-sdk-production-2026) · [Batch inference cost tradeoffs — Chirag Hasija](https://chiraghasija.cc/posts/llm-batch-inference-cost-optimization-2026/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Two New GPT-6 Tiers and Google's Antigravity Coding Agent Hit the API on the Same Day</title>
+      <link>https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/</link>
+      <guid isPermaLink="false">2026-09-23-01-openai-gpt6-sol-luna-google-antigravity-api</guid>
+      <pubDate>Wed, 23 Sep 2026 04:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>OpenAI released GPT-6 Sol ($2/$10 per MTok) and Luna ($0.10/$0.50) on Sep 22; Google opened its Antigravity coding agent via the Gemini Interactions API on the same day.</description>
+      <content:encoded><![CDATA[**OpenAI expanded GPT-6 with two tiered models yesterday; Google opened its Antigravity sandboxed coding agent through the Gemini Interactions API — both on September 22.**
+
+**OpenAI GPT-6 Sol and Luna.** GPT-6 Sol lands at $2/$10 per MTok (in/out) and GPT-6 Luna at $0.10/$0.50 per MTok. Both are rolling out to ChatGPT Plus, Pro, Business, and Enterprise, and to the API. OpenAI claims Sol makes "about half as many mistakes" as its GPT-5.6 predecessor and reaches Astra-level reliability at lower cost — independent benchmarks are not yet published. Luna is positioned for high-volume or latency-sensitive tasks where Astra's price ceiling is prohibitive.
+
+**Google Antigravity in the Gemini API.** The `antigravity-preview-09-2026` build brings Antigravity's autonomous coding agent to the Gemini Interactions API and AI Studio, running on Gemini 3.8 Flash (model is configurable). A single API call gives you an agent that can plan, reason, write and execute code, manage files, and browse the web inside an isolated Linux sandbox — no container to provision yourself. Developers with existing Antigravity integrations should update before deploying: local tool call parameters shifted to PascalCase and file edits now arrive as line-range replacements rather than full-file rewrites — both are breaking changes.
+
+**Why it matters:** Two separately-controlled agent tiers are now available through the OpenAI API with pricing that extends the range downward. The Antigravity API trades execution control for setup simplicity — you don't manage the sandbox, but you can't restrict what the agent runs inside it. Both are worth evaluating against your current provider choices.
+
+**Sources:** [OpenAI launches GPT-6 Sol and Luna — TechCrunch](https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/) · [Gemini API Managed Agents Update — Google AI Studio](https://aistudio.google.com/learn/managed-agents-updated-harness-files-credentials?e=0) · [Antigravity coding agent hits Gemini API — Startup Fortune](https://startupfortune.com/google-turns-its-antigravity-coding-agent-into-a-free-gemini-api-tool/)
+]]></content:encoded>
+    </item>
+
+
+    <item>
+      <title>Your vLLM Server Runs 24/7 and You Pay for Idle Capacity — Modal Scales It to Zero with Three Decorators</title>
+      <link>https://modal.com/blog/how-to-deploy-vllm</link>
+      <guid isPermaLink="false">2026-09-23-03-modal-vllm-serverless-gpu-zero-scale-python</guid>
+      <pubDate>Wed, 23 Sep 2026 04:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <description>Three Python decorators — @app.server(), modal.Volume for weights, @modal.enter() for startup — deploy a vLLM inference server that scales to zero when idle. modal deploy is the only command you run.</description>
+      <content:encoded><![CDATA[**Three Python decorators deploy a vLLM inference server on Modal that scales to zero when idle — pay only when you serve, no GPU to provision or manage, with an OpenAI-compatible endpoint at the end.**
+
+**What you'll be able to do after this:** deploy any HuggingFace model as a serverless vLLM endpoint that cold-starts on demand, serves at full GPU throughput, and scales back to zero — without managing a VM or container registry.
+
+- A `modal.Volume` persists model weights across container restarts so the first inference call after a cold start skips the model download
+- `@modal.enter()` runs vLLM's subprocess once when a container starts, not on every request
+- Memory snapshots (`FAST_BOOT=true`) cut cold-start time from ~90s to ~15s, but must be rebuilt whenever the model or server config changes
+
+## Walk-through
+
+```python
+import modal, subprocess, httpx
+
+app = modal.App("vllm-server")
+
+image = (
+    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
+    .uv_pip_install(
+        "vllm==0.7.2",
+        "flashinfer-python",
+        extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4",
+    )
+    .env({"FAST_BOOT": "true"})
+)
+
+vol = modal.Volume.from_name("vllm-weights", create_if_missing=True)
+
+@app.server(
+    image=image,
+    gpu="A100",
+    volumes={"/cache": vol},
+    allow_concurrent_inputs=64,
+    scaledown_window=300,   # container shuts down 5 min after last request
+)
+class VllmServer:
+    @modal.enter()
+    def start(self):
+        self.proc = subprocess.Popen([
+            "python", "-m", "vllm.entrypoints.openai.api_server",
+            "--model", "Qwen/Qwen3-8B-FP8",
+            "--download-dir", "/cache",
+            "--max-model-len", "8192",
+        ])
+        # wait for vLLM to be ready
+        import time
+        time.sleep(30)
+
+    @modal.fastapi_endpoint(path="/v1/chat/completions", method="POST")
+    def chat(self, request: dict):
+        return httpx.post(
+            "http://localhost:8000/v1/chat/completions", json=request
+        ).json()
+```
+
+```bash
+modal deploy vllm_server.py
+# → https://your-workspace--vllm-server.modal.run/v1/chat/completions
+```
+
+The endpoint is OpenAI-compatible — swap `base_url` in any existing client and it works.
+
+## The limit that shapes your architecture
+
+Cold starts. With `scaledown_window=300`, Modal shuts the container after 5 minutes idle. The next request after that waits for GPU allocation plus vLLM startup: ~90 seconds for an 8B FP8 model without `FAST_BOOT`, ~15 seconds with it. The snapshot locks the startup state, so changing the model or vLLM flags requires a `modal deploy` to rebuild it.
+
+Per Modal's pricing, an A100 runs approximately $5.50/hr after the $30/month free credit. Scale-to-zero is cheaper than a dedicated endpoint when your traffic is below roughly 3–5 requests per hour; sustained high-throughput workloads are better served by a kept-warm container or a dedicated inference provider.
+
+**Sources:** [Deploy vLLM on Modal — Modal Blog](https://modal.com/blog/how-to-deploy-vllm) · [Modal LLM Deployment Tutorial: vLLM and LoRA — YouTube](https://www.youtube.com/watch?v=ABF5WRPeaEE) · [Best practices for serverless inference — Modal Blog](https://modal.com/blog/serverless-inference-article)
+]]></content:encoded>
+      <media:content url="https://img.youtube.com/vi/ABF5WRPeaEE/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/ABF5WRPeaEE/maxresdefault.jpg" />
+    </item>
     <item>
       <title>Opus 5.5 Launches Today as claude-opus-5-5 — Cache Reads Drop 60%, Input Tokens 20% Cheaper, 5-Hour Caps Removed</title>
       <link>https://platform.claude.com/docs/en/about-claude/pricing</link>
@@ -5424,95 +5589,9 @@ pgvector uses Postgres CPU and I/O budget. If you're storing millions of vectors
 **Sources:** [pgvector extension — Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector) · [pgvector tutorial — DataCamp](https://www.datacamp.com/tutorial/pgvector-tutorial) · [You probably don't need a vector database — Encore](https://encore.dev/blog/you-probably-dont-need-a-vector-database)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Component Needs a Bigger Change: Step Back Into Claude Design Before Touching Code</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
-      <guid isPermaLink="false">2026-09-03-04-existing-component-redesign-reverse-loop</guid>
-      <pubDate>Thu, 03 Sep 2026 04:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>When an existing component needs a layout shift or structural rework, run /design with the current code as context to explore directions before any file changes are committed.</description>
-      <content:encoded><![CDATA[**When an existing component needs more than a style tweak — a layout shift, a structural rework — run `/design` with the current code as context to explore directions before any file changes are committed.**
-
-The default Claude Design flow is linear: sketch → implement. The reverse loop — code → design — is what you reach for when a component already exists and the problem isn't a CSS property but a structural one.
-
-**The workflow:**
-
-1. In your Claude Code session, run `/design explore directions for [component name]` and paste the component's current JSX or reference its file path. Claude Code reads your DESIGN.md and existing design system context, then drafts 2–3 artboard directions in the `/design` preview. It already knows your tokens, components, and layout conventions from earlier file reads.
-
-2. Review the directions in the artboard. You can click elements to adjust colors, spacing, or text directly before committing — this is where you catch "this feels wrong" before code changes are in flight.
-
-3. Pick the direction and tell Claude to implement it. It writes to the actual component file starting from the artboard structure, not as an incremental patch on the old layout.
-
-**When to use this vs. just editing:** Use the design loop when the fix requires rethinking where elements sit — layout, hierarchy, visual weight. If the fix is "change this color to match the token" or "fix the margin", just edit. The fork is worth the extra step only when you genuinely don't know which direction is right.
-
-**The limit:** the artboard preview renders a static snapshot — it doesn't pull live component state (loading skeletons, error states, empty states). If those matter for your redesign, spec them explicitly in your `/design` prompt or in DESIGN.md before you implement. Edge states you don't name tend to come out as empty-div placeholders that pass a quick visual check and break in production.
-
-**Sources:** [Claude Code /design — What's New Week 34, code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w34) · [Claude Design + Claude Code Workflow 2026 — vanbeaumond.nl](https://vanbeaumond.nl/en/blog/claude-design-claude-code-workflow-setup-2026) · [Claude Design to Claude Code: AI Design Handoff — claudefa.st](https://claudefa.st/blog/guide/mechanics/claude-design-handoff)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Fork a Running Session to Explore a Risky Approach Without Losing Your Place</title>
-      <link>https://code.claude.com/docs/en/sub-agents</link>
-      <guid isPermaLink="false">2026-09-03-03-claude-code-fork-mode-session-branch</guid>
-      <pubDate>Thu, 03 Sep 2026 04:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Run /fork to copy your entire conversation into a background session that runs independently — full history, context, and model settings inherited — while your original keeps going.</description>
-      <content:encoded><![CDATA[**`/fork` copies your entire conversation — history, context, model settings — into a background session that runs independently while your original keeps going.**
-
-When you're deep in a Claude Code session and realize you want to try something that might not work — a big refactor, an architectural change, a destructive migration — there's a fork.
-
-Run `/fork [description]` and Claude Code creates a new background session with an identical copy of your conversation: the same history, system prompt, tool definitions, and model settings. Your original session keeps going. The fork appears in `claude agents` with its own labeled row.
-
-**Why fork beats a clean subagent for exploratory work:** a clean subagent starts fresh and needs briefing. A fork inherits everything the session already knows — the codebase context you've built up, the discussion about which approach to take, the files you've already read. For exploratory work on a complex codebase, that inheritance is the difference between a useful branch and a wasted re-briefing.
-
-```bash
-# Branch off the current session to try a risky migration approach
-/fork "explore multi-tenant DB migration with separate schemas"
-
-# Your original session keeps responding to your next prompt
-# Check the fork's progress anytime
-claude agents
-```
-
-**Limit:** the fork can't write back to the parent session's state. Its file changes land in your working tree like any other subagent's. If the approach works, you review and merge the branch. If it doesn't, you abandon the fork — your original session is untouched.
-
-`subagent_type: "fork"` in a skill or agent definition does the same thing programmatically when you want inherited context for a specific delegated task rather than a clean-slate subagent.
-
-**Sources:** [Claude Code sub-agents — code.claude.com](https://code.claude.com/docs/en/sub-agents) · [Fork vs. subagent in Claude Code — DEV Community](https://dev.to/rulestack/claude-code-fork-vs-subagent-what-fork-subtask-and-subagenttype-fork-each-copy-229a) · [Forked Subagents in Claude Code — mejba.me](https://www.mejba.me/blog/forked-subagents-claude-code-anthropic)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Google Ships Gemini 3.8 Flash at $0.75/MTok with Upgraded Coding Performance</title>
-      <link>https://9to5google.com/2026/09/02/gemini-3-8-flash-launch/</link>
-      <guid isPermaLink="false">2026-09-03-02-gemini-3-8-flash-coding-launch</guid>
-      <pubDate>Thu, 03 Sep 2026 04:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Google released Gemini 3.8 Flash on September 2 at $0.75/$3.75 per million tokens — a coding-focused Flash-tier model available via the Gemini API and AI Studio.</description>
-      <content:encoded><![CDATA[**Google released Gemini 3.8 Flash on September 2, a coding-focused Flash-tier model at $0.75/$3.75 per million tokens — worth adding to your benchmark set before routing inference to it.**
-
-Google shipped Gemini 3.8 Flash (internally "Skimaki") on September 2, 2026. It's available via the Gemini API, Google AI Studio, and consumer Gemini surfaces, priced at $0.75 per million input tokens and $3.75 per million output.
-
-Google reports internal testing in their Jetski developer platform preferred this model over Claude Opus for coding tasks — that is Google's own benchmark, not an independent evaluation, and no third-party coding benchmark results were published at launch.
-
-Two things to verify before routing workloads to it: the knowledge cutoff varies by domain (March 2026 for some areas, January 2025 for others), which matters for tasks involving recent APIs or events. Google also shipped Gemini 3.8 Flash Cyber alongside the general model, replacing the 3.5 Cyber variant for security-focused workloads.
-
-**Why it matters:** Another Flash-tier option at a price point below Sonnet-tier for longer coding runs. Run your own evals on your actual workload — Flash-tier models vary substantially by task type, and internal benchmark results from any lab rarely translate directly to production.
-
-**Sources:** [Gemini 3.8 Flash rolling out — 9to5Google](https://9to5google.com/2026/09/02/gemini-3-8-flash-launch/) · [Google Debuts Gemini 3.8 Flash Cyber Variants — AndroidHeadlines](https://www.androidheadlines.com/2026/09/google-debuts-gemini-3-8-flash-cyber-variants.html) · [Gemini 3.8 Flash Launches at $0.75/1M Input — tech-insider.org](https://tech-insider.org/gemini-3-8-flash-launch-pricing-2026/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
