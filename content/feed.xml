@@ -10,8 +10,138 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 23 Sep 2026 12:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 23 Sep 2026 20:04:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Shell Hooks Can Only Allow or Deny — Function Hooks Wrap the Tool Call With TypeScript Middleware</title>
+      <link>https://github.com/anthropics/claude-code/issues/91870</link>
+      <guid isPermaLink="false">2026-09-23-07-claude-code-function-hooks-typescript-mods</guid>
+      <pubDate>Wed, 23 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <description>Claude Code ships TypeScript function hooks (Claude Mods) behind a flag: ($, e, next) middleware that wraps tool calls, rewrites inputs, returns custom results, and draws UI.</description>
+      <content:encoded><![CDATA[**Claude Code's TypeScript "function hooks" (Claude Mods) sit behind a flag and replace shell commands with Express/Koa-style middleware: you wrap the engine operation instead of reacting after it.**
+
+**Shell hooks react. Function hooks wrap.** The existing shell hooks (PreToolUse, PostToolUse, etc.) execute a command and get back an allow/deny signal. A function hook takes `($, e, next)` — where `e` is the full typed tool event — and you decide what happens before, during, or instead of the operation.
+
+**Enabling it.**
+
+```bash
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
+```
+
+Or add it permanently under the `env` key in `~/.claude/settings.json`. Without the flag, your module file is silently ignored.
+
+**Writing one.** A function hook lives in a plugin directory (`.claude/plugins/my-plugin/`), alongside `hooks/hooks.json`:
+
+```json
+{ "modules": ["./hooks.ts"] }
+```
+
+Then in `hooks.ts`:
+
+```typescript
+import type { HookModule } from 'claude-code';
+
+export const onBashToolUse: HookModule['onBashToolUse'] = async ($, e, next) => {
+  if (e.input.command.startsWith('rm -rf')) {
+    return { type: 'deny', reason: 'Destructive command blocked' };
+  }
+  const result = await next();
+  $.ui.status(`Exit code: ${result.exitCode}`);
+  return result;
+};
+```
+
+Run `/plugin-types .claude/plugins/my-plugin/` to generate `claude-code.d.ts` with full IDE autocompletion for `$` and every event type.
+
+**What wrapping unlocks.** A function hook can accumulate state across tool calls via `$.store`, draw ephemeral status lines with `$.ui.status()`, short-circuit with a cached result when the same file-read recurs, or rewrite `e.input` before the engine acts — all in one function, without a pre/post pair.
+
+**Limits.** Early access: `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` required. The API is not in Anthropic's public docs yet and may change between Claude Code releases — pin your Claude Code version in CI if you depend on this. Shell hooks continue to work unchanged and remain the stable option for simple allow/deny gates.
+
+**Sources:** [Issue #91870: Mods — function hooks — GitHub](https://github.com/anthropics/claude-code/issues/91870) · [Claude Code Function Hooks preview — claudefa.st](https://claudefa.st/blog/tools/hooks/function-hooks) · [I Tested Claude Code Function Hooks Before They Ship — Joe Njenga, Medium](https://medium.com/@joe.njenga/i-tested-claude-code-function-hooks-before-they-ship-and-built-my-first-one-2404158c00b0)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Agent Runs Fine in Tests and Breaks in Production — Langfuse Traces Every Span and Scores Them</title>
+      <link>https://www.youtube.com/watch?v=THfB4p2xCFY</link>
+      <guid isPermaLink="false">2026-09-23-08-langfuse-llm-observability-traces-scores-self-host</guid>
+      <pubDate>Wed, 23 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>Langfuse's @observe decorator wraps any Python function into a traced span; score it with a model-based judge or rule check; self-host the whole stack in Docker for full data ownership.</description>
+      <media:content url="https://img.youtube.com/vi/THfB4p2xCFY/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/THfB4p2xCFY/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**Langfuse's `@observe` decorator turns any Python function into a named span inside a hierarchical trace; scoring APIs let a model judge or rule check write quality verdicts back alongside the production data; and the full stack runs in your own Docker containers.**
+
+**What you'll be able to do after this:**
+- Add `@observe()` to any Python function to capture inputs, outputs, latency, and token counts automatically
+- Score any span — from a model-as-judge, a rule check, or a human reviewer — and filter production traffic by those scores
+- Self-host the entire platform in Docker so all LLM call data stays within your own infrastructure
+
+**Walkthrough.**
+
+```bash
+pip install langfuse
+```
+
+```python
+import os
+from langfuse.decorators import observe, langfuse_context
+
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-..."
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-..."
+os.environ["LANGFUSE_HOST"] = "http://localhost:3000"  # or https://cloud.langfuse.com
+
+@observe()                              # outermost call = trace root
+def pipeline(question: str) -> str:
+    docs = retrieve(question)
+    return generate(question, docs)
+
+@observe(name="retrieve")               # inner calls = child spans
+def retrieve(q: str) -> list[str]:
+    return vector_store.query(q)
+
+@observe(name="generate")
+def generate(q: str, docs: list[str]) -> str:
+    answer = anthropic_client.messages.create(...)
+    # score this span inline
+    langfuse_context.score_current_observation(
+        name="faithfulness",
+        value=check_faithfulness(answer, docs),   # 0.0–1.0
+    )
+    return answer
+```
+
+Every `@observe()` call records inputs, output, latency, and token counts. `score_current_observation` writes a numeric score back to the trace — that score drives the dashboards and can trigger alerts when it drops below a threshold.
+
+**Offline evaluation.** Create a dataset of (input, expected_output) pairs in the UI, then run any trace against it:
+
+```python
+dataset = langfuse.get_dataset("my-rag-dataset")
+for item in dataset.items:
+    with item.observe(run_name="experiment-v2") as trace:
+        output = pipeline(item.input)
+        trace.score(name="correctness", value=judge(output, item.expected_output))
+```
+
+Langfuse stores experiment scores alongside live production scores, making A/B comparison between prompt versions straightforward.
+
+**Self-hosting.** Langfuse ships as a Docker Compose stack (server + worker + Postgres + Redis). The [local deployment quickstart](https://langfuse.com/docs/deployment/local) runs in under ten minutes; point `LANGFUSE_HOST` at your internal URL and nothing leaves your network. LangSmith is the closest alternative but is a proprietary SaaS tied to the LangChain ecosystem — Langfuse works with any framework.
+
+**Limits.** Model-based evaluation adds inference cost — a 50-trace eval sample with a GPT-4o judge runs $0.05–$0.10 per eval run, which adds up in high-frequency CI pipelines. Self-hosted Postgres grows quickly for busy agents: budget 10–20 GB for a week of a high-volume pipeline. Async instrumentation was experimental until Langfuse v3; earlier versions added measurable latency on async call paths.
+
+**Sources:** [Langfuse Walkthrough: Agent Tracing, Evals, Experiments and Prompt Management — YouTube](https://www.youtube.com/watch?v=THfB4p2xCFY) · [LLM Observability with Self-Hosted Langfuse and vLLM — PyImageSearch](https://pyimagesearch.com/2026/05/18/llm-observability-with-self-hosted-langfuse-and-vllm/) · [Trace complex LLM applications with the Langfuse decorator — Langfuse docs](https://langfuse.com/blog/2024-04-python-decorator)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your MCP Tool Description Gets Cut at 2,048 Characters — The Model Sees [truncated] Where Your Parameters Should Be</title>
@@ -5524,57 +5654,8 @@ Model IDs follow the pattern `accounts/fireworks/models/<slug>`. Find the full c
 **Sources:** [Fireworks AI inference — fireworks.ai/inference](https://fireworks.ai/inference) · [Fireworks AI API guide — flo2.com](https://flo2.com/blog/fireworks-ai-api-guide) · [Fireworks docs — docs.fireworks.ai](https://docs.fireworks.ai)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Meta Muse Spark 1.3 Opens API Access Today — But the Headline Benchmarks Are for the Preview Tier</title>
-      <link>https://artificialanalysis.ai/articles/muse-spark-1-3</link>
-      <guid isPermaLink="false">2026-09-03-09-meta-muse-spark-1-3-api-launch</guid>
-      <pubDate>Thu, 03 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Meta opened paid API access to Muse Spark 1.3 today. The available (xhigh) variant scores 61 on the Artificial Analysis index — the 75.4 DeepSWE figure is for a limited-preview (max) variant.</description>
-      <content:encoded><![CDATA[**Meta opened Muse Spark 1.3 API access today — the (xhigh) variant you can actually call scores 61 on the Artificial Analysis index, competitive with GPT-5.6 Sol and Grok 4.6. The 75.4 DeepSWE figure in Meta's announcement is for (max), still in limited partner preview.**
-
-Released September 2, paid API access opened September 3. The endpoint is OpenAI-SDK-compatible — swap base URL and model string.
-
-What you can call today is **Muse Spark 1.3 (xhigh)**, scoring 61 on the [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/articles/muse-spark-1-3) — behind Claude Fable 5.1 but tying GPT-5.6 Sol (max) and Grok 4.6 (high). Meta's announcement highlights 75.4% on DeepSWE 1.1 and 88.8% on Terminal-Bench 2.1, but [those numbers are from **(max)**](https://the-decoder.com/meta-closes-in-on-the-top-with-muse-spark-1-3-and-undercuts-rivals-on-price/), the variant available only to Meta partners — not the tier you can access now.
-
-Standard pricing at $1.25/$4.25 per MTok ($0.15 cached input). Meta reports Spark 1.3 uses 25% fewer tokens than 1.2 on comparable tasks — their figure, unverified independently. There's also a "contributor tier" at $0.10/$0.20 per MTok; Meta hasn't published what limitations apply to it.
-
-**Why it matters:** Muse Spark 1.3 (xhigh) is a credible additional option for agentic coding pipelines — OpenAI-SDK-compatible, frontier-competitive. Calibrate against the actual available variant, not the benchmarks in the press release.
-
-**Sources:** [Muse Spark 1.3: Meta reaches the frontier — Artificial Analysis](https://artificialanalysis.ai/articles/muse-spark-1-3) · [Meta closes in on the top, undercuts rivals on price — The Decoder](https://the-decoder.com/meta-closes-in-on-the-top-with-muse-spark-1-3-and-undercuts-rivals-on-price/) · [Meta opens paid API access — PrimeXBT](https://primexbt.com/news/meta-releases-muse-spark-1-3-its-most-capable-ai-model-and-opens-paid-api-access/) · [Introducing Muse Spark 1.3 — Meta AI Research](https://research.meta.ai/blog/introducing-muse-spark-1-3)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>The Gap Between Claude Design and Your Codebase: When to Regenerate and When to Fix in the Editor</title>
-      <link>https://support.claude.com</link>
-      <guid isPermaLink="false">2026-09-03-08-claude-design-implement-gap-regenerate-vs-edit</guid>
-      <pubDate>Thu, 03 Sep 2026 12:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Structural drift in a Claude Code implementation goes back to Claude Design. Presentational drift gets fixed in the editor. One rule separates them.</description>
-      <content:encoded><![CDATA[**After Claude Code implements your Claude Design artifact, the result drifts from the spec in two distinct ways. Use one rule to decide: structural problems go back to Claude Design; presentational problems get fixed in the editor.**
-
-Claude Code reads the design artifact — component specs, tokens, layout intent — and generates implementation code. Most of the time it's close. When it isn't, the drift falls into one of two categories.
-
-**Structural drift:** The layout hierarchy is wrong. A sidebar renders inline. A card grid collapses to a single column. A shared sub-component is inlined where it should be extracted. These problems exist because the implementation missed the *structure* of the design intent, not its surface values. **Fix: go back to Claude Design.** Annotate the structural intent more precisely in the artifact (label layout containers, name component boundaries explicitly), then regenerate. Trying to patch structural drift in the editor turns into a long sequence of changes that leaves your code diverged from the design spec — and the next regeneration overwrites them anyway.
-
-**Presentational drift:** The right components are in the right places but values are off. Padding is 16px where the spec says 24px. The primary button renders with the wrong background token. Font weight reads `700` where the design says `600`. **Fix: patch in the editor.** These are implementation errors, not design errors — Claude Code pulled the wrong token or misread a spacing value. Fix them directly and push. Don't round-trip through the design tool for a padding value.
-
-**The practical rule:**
-> If you can describe the problem in one sentence containing *where something is* or *what a component is*, go back to the design. If the sentence contains only *what value something has*, fix it in the editor.
-
-**One limit to be aware of:** Claude Design currently regenerates an entire component — there's no way to regenerate just the layout container while preserving the rest. When you go back to fix structural drift, you'll lose any presentational values you've already tuned in the editor. Note them (screenshot or a quick comment) before regenerating, and apply them after. This is the main reason to do structural and presentational fixes in the right order: structure first, presentation last.
-
-**Sources:** [Claude Design — support.claude.com](https://support.claude.com) · [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Anthropic overhauled Claude Design to fix the handoff — The New Stack](https://thenewstack.io/anthropic-claude-design-overhaul/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
