@@ -1,19 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  applyReaderState, filterHideRead, loadReaderState, markRead, resetReaderState,
+  applyReaderState, filterHideRead, loadReaderState, markRead, resetReaderState, setReaction,
   selectVisiblePosts, type ReaderRow,
 } from './readerState';
 
 // The one place supabase-js is reachable from this module; stubbing it lets the
 // caching behaviour be observed by counting real calls rather than by exposing
 // module internals for the test's benefit.
-const calls = { select: 0, upsert: 0, failRead: false, rows: [] as ReaderRow[] };
+const calls = {
+  select: 0, upsert: 0, failRead: false, failWrite: false,
+  rows: [] as ReaderRow[], upserts: [] as Record<string, unknown>[],
+};
 vi.mock('./supabaseClient', () => ({
   supabase: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { id: 'reader-1' } } } }) },
     from: () => ({
       select: () => ({ order: () => ({ range: async (from: number, to: number) => { calls.select++; return { data: calls.failRead ? null : calls.rows.slice(from, to + 1), error: calls.failRead ? { message: 'offline' } : null }; } }) }),
-      upsert: async () => { calls.upsert++; return { error: null }; },
+      upsert: async (payload: Record<string, unknown>) => {
+        calls.upsert++;
+        calls.upserts.push(payload);
+        return { error: calls.failWrite ? { message: 'offline' } : null };
+      },
     }),
   }),
 }));
@@ -32,8 +39,8 @@ const posts: P[] = [
 ];
 
 const state = new Map<string, ReaderRow>([
-  ['a', { post_id: 'a', saved: false, read_at: '2026-09-09T00:00:00Z' }],
-  ['b', { post_id: 'b', saved: true, read_at: null }],
+  ['a', { post_id: 'a', saved: false, read_at: '2026-09-09T00:00:00Z', reaction: 0 }],
+  ['b', { post_id: 'b', saved: true, read_at: null, reaction: 0 }],
 ]);
 
 describe('applyReaderState', () => {
@@ -84,9 +91,9 @@ describe('filterHideRead', () => {
 
   it('can empty the list when everything is read', () => {
     const allRead = applyReaderState(posts, new Map<string, ReaderRow>([
-      ['a', { post_id: 'a', saved: false, read_at: 'x' }],
-      ['b', { post_id: 'b', saved: false, read_at: 'x' }],
-      ['c', { post_id: 'c', saved: false, read_at: 'x' }],
+      ['a', { post_id: 'a', saved: false, read_at: 'x', reaction: 0 }],
+      ['b', { post_id: 'b', saved: false, read_at: 'x', reaction: 0 }],
+      ['c', { post_id: 'c', saved: false, read_at: 'x', reaction: 0 }],
     ]));
     expect(filterHideRead(allRead, true)).toEqual([]);
   });
@@ -112,13 +119,13 @@ describe('resetReaderState', () => {
     calls.failRead = true;
     await expect(loadReaderState()).rejects.toThrow('Could not load');
     calls.failRead = false;
-    calls.rows = [{ post_id: 'saved', saved: true, read_at: null }];
+    calls.rows = [{ post_id: 'saved', saved: true, read_at: null, reaction: 0 }];
     expect((await loadReaderState()).get('saved')?.saved).toBe(true);
     expect(calls.select).toBe(2);
   });
 
   it('loads readers with more rows than the API page limit', async () => {
-    calls.rows = Array.from({ length: 1201 }, (_, i) => ({ post_id: `post-${i}`, saved: true, read_at: null }));
+    calls.rows = Array.from({ length: 1201 }, (_, i) => ({ post_id: `post-${i}`, saved: true, read_at: null, reaction: 0 as const }));
     expect((await loadReaderState()).size).toBe(1201);
     expect(calls.select).toBe(3);
   });
@@ -182,5 +189,30 @@ describe('selectVisiblePosts', () => {
 
   it('narrows to saved posts on /saved when Hide read is off', () => {
     expect(selectVisiblePosts(all, { onlySaved: true }).map((p) => p.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('setReaction', () => {
+  beforeEach(() => { calls.failWrite = false; calls.upserts = []; });
+
+  it('writes only the reaction, so it cannot clobber saved or read_at', async () => {
+    signIn();
+    resetReaderState();
+    expect(await setReaction('post-a', 1)).toBe(true);
+    expect(calls.upserts.at(-1)).toEqual({ user_id: 'reader-1', post_id: 'post-a', reaction: 1 });
+  });
+
+  it('reports a failed write', async () => {
+    signIn();
+    resetReaderState();
+    calls.failWrite = true;
+    expect(await setReaction('post-a', -1)).toBe(false);
+  });
+
+  it('refuses when signed out', async () => {
+    (globalThis as unknown as { localStorage: unknown }).localStorage = {};
+    resetReaderState();
+    expect(await setReaction('post-a', 1)).toBe(false);
+    expect(calls.upserts).toHaveLength(0);
   });
 });
