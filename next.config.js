@@ -14,6 +14,12 @@ const nextConfig = {
   assetPrefix: process.env.SITE_ORIGIN ?? '',
   basePath: '',
   reactStrictMode: true,
+  // Always defined, so every `=== '1'` check on it folds at build time. Left
+  // undefined, Next ships the check to the browser with both branches, and a
+  // production bundle would carry beta-only values such as the Turnstile test key.
+  env: {
+    NEXT_PUBLIC_CONTENT_PREVIEW: process.env.NEXT_PUBLIC_CONTENT_PREVIEW === '1' ? '1' : '0',
+  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
