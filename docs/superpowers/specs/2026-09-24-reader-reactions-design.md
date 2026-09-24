@@ -213,9 +213,12 @@ Both secrets are low-privilege: one can only verify Turnstile tokens, the other
 only signs this cookie. That is a different risk class from the database key
 rejected above.
 
-CSP in `public/_headers`: add `https://challenges.cloudflare.com` to
-`script-src`. Frames are already allowed by `default-src 'self' https:`.
-Extend `scripts/validate-csp.mjs` so the entry cannot silently drop out.
+CSP in `public/_headers`: add `https://challenges.cloudflare.com` to both
+`script-src` and `frame-src`. The site sets `frame-src https://calendly.com`
+explicitly, and an explicit `frame-src` overrides `default-src` for frames, so
+without the second entry the widget's iframe is refused and every anonymous
+event is dropped. Extend `scripts/validate-csp.mjs` with both entries so neither
+can silently drop out.
 
 `/api/*` is already in `run_worker_first`, so no routing change is needed.
 

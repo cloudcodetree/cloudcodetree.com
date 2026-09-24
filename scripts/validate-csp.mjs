@@ -21,6 +21,7 @@ export const REQUIRED = [
   { origin: 'https://calendly.com', directive: 'frame-src' },         // scheduling iframe
   { origin: 'https://tgcysgioncdmtzcfknix.supabase.co', directive: 'connect-src' }, // supabase auth + PostgREST (sign-in, profiles)
   { origin: 'https://challenges.cloudflare.com', directive: 'script-src' }, // Turnstile, anonymous reactions
+  { origin: 'https://challenges.cloudflare.com', directive: 'frame-src' },  // Turnstile widget iframe: an explicit frame-src overrides default-src
 ];
 
 export function parseCsp(headersText) {
