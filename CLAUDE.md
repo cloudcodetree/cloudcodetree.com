@@ -434,8 +434,13 @@ hour and is never re-minted. Anyone else gets a 403, passes invisible Turnstile
 once through `/api/engage/clearance` (a 30-minute HMAC cookie, `cct_engage`),
 and retries once. A read is 10 visible seconds, sent once per item per browser.
 `assert-variant.mjs` refuses a production deploy that carries the Turnstile test
-site key. Next specs: the harvester and editorial posts, personal
-recommendations, and Slack delivery.
+site key. Production uses widget `cct-engage`. Beta deliberately uses
+Cloudflare's always-pass test site key, and `cct-site-staging` holds the test
+secret. Turnstile rejects automated browsers, so this is what lets Chrome
+DevTools run the whole flow on beta. The choice keys off
+`NEXT_PUBLIC_CONTENT_PREVIEW`, which `next.config.js` always defines so the
+check folds at build time. Next specs: the harvester and editorial posts,
+personal recommendations, and Slack delivery.
 
 **Listing payloads.** Server routes pass only the first 20 metadata rows and an
 archive manifest. `generate-feeds.mjs` emits hashed 100-row metadata chunks and
