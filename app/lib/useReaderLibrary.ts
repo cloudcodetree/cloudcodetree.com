@@ -46,7 +46,7 @@ export function useReaderLibrary() {
     setWriteError(false);
     const before = stateRef.current.get(id);
     const saved = !before?.saved;
-    setState((cur) => new Map(cur).set(id, { post_id: id, saved, read_at: before?.read_at ?? null }));
+    setState((cur) => new Map(cur).set(id, { post_id: id, saved, read_at: before?.read_at ?? null, reaction: before?.reaction ?? 0 }));
     void setSaved(id, saved).then((ok) => {
       if (userRef.current !== userId) return;
       delete pendingRef.current[id];

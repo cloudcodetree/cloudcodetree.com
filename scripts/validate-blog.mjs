@@ -13,6 +13,7 @@ import { isFeedEra } from './lib/feed-era.mjs';
 import { slugForTag, topicTags } from './lib/topics.mjs';
 import { isSearchTopic } from './lib/search-telemetry.mjs';
 import { parseMisses } from './lib/search-misses.mjs';
+import { ITEM_ID_RE } from './lib/engagement-contract.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BLOG_DIR = path.join(ROOT, 'public', 'blog');
@@ -185,6 +186,7 @@ async function main() {
     // reader's "mark as read" and "save" both fail silently against that post —
     // so the drift is caught here, at publish time, instead.
     if (p.id && !POST_ID_RE.test(p.id)) errors.push(`${where}: id must match ${POST_ID_RE} (lowercase, digits, hyphens; ≤128 chars)`);
+    if (p.id && POST_ID_RE.test(p.id) && !ITEM_ID_RE.test(p.id)) errors.push(`${where}: id must be at most 96 characters so it can carry reactions (engagement-contract.mjs)`);
     if (p.tags && !Array.isArray(p.tags)) errors.push(`${where}: "tags" must be an array`);
     if (p.readTime !== undefined && typeof p.readTime !== 'number') errors.push(`${where}: "readTime" must be a number`);
     if (p.date && !/^\d{2}-\d{2}-\d{4}$/.test(p.date)) errors.push(`${where}: "date" must be MM-DD-YYYY (got "${p.date}")`);

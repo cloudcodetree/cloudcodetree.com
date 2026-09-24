@@ -17,10 +17,14 @@
 //  2. Failed reads reject and are evicted from the cache. Callers show a retry
 //     notice; writes return success/failure without breaking the static page.
 
+/** A reader's own reaction: like (1), none (0), dislike (-1). */
+export type Reaction = -1 | 0 | 1;
+
 export interface ReaderRow {
   post_id: string;
   saved: boolean;
   read_at: string | null;
+  reaction: Reaction;
 }
 
 export type ReaderStateMap = Map<string, ReaderRow>;
@@ -71,7 +75,7 @@ async function fetchReaderState(): Promise<ReaderStateMap> {
   const pageSize = 500;
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase().from('reader_state')
-      .select('post_id, saved, read_at').order('post_id').range(from, from + pageSize - 1);
+      .select('post_id, saved, read_at, reaction').order('post_id').range(from, from + pageSize - 1);
     if (error || !data) throw new Error('Could not load your reading state.');
     (data as ReaderRow[]).forEach((row) => map.set(row.post_id, row));
     if (data.length < pageSize) return map;
@@ -86,7 +90,7 @@ async function fetchReaderState(): Promise<ReaderStateMap> {
 function patchCache(postId: string, patch: Partial<ReaderRow>): void {
   if (!inFlight) return;
   void inFlight.then((map) => {
-    const current = map.get(postId) ?? { post_id: postId, saved: false, read_at: null };
+    const current = map.get(postId) ?? { post_id: postId, saved: false, read_at: null, reaction: 0 };
     map.set(postId, { ...current, ...patch });
   }).catch(() => {});
 }
@@ -184,11 +188,61 @@ export async function setSaved(postId: string, saved: boolean): Promise<boolean>
     const { error } = await supabase()
       .from('reader_state')
       .upsert({ user_id: userId, post_id: postId, saved }, { onConflict: 'user_id,post_id' });
-    if (!error && generation === epoch) patchCache(postId, { saved });
+    if (!error && generation === epoch) {
+      patchCache(postId, { saved });
+      // Every save path (article pages, list cards, /saved) goes through here,
+      // so this is the one place the save event is sent.
+      void import('./engagement').then(({ sendEngagement }) =>
+        sendEngagement(postId, [{ event: 'save', delta: saved ? 1 : -1 }]));
+    }
     return !error && generation === epoch;
   } catch {
     return false;
   }
+}
+
+/**
+ * Set this reader's reaction on an item. Resolves true on success. Persists
+ * only: engagement events are the caller's job, because merging signed-out
+ * reactions into an account must not count them a second time.
+ */
+export async function setReaction(postId: string, reaction: Reaction): Promise<boolean> {
+  const epoch = generation;
+  const userId = await currentUserId();
+  if (!userId || generation !== epoch) return false;
+  try {
+    const { supabase } = await import('./supabaseClient');
+    const { error } = await supabase()
+      .from('reader_state')
+      .upsert({ user_id: userId, post_id: postId, reaction }, { onConflict: 'user_id,post_id' });
+    if (!error && generation === epoch) patchCache(postId, { reaction });
+    return !error && generation === epoch;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Copy reactions made while signed out into the account, for items where the
+ * account has no reaction. Sends no engagement events: each was counted when
+ * it happened. `settled` lists local entries that can be deleted: the ones
+ * written, and the ones the account already overrides. Failed writes stay
+ * local so a later visit retries them.
+ */
+export async function mergeLocalReactions(
+  local: Record<string, Reaction>,
+  account: ReaderStateMap,
+): Promise<{ applied: Record<string, Reaction>; settled: string[] }> {
+  const applied: Record<string, Reaction> = {};
+  const settled: string[] = [];
+  for (const [id, reaction] of Object.entries(local)) {
+    if ((account.get(id)?.reaction ?? 0) !== 0) { settled.push(id); continue; }
+    if (await setReaction(id, reaction)) {
+      applied[id] = reaction;
+      settled.push(id);
+    }
+  }
+  return { applied, settled };
 }
 
 // ---- auth ------------------------------------------------------------------

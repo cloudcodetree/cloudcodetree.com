@@ -36,3 +36,17 @@ describe('pass-through worker', () => {
     expect(assetFetch.mock.calls[0][0]).toBe(request);
   });
 });
+
+describe('engagement routes', () => {
+  it('route /api/engage and /api/engage/clearance to their handlers', async () => {
+    const { env } = stubEnv();
+    // A GET reaches each handler, which answers 405. Without the route it would be the /api/* 404.
+    expect((await worker.fetch(new Request('https://cloudcodetree.com/api/engage'), env, ctx)).status).toBe(405);
+    expect((await worker.fetch(new Request('https://cloudcodetree.com/api/engage/clearance'), env, ctx)).status).toBe(405);
+  });
+
+  it('keeps other /api paths at 404', async () => {
+    const { env } = stubEnv();
+    expect((await worker.fetch(new Request('https://cloudcodetree.com/api/engagex'), env, ctx)).status).toBe(404);
+  });
+});

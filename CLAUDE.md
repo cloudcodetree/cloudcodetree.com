@@ -419,6 +419,29 @@ row. The owner dashboard and editorial routine consume aggregate topic counters.
 Old raw rows were removed from the current file; historical commits were not
 rewritten.
 
+**Reactions and engagement (2026-09).** Spec:
+`docs/superpowers/specs/2026-09-24-reader-reactions-design.md`. Every reader can
+like or dislike an article or tutorial lesson. Saves and reads are recorded too.
+No counts are ever shown. Two stores, two jobs. `reader_state.reaction`
+(migration 0007, own-rows RLS) holds a signed-in reader's own choice. Workers
+Analytics Engine (`cct_engagement`, beta `cct_engagement_staging`) holds the
+aggregate stream from everyone. The browser posts signed deltas to
+`POST /api/engage` (`worker/engage.ts`). The event shape lives in
+`scripts/lib/engagement-contract.mjs`, shared by the Worker, the browser and the
+future harvester. Signed-in requests send the live Supabase access token as
+`Authorization: Bearer`. They do not use `cct_session`, which expires after an
+hour and is never re-minted. Anyone else gets a 403, passes invisible Turnstile
+once through `/api/engage/clearance` (a 30-minute HMAC cookie, `cct_engage`),
+and retries once. A read is 10 visible seconds, sent once per item per browser.
+`assert-variant.mjs` refuses a production deploy that carries the Turnstile test
+site key. Production uses widget `cct-engage`. Beta deliberately uses
+Cloudflare's always-pass test site key, and `cct-site-staging` holds the test
+secret. Turnstile rejects automated browsers, so this is what lets Chrome
+DevTools run the whole flow on beta. The choice keys off
+`NEXT_PUBLIC_CONTENT_PREVIEW`, which `next.config.js` always defines so the
+check folds at build time. Next specs: the harvester and editorial posts,
+personal recommendations, and Slack delivery.
+
 **Listing payloads.** Server routes pass only the first 20 metadata rows and an
 archive manifest. `generate-feeds.mjs` emits hashed 100-row metadata chunks and
 individual hashed article bodies. `usePostArchive` shares cached metadata requests

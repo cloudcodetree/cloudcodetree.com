@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-type Row = { post_id: string; saved: boolean; read_at: string | null };
+type Row = { post_id: string; saved: boolean; read_at: string | null; reaction?: -1 | 0 | 1 };
 /** A browser-only account: every Supabase and session request is intercepted. */
 export async function mockReader(page: Page, initial: Row[] = []) {
   const rows = new Map(initial.map((row) => [row.post_id, row]));
@@ -29,7 +29,7 @@ export async function mockReader(page: Page, initial: Row[] = []) {
       const data = request.postDataJSON();
       control.writes.push(data);
       if (control.failWrites) return route.fulfill({ status: 503, json: { message: 'offline' } });
-      rows.set(data.post_id, { post_id: data.post_id, saved: false, read_at: null, ...rows.get(data.post_id), ...data });
+      rows.set(data.post_id, { post_id: data.post_id, saved: false, read_at: null, reaction: 0, ...rows.get(data.post_id), ...data });
       return route.fulfill({ status: 201, body: '' });
     }
     return route.fulfill({ json: url.pathname.startsWith('/auth/') ? { user } : [] });

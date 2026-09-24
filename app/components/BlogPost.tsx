@@ -14,6 +14,8 @@ import SearchBox from './SearchBox';
 import ReaderStateNotice from './ReaderStateNotice';
 import RelatedPosts from './RelatedPosts';
 import { loadReaderState, markRead, setSaved, watchReaderAuth } from '../lib/readerState';
+import ReactionBar from './ReactionBar';
+import { useReadDwell } from '../lib/useReadDwell';
 
 // The post is loaded at build time by app/ai-news/[id]/page.tsx and baked into
 // the static HTML — no client-side fetch, no loading state.
@@ -26,6 +28,7 @@ export default function BlogPost({ post, related = [] }: { post: Post; related?:
   const [saved, setSavedState] = useState(false);
   const [savePending, setSavePending] = useState(false);
   const savePendingRef = useRef(false);
+  useReadDwell(post.id);
 
   // Opening the article IS the read event — no extra click. Fire-and-forget:
   // markRead never blocks the render and swallows its own failures.
@@ -94,6 +97,7 @@ export default function BlogPost({ post, related = [] }: { post: Post; related?:
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 4 }}>
           {backButton}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <ReactionBar itemId={post.id} title={post.title} />
             {signedIn && (
               <Button
                 size="small"

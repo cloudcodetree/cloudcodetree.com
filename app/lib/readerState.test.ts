@@ -1,21 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  applyReaderState, filterHideRead, loadReaderState, markRead, resetReaderState,
+  applyReaderState, filterHideRead, loadReaderState, markRead, mergeLocalReactions, resetReaderState, setReaction, setSaved,
   selectVisiblePosts, type ReaderRow,
 } from './readerState';
 
 // The one place supabase-js is reachable from this module; stubbing it lets the
 // caching behaviour be observed by counting real calls rather than by exposing
 // module internals for the test's benefit.
-const calls = { select: 0, upsert: 0, failRead: false, rows: [] as ReaderRow[] };
+const calls = {
+  select: 0, upsert: 0, failRead: false, failWrite: false,
+  rows: [] as ReaderRow[], upserts: [] as Record<string, unknown>[],
+};
 vi.mock('./supabaseClient', () => ({
   supabase: () => ({
     auth: { getSession: async () => ({ data: { session: { user: { id: 'reader-1' } } } }) },
     from: () => ({
       select: () => ({ order: () => ({ range: async (from: number, to: number) => { calls.select++; return { data: calls.failRead ? null : calls.rows.slice(from, to + 1), error: calls.failRead ? { message: 'offline' } : null }; } }) }),
-      upsert: async () => { calls.upsert++; return { error: null }; },
+      upsert: async (payload: Record<string, unknown>) => {
+        calls.upsert++;
+        calls.upserts.push(payload);
+        return { error: calls.failWrite ? { message: 'offline' } : null };
+      },
     }),
   }),
+}));
+const sent: { postId: string; changes: unknown[] }[] = [];
+vi.mock('./engagement', () => ({
+  sendEngagement: async (postId: string, changes: unknown[]) => { sent.push({ postId, changes }); },
 }));
 
 /** hasReaderSession() only ever does Object.keys() on this. */
@@ -32,8 +43,8 @@ const posts: P[] = [
 ];
 
 const state = new Map<string, ReaderRow>([
-  ['a', { post_id: 'a', saved: false, read_at: '2026-09-09T00:00:00Z' }],
-  ['b', { post_id: 'b', saved: true, read_at: null }],
+  ['a', { post_id: 'a', saved: false, read_at: '2026-09-09T00:00:00Z', reaction: 0 }],
+  ['b', { post_id: 'b', saved: true, read_at: null, reaction: 0 }],
 ]);
 
 describe('applyReaderState', () => {
@@ -84,9 +95,9 @@ describe('filterHideRead', () => {
 
   it('can empty the list when everything is read', () => {
     const allRead = applyReaderState(posts, new Map<string, ReaderRow>([
-      ['a', { post_id: 'a', saved: false, read_at: 'x' }],
-      ['b', { post_id: 'b', saved: false, read_at: 'x' }],
-      ['c', { post_id: 'c', saved: false, read_at: 'x' }],
+      ['a', { post_id: 'a', saved: false, read_at: 'x', reaction: 0 }],
+      ['b', { post_id: 'b', saved: false, read_at: 'x', reaction: 0 }],
+      ['c', { post_id: 'c', saved: false, read_at: 'x', reaction: 0 }],
     ]));
     expect(filterHideRead(allRead, true)).toEqual([]);
   });
@@ -112,13 +123,13 @@ describe('resetReaderState', () => {
     calls.failRead = true;
     await expect(loadReaderState()).rejects.toThrow('Could not load');
     calls.failRead = false;
-    calls.rows = [{ post_id: 'saved', saved: true, read_at: null }];
+    calls.rows = [{ post_id: 'saved', saved: true, read_at: null, reaction: 0 }];
     expect((await loadReaderState()).get('saved')?.saved).toBe(true);
     expect(calls.select).toBe(2);
   });
 
   it('loads readers with more rows than the API page limit', async () => {
-    calls.rows = Array.from({ length: 1201 }, (_, i) => ({ post_id: `post-${i}`, saved: true, read_at: null }));
+    calls.rows = Array.from({ length: 1201 }, (_, i) => ({ post_id: `post-${i}`, saved: true, read_at: null, reaction: 0 as const }));
     expect((await loadReaderState()).size).toBe(1201);
     expect(calls.select).toBe(3);
   });
@@ -182,5 +193,81 @@ describe('selectVisiblePosts', () => {
 
   it('narrows to saved posts on /saved when Hide read is off', () => {
     expect(selectVisiblePosts(all, { onlySaved: true }).map((p) => p.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('setReaction', () => {
+  beforeEach(() => { calls.failWrite = false; calls.upserts = []; });
+
+  it('writes only the reaction, so it cannot clobber saved or read_at', async () => {
+    signIn();
+    resetReaderState();
+    expect(await setReaction('post-a', 1)).toBe(true);
+    expect(calls.upserts.at(-1)).toEqual({ user_id: 'reader-1', post_id: 'post-a', reaction: 1 });
+  });
+
+  it('reports a failed write', async () => {
+    signIn();
+    resetReaderState();
+    calls.failWrite = true;
+    expect(await setReaction('post-a', -1)).toBe(false);
+  });
+
+  it('refuses when signed out', async () => {
+    (globalThis as unknown as { localStorage: unknown }).localStorage = {};
+    resetReaderState();
+    expect(await setReaction('post-a', 1)).toBe(false);
+    expect(calls.upserts).toHaveLength(0);
+  });
+});
+
+describe('save events', () => {
+  beforeEach(() => { calls.failWrite = false; calls.upserts = []; sent.length = 0; });
+
+  it('sends save +1 and save -1 after successful writes', async () => {
+    signIn();
+    resetReaderState();
+    expect(await setSaved('post-a', true)).toBe(true);
+    expect(await setSaved('post-a', false)).toBe(true);
+    await vi.waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent).toEqual([
+      { postId: 'post-a', changes: [{ event: 'save', delta: 1 }] },
+      { postId: 'post-a', changes: [{ event: 'save', delta: -1 }] },
+    ]);
+  });
+
+  it('sends nothing when the write fails', async () => {
+    signIn();
+    resetReaderState();
+    calls.failWrite = true;
+    expect(await setSaved('post-a', true)).toBe(false);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent).toHaveLength(0);
+  });
+});
+
+describe('mergeLocalReactions', () => {
+  beforeEach(() => { calls.failWrite = false; calls.upserts = []; sent.length = 0; });
+
+  it('copies local reactions where the account has none, and sends no events', async () => {
+    signIn();
+    resetReaderState();
+    const account = new Map([
+      ['has-own', { post_id: 'has-own', saved: false, read_at: null, reaction: -1 as const }],
+      ['neutral', { post_id: 'neutral', saved: true, read_at: null, reaction: 0 as const }],
+    ]);
+    const result = await mergeLocalReactions({ 'has-own': 1, neutral: 1, fresh: -1 }, account);
+    expect(result.applied).toEqual({ neutral: 1, fresh: -1 });
+    expect(result.settled.sort()).toEqual(['fresh', 'has-own', 'neutral']);
+    expect(calls.upserts.map((u) => [u.post_id, u.reaction])).toEqual([['neutral', 1], ['fresh', -1]]);
+    expect(sent).toHaveLength(0);
+  });
+
+  it('leaves failed writes unsettled so a later visit retries them', async () => {
+    signIn();
+    resetReaderState();
+    calls.failWrite = true;
+    const result = await mergeLocalReactions({ fresh: 1 }, new Map());
+    expect(result).toEqual({ applied: {}, settled: [] });
   });
 });
