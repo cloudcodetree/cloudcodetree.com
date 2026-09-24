@@ -9,6 +9,7 @@ const SCRIPT = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=exp
 interface TurnstileApi {
   render(el: HTMLElement, opts: {
     sitekey: string;
+    retry: 'auto' | 'never';
     callback: (token: string) => void;
     'error-callback': () => void;
     'timeout-callback': () => void;
@@ -53,14 +54,21 @@ export async function getTurnstileToken(timeoutMs = 15_000): Promise<string | nu
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      if (id) { try { api.remove(id); } catch { /* already gone */ } }
-      host.remove();
       resolve(token);
+      // Remove the widget only after Turnstile has finished with the callback
+      // that called us. Removing it inside the callback left Turnstile resetting
+      // a container that was gone, an uncaught error seen in production.
+      setTimeout(() => {
+        if (id) { try { api.remove(id); } catch { /* already gone */ } }
+        host.remove();
+      }, 0);
     };
     const timer = setTimeout(() => done(null), timeoutMs);
     try {
       id = api.render(host, {
         sitekey: TURNSTILE_SITE_KEY,
+        // engagement.ts owns the retry policy: one attempt per 25 minutes.
+        retry: 'never',
         callback: (token) => done(token),
         'error-callback': () => done(null),
         'timeout-callback': () => done(null),
