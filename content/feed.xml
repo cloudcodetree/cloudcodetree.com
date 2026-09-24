@@ -10,8 +10,82 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 24 Sep 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 24 Sep 2026 12:06:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your LLM API Calls Pay Per Token for Questions You've Already Answered — A Semantic Cache Serves the Similar Ones From Memory</title>
+      <link>https://gptcache.readthedocs.io/</link>
+      <guid isPermaLink="false">2026-09-24-04-semantic-caching-gptcache-llm-api-cost</guid>
+      <pubDate>Thu, 24 Sep 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Best Practices</category>
+      <category>Agents</category>
+      <description>GPTCache embeds each incoming query and checks it against cached query embeddings by cosine similarity; a match above threshold returns the cached response without an API call. 30-70% hit rates on template-heavy workloads.</description>
+      <content:encoded><![CDATA[**Semantic caching wraps your LLM API client: incoming queries are embedded into vectors, matched against a cache of previous query embeddings by cosine similarity, and if the score crosses a threshold, the cached response is returned — no API call, no tokens billed.**
+
+Exact-match caching almost never fires on natural language. Real users phrase the same question dozens of ways. Semantic caching closes that gap: "what does RAG stand for?" and "explain retrieval-augmented generation in one sentence" embed close enough that the cache serves the same answer for both.
+
+**GPTCache setup (Python):**
+
+```python
+from gptcache import cache
+from gptcache.manager import get_data_manager, CacheBase, VectorBase
+from gptcache.embedding import Onnx
+from gptcache.similarity_evaluation.distance import SearchDistanceEvaluation
+
+onnx = Onnx()
+data_manager = get_data_manager(
+    CacheBase("sqlite"),
+    VectorBase("faiss", dimension=onnx.dimension),
+)
+
+cache.init(
+    embedding_func=onnx.to_embeddings,
+    data_manager=data_manager,
+    similarity_evaluation=SearchDistanceEvaluation(),
+)
+cache.set_openai_key()   # swap for your Anthropic client if needed
+```
+
+With the cache initialized, `chatgpt(["how does RAG work?"])` checks the FAISS index first. The default similarity threshold is 0.95; lower it to increase recall, raise it to increase precision.
+
+**Where it pays off most:** template-heavy agent inner loops (Spheron reports 40–70% hit rates on similar workloads), repeated FAQ-style queries, and evaluation pipelines running the same prompts across dataset rows.
+
+**Real limits to keep in mind:**
+
+- **High similarity ≠ correct cached answer.** Two phrasings can embed close and mean very different things in context ("drop the database" from a DBA vs. in an agent acting on a user repo). Cache everything only when the query domain is genuinely narrow.
+- **Stale responses for time-sensitive topics.** Set a TTL. GPTCache supports per-entry expiry — 24 hours for current-events content, 7 days for stable facts.
+- **FAISS is in-memory.** The index grows with every new query that misses. For production at scale, swap the vector backend to Redis or Qdrant via GPTCache's modular backend config.
+- **Semantic caching is orthogonal to prompt caching.** Prompt caching (the `cache_control` API header) reduces cost on repeated long context windows; semantic caching reduces cost by skipping the API call entirely on semantically similar queries. Use both.
+
+**Sources:** [GPTCache — GitHub (Zilliz)](https://github.com/zilliztech/GPTCache) · [GPTCache documentation](https://gptcache.readthedocs.io/) · [Semantic Caching for LLM Inference — Spheron](https://www.spheron.network/blog/semantic-cache-llm-inference-gpu-cloud/) · [Top Semantic Caching Solutions 2026 — Maxim](https://www.getmaxim.ai/articles/top-semantic-caching-solutions-for-ai-applications-in-2026/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Anthropic's Biology Lab Ran 950 Parallel Agents for 21 Hours and Found a CRISPR-Like Enzyme System; Cloud Sessions Left Research Preview</title>
+      <link>https://www.anthropic.com/news/claude-discovers-novel-enzyme-system</link>
+      <guid isPermaLink="false">2026-09-24-03-anthropic-biology-lab-enzyme-cloud-sessions-ga</guid>
+      <pubDate>Thu, 24 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Agents</category>
+      <category>Claude Code</category>
+      <description>950 Claude agents searched 210 million tokens of DNA sequence data in 21 hours and found a novel CRISPR-like enzyme system. Also: cloud sessions are now out of research preview for all Pro, Max, Team, and Enterprise subscribers.</description>
+      <content:encoded><![CDATA[**Anthropic's biology lab ran 950 parallel Claude agents across bacteriophage DNA databases for 21 hours and identified a novel enzyme system with a repeat structure only seen in programmable gene-editing tools like CRISPR.**
+
+First public result from the group (announced September 23): agents searched 210M tokens of sequence data (Anthropic's figure), identified 200,000+ candidate genes, and surfaced 20 for wet-lab follow-up. The system found a novel reverse transcriptase with flanking repeats — classified as array-associated reverse transcriptase (ART). Human scientists ran the experiments; agents handled the database pass. Anthropic notes it is too early to know whether ART is programmable; the CRISPR resemblance is structural, not yet functional.
+
+**Why it matters:** A coordinated fleet reading a large dataset in parallel, surfacing candidates for human follow-up — that is the same multi-agent pattern available in Claude Code today via `--cloud` and subagents. The biology result is evidence of what the pattern produces when given a real compute budget and a clear goal.
+
+**Also (Sep 23):** Claude Code cloud sessions are now out of research preview. All Pro, Max, Team, and Enterprise subscribers can start one via `--cloud` without a waitlist; usage counts against your existing plan limit.
+
+**Sources:** [Claude discovers a novel enzyme system — Anthropic](https://www.anthropic.com/news/claude-discovers-novel-enzyme-system) · [Anthropic says its biology lab has already found something big — TechCrunch](https://techcrunch.com/2026/09/23/anthropic-says-its-biology-lab-has-already-found-something-big/) · [Cloud sessions now GA — ClaudeDevs on X](https://x.com/ClaudeDevs/status/2102871550974427462)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Agentic Loop Has No Finish Line — Task Budgets Give Claude a Token Countdown It Reasons With</title>
@@ -5636,89 +5710,8 @@ couldn't map and why.
 **Sources:** [From Prompt to Production: A Designers Step-by-Step Workflow with Claude Design + Claude Code — Design Systems Collective](https://www.designsystemscollective.com/from-prompt-to-production-a-designers-step-by-step-workflow-with-claude-design-claude-code-a7705daad026) · [Claude Design workflow — The Design Project](https://designproject.io/blog/claude-design-workflow/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Design Reinvents Your Button on Screen Two — Here's How to Stop It</title>
-      <link>https://techglock.com/blog/ai-in-design-what-actually-ships-in-mid-2026-and-what-still-falls-apart</link>
-      <guid isPermaLink="false">2026-09-04-04-claude-design-multi-screen-component-inventory</guid>
-      <pubDate>Fri, 04 Sep 2026 04:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>When designing multiple screens in Claude Design, extract a component inventory after screen one and paste it as a constraint in subsequent prompts — this keeps choices consistent across regenerations.</description>
-      <content:encoded><![CDATA[**When designing multiple screens in Claude Design, extract a brief component inventory after screen one and paste it as a constraint in your next prompt — that is the one technique that consistently keeps component choices stable across regenerations.**
-
-AI design tools generate fast but forget. Between two prompts, Claude Design can produce the same feature twice with different button heights, different spacing rhythms, and different card styles — each direction internally consistent, but inconsistent with each other. Practitioners working on multi-step flows report that multi-screen continuity requires deliberate prompting rather than following automatically from shared context ([AI in Design Mid-2026 — Techglock](https://techglock.com/blog/ai-in-design-what-actually-ships-in-mid-2026-and-what-still-falls-apart)).
-
-**The pattern:**
-
-After generating screen one, before moving to screen two, write a brief component inventory — the 10–15 specific choices Claude Design just made:
-
-```
-COMPONENT INVENTORY (from screen 1 — do not change these):
-- Primary button: 44px height, full-width on mobile, label "Continue"
-- Card: 16px padding, 8px border-radius, 1px border #E2E8F0
-- Heading: 24px / semibold / no letter-spacing
-- Input: 40px height, label above, 4px gap
-- Section spacing: 24px between sections, 16px within
-```
-
-Open your screen two prompt with: "Match the component inventory above exactly. Do not introduce new visual patterns."
-
-**Why this works instead of longer initial prompts:** Each regeneration is a fresh generation with the existing artboard as visual context — not a continuation of state. The inventory is what carries the decisions across. A longer initial prompt helps screen one; it doesn't bind screen two.
-
-**Limit:** The inventory won't stabilize genuinely different layout structures — a data table, a map view, or a dense multi-column grid will pull in new components regardless. Mark those explicitly: "NEW COMPONENT: data table — all other components match inventory above." Claude Design treats only the marked element as novel and holds everything else.
-
-**Sources:** [AI in Design Mid-2026 — Techglock](https://techglock.com/blog/ai-in-design-what-actually-ships-in-mid-2026-and-what-still-falls-apart) · [Claude Design guides — support.claude.com](https://support.claude.com)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Is Your System Prompt Actually Being Cached? `/cost` Now Shows the Hit Ratio</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-04-03-claude-code-cost-cache-hit-ratio-visibility</guid>
-      <pubDate>Fri, 04 Sep 2026 04:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>The /cost command in Claude Code now shows a per-session cache line — hit ratio, misses, and warm vs cold token counts — so you can verify in real time whether your system prompt is landing in cache.</description>
-      <content:encoded><![CDATA[**The `/cost` command in Claude Code now shows a per-session cache line — hit ratio, misses, and warm vs cold token counts — the first direct way to verify in real time whether your system prompt is landing in cache or being re-sent on every turn.**
-
-Running `/cost` in a Claude Code session now returns a line like:
-
-```
-Cache: 52% hit ratio · 2 misses · 38k tokens re-cached (warm 34k / cold 4k)
-```
-
-Before this, the only signal that your cache was being invalidated was an unexpectedly large bill. Now you can see it per session.
-
-**What the numbers mean:**
-
-- **Hit ratio below 80%:** the cache is being invalidated between turns. Common causes: an MCP server whose tool definitions change on each connection, a hook that writes a timestamp into the system prompt, or (now fixed in recent builds) OAuth token refreshes that cleared the entire prefix hourly.
-- **Cold tokens:** charged at full input rates. On Sonnet 5, $2/MTok.
-- **Warm tokens:** served from cache. On Sonnet 5, $0.20/MTok — one-tenth the price.
-
-**Tuning cache lifetime with `promptCacheTtl`:**
-
-If your sessions run longer than the default 5-minute cache window, a new setting extends it:
-
-```json
-// .claude/settings.json
-{
-  "promptCacheTtl": 3600,
-  "subagentPromptCacheTtl": 300
-}
-```
-
-`subagentPromptCacheTtl` is separate — useful when you run many short-lived subagents sharing the same context. A shorter value there (e.g. 300s) reduces the cost of re-warming on each agent call.
-
-**Limit:** `promptCacheTtl` only extends the window; it does not prevent invalidation. If content inside the cache prefix is changing between turns — tool definitions, system prompt content, MCP server output — a longer TTL won't help. Diagnose with `/cost` first: if the hit ratio is low, find and stabilize what's changing before adjusting the TTL.
-
-**Sources:** [Claude Code changelog — code.claude.com/docs/en/changelog](https://code.claude.com/docs/en/changelog) · [Prompt caching — Anthropic docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) · [Claude Code context management — claudefa.st](https://claudefa.st/blog/guide/mechanics/context-management)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
