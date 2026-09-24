@@ -11,8 +11,8 @@ export const SUPABASE_ANON_KEY =
 export type OAuthProvider = 'github' | 'google' | 'linkedin_oidc';
 export const OAUTH_PROVIDERS: OAuthProvider[] = ['github', 'google', 'linkedin_oidc'];
 
-// Turnstile site key: public by design, like the keys above. The widget is
-// configured as Invisible for cloudcodetree.com and beta.cloudcodetree.com.
-// Until Task 10 replaces it, this is Cloudflare's always-pass INVISIBLE TEST
-// key. scripts/assert-variant.mjs refuses to deploy it to production.
-export const TURNSTILE_SITE_KEY = '1x00000000000000000000BB';
+// Turnstile site key: public by design, like the keys above. Widget `cct-engage`
+// is Invisible, for cloudcodetree.com, beta.cloudcodetree.com and the staging
+// workers.dev host. Its secret lives only in the Workers as TURNSTILE_SECRET.
+// scripts/assert-variant.mjs refuses a production deploy carrying the TEST key.
+export const TURNSTILE_SITE_KEY = '0x4AAAAAAFCjZ4InZnx-Fxni';
