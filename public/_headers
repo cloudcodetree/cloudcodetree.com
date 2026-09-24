@@ -9,7 +9,7 @@
 # connect-src, or sign-in will be blocked.
 
 /*
-  Content-Security-Policy: default-src 'self' https:; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://api.web3forms.com https://assets.calendly.com https://www.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://cloudflareinsights.com https://api.web3forms.com https://tgcysgioncdmtzcfknix.supabase.co; frame-src https://calendly.com;
+  Content-Security-Policy: default-src 'self' https:; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://api.web3forms.com https://assets.calendly.com https://www.google.com https://www.gstatic.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://cloudflareinsights.com https://api.web3forms.com https://tgcysgioncdmtzcfknix.supabase.co; frame-src https://calendly.com;
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin

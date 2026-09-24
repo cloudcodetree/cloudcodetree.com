@@ -10,3 +10,9 @@ export const SUPABASE_ANON_KEY =
 // accounts by verified email, so one person across methods stays one user.
 export type OAuthProvider = 'github' | 'google' | 'linkedin_oidc';
 export const OAUTH_PROVIDERS: OAuthProvider[] = ['github', 'google', 'linkedin_oidc'];
+
+// Turnstile site key: public by design, like the keys above. The widget is
+// configured as Invisible for cloudcodetree.com and beta.cloudcodetree.com.
+// Until Task 10 replaces it, this is Cloudflare's always-pass INVISIBLE TEST
+// key. scripts/assert-variant.mjs refuses to deploy it to production.
+export const TURNSTILE_SITE_KEY = '1x00000000000000000000BB';
