@@ -188,7 +188,13 @@ export async function setSaved(postId: string, saved: boolean): Promise<boolean>
     const { error } = await supabase()
       .from('reader_state')
       .upsert({ user_id: userId, post_id: postId, saved }, { onConflict: 'user_id,post_id' });
-    if (!error && generation === epoch) patchCache(postId, { saved });
+    if (!error && generation === epoch) {
+      patchCache(postId, { saved });
+      // Every save path (article pages, list cards, /saved) goes through here,
+      // so this is the one place the save event is sent.
+      void import('./engagement').then(({ sendEngagement }) =>
+        sendEngagement(postId, [{ event: 'save', delta: saved ? 1 : -1 }]));
+    }
     return !error && generation === epoch;
   } catch {
     return false;
@@ -214,6 +220,29 @@ export async function setReaction(postId: string, reaction: Reaction): Promise<b
   } catch {
     return false;
   }
+}
+
+/**
+ * Copy reactions made while signed out into the account, for items where the
+ * account has no reaction. Sends no engagement events: each was counted when
+ * it happened. `settled` lists local entries that can be deleted: the ones
+ * written, and the ones the account already overrides. Failed writes stay
+ * local so a later visit retries them.
+ */
+export async function mergeLocalReactions(
+  local: Record<string, Reaction>,
+  account: ReaderStateMap,
+): Promise<{ applied: Record<string, Reaction>; settled: string[] }> {
+  const applied: Record<string, Reaction> = {};
+  const settled: string[] = [];
+  for (const [id, reaction] of Object.entries(local)) {
+    if ((account.get(id)?.reaction ?? 0) !== 0) { settled.push(id); continue; }
+    if (await setReaction(id, reaction)) {
+      applied[id] = reaction;
+      settled.push(id);
+    }
+  }
+  return { applied, settled };
 }
 
 // ---- auth ------------------------------------------------------------------
