@@ -10,8 +10,138 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 24 Sep 2026 12:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 24 Sep 2026 20:04:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Anthropic's Claude Marketplace Has 2000+ Listings — Most Aren't Meant for Claude Code Engineers, but the MCP Connector Directory Is</title>
+      <link>https://claude.com/blog/claude-marketplace</link>
+      <guid isPermaLink="false">2026-09-24-06-claude-marketplace-mcp-connectors-plugins</guid>
+      <pubDate>Thu, 24 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>MCP</category>
+      <description>Anthropic launched Claude Marketplace on September 23 with 2000+ MCP connectors and Claude Code plugins, plus enterprise-tier agents and service partners. For Claude Code engineers the signal is the connector and plugin catalog.</description>
+      <content:encoded><![CDATA[**TL;DR: Anthropic's Claude Marketplace (Sept 23) centralizes 2000+ MCP connectors and Claude Code plugins — useful for discovery and install; skip the enterprise agent and SaaS-partner sections unless that's your job.**
+
+Anthropic launched [Claude Marketplace](https://claude.com/blog/claude-marketplace) as a single place to discover and install connectors, plugins, and services. For Claude Code engineers the interesting part is the connector and plugin catalog, which ships at launch with integrations for GitHub, Notion, Slack, Sentry, Linear, Jira, Google Drive, and hundreds more MCP-compatible tools.
+
+**Install pattern from inside Claude Code:**
+
+```bash
+/plugin install <plugin-name>@claude-plugins-official
+```
+
+Connectors are lightweight MCP data bridges (read-focused); plugins bundle MCP servers, slash commands, and skills into a single installable package. Both land in your session like any other plugin install — no separate signup step.
+
+**What to skip:** The marketplace also lists "agents and products" (enterprise SaaS built on Claude, such as Lovable, Harvey, CrowdStrike) and "service partners" (Accenture, Deloitte, BCG) that exist to serve procurement teams, not individual Claude Code sessions. These categories aren't relevant for most engineers building their own services.
+
+**Limit that matters:** The official marketplace indexes Anthropic's partner catalog only — it does not discover private team marketplaces you've already set up on a Git repo. Your team's internal plugin repo continues to work exactly as before; the Marketplace adds a public-catalog layer on top.
+
+**Why it matters:** Finding an MCP connector previously meant searching GitHub or a community list. The official catalog gives you one searchable index with Anthropic's verification pass.
+
+**Sources:** [Claude Marketplace — Anthropic blog](https://claude.com/blog/claude-marketplace) · [Get started with custom connectors via remote MCP — support.claude.com](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) · [20 Best Claude Connectors for day-to-day use — Composio](https://composio.dev/content/best-claude-connectors)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>You Already Run Postgres — pgvector Gives It Cosine Similarity and an HNSW Index Without a Separate Vector Database</title>
+      <link>https://github.com/pgvectors/pgvector</link>
+      <guid isPermaLink="false">2026-09-24-05-pgvector-postgres-rag-no-vector-db</guid>
+      <pubDate>Thu, 24 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Vectors</category>
+      <description>pgvector adds a VECTOR column type, the cosine distance operator, and an HNSW index to Postgres — semantic search on your existing database with no separate vector DB required for most RAG workloads.</description>
+      <media:content url="https://opengraph.githubassets.com/1/pgvectors/pgvector" medium="image" />
+      <media:thumbnail url="https://opengraph.githubassets.com/1/pgvectors/pgvector" />
+      <content:encoded><![CDATA[**What you'll be able to do after this:** add semantic similarity search to an existing Postgres database using one extension — no Chroma, no Qdrant, no separate service to run — and wire it into a LangChain RAG pipeline in under 30 lines.
+
+**Three takeaways:**
+- `pgvector` adds a `vector` column type, the `<=>` cosine-distance operator, and an HNSW index to Postgres; the entire install is `CREATE EXTENSION vector`
+- An HNSW index returns top-10 results in under 10ms for up to ~5M 1536-dimensional vectors on typical hardware (16 GB RAM, SSD); below ~50M vectors you probably don't need a dedicated vector DB
+- LangChain's `PGVector` store wraps everything automatically; raw `psycopg2` gives you full SQL joins for metadata filtering
+
+**Walk-through:**
+
+```bash
+# Install the extension once (Postgres 14+)
+# On Homebrew: brew install pgvector
+# On Ubuntu: sudo apt install postgresql-16-pgvector
+
+# In psql or a migration:
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+```python
+# pip install pgvector psycopg2-binary langchain-postgres sentence-transformers
+import psycopg2
+import psycopg2.extras
+from pgvector.psycopg2 import register_vector
+from sentence_transformers import SentenceTransformer
+
+conn = psycopg2.connect("postgresql://user:pass@localhost/mydb")
+register_vector(conn)  # teach psycopg2 about the vector type
+
+with conn.cursor() as cur:
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS docs (
+            id      SERIAL PRIMARY KEY,
+            content TEXT,
+            meta    JSONB,
+            emb     VECTOR(384)
+        )
+    """)
+    # HNSW: fast approximate search; m=16, ef_construction=64 is a good default
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS docs_emb_hnsw
+        ON docs USING hnsw (emb vector_cosine_ops)
+        WITH (m = 16, ef_construction = 64)
+    """)
+    conn.commit()
+
+encoder = SentenceTransformer("all-MiniLM-L6-v2")  # 384-dim, ~80 MB
+
+def upsert(text: str, meta: dict = {}):
+    emb = encoder.encode(text).tolist()
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO docs (content, meta, emb) VALUES (%s, %s, %s)",
+            (text, psycopg2.extras.Json(meta), emb)
+        )
+    conn.commit()
+
+def search(query: str, k: int = 5):
+    emb = encoder.encode(query).tolist()
+    with conn.cursor() as cur:
+        cur.execute(
+            """SELECT content, meta,
+                      1 - (emb <=> %s::vector) AS similarity
+               FROM docs
+               ORDER BY emb <=> %s::vector
+               LIMIT %s""",
+            (emb, emb, k)
+        )
+        return cur.fetchall()
+```
+
+`<=>` is cosine distance (0 = identical vectors); `1 - distance` converts it to similarity. Switch to `vector_l2_ops` and `<->` if your embedding model does not produce normalized vectors.
+
+**LangChain users:** `PGVector` from `langchain-postgres` wraps schema creation, upsert, and search automatically. Use raw `psycopg2` when you need metadata filtering that joins other Postgres tables — that's the main reason to reach for this over a managed vector DB.
+
+**When to reach for something else:**
+- Above ~50M vectors, or when approximate recall isn't tight enough, Pinecone, Qdrant, or Weaviate offer tuning surfaces pgvector lacks (per Encore and pgvectorscale's benchmarks)
+- Bulk inserts: the HNSW index serializes writes; load large corpora through `COPY` or a single insert loop rather than parallel workers
+
+The [pgvector GitHub README](https://github.com/pgvectors/pgvector) walks through every index type (HNSW vs. IVFFlat), distance operators, and the full set of configuration knobs.
+
+**Sources:** [pgvector — GitHub](https://github.com/pgvectors/pgvector) · [pgvector in Postgres: RAG Without a Separate Vector DB — TeachMeIDEA](https://teachmeidea.com/pgvector-postgres-rag/) · [Build a Self-Hosted RAG with Postgres pgvector — Digital Applied](https://www.digitalapplied.com/blog/build-self-hosted-rag-postgres-pgvector-tutorial-2026) · [Building Vector Similarity Search in PostgreSQL with pgvector — Machine Learning Mastery](https://machinelearningmastery.com/building-vector-similarity-search-in-postgresql-with-pgvector/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your LLM API Calls Pay Per Token for Questions You've Already Answered — A Semantic Cache Serves the Similar Ones From Memory</title>
@@ -5616,100 +5746,8 @@ The negatives matter as much as the positives. Without them, Claude Design fills
 **Sources:** [Claude Design workflow — The Design Project](https://designproject.io/blog/claude-design-workflow/) · [From Weeks to Hours: Claude Design Compresses Product Discovery — Product Compass](https://www.productcompass.pm/p/claude-design-product-discovery) · [Using Claude Design for prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your MCP Server Is Already a LangChain Tool: Wire It Into a LangGraph Agent With MCPAdapter</title>
-      <link>https://latenode.com/blog/ai-frameworks-technical-infrastructure/langchain-setup-tools-agents-memory/langchain-mcp-integration-complete-guide-to-mcp-adapters</link>
-      <guid isPermaLink="false">2026-09-04-06-langchain-mcp-adapter-agent-tools</guid>
-      <pubDate>Fri, 04 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Agents</category>
-      <description>LangChain 1.4.0 alpha ships MCPAdapter — wrap any MCP server URL or local script as a LangGraph agent tool in five lines, with cached tool discovery and multi-server support via MCPClientGroup.</description>
-      <content:encoded><![CDATA[**LangChain 1.4.0 alpha ships `langchain.mcp.MCPAdapter` — drop in any MCP server URL or local script and your LangGraph agent discovers and calls its tools without a custom wrapper.**
-
-The MCP-to-LangChain gap previously required either a bespoke integration or a separate client library with its own connection management. LangChain 1.4.0-alpha.3 ships a new `langchain.mcp` namespace that handles connection, tool discovery, and schema translation automatically ([LangChain release notes — Releasebot](https://releasebot.io/updates/langchain-ai)).
-
-```python
-from langchain.mcp import MCPAdapter
-from langgraph.prebuilt import create_react_agent
-
-# Accepts a URL, a local script path, an in-process server, or an MCPConfig
-adapter = MCPAdapter("http://localhost:8080/mcp")
-tools = await adapter.list_tools()   # discovers + adapts all server tools
-
-agent = create_react_agent("claude-sonnet-5", tools)
-result = await agent.ainvoke({"messages": [("user", "your query here")]})
-```
-
-Tool discovery is cached by default — `await adapter.list_tools(refresh=True)` repopulates it if a server changes without restarting your process.
-
-For a fleet of servers, `MCPClientGroup` aggregates them behind one client:
-
-```python
-from langchain.mcp import MCPClientGroup
-
-group = MCPClientGroup({
-    "db":     "http://localhost:8080/mcp",
-    "search": "http://localhost:8090/mcp",
-})
-all_tools = await group.list_tools()   # one list from all servers
-agent = create_react_agent("claude-sonnet-5", all_tools)
-```
-
-This is particularly useful when you have multiple Claude Code MCP servers — the file-access server, the internal-API server, the DB query server — and want to combine them inside a LangGraph agent without writing a custom fan-out layer.
-
-**Two limits to know upfront:**
-
-1. **This is 1.4.0-alpha.** The `langchain.mcp` interface will shift before the final release. Pin the exact alpha version in your lockfile and watch the [LangChain releases](https://github.com/langchain-ai/langchain/releases) before upgrading. Don't build production dependencies on an alpha API.
-
-2. **stdio servers need an HTTP wrapper.** `MCPAdapter` expects a network endpoint (HTTP/SSE). If your MCP server runs as a local subprocess (stdio transport), you need to expose it over HTTP first — a small FastAPI wrapper around your stdio session is the standard pattern, and Claude Code's own managed MCP servers already enforce this for the same reason.
-
-**Sources:** [LangChain 1.4.0 release notes — Releasebot](https://releasebot.io/updates/langchain-ai) · [LangChain MCPAdapter complete guide — Latenode](https://latenode.com/blog/ai-frameworks-technical-infrastructure/langchain-setup-tools-agents-memory/langchain-mcp-integration-complete-guide-to-mcp-adapters) · [MCP vs LangChain Tools — getknit.dev](https://www.getknit.dev/blog/integrating-mcp-with-popular-frameworks-langchain-openagents)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>After Claude Design, Before Claude Code: Replace Generic HTML With Your Real Components in One Pass</title>
-      <link>https://www.designsystemscollective.com/from-prompt-to-production-a-designers-step-by-step-workflow-with-claude-design-claude-code-a7705daad026</link>
-      <guid isPermaLink="false">2026-09-04-05-claude-design-generic-to-component-substitution</guid>
-      <pubDate>Fri, 04 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design outputs generic HTML. Before handing it to Claude Code, run one substitution pass that maps every div/button/input to your actual design system components — or Claude Code builds features around the generics forever.</description>
-      <content:encoded><![CDATA[**Before Claude Code starts adding features, run one substitution pass that replaces Claude Design's generic HTML with your actual design system components — otherwise Claude Code builds around the generics and you pay to fix them later.**
-
-**What you'll be able to do after this:** Run a single pre-handoff prompt that maps every generic HTML element to the closest component in your library, before any feature code accumulates.
-
-Claude Design generates valid, styled markup, but it doesn't know your component library. Its output uses `<div class="card">`, `<button class="btn-primary">`, `<input placeholder="Search">`. Your codebase has `<Card>`, `<Button variant="primary">`, `<SearchInput>`. If you hand that file directly to Claude Code and ask it to add feature logic, it writes the feature around the generic elements. Refactoring later costs a full re-review of everything Claude Code touched ([From Prompt to Production — Design Systems Collective](https://www.designsystemscollective.com/from-prompt-to-production-a-designers-step-by-step-workflow-with-claude-design-claude-code-a7705daad026)).
-
-**The substitution prompt — paste this into a Claude Code session after staging the generated file:**
-
-```
-Look at [generated-file.tsx]. Compare every div, button, input, anchor,
-and paragraph to the components in src/components/. For each element that
-maps cleanly to a named component — same role, compatible props — make the
-substitution. Preserve all layout classes, spacing, and event stubs exactly.
-Do not change behavior. Stop if a mapping is ambiguous; list what you
-couldn't map and why.
-```
-
-**Three-step walk-through:**
-
-1. **Stage the export.** Copy your Claude Design export into a temporary file at `src/screens/generated-[feature].tsx` — not directly into your component tree.
-2. **Run the substitution pass.** Expect 80–90% of elements to map cleanly on a well-maintained component library. Review the ambiguous list manually; "ambiguous" usually means a layout primitive that has no component equivalent, which is correct behavior.
-3. **Commit the substituted file.** Now hand it to Claude Code for feature work. Everything Claude Code touches from this point forward is already in your component vocabulary.
-
-**The limit:** The substitution pass handles clear 1:1 analogues. Highly composed layouts — hero sections, complex data grids, multi-level navigation — often contain patterns without a single matching component. The prompt will tell you what it couldn't map; those are the decisions to make manually before proceeding. Don't re-run the substitution pass after feature code accumulates — the ordering matters.
-
-**Pair this with:** the component inventory technique from [this morning's post](/ai-news/2026-09-04-04-claude-design-multi-screen-component-inventory) (keep components consistent across screens) and the project description technique from [today's design post](/ai-news/2026-09-04-07-claude-design-project-description-brand-brief) (seed stylistic consistency upfront). The substitution pass is the bridge between them.
-
-**Sources:** [From Prompt to Production: A Designers Step-by-Step Workflow with Claude Design + Claude Code — Design Systems Collective](https://www.designsystemscollective.com/from-prompt-to-production-a-designers-step-by-step-workflow-with-claude-design-claude-code-a7705daad026) · [Claude Design workflow — The Design Project](https://designproject.io/blog/claude-design-workflow/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
