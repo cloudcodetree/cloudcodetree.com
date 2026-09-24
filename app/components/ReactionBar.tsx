@@ -4,7 +4,7 @@
 // reader_state) and signed out (state in localStorage). No counts, ever: the
 // reader sees only their own choice.
 import { useEffect, useRef, useState } from 'react';
-import { Box, Button } from '@mui/material';
+import { Alert, Box, Button } from '@mui/material';
 import { ThumbDown, ThumbDownOutlined, ThumbUp, ThumbUpOutlined } from '@mui/icons-material';
 import { ACCENT, MONO } from './blogShared';
 import { loadReaderState, mergeLocalReactions, setReaction, watchReaderAuth, type Reaction } from '../lib/readerState';
@@ -15,11 +15,16 @@ export default function ReactionBar({ itemId, title }: { itemId: string; title: 
   const [reaction, setReactionState] = useState<Reaction>(0);
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState(false);
+  const [writeError, setWriteError] = useState(false);
   // The settled reaction, updated synchronously. Deltas are computed from this,
   // never from render state, so two fast clicks cannot both start from "none".
   const current = useRef<Reaction>(0);
   const busy = useRef(false);
   const userRef = useRef<string | null>(null);
+  // Where this reader's reaction lives: their account, or this browser. A
+  // signed-in reader whose account cannot load (Supabase paused, offline)
+  // falls back to this browser, and the next successful load merges it in.
+  const modeRef = useRef<'account' | 'local'>('local');
 
   useEffect(() => {
     let live = true;
@@ -27,7 +32,9 @@ export default function ReactionBar({ itemId, title }: { itemId: string; title: 
     const stop = watchReaderAuth((userId) => {
       if (!live) return;
       userRef.current = userId;
+      setWriteError(false);
       if (!userId) {
+        modeRef.current = 'local';
         show(readLocalReactions()[itemId] ?? 0);
         setReady(true);
         return;
@@ -39,11 +46,14 @@ export default function ReactionBar({ itemId, title }: { itemId: string; title: 
           const merged = await mergeLocalReactions(readLocalReactions(), account);
           clearLocalReactions(merged.settled);
           if (!live || userRef.current !== userId) return;
+          modeRef.current = 'account';
           show(merged.applied[itemId] ?? account.get(itemId)?.reaction ?? 0);
           setReady(true);
         } catch {
-          // Unknown account state: leave the buttons disabled rather than
-          // compute deltas from a guess.
+          if (!live || userRef.current !== userId) return;
+          modeRef.current = 'local';
+          show(readLocalReactions()[itemId] ?? 0);
+          setReady(true);
         }
       })();
     });
@@ -58,23 +68,30 @@ export default function ReactionBar({ itemId, title }: { itemId: string; title: 
     const to = nextReaction(from, clicked);
     current.current = to;
     setReactionState(to);
+    setWriteError(false);
     let ok = true;
-    if (userRef.current) ok = await setReaction(itemId, to);
+    if (modeRef.current === 'account') ok = await setReaction(itemId, to);
     else writeLocalReaction(itemId, to);
     if (ok) {
       void sendEngagement(itemId, reactionDeltas(from, to));
     } else {
+      // Send nothing, put the button back, and say so: a silent revert just
+      // makes the reader click again.
       current.current = from;
       setReactionState(from);
+      setWriteError(true);
     }
     busy.current = false;
     setPending(false);
   };
 
   return (
-    <Box sx={{ display: 'flex', gap: 1 }}>
-      <ReactionButton kind="like" active={reaction === 1} title={title} disabled={!ready || pending} onClick={() => void click(1)} />
-      <ReactionButton kind="dislike" active={reaction === -1} title={title} disabled={!ready || pending} onClick={() => void click(-1)} />
+    <Box>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <ReactionButton kind="like" active={reaction === 1} title={title} disabled={!ready || pending} onClick={() => void click(1)} />
+        <ReactionButton kind="dislike" active={reaction === -1} title={title} disabled={!ready || pending} onClick={() => void click(-1)} />
+      </Box>
+      {writeError && <Alert severity="warning" sx={{ mt: 1 }}>Your reaction could not be saved. Please try again.</Alert>}
     </Box>
   );
 }

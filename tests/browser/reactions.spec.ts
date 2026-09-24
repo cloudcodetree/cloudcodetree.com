@@ -139,3 +139,31 @@ test('a read is sent once, only after 10 visible seconds', async ({ page }) => {
   await page.clock.fastForward(60_000);
   expect(reads()).toBe(1);
 });
+
+test('a failed signed-in reaction write says so and sends nothing', async ({ page }) => {
+  await stubTurnstile(page);
+  const reader = await mockReader(page);
+  const log = await mockEngage(page);
+  await page.goto(article);
+  const like = page.getByRole('button', { name: likeName, exact: true });
+  await expect(like).toBeEnabled();
+  reader.failWrites = true;
+  await like.click();
+  await expect(page.getByText('Your reaction could not be saved')).toBeVisible();
+  await expect(like).toHaveAttribute('aria-pressed', 'false');
+  expect(log.engage).toHaveLength(0);
+});
+
+test('when the account cannot load, reactions fall back to this browser', async ({ page }) => {
+  await stubTurnstile(page);
+  const reader = await mockReader(page);
+  reader.failReads = true;
+  await mockEngage(page);
+  await page.goto(article);
+  const like = page.getByRole('button', { name: likeName, exact: true });
+  await expect(like).toBeEnabled();
+  await like.click();
+  await expect(like).toHaveAttribute('aria-pressed', 'true');
+  const stored = await page.evaluate((id) => JSON.parse(localStorage.getItem('cct-reactions') ?? '{}')[id], post.id);
+  expect(stored).toBe(1);
+});
