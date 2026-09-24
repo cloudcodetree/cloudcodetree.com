@@ -10,8 +10,143 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 23 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 24 Sep 2026 04:05:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your Agentic Loop Has No Finish Line — Task Budgets Give Claude a Token Countdown It Reasons With</title>
+      <link>https://platform.claude.com/docs/en/build-with-claude/task-budgets</link>
+      <guid isPermaLink="false">2026-09-24-02-claude-api-task-budgets-agentic-loop</guid>
+      <pubDate>Thu, 24 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>The task-budgets-2026-03-13 beta header gives Claude an advisory token ceiling for a full agentic loop; it sees the countdown and front-loads essential work, finishing at the boundary.</description>
+      <content:encoded><![CDATA[**The `task-budgets-2026-03-13` beta header gives Claude an advisory token ceiling for the full agentic loop; it sees the countdown and front-loads essential work, finishing at the boundary rather than cutting off mid-task.**
+
+`max_tokens` is a per-request hard stop. An agentic loop making twenty tool-call rounds on a large refactor has no idea what you are willing to spend — it runs until context is exhausted or hits an error. Task budgets fix this at the model level: Claude sees the ceiling before it starts, uses it to decide what to tackle first, and writes a clean handoff summary as it gets close.
+
+**How to add it:**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.beta.messages.create(
+    model="claude-opus-4-7",       # also supported: claude-opus-4-8, claude-fable-5, claude-mythos-5
+    max_tokens=128_000,            # per-request hard cap (unchanged)
+    output_config={
+        "effort": "high",
+        "task_budget": {
+            "type": "tokens",
+            "total": 50_000,       # advisory ceiling across the whole agentic loop
+        },
+    },
+    messages=[
+        {"role": "user", "content": "Audit the auth module for security issues and propose fixes."}
+    ],
+    betas=["task-budgets-2026-03-13"],
+)
+```
+
+`total` covers one agentic turn: thinking, tool calls, tool results, and output — everything between one user message with no tool results and the next. For a targeted security audit, 50k is a reasonable starting point; a full-module refactor needs 100k–128k.
+
+**How this differs from other loop controls:**
+
+| | What it is | Who sees it |
+|---|---|---|
+| `max_tokens` | Hard cap per single API call | Infra enforces; Claude does not know |
+| `max_turns` (Agent SDK) | External turn counter | Your code cuts the loop |
+| `task_budget.total` | Advisory budget per agentic turn | Claude sees the countdown and plans around it |
+
+The last row is the key distinction. Claude does not just stop — it uses the budget as information. It may summarize an intermediate finding rather than expand it, complete the three highest-risk files before attempting all ten, or explicitly note "budget approaching, here is what remains" when it wraps up.
+
+**Three constraints to work with:**
+
+1. **Advisory, not hard.** Claude may slightly exceed the budget if it is mid-action and stopping would be more disruptive than finishing.
+2. **20,000 token minimum.** Below this the model may refuse the task or complete it less thoroughly. Treat 50k as the practical floor for real agentic work.
+3. **Beta header required.** Add `betas=["task-budgets-2026-03-13"]` to every call. Confirmed on `claude-opus-4-7`, `claude-opus-4-8`, `claude-fable-5`, and `claude-mythos-5` — check release notes for GA timing and additional model support.
+
+**Sources:** [Task budgets — Claude Platform Docs](https://platform.claude.com/docs/en/build-with-claude/task-budgets) · [What's new in Claude Opus 4.7 — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-7) · [Claude Opus 4.7 task budgets practitioner notes — Verdent Guides](https://www.verdent.ai/guides/claude-opus-4-7-xhigh-ultrareview-task-budgets) (independent practitioner write-up)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Claude Design Component Passes the Eye Test and Fails axe-core — Three WCAG Gaps Generated UI Reliably Has</title>
+      <link>https://playwright.dev/docs/accessibility-testing</link>
+      <guid isPermaLink="false">2026-09-24-01-axe-core-playwright-accessibility-claude-design</guid>
+      <pubDate>Thu, 24 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>UI/UX</category>
+      <description>axe-core + Playwright surfaces three WCAG gaps generated UI almost always has — missing ARIA on icon buttons, contrast failures on helper text, missing landmarks — structured output Claude Code can fix.</description>
+      <content:encoded><![CDATA[**axe-core + Playwright surfaces the three accessibility gaps generated UI almost always has; the structured violations JSON is exact enough for Claude Code to locate and fix each node automatically.**
+
+**What you'll be able to do after this:** Run a single Playwright test against any component from a design tool, get structured WCAG violations with exact DOM selectors, and hand the list to Claude Code to fix.
+
+**Three things to know before you start:**
+
+- Generated components reliably fail three WCAG AA checks: icon-only buttons without `aria-label`, helper or placeholder text below 4.5:1 contrast, and pages missing landmark regions (`<main>`, `<nav>`). None look obviously wrong in a browser.
+- `@axe-core/playwright` returns violations as structured JSON with `id`, `impact`, `nodes`, and `failureSummary` — exact enough for Claude Code to locate and patch each failing element.
+- Add this test once and it runs in CI on every subsequent push, catching regressions after every change rather than only after a design handoff.
+
+**Setup:**
+
+```bash
+pnpm add -D @axe-core/playwright
+```
+
+**The test:**
+
+```ts
+// tests/a11y.spec.ts
+import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { writeFileSync } from "fs";
+
+test.describe("Accessibility: generated component", () => {
+  test("meets WCAG 2.1 AA", async ({ page }) => {
+    await page.goto("/dashboard");   // replace with your component route
+
+    const results = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+
+    // Write violations so Claude Code can read and fix them
+    if (results.violations.length > 0) {
+      writeFileSync(
+        "a11y-violations.json",
+        JSON.stringify(results.violations, null, 2)
+      );
+    }
+
+    expect(results.violations).toHaveLength(0);
+  });
+});
+```
+
+**Handing off to Claude Code:**
+
+When violations exist, `a11y-violations.json` contains the full finding tree: violation rule id, impact level (`critical`, `serious`, `moderate`), and the `target` selector array for each failing node. Give it to Claude Code:
+
+```
+Read a11y-violations.json and fix each violation in the corresponding
+component file. Use the target selector to locate each failing element.
+Do not change layout or visual styling beyond what the fix requires.
+```
+
+Claude Code handles the three common gaps reliably: it adds `aria-label` to icon buttons, adjusts text and background color tokens to meet the 4.5:1 contrast ratio, and wraps page content in a `<main>` landmark.
+
+**The constraint to know:** axe-core catches approximately 30–40% of WCAG issues — only those it can verify mechanically against the rendered DOM. Focus order, alt-text relevance, ARIA role plausibility on custom components, and keyboard interaction patterns require a human review pass. Plan one human pass on new generated components; axe-core handles regression detection on every subsequent change.
+
+**Sources:** [Accessibility testing — Playwright docs](https://playwright.dev/docs/accessibility-testing) · [axe-core — Deque Systems](https://github.com/dequelabs/axe-core) · [AI accessibility testing tools 2026 — QASkills](https://qaskills.sh/blog/ai-accessibility-testing-tools-2026) (independent audit of automated tool coverage rates)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Shell Hooks Can Only Allow or Deny — Function Hooks Wrap the Tool Call With TypeScript Middleware</title>
@@ -5584,76 +5719,8 @@ If your sessions run longer than the default 5-minute cache window, a new settin
 **Sources:** [Claude Code changelog — code.claude.com/docs/en/changelog](https://code.claude.com/docs/en/changelog) · [Prompt caching — Anthropic docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) · [Claude Code context management — claudefa.st](https://claudefa.st/blog/guide/mechanics/context-management)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Sonnet 5 Stays at $2/$10 — The September 1 Price Increase Will Not Happen</title>
-      <link>https://platform.claude.com/docs/en/about-claude/pricing</link>
-      <guid isPermaLink="false">2026-09-04-02-sonnet-5-price-locked-no-september-increase</guid>
-      <pubDate>Fri, 04 Sep 2026 04:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Best Practices</category>
-      <description>Anthropic has made Claude Sonnet 5's $2/$10 per MTok launch pricing permanent. The previously scheduled September 1 increase to $3/$15 will not occur.</description>
-      <content:encoded><![CDATA[**Anthropic has made Claude Sonnet 5's $2/$10 per MTok launch pricing permanent — the scheduled September 1 increase to $3/$15 per million input/output tokens will not occur, per the [official pricing docs](https://platform.claude.com/docs/en/about-claude/pricing).**
-
-The pricing was announced at Sonnet 5's launch as introductory through August 31, 2026. It is now the standard price indefinitely. Batch processing remains at $1/$5 per MTok (50% discount). Cache reads stay at $0.20/MTok (0.1x the input rate).
-
-One limit to factor into cost comparisons: Anthropic reports that Sonnet 5 and later models use a newer tokenizer that produces approximately 30% more tokens for the same text compared to Sonnet 4.6 and earlier. At $2/MTok with ~30% more tokens, the effective cost for the same payload isn't a direct drop from $3/MTok at the old token count. Run a sample through both models before assuming Sonnet 5 is cheaper for your specific workload.
-
-**Why it matters:** Cost projections built for Sonnet 5 through Q4 don't need updating. If you were holding back Sonnet 5 adoption pending the price increase, that reason is gone.
-
-**Sources:** [Anthropic pricing — platform.claude.com](https://platform.claude.com/docs/en/about-claude/pricing)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Pipeline Already Speaks OpenAI — Point It at Fireworks AI to Run 250+ Open Models in One Swap</title>
-      <link>https://fireworks.ai/inference</link>
-      <guid isPermaLink="false">2026-09-04-01-fireworks-ai-open-model-inference-api</guid>
-      <pubDate>Fri, 04 Sep 2026 04:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Developer Tools</category>
-      <category>Cloud</category>
-      <description>Fireworks AI exposes 250+ open-weight models behind an OpenAI-compatible endpoint — change one URL and one model string, the rest of your pipeline stays the same.</description>
-      <content:encoded><![CDATA[**TL;DR: Fireworks AI exposes 250+ open-weight models (Llama 4, Qwen 3.7, DeepSeek V4) behind an OpenAI-compatible endpoint — change one URL and one model string, the rest of your pipeline stays the same.**
-
-**What you'll be able to do after this:** route any prompt through Llama 4, Qwen 3.7, or DeepSeek without rewriting your pipeline, switch models by changing a string, and run cost-sensitive tasks on a model at $0.30/MTok instead of $2/MTok.
-
-**Three things to know first:**
-- Fireworks claims its disaggregated prefill/decode architecture reduces latency on large models — per Fireworks' own benchmarks; verify with your specific payload before committing production traffic.
-- Free accounts start with a low requests-per-minute ceiling. Adding a payment method raises it, but both per-account and per-model token-per-minute limits apply — plan for rate-limit retries in production.
-- The API is compatible with the OpenAI Python SDK and, via `base_url`, with the Anthropic SDK.
-
-**Setup (3 steps):**
-
-1. Get an API key at `fireworks.ai` (free tier works for testing).
-2. `pip install openai` if you don't have it.
-3. Swap the base URL:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    api_key="YOUR_FIREWORKS_KEY",
-    base_url="https://api.fireworks.ai/inference/v1",
-)
-
-response = client.chat.completions.create(
-    model="accounts/fireworks/models/llama-4-maverick-instruct",
-    messages=[{"role": "user", "content": "Summarize this PR diff in two sentences."}],
-)
-print(response.choices[0].message.content)
-```
-
-Model IDs follow the pattern `accounts/fireworks/models/<slug>`. Find the full catalog at `fireworks.ai/models`.
-
-**Limit:** Fireworks' performance figures come from Fireworks itself. There are no published independent benchmarks covering the full 250+ model catalog as of this writing. Measure your p50/p95 on your actual payload before treating their latency numbers as facts. For very short prompts with many concurrent requests, check whether per-model token-per-minute limits become the real bottleneck before blaming latency.
-
-**Sources:** [Fireworks AI inference — fireworks.ai/inference](https://fireworks.ai/inference) · [Fireworks AI API guide — flo2.com](https://flo2.com/blog/fireworks-ai-api-guide) · [Fireworks docs — docs.fireworks.ai](https://docs.fireworks.ai)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
