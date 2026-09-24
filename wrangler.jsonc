@@ -22,6 +22,12 @@
   // Both on the Free plan; the index is filled by scripts/index-search.mjs in CI.
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "cct-search" }],
+  // Engagement (spec 2026-09-24-reader-reactions-design.md): reactions, saves
+  // and reads as aggregate events. Staging writes its own dataset below, so
+  // beta testing never touches production numbers.
+  "analytics_engine_datasets": [{ "binding": "ENGAGEMENT", "dataset": "cct_engagement" }],
+  // Spam damping for /api/engage. Per Cloudflare location and approximate by design.
+  "ratelimits": [{ "name": "ENGAGE_LIMITER", "namespace_id": "4101", "simple": { "limit": 30, "period": 60 } }],
   // The apex flip (cutover runbook step 6): a Worker ROUTE overlays the proxied
   // GitHub Pages A records — no DNS edit, and deleting the route is the rollback.
   // www is deliberately NOT routed: the Worker only runs for run_worker_first
@@ -32,6 +38,9 @@
   ],
   "vars": {
     "PRODUCTION_HOSTNAME": "cloudcodetree.com",
+    // Origins allowed to call /api/engage*. The 127.0.0.1 entry is the local
+    // wrangler dev server the browser tests use.
+    "ENGAGE_ORIGINS": "https://cloudcodetree.com,http://127.0.0.1:8788",
     // Filled when the cct-demos Supabase project exists (Phase 2 Task 0).
     // Empty means the gate fails CLOSED (503) — never open.
     "SUPABASE_URL": "https://tgcysgioncdmtzcfknix.supabase.co",
@@ -50,6 +59,7 @@
       ],
       "vars": {
         "PRODUCTION_HOSTNAME": "cloudcodetree.com",
+        "ENGAGE_ORIGINS": "https://beta.cloudcodetree.com,https://cct-site-staging.chris-247.workers.dev",
         "SUPABASE_URL": "https://tgcysgioncdmtzcfknix.supabase.co",
         "SUPABASE_ANON_KEY": "sb_publishable_xElUD5_ZTjOVM8ZHSZ1lQw_Zq5gto2o",
         // The owner's Supabase user id — /admin/* answers only to this account. Not a secret.
@@ -65,7 +75,9 @@
       // Search: Workers AI embeds the query, Vectorize holds the post chunks.
       // Both on the Free plan; the index is filled by scripts/index-search.mjs in CI.
       "ai": { "binding": "AI" },
-      "vectorize": [{ "binding": "VECTORIZE", "index_name": "cct-search" }]
+      "vectorize": [{ "binding": "VECTORIZE", "index_name": "cct-search" }],
+      "analytics_engine_datasets": [{ "binding": "ENGAGEMENT", "dataset": "cct_engagement_staging" }],
+      "ratelimits": [{ "name": "ENGAGE_LIMITER", "namespace_id": "4102", "simple": { "limit": 30, "period": 60 } }]
     }
   }
 }

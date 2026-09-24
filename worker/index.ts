@@ -5,6 +5,8 @@ import { handleSession } from './session';
 import { isNavigation, logDemoOpen } from './events';
 import { handleSearch } from './search';
 import { handleFeed } from './feed';
+import { handleEngage } from './engage';
+import { handleClearance } from './clearance';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -17,6 +19,13 @@ export interface Env {
   /** Workers AI + Vectorize — the search endpoint. Optional so a missing binding degrades to 503, never a crash. */
   AI?: Ai;
   VECTORIZE?: Vectorize;
+  /** Engagement events: reactions, saves, reads. Optional so a missing binding drops events, never a page. */
+  ENGAGEMENT?: AnalyticsEngineDataset;
+  ENGAGE_LIMITER?: RateLimit;
+  /** Comma-separated origins allowed to call /api/engage*. */
+  ENGAGE_ORIGINS?: string;
+  TURNSTILE_SECRET?: string;
+  ENGAGE_HMAC_KEY?: string;
 }
 
 // Gated: the live demos only — /projects/<slug>/demo/*. Landing pages, the
@@ -42,6 +51,8 @@ export default {
     if (url.pathname === '/api/search' || url.pathname === '/api/search/') {
       return handleSearch(request, env, ctx);
     }
+    if (url.pathname === '/api/engage/clearance') return handleClearance(request, env);
+    if (url.pathname === '/api/engage') return handleEngage(request, env);
     if (url.pathname.startsWith('/api/')) {
       return new Response('not found', { status: 404 });
     }

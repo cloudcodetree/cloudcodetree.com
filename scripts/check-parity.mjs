@@ -72,6 +72,10 @@ export const CONTRACT = [
   // index exist — both are acceptable "delivered" states; 404 is not.
   { path: '/api/search?q=claude+code',            status: [200, 503], contentType: /application\/json/ },
   { path: '/api/search',                          status: 400 },
+  // Engagement endpoints are POST-only. A GET proves each route reaches its
+  // handler instead of the /api/* 404. The 400/403 contract is unit-tested.
+  { path: '/api/engage',                          status: 405 },
+  { path: '/api/engage/clearance',                status: 405 },
   { path: '/ai-news/search/',                     status: 200, contentType: /text\/html/ },
   // Per-reader: a shared empty shell anyone can fetch, and it must never be
   // indexed — the noindex is the only thing keeping a personal page out of
