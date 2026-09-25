@@ -10,8 +10,81 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 25 Sep 2026 12:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 25 Sep 2026 20:04:00 +0000</lastBuildDate>
 
+
+
+    <item>
+      <title>Canvas Edits Are Free, Inline Comments Cost a Turn, and Claude Code Owns the Production Pass</title>
+      <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
+      <guid isPermaLink="false">2026-09-25-08-claude-design-three-edit-modes-decision</guid>
+      <pubDate>Fri, 25 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>Claude Design has three editing modes with very different costs: canvas edits consume zero tokens, inline annotation triggers one model turn, and Claude Code owns behavior and production alignment.</description>
+      <content:encoded><![CDATA[**Canvas edits consume zero tokens; inline annotation triggers one model turn; Claude Code owns behavior and accessibility. Three modes, one decision rule — use the wrong one and you waste turns or ship broken behavior.**
+
+**What you'll be able to do after this:** Use the right Claude Design editing mode at each stage so you stop burning model turns on text fixes and stop handing Claude Code a design that still needs structural correction.
+
+**Three takeaways:**
+- Canvas direct edits do not call the model — use them for copy, repositioning, and cosmetic adjustments
+- Inline annotation → regeneration calls the model and should be reserved for structural or creative changes where Claude needs to reason about what else adjusts
+- Claude Code owns the production pass: behavior, accessibility, responsive verification, and design system token alignment after a snapshot update
+
+**The three modes in detail**
+
+**1. Canvas direct edit (zero tokens)**
+
+Click any text element and type a replacement. Drag to reposition an element. Use the spacing or color sliders. These do not call the model — no token cost, no regeneration delay, and you see the exact change you made rather than hoping regeneration preserved everything else. Use it for: copy changes, minor repositioning, cosmetic adjustments where you already know what you want.
+
+**2. Inline annotation → regeneration (one model turn)**
+
+Drop a comment on an element and describe what should change. Claude regenerates the targeted component or section with your annotation as context. Use it for: layout restructuring, replacing a component type, changing visual hierarchy, or any request where Claude needs to reason about secondary effects ("make this a three-column grid" requires Claude to figure out how the columns divide and what happens at small viewports).
+
+**3. Export bundle → Claude Code (production pass)**
+
+Export the design bundle and open it in Claude Code for the last mile. This is not "fixing Claude Design's mistakes" — it is the pass the design tool was never meant to own:
+- Wiring hover, focus, and click behavior the canvas cannot express
+- Running `axe-core` against generated HTML
+- Verifying components resolve to your design system tokens rather than hardcoded primitives
+- Checking responsive breakpoints with Playwright at multiple viewport widths
+
+**The decision rule**
+
+If you can describe the change as a command ("change the heading to…", "move this 16px right"), use canvas editing. If you need Claude to figure out what else changes in response, use an inline annotation. If the change touches interaction behavior, accessibility, or token alignment — Claude Code.
+
+**Where canvas editing falls down**
+
+Canvas editing moves pixels; it does not understand behavior. Repositioning a nav item relocates it in the artboard but does not rewire keyboard focus order or active-state logic — those live in code. Any edit that should change how a user interacts with a component needs to happen in Claude Code.
+
+A second limit: Claude Design imports your design system at the moment you run `/design-sync`. Canvas edits cannot make a component reflect tokens you committed after that snapshot. Re-run `/design-sync` to update the design tool, and let Claude Code verify the generated output actually resolves to those new tokens.
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design June 2026 overhaul tested — mejba.me](https://www.mejba.me/blog/claude-design-overhaul-june-2026-tested) · [Canvas editing: multi-tool workflow — n8nlab.io](https://n8nlab.io/news/claude-design-canvas-editing)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Appeals Court Upholds Pentagon's Anthropic Blacklist — The Autonomous-Weapons Line That Triggered It</title>
+      <link>https://www.washingtonpost.com/technology/2026/09/25/federal-appeals-court-rules-pentagon-can-blacklist-anthropic/</link>
+      <guid isPermaLink="false">2026-09-25-07-anthropic-pentagon-blacklist-ruling</guid>
+      <pubDate>Fri, 25 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Policy</category>
+      <description>A federal appeals court ruled 2-1 that the Pentagon can bar Anthropic from military contracts after Anthropic refused unrestricted deployment of Claude for autonomous weapons or mass surveillance.</description>
+      <content:encoded><![CDATA[**A federal appeals court upheld the DoD's March 2026 designation of Anthropic as a supply-chain risk, handing the Pentagon a 2-1 victory in a dispute Anthropic says has cost it billions in lost contracts.**
+
+The underlying conflict: the Defense Department demanded Anthropic make Claude available for any lawful military use, without restrictions. Anthropic refused unless it received written guarantees ruling out two specific deployments — fully autonomous weapons systems and domestic mass surveillance. The court found the Pentagon's supply-chain designation was reasonable given that refusal. Anthropic says it respectfully disagrees and is weighing a petition for full-court review.
+
+**Why it matters:** Direct API access is unaffected — this ruling covers DoD procurement contracts, not the public API. But if your product pipeline includes government or defense-adjacent clients, Claude is currently barred from US DoD systems and that status may persist through further appeals. Separately: Anthropic's principled limits on model deployment (no autonomous kill decisions, no mass surveillance) are now on the record in federal court — they are not marketing language. That is worth understanding when evaluating how Anthropic constrains its models for safety.
+
+**Sources:** [Washington Post](https://www.washingtonpost.com/technology/2026/09/25/federal-appeals-court-rules-pentagon-can-blacklist-anthropic/) · [Defense News](https://www.defensenews.com/news/pentagon-congress/2026/09/25/us-appeals-court-upholds-pentagons-blacklisting-of-anthropic/) · [QZ](https://qz.com/anthropic-pentagon-blacklist-appeals-court-092526)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Claude Design Defaults to Generic Colors Unless Your tokens.json Uses Three Explicit Layers</title>
@@ -5717,71 +5790,8 @@ If you're doing large refactors or multi-day agentic runs scheduled around curre
 **Sources:** [NVIDIA Blog](https://blogs.nvidia.com/blog/nvidia-acquires-hugging-face/) · [TechCrunch](https://techcrunch.com/2026/09/03/nvidia-acquires-hugging-face-for-12-9-billion/) · [VentureBeat — deal analysis](https://venturebeat.com/ai/nvidia-hugging-face-12-9-billion-implications/) · [AI Catchup](https://www.ai-catchup.com/2026/09/nvidia-hugging-face-acquisition)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Claude Code Context Is Burning on Skills You Never Use. /skill-doctor Shows the Bill.</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-05-05-claude-code-skill-doctor-output-caps</guid>
-      <pubDate>Sat, 05 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.261 adds /skill-doctor (shows unused skills and their context cost per turn) and bashOutputMaxChars/taskOutputMaxChars settings (raise inline output cap to 128K to fix truncated logs).</description>
-      <content:encoded><![CDATA[**Every skill loaded from CLAUDE.md burns tokens every turn whether it helped or not — v2.1.261 adds a diagnostic that shows exactly which ones to cut, and a setting that stops build logs from being silently truncated.**
-
-Every skill listed in auto-load burns context tokens on every turn — whether it fires or not. If your session pulls in a dozen skills, most of them are probably dead weight. Run the new diagnostic:
-
-```
-/skill-doctor
-```
-
-The command prints a table: skill name, used or unused in this session, and its approximate context cost per turn. Drop the unused ones, or move rarely-needed skills out of global auto-load and into project-specific settings so they only load when they're relevant.
-
-The second fix is for engineers who hit silently truncated command output. When a build log or test run exceeds Claude's default inline limit, the output gets offloaded to a file — Claude reads a filename, not the actual errors. Raise the cap in `.claude/settings.json`:
-
-```json
-{
-  "bashOutputMaxChars": 65536,
-  "taskOutputMaxChars": 65536
-}
-```
-
-The maximum is 128K characters. Match it to your actual worst-case output — a full `jest --verbose` run, a `cargo build` log — and don't go higher than you need. Every command above your old cap now sends its output inline, which means Claude sees the real failure instead of a file path, but also means context cost goes up proportionally on large outputs.
-
-One more addition in v2.1.261: `--append-subagent-system-prompt-file <path>` reads a subagent system prompt from a file — useful when the prompt is too long to pass as a command-line argument.
-
-One limit: raising `bashOutputMaxChars` to 128K is not free — it moves 128K of characters into context on every large command, whether Claude needed to read all of it or not. Set it to what your actual failure output requires; running at the ceiling when your logs are 20K wastes context on every tool call.
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [AI/TLDR — Claude Code 2.1.261](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-261/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>GPT-6 Astra Opens to API: What the Pricing Means for Engineers Who Route Across Models</title>
-      <link>https://www.cnbc.com/2026/09/03/open-ai-astra-gpt-6-cyber.html</link>
-      <guid isPermaLink="false">2026-09-05-04-gpt6-astra-api-pricing-developer-rollout</guid>
-      <pubDate>Sat, 05 Sep 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>GPT-6 Astra's public rollout begins today — at $10/$50/M tokens per OpenAI's stated rates, it's 3-4x the cost of current workhorse models, which defines where it fits in a multi-provider stack.</description>
-      <content:encoded><![CDATA[**GPT-6 Astra begins its public API rollout today. Per OpenAI's stated rates: $10/$50 per million tokens — 3–4× the cost of Claude Sonnet 5 or GPT-4o — which narrows where it fits in a cost-conscious multi-provider stack.**
-
-GPT-6 Astra's limited-partner preview started September 3. Public rollout to Plus, Pro, Business, and Enterprise users begins today; API access follows in the coming days. Per OpenAI's stated pricing: $10/M input, $50/M output, $1/M for cached input. Batch and flex processing at half price; Fast mode at 2×. Context window: 1,050,000 tokens; max output: 128K tokens.
-
-The technical distinction: a "recurrent depth" reasoning technique that OpenAI says improves focus and multi-step task handling. Researchers have flagged this design as less transparent than standard chain-of-thought — internal reasoning steps are obscured, making the model harder to audit or steer.
-
-For a multi-provider routing setup: Astra's cost profile places it firmly in the premium tier — useful for hard reasoning, large-document work, and complex multi-step agents where accuracy matters more than throughput cost. At 3–4× the rate of current workhorse models (per OpenAI's and Anthropic's respective published pricing), it's not a replacement for Claude Sonnet 5 or GPT-4o on routine calls.
-
-Note: the Sep 2 post on this blog covered Astra's cybersecurity-critical rating and zero-day exploit findings. This is about the practical developer API access opening today.
-
-**Why it matters:** The benchmark gap between frontier models is narrowing; the pricing gap isn't. Knowing which calls to route where still saves real money.
-
-**Sources:** [CNBC — OpenAI announces rollout of GPT-6 Astra](https://www.cnbc.com/2026/09/03/open-ai-astra-gpt-6-cyber.html) · [9to5Mac — OpenAI GPT-6 Astra details](https://9to5mac.com/2026/09/04/openai-releasing-major-upgrade-to-chatgpt-and-codex-with-gpt-6-astra-details-here/) · [Wikipedia — GPT-6 Astra](https://en.wikipedia.org/wiki/GPT-6_Astra)]]></content:encoded>
-    </item>
-
+    
+    
                         
     
     
