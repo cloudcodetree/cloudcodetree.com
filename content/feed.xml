@@ -10,8 +10,182 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 24 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 25 Sep 2026 04:05:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Type `/design` in the Claude Code Terminal to Get Three Artboard Directions Without Opening the Web App</title>
+      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
+      <guid isPermaLink="false">2026-09-25-04-slash-design-reverse-roundtrip</guid>
+      <pubDate>Fri, 25 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>The /design command in Claude Code Desktop drafts artboard directions from your existing component code — explore three visual options without a browser tab or losing your editor context.</description>
+      <content:encoded><![CDATA[**When you already have a component and want to explore visual directions before committing to code, `/design` in Claude Code Desktop generates artboard options grounded in your actual structure — no context switch, no blank canvas.**
+
+The typical Claude Design workflow starts from zero. The [`/design` command](https://code.claude.com/docs/en/whats-new/2026-w34) (added in Week 34, Aug 17–21) reverses that: you're in the terminal with working code, you want to see three layout directions before deciding which to build, and you don't want to lose your session context switching to a browser.
+
+**When to use it:**
+- You have a working component and want to explore a reskin before committing
+- You're about to A/B test a layout change and want to see both before building either
+- You're iterating on a specific section (a card, a nav, a data table) and want variations
+
+**What to pass it:**
+
+1. Your component's current JSX/TSX — the artboard is grounded in your actual structure, not a generic placeholder
+2. Your design tokens (hex values or token names from your system) — otherwise artboards use Claude Design defaults that won't match your system
+3. A one-sentence constraint: "keep the information density, explore different hierarchy treatments"
+
+The result is an editable artifact artboard with Claude's generated directions. Pick one and type "implement this" — Claude drafts the code change against your existing file.
+
+**What doesn't automatically carry over:** `/design` runs in artifact mode, not in your live file context. Artboards won't inherit your local component library or MUI theme config unless you explicitly paste those values in the prompt. This makes it the right tool when the decision is the hard part, not the implementation — for a small focused change you already know the shape of, a direct edit is faster.
+
+**Limits:** Still a research preview as of Claude Code Week 34; the artboard → implementation loop works but requires explicit prompting. `/design` produces artboards, not ready-to-merge code — plan for a round of iteration between the artboard pick and the final file.
+
+**Sources:** [Claude Code Week 34 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w34) · [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design reverse workflow — The Human Co.](https://thehumanco.org/ai-resources/claude-design-update-brand-consistency)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Claude API Cache Miss Is Now Diagnosable — Pass previous_message_id and Get the Exact Divergence Point</title>
+      <link>https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics</link>
+      <guid isPermaLink="false">2026-09-25-03-anthropic-cache-diagnostics-api</guid>
+      <pubDate>Fri, 25 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Pass diagnostics.previous_message_id on beta messages calls and the API returns the exact reason your cache missed: system_changed, tools_changed, messages_changed, or model_changed.</description>
+      <content:encoded><![CDATA[**Add `diagnostics: {"previous_message_id": prev_id}` to your Anthropic beta messages call and the API tells you exactly which part of your prompt invalidated the cache — so you fix the root cause instead of guessing.**
+
+Prompt caching saves real money on agentic loops, but a silent miss eats the savings without warning: your only signal was `cache_read_input_tokens` dropping to zero. [Anthropic's cache diagnostics API](https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics) closes that gap.
+
+**How it works:**
+
+```python
+client = anthropic.Anthropic()
+SYSTEM = "You are an agent... <large doc>...</large doc>"
+
+# Turn 1: opt in with previous_message_id=None
+r1 = client.beta.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    cache_control={"type": "ephemeral"},
+    system=SYSTEM,
+    messages=[{"role": "user", "content": "Q1"}],
+    diagnostics={"previous_message_id": None},
+)
+
+# Turn 2: pass the previous response id
+r2 = client.beta.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    cache_control={"type": "ephemeral"},
+    system=SYSTEM,
+    messages=[..., {"role": "user", "content": "Q2"}],
+    diagnostics={"previous_message_id": r1.id},
+)
+
+if r2.diagnostics and r2.diagnostics.cache_miss_reason:
+    print(r2.diagnostics.cache_miss_reason.type)
+    # → "system_changed" | "tools_changed" | "messages_changed" | "model_changed"
+```
+
+The four miss types map directly to fixes:
+- **`system_changed`** — you interpolated a timestamp or request ID into your system prompt; move it to the first user message after your cache breakpoint
+- **`tools_changed`** — tools array was reordered or serialized non-deterministically between turns; fix the order and sort JSON schema keys
+- **`messages_changed`** — history was truncated or an assistant turn re-serialized; treat history as append-only
+- **`model_changed`** — a router or fallback switched models mid-session; hold the model constant within a cached conversation
+
+The `cache_missed_input_tokens` field gives a magnitude estimate of how many tokens fell outside the cache — useful for triaging whether the miss is worth fixing.
+
+**Real limits:** Only available on the direct Anthropic API — not on Amazon Bedrock or Google Cloud Vertex. Fingerprints expire after a short window, so the two compared requests must be close in time. Cross-workspace handoffs return `previous_message_not_found`, not a diagnostic. On streaming, `diagnostics` arrives on the `message_start` event.
+
+**Sources:** [Cache diagnostics — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics) · [Prompt caching troubleshooting — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#troubleshooting-common-issues) · [Claude Code prompt cache expired guide — jdhodges.com](https://www.jdhodges.com/blog/claude-code-prompt-cache-has-likely-expired/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Gemini 4 Enters Post-Training — Google Says It Will Ship "Much Earlier" Than Year-End</title>
+      <link>https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/</link>
+      <guid isPermaLink="false">2026-09-25-02-gemini-4-post-training-frontier-race</guid>
+      <pubDate>Fri, 25 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <description>Google DeepMind head Koray Kavukcuoglu confirmed at The Information's AI Agenda summit (Sept 23-24) that Gemini 4 is in early post-training and will ship before end of year — likely Q4.</description>
+      <content:encoded><![CDATA[**Gemini 4 is in early post-training (safety testing + RLHF) and Google's DeepMind head says it will ship "much earlier" than year-end — the next slot to fill in your model-routing config is coming.**
+
+Google DeepMind SVP Koray Kavukcuoglu confirmed at [The Information's AI Agenda Live Summit](https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/) on Sept 23–24 that Gemini 4 is in its early post-training phase and he expects to release it well before the end of the year. Gemini 4 is reported to be powering Antigravity, Google's internal coding agent, in early testing.
+
+Context for engineers routing across models: Gemini 3.6 Flash currently sits roughly 24 Elo points below Opus 5.5 on independent WebDev Arena benchmarks — that's the gap Google is trying to close. Anthropic is also shipping the rest of the 5.5 family (Sonnet 5.5, Haiku 5.5 listed as "coming in the coming weeks"). The Q4 window may see three or four significant frontier releases land within weeks of each other.
+
+**Why it matters:** Routing decisions made today could be outdated before Q4 is out. Keep model IDs in config rather than hardcoded, and build your evaluation harness now so you can run a new model against your actual workloads in an hour, not a sprint.
+
+**Sources:** [Google says Gemini 4 release is coming soon — 9to5Google](https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/) · [Gemini 4 enters post-training — Yahoo Finance](https://finance.yahoo.com/technology/ai/articles/google-gemini-4-enters-post-122454510.html) · [AI model rankings Sept 2026 — LogRocket](https://blog.logrocket.com/ai-dev-tool-power-rankings/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your OpenAI SDK Calls Llama, DeepSeek, and Qwen Unmodified With One base_url Swap — Here's What Actually Diverges</title>
+      <link>https://docs.fireworks.ai/getting-started/quickstart</link>
+      <guid isPermaLink="false">2026-09-25-01-fireworks-ai-serverless-inference</guid>
+      <pubDate>Fri, 25 Sep 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <description>Fireworks AI hosts 50+ open-source models on an OpenAI-compatible API. Change base_url and your API key, keep your existing SDK code, and run Llama 3, Qwen, or DeepSeek on serverless pay-per-token infra.</description>
+      <media:content url="https://fireworks.ai/images/og-image.png" medium="image" />
+      <media:thumbnail url="https://fireworks.ai/images/og-image.png" />
+      <content:encoded><![CDATA[**What you'll be able to do after this:** run Llama 3.1, Qwen 2.5, DeepSeek, and 50+ other open-source models from your existing OpenAI-SDK code by changing one URL and one API key — no GPU servers, no cold starts on popular models, pay per token.
+
+**Three things to take away:**
+- Fireworks implements the OpenAI chat completions spec — `base_url`, API key, and model name are the only changes
+- Model IDs use `accounts/fireworks/models/<name>` format, not OpenAI's names — this is the part that catches people
+- Rate limits, context windows, and retry behavior differ from OpenAI — check the Fireworks model card, not OpenAI's docs
+
+**Walk-through:**
+
+```python
+# Before: your existing OpenAI code
+from openai import OpenAI
+client = OpenAI()  # OPENAI_API_KEY
+
+# After: Fireworks AI (same SDK, different target)
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["FIREWORKS_API_KEY"],
+    base_url="https://api.fireworks.ai/inference/v1"
+)
+response = client.chat.completions.create(
+    model="accounts/fireworks/models/deepseek-v3p1",   # not "deepseek-v3"
+    messages=[{"role": "user", "content": "Hello"}]
+)
+print(response.choices[0].message.content)
+```
+
+Or use the native Fireworks SDK (`pip install fireworks-ai`, `from fireworks import Fireworks`) for the same interface without the base_url wiring.
+
+**Serverless tiers** ([Fireworks' Serverless 2.0](https://fireworks.ai/blog/serverless-2)): Standard (default, shared, first to queue under congestion), Priority (`service_tier="priority"` — Fireworks claims last to be shed; approximately 1.5× Standard pricing per their docs), and Fast (dedicated high-throughput path via distinct model IDs like `kimi-k2p6-turbo`, optimized for agent loops).
+
+**Limits to know:**
+- Model IDs are not interchangeable with OpenAI's — `gpt-4o` doesn't route to anything; use the `accounts/fireworks/models/` prefix
+- Standard serverless can queue requests under congestion; for SLA-backed production use, move to provisioned throughput (billed per GPU-minute, not per token)
+- Fine-tuned model IDs prepend your account name: `accounts/<ACCOUNT_NAME>/models/<fine-tune>`
+- The "20–40% faster than comparable platforms" speed claim is from Fireworks' own benchmarks; independent head-to-head data is limited — run your own latency test before routing production traffic
+
+**Sources:** [Fireworks AI quickstart — docs.fireworks.ai](https://docs.fireworks.ai/getting-started/quickstart) · [Serverless 2.0: Three Ways to Run Inference — Fireworks blog](https://fireworks.ai/blog/serverless-2) · [Fireworks vs Together AI comparison — openbenchmarks.com](https://openbenchmarks.com/inference/fireworks-ai-vs-together-ai)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Anthropic's Claude Marketplace Has 2000+ Listings — Most Aren't Meant for Claude Code Engineers, but the MCP Connector Directory Is</title>
@@ -5614,138 +5788,7 @@ The per-turn view is reconstructed from conversation history, not from git, so i
 
 **Sources:** [Claude Code 2.1.260 adds /diff — ccleaks.com](https://ccleaks.com/news/claude-code-2-1-260-sep-2026) · [/diff in Claude Code: inspect per-turn changes — wmedia.es](https://wmedia.es/en/tips/claude-code-diff-changes-per-turn) · [Claude Code /diff: See Exactly What Changed — Vincent's Blog](https://blog.vincentqiao.com/en/posts/claude-code-diff/)]]></content:encoded>
     </item>
-    <item>
-      <title>Test Whether Your Agent Actually Finishes the Task: ThinkingBox + OpenAI DevDay Sept 29</title>
-      <link>https://devblogs.microsoft.com/foundry/build-2026-open-trust-stack-ai-agents/</link>
-      <guid isPermaLink="false">2026-09-05-01-thinkingbox-agent-reliability-devday-2026</guid>
-      <pubDate>Sat, 05 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>Microsoft open-sources ThinkingBox, an agent eval sandbox that verifies actual task completion rather than self-reported success. OpenAI DevDay is September 29 in San Francisco.</description>
-      <content:encoded><![CDATA[**Two items for engineers building agents: a benchmark that checks what your agent actually changed in the database, and a developer conference worth watching on September 29.**
-
-**Microsoft ThinkingBox (released Aug 19, open source):** An eval sandbox for testing AI agents on business-process tasks — order processing, inventory updates, scheduling. The key distinction: instead of grading an agent on what it *says* it did, ThinkingBox checks what it actually changed in a connected database. Microsoft tested 12 models across 507 tasks spanning five business domains; pass rates varied widely among models that look equivalent on standard coding benchmarks. Available at [github.com/microsoft/thinkingbox](https://github.com/microsoft/thinkingbox).
-
-**Why it matters:** Claim-vs-result divergence is the most common failure pattern in production business agents. If you're choosing a model for a workflow that writes to a real system, running candidates through ThinkingBox on representative tasks gives you actual completion rates rather than benchmark proxy scores.
-
-**OpenAI DevDay 2026:** September 29 at Fort Mason, San Francisco. In-person applications are closed; the opening keynote will be livestreamed. First year the conference adds satellite DevDay Exchange events in eight cities (Bengaluru, Tokyo, Seoul, Paris, Berlin, London, São Paulo, Mexico City). Historically the venue for significant API and platform announcements.
-
-**Sources:** [ThinkingBox — Microsoft Foundry Blog](https://devblogs.microsoft.com/foundry/build-2026-open-trust-stack-ai-agents/) · [ThinkingBox — github.com/microsoft/thinkingbox](https://github.com/microsoft/thinkingbox) · [OpenAI DevDay 2026](https://openai.com/index/devday-2026/) · [ThinkingBox agent reliability — CoinDesk](https://coindesk.cc/microsoft-introduces-thinkingbox-to-assess-ai-agent-reliability-104438.html)]]></content:encoded>
-    </item>
-    <item>
-      <title>Direct Edit, Targeted Regen, Full Restart: Which Claude Design Move to Make</title>
-      <link>https://salesdorado.com/en/ai/review-claude-design/</link>
-      <guid isPermaLink="false">2026-09-04-09-claude-design-regenerate-vs-edit-decision</guid>
-      <pubDate>Fri, 04 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design has three iteration modes with different costs and consistency risks — reaching for full regen when a slider works wastes both.</description>
-      <content:encoded><![CDATA[**Claude Design has three iteration modes with different costs and consistency risks — reaching for full regen when a slider works wastes both.**
-
-When something's wrong in a generated screen, the instinct is to re-prompt. That's often the wrong move — not just for tokens, but because each full regeneration means every previous design decision can shift.
-
-**Three modes, ordered from cheapest to most disruptive:**
-
-**1. Direct editing** — inline text editing, property sliders (spacing, color, radius), and element manipulation — costs nothing and consumes no tokens. Use this for cosmetic fixes: wrong label, off-brand color, too much padding. The change applies to the selected element; everything else stays.
-
-**2. Targeted element regeneration** — select a component and prompt Claude Design to rework it alone. Use this when a component's *structure* is wrong but the rest of the screen is right: the nav uses the wrong pattern, the card layout doesn't match your system. Targeted regen keeps the page as the anchor and regenerates only the selected piece.
-
-**3. Full page regeneration** — re-prompting the whole screen. Reserve this for when the page's layout *premise* is wrong: wrong column count, wrong hierarchy, wrong primary action placement. Everything you've already refined goes with it.
-
-**The decision:**
-- Something looks off, structure is right → direct edit (slider or inline)
-- One component is the wrong shape → targeted element regen
-- The page doesn't do what a user needs → full regen
-
-The common failure is using targeted or full regen for problems a slider would fix. Those trigger generation — and generation means your previous decisions can drift. Sliders don't.
-
-**Limit**: direct editing works on what's already generated. For a fundamentally different approach, regeneration is the only path — but arrive there only after ruling out the cheaper modes.
-
-**Sources:** [Claude Design review, iteration modes — Salesdorado](https://salesdorado.com/en/ai/review-claude-design/) · [Claude Design workflow — designproject.io](https://designproject.io/blog/claude-design-workflow/) · [Claude for designers in 2026 — artofstyleframe.com](https://artofstyleframe.com/blog/claude-for-designers-2026/)]]></content:encoded>
-    </item>
-    <item>
-      <title>Fable 5.1 Calls Your Agent's Tools One at a Time — Fix It With One Sentence</title>
-      <link>https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1</link>
-      <guid isPermaLink="false">2026-09-04-08-fable-51-agent-loop-batch-nudge</guid>
-      <pubDate>Fri, 04 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>In Fable 5.1 coding agents, implied-independent calls may serialize. A one-sentence turn-scoped message appended after each tool batch restores parallel execution.</description>
-      <content:encoded><![CDATA[**In Fable 5.1 coding agents, implied-independent calls may serialize instead of batching. A one-sentence turn-scoped system message appended after each tool batch restores parallel execution.**
-
-Fable 5.1 batches tool calls reliably when your request names what to fetch. The exception is coding agents and bash-and-editor harnesses where the next reads are *implied* by the task — there it may issue them one per turn instead of together. No quality loss, but each extra turn costs tokens, a round trip, and wall-clock time in a loop that can run dozens of turns.
-
-**The fix:** append this sentence after each tool-result batch:
-
-```
-First privately list what you need next; then request every item that doesn't depend on another's result in this one response.
-```
-
-Deliver it as a turn-scoped system message — a `role: "system"` entry with `clear_at: "next_user_message"` (beta header: `mid-conversation-system-clear-at-2026-08-21`). Append a fresh copy after each tool-result batch; leave old copies in the array byte-for-byte. Once cleared, they cost zero input tokens and the model doesn't see them. **Do not edit or delete them**: that restarts the prompt cache from that point and invalidates the thinking blocks that follow.
-
-Without the beta flag, place the sentence in a `text` block inside the user message that carries the `tool_result` blocks — same turn, after the results.
-
-**This is different from `disable_parallel_tool_use`**, which intentionally forces one call per turn for pipelines that need to inspect or rate-limit each result. The nudge is for loops where calls are structurally independent but the model isn't batching them on its own.
-
-**Limit**: the nudge works for implied-independent calls in agentic loops. Calls with genuine ordering dependencies — where each result determines the next call — can't be parallelized regardless of the prompt.
-
-**Sources:** [Batch independent tool calls — Anthropic Fable 5.1 prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1#batch-independent-tool-calls-in-agent-loops) · [Prompting Claude Fable 5.1 (full guide) — Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1) · [Three Fable 5.1 patterns that break existing agents — AI Unfiltered](https://www.arturmarkus.com/anthropic-cuts-fable-5-1-cache-reads-75-to-0-25-m-and-breaks-three-prompt-patterns-developers-rely-on/)]]></content:encoded>
-    </item>
-    <item>
-      <title>Give Claude Design a Brand Brief Before Screen One — Here's What to Include</title>
-      <link>https://designproject.io/blog/claude-design-workflow/</link>
-      <guid isPermaLink="false">2026-09-04-07-claude-design-project-description-brand-brief</guid>
-      <pubDate>Fri, 04 Sep 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design's default output is competent but generic. Front-loading component names, color roles, type scale, and negatives into your project description prevents the generation-by-generation aesthetic fight.</description>
-      <content:encoded><![CDATA[**Claude Design's default output is competent but generic. Front-loading component names, color roles, type scale, and explicit negatives into your project description prevents the generation-by-generation aesthetic fight.**
-
-When you open a new Claude Design project and write "SaaS dashboard" as your prompt, you get a SaaS dashboard — with the right sections, the right density, and buttons that look like nobody on your team approved them. The fix, "make it look more like our product," costs 3–5 correction rounds per screen and still doesn't converge, because each regeneration starts fresh from Claude's generic defaults ([Claude Design workflow — The Design Project](https://designproject.io/blog/claude-design-workflow/)).
-
-The upstream fix is a project description that seeds every generation with your system. Practitioners report that Claude Design's project description persists as background context across generations — what you put there shapes every screen, not just the first.
-
-**What to include (10–15 lines is enough):**
-
-```
-Component conventions:
-- Buttons: filled/outlined/text variant pattern. Filled: #3B82F6 bg, white text.
-- Cards: 8px radius. No drop shadow. 1px border #E2E8F0.
-- Inputs: 40px height. 1px border, #3B82F6 on focus. Label above.
-
-Color roles:
-- Primary: #3B82F6. Surface: #1E293B. Text: #F1F5F9.
-- No additional colors. No gradients.
-
-Type scale: headings 24/20/16px. Body 14px. Never under 12px.
-
-Layout: 1280px max width. 12-column grid, 24px gutter.
-
-Negatives: no decorative illustrations. No rounded avatars with initials placeholders.
-No glassmorphism. No drop shadows on non-card elements.
-```
-
-The negatives matter as much as the positives. Without them, Claude Design fills unspecified gaps with visually consistent defaults that look fine in isolation but fight your system the moment they appear next to real components.
-
-**Sequencing with other techniques:** This project description sets stylistic consistency. It does not make Claude Design component-aware — generated screens will still use generic `<div class="btn-primary">` rather than your `<Button variant="primary">`. For component-name accuracy across screens, pair this with the component inventory step (post [2026-09-04-04](/ai-news/2026-09-04-04-claude-design-multi-screen-component-inventory)) and the substitution pass (post [2026-09-04-05](/ai-news/2026-09-04-05-claude-design-generic-to-component-substitution)). The project description reduces aesthetic drift; the inventory and substitution steps handle component accuracy.
-
-**The limit:** A project description is static context — it doesn't update when your design system evolves. Treat it like a constraint file: review and update it whenever you change your token values or component API. Stale constraints produce subtly wrong output, and because the description isn't visible in each prompt, the drift is harder to diagnose.
-
-**Sources:** [Claude Design workflow — The Design Project](https://designproject.io/blog/claude-design-workflow/) · [From Weeks to Hours: Claude Design Compresses Product Discovery — Product Compass](https://www.productcompass.pm/p/claude-design-product-discovery) · [Using Claude Design for prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux)]]></content:encoded>
-    </item>
-
+                
     
     
     
