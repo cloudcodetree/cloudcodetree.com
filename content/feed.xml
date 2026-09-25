@@ -10,8 +10,110 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 25 Sep 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 25 Sep 2026 12:06:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Claude Design Defaults to Generic Colors Unless Your tokens.json Uses Three Explicit Layers</title>
+      <link>https://tr.designtokens.org/format/</link>
+      <guid isPermaLink="false">2026-09-25-06-dtcg-three-layer-tokens-claude-design</guid>
+      <pubDate>Fri, 25 Sep 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>A flat hex dump tells Claude your palette but not your semantic intent; a DTCG primitive-semantic-component file gives it the alias chain it needs to generate code that actually matches your system.</description>
+      <content:encoded><![CDATA[**A flat hex dump tells Claude your palette but not your semantic intent; a DTCG primitive→semantic→component file gives it the alias chain it needs to generate code that matches your design system — not just its defaults.**
+
+When you upload a design file to Claude Design, it works with whatever token structure you provide. The problem: a flat list of CSS variables — `--blue-500: #3b82f6` — tells Claude a value but nothing about its role. Generated components end up using arbitrary primitives instead of your semantic tokens, and when your brand colors change, you update one token and the generated code doesn't follow.
+
+The [W3C Design Tokens Community Group (DTCG)](https://tr.designtokens.org/format/) format solves this by expressing meaning, not just values, through three explicit layers:
+
+```json
+{
+  "color": {
+    "primitive": {
+      "blue-500": { "$value": "#3b82f6", "$type": "color" }
+    },
+    "semantic": {
+      "interactive-primary": {
+        "$value": "{color.primitive.blue-500}",
+        "$type": "color",
+        "$description": "Default background for interactive CTAs"
+      }
+    },
+    "component": {
+      "button-background": {
+        "$value": "{color.semantic.interactive-primary}",
+        "$type": "color"
+      }
+    }
+  }
+}
+```
+
+Claude reads the alias chain (`button-background` → `interactive-primary` → `blue-500`) and knows to reference semantic tokens in generated code — not primitives. When `interactive-primary` changes, every component that references it updates without touching raw hex values.
+
+**How to feed this to Claude Design:** save your token file as `tokens.json`, then pass it at session start — either paste it into the `/design` prompt or upload it in the Claude Design web app under **Design System → Upload**. Claude resolves aliases before rendering artboards, so `interactive-primary` appears as a named token in the color picker rather than a raw hex.
+
+**Generating the file.** If your tokens already live in Figma variables or a Storybook config, the [gregorymm/design-tokens Claude Code plugin](https://github.com/gregorymm/design-tokens) reads your existing setup and writes a DTCG-compliant `tokens.json` with all three layers. Run it once against your repo; the output is a file you commit and maintain.
+
+**Limits:** tokens must be provided at the start of a Design session. If you start without them and add them mid-conversation, Claude won't retroactively update already-generated artboards — you'll need to restart. The alias chain also breaks silently if a `$value` references a key that doesn't exist in the same file; validate with `npx @tokens-studio/sd-transforms validate tokens.json` before uploading.
+
+**Sources:** [W3C DTCG format specification](https://tr.designtokens.org/format/) · [gregorymm/design-tokens — Claude Code plugin](https://github.com/gregorymm/design-tokens) · [Claude Code Design Token Automation — claudecodeguides.com](https://claudecodeguides.com/claude-code-design-token-automation-from-figma-variables/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Eval Results Change Depending on Who Runs Them — `--restricted` Fixes That With One Flag</title>
+      <link>https://code.claude.com/docs/en/whats-new/2026-w35</link>
+      <guid isPermaLink="false">2026-09-25-05-restricted-claude-eval-harness</guid>
+      <pubDate>Fri, 25 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>claude --restricted drops command tools and every user and project setting so your CI eval always starts from the same baseline — no hooks, no plugins, no surprises from dev-local config.</description>
+      <content:encoded><![CDATA[**`claude --restricted` drops command tools and every user and project setting, so your CI eval always starts from the same baseline — no hooks, no plugins, no dev-local config surprises.**
+
+When you build an eval harness for your Claude Code agents — whether with `claude plugin eval` or a bespoke suite — results can vary between developers because of differences in their local settings. One engineer has a hook that shortens responses; another has a plugin that changes tool selection; a third has a `CLAUDE.md` that adds domain context. Your metrics look different on each machine and in CI, and you don't know why.
+
+`--restricted` solves this by starting a session with all customizations stripped:
+
+- Command-running tools (Bash, Write, file creation) are disabled — read-only mode
+- User-level settings (`~/.claude/settings.json`, `~/.claude/settings.local.json`) are ignored
+- Project-level settings (`.claude/settings.json`, `CLAUDE.md`, hooks) are not loaded
+- Installed plugins and skills are not activated
+
+Every `--restricted` session sees the same Claude: same model, same defaults, same tool surface. To run a prompt and capture the response in CI:
+
+```bash
+# Pass a single eval prompt; capture output
+result=$(claude --restricted --print "$(cat evals/prompts/refactor-task.txt)")
+
+# Or loop through a directory of prompts
+for prompt_file in evals/prompts/*.txt; do
+  claude --restricted -p "$(cat "$prompt_file")" >> evals/results.jsonl
+done
+```
+
+Pair this with a model flag for cross-version comparisons:
+
+```bash
+claude --restricted --model claude-sonnet-5 -p "$(cat eval.txt)" > baseline.txt
+claude --restricted --model claude-opus-5-5 -p "$(cat eval.txt)" > candidate.txt
+diff baseline.txt candidate.txt
+```
+
+**When not to use it:** if your eval checks that Claude *creates or modifies files* (for example, testing that a refactoring task produces the right output file), `--restricted` blocks the Write tool and the task will fail. For file-creation evals, use a clean `--worktree` instead — it isolates at the filesystem level while keeping all tools available.
+
+**Limits:** restricted mode is fully read-only, so any eval that depends on agent tool use (code execution, file reads beyond the prompt) needs a separate isolation strategy. It also does not restrict model selection — callers can still pass `--model` to override the default.
+
+**Sources:** [Claude Code Week 35 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w35) · [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Building Reproducible Claude Code Evals — Big Hat Group](https://www.bighatgroup.com/blog/claude-code-ci-integration/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Type `/design` in the Claude Code Terminal to Get Three Artboard Directions Without Opening the Web App</title>
@@ -5680,115 +5782,7 @@ Note: the Sep 2 post on this blog covered Astra's cybersecurity-critical rating 
 **Sources:** [CNBC — OpenAI announces rollout of GPT-6 Astra](https://www.cnbc.com/2026/09/03/open-ai-astra-gpt-6-cyber.html) · [9to5Mac — OpenAI GPT-6 Astra details](https://9to5mac.com/2026/09/04/openai-releasing-major-upgrade-to-chatgpt-and-codex-with-gpt-6-astra-details-here/) · [Wikipedia — GPT-6 Astra](https://en.wikipedia.org/wiki/GPT-6_Astra)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Generated Components Have Hardcoded Colors — One Stylelint Rule Catches Every One</title>
-      <link>https://github.com/nickvdyck/stylelint-declaration-strict-value</link>
-      <guid isPermaLink="false">2026-09-05-03-stylelint-design-token-enforcement-generated-css</guid>
-      <pubDate>Sat, 05 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Design-to-Code</category>
-      <description>stylelint-declaration-strict-value flags any CSS property that uses a raw value instead of a CSS custom property — catching hardcoded colors and sizes before they land in your repo.</description>
-      <content:encoded><![CDATA[**AI code generators default to concrete values (`#3b82f6`, `16px`) because token names are project-specific — a one-rule linter catches every violation and sends the list back to Claude Code to fix.**
-
-**What you'll be able to do after this:** Run a single linter command that fails whenever generated CSS uses hardcoded colors, spacing, or typography values instead of your CSS custom properties — and feed the violation list to Claude Code for an automatic fix pass.
-
-**Three things to know:**
-- Language models write what's in training data. Token names (`--color-primary`, `--space-4`) are project-specific and invisible to the model; it defaults to concrete values unless your AGENTS.md explicitly provides the mapping.
-- `stylelint-declaration-strict-value` lets you declare which CSS properties must use a variable or function — not a literal — and fails on any violation with file and line number.
-- Claude Code can consume the lint output directly: paste the failure list into a new turn and ask it to substitute the correct token names. One pass typically clears the violations.
-
-**Walk-through:**
-
-Install:
-```bash
-npm install --save-dev stylelint stylelint-declaration-strict-value
-```
-
-Create `.stylelintrc.json` at your project root:
-```json
-{
-  "plugins": ["stylelint-declaration-strict-value"],
-  "rules": {
-    "scale-unlimited/declaration-strict-value": [
-      [
-        "color", "background-color", "border-color", "fill", "stroke",
-        "font-size", "font-family", "line-height", "letter-spacing",
-        "gap", "padding", "margin", "border-radius", "box-shadow"
-      ],
-      {
-        "ignoreValues": ["transparent", "inherit", "currentColor", "unset", "none", "0"],
-        "disableFix": false
-      }
-    ]
-  }
-}
-```
-
-Run against your component directory:
-```bash
-npx stylelint "src/**/*.css" "src/**/*.module.css"
-```
-
-Feed the violations back to Claude Code:
-```
-The following CSS declarations use raw values instead of design tokens.
-Replace each with the correct CSS custom property from our design system
-(token list in AGENTS.md). Do not change layout or structure, only substitute values.
-
-[paste stylelint output here]
-```
-
-Add it to your CI `package.json`:
-```json
-"scripts": {
-  "lint:tokens": "stylelint 'src/**/*.css' 'src/**/*.module.css'"
-}
-```
-
-**What this won't catch:** inline `style={{}}` props in JSX — stylelint only parses CSS and CSS-in-JS patterns it can statically analyze. For inline styles, use an ESLint rule (`no-restricted-syntax`) targeting `style={{color:` patterns, or review them manually after a generation pass.
-
-**The limit:** this approach enforces *that* a token is used, not *which* token. If Claude Code picks `--color-secondary` when the design calls for `--color-brand`, the linter passes. Pair it with a visual review or snapshot tests for pixel-level correctness.
-
-**Sources:** [stylelint-declaration-strict-value — GitHub](https://github.com/nickvdyck/stylelint-declaration-strict-value) · [Linting Design Tokens With Stylelint — Michael Mangialardi](https://www.michaelmang.dev/blog/linting-design-tokens-with-stylelint/) · [Mozilla no-base-design-tokens Stylelint rule](https://firefox-source-docs.mozilla.org/code-quality/lint/linters/stylelint-plugin-mozilla/rules/no-base-design-tokens.html) · [stylelint.io](https://stylelint.io/)]]></content:encoded>
-    </item>
-    <item>
-      <title>Review Every Change Claude Makes, Turn by Turn: The /diff Panel</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-05-02-claude-code-diff-turn-by-turn-review</guid>
-      <pubDate>Sat, 05 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.260 adds a /diff panel that shows per-turn diffs alongside the conversation in fullscreen mode — review what changed on each turn before you git add.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.260's /diff panel shows exactly what changed on each conversation turn — before you `git add` — so you can catch unexpected changes without digging through `git diff`.**
-
-Before `/diff`, the only way to review Claude Code's edits was `git diff HEAD` — which shows all uncommitted changes as one undifferentiated pile. If you ran five turns, you couldn't trace which change came from which prompt without checking git blame or manually diffing mid-session.
-
-**What /diff gives you:**
-
-In fullscreen mode (Ctrl+Shift+F), run `/diff` to open a panel beside the conversation. Two views:
-
-- **Current** — equivalent to `git diff HEAD`, everything uncommitted in your working directory. Use this for a final pre-commit sweep.
-- **Per-turn** (T1, T2, T3 …) — the diff produced by each individual conversation turn. Use ←/→ to switch between turns; each entry shows a snippet of your prompt so you remember what you asked. Use ↑/↓ to browse changed files within a turn.
-
-**The workflow:**
-
-After each significant turn, flip to the diff panel and review the per-turn view before continuing. If Claude's T3 change looks off, you can revert that file (`git checkout HEAD -- <file>`) and re-prompt on T4 with tighter constraints — without undoing T1 and T2's work.
-
-The per-turn view is reconstructed from conversation history, not from git, so it survives manual edits and partial `git add`. You don't need to commit between turns to maintain the per-turn record.
-
-**The practical habit:** treat every turn as a commit proposal. Before you `git add`, scan the T-N diff to confirm the change does exactly what the prompt asked. This is especially useful for turns that touch files you didn't intend — they show up immediately in the per-turn view.
-
-**Limit:** `/diff` only opens in fullscreen mode (Ctrl+Shift+F to toggle). If you prefer the split-pane layout, you'll need to switch modes to use the panel — it's not available inline. For inter-branch diffs or PR-scope review, you still need `git diff main..HEAD` outside the panel; the Current view is limited to `git diff HEAD`.
-
-**Sources:** [Claude Code 2.1.260 adds /diff — ccleaks.com](https://ccleaks.com/news/claude-code-2-1-260-sep-2026) · [/diff in Claude Code: inspect per-turn changes — wmedia.es](https://wmedia.es/en/tips/claude-code-diff-changes-per-turn) · [Claude Code /diff: See Exactly What Changed — Vincent's Blog](https://blog.vincentqiao.com/en/posts/claude-code-diff/)]]></content:encoded>
-    </item>
-                
+                        
     
     
     

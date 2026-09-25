@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-25-06-dtcg-three-layer-tokens-claude-design",
+    "title": "Claude Design Defaults to Generic Colors Unless Your tokens.json Uses Three Explicit Layers",
+    "excerpt": "A flat hex dump tells Claude your palette but not your semantic intent; a DTCG primitive-semantic-component file gives it the alias chain it needs to generate code that actually matches your system.",
+    "author": "Chris Harper",
+    "date": "09-25-2026",
+    "publishedAt": "2026-09-25T12:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://tr.designtokens.org/format/",
+    "content": "**A flat hex dump tells Claude your palette but not your semantic intent; a DTCG primitive→semantic→component file gives it the alias chain it needs to generate code that matches your design system — not just its defaults.**\n\nWhen you upload a design file to Claude Design, it works with whatever token structure you provide. The problem: a flat list of CSS variables — `--blue-500: #3b82f6` — tells Claude a value but nothing about its role. Generated components end up using arbitrary primitives instead of your semantic tokens, and when your brand colors change, you update one token and the generated code doesn't follow.\n\nThe [W3C Design Tokens Community Group (DTCG)](https://tr.designtokens.org/format/) format solves this by expressing meaning, not just values, through three explicit layers:\n\n```json\n{\n  \"color\": {\n    \"primitive\": {\n      \"blue-500\": { \"$value\": \"#3b82f6\", \"$type\": \"color\" }\n    },\n    \"semantic\": {\n      \"interactive-primary\": {\n        \"$value\": \"{color.primitive.blue-500}\",\n        \"$type\": \"color\",\n        \"$description\": \"Default background for interactive CTAs\"\n      }\n    },\n    \"component\": {\n      \"button-background\": {\n        \"$value\": \"{color.semantic.interactive-primary}\",\n        \"$type\": \"color\"\n      }\n    }\n  }\n}\n```\n\nClaude reads the alias chain (`button-background` → `interactive-primary` → `blue-500`) and knows to reference semantic tokens in generated code — not primitives. When `interactive-primary` changes, every component that references it updates without touching raw hex values.\n\n**How to feed this to Claude Design:** save your token file as `tokens.json`, then pass it at session start — either paste it into the `/design` prompt or upload it in the Claude Design web app under **Design System → Upload**. Claude resolves aliases before rendering artboards, so `interactive-primary` appears as a named token in the color picker rather than a raw hex.\n\n**Generating the file.** If your tokens already live in Figma variables or a Storybook config, the [gregorymm/design-tokens Claude Code plugin](https://github.com/gregorymm/design-tokens) reads your existing setup and writes a DTCG-compliant `tokens.json` with all three layers. Run it once against your repo; the output is a file you commit and maintain.\n\n**Limits:** tokens must be provided at the start of a Design session. If you start without them and add them mid-conversation, Claude won't retroactively update already-generated artboards — you'll need to restart. The alias chain also breaks silently if a `$value` references a key that doesn't exist in the same file; validate with `npx @tokens-studio/sd-transforms validate tokens.json` before uploading.\n\n**Sources:** [W3C DTCG format specification](https://tr.designtokens.org/format/) · [gregorymm/design-tokens — Claude Code plugin](https://github.com/gregorymm/design-tokens) · [Claude Code Design Token Automation — claudecodeguides.com](https://claudecodeguides.com/claude-code-design-token-automation-from-figma-variables/)"
+  },
+  {
+    "id": "2026-09-25-05-restricted-claude-eval-harness",
+    "title": "Your Eval Results Change Depending on Who Runs Them — `--restricted` Fixes That With One Flag",
+    "excerpt": "claude --restricted drops command tools and every user and project setting so your CI eval always starts from the same baseline — no hooks, no plugins, no surprises from dev-local config.",
+    "author": "Chris Harper",
+    "date": "09-25-2026",
+    "publishedAt": "2026-09-25T12:05:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/whats-new/2026-w35",
+    "content": "**`claude --restricted` drops command tools and every user and project setting, so your CI eval always starts from the same baseline — no hooks, no plugins, no dev-local config surprises.**\n\nWhen you build an eval harness for your Claude Code agents — whether with `claude plugin eval` or a bespoke suite — results can vary between developers because of differences in their local settings. One engineer has a hook that shortens responses; another has a plugin that changes tool selection; a third has a `CLAUDE.md` that adds domain context. Your metrics look different on each machine and in CI, and you don't know why.\n\n`--restricted` solves this by starting a session with all customizations stripped:\n\n- Command-running tools (Bash, Write, file creation) are disabled — read-only mode\n- User-level settings (`~/.claude/settings.json`, `~/.claude/settings.local.json`) are ignored\n- Project-level settings (`.claude/settings.json`, `CLAUDE.md`, hooks) are not loaded\n- Installed plugins and skills are not activated\n\nEvery `--restricted` session sees the same Claude: same model, same defaults, same tool surface. To run a prompt and capture the response in CI:\n\n```bash\n# Pass a single eval prompt; capture output\nresult=$(claude --restricted --print \"$(cat evals/prompts/refactor-task.txt)\")\n\n# Or loop through a directory of prompts\nfor prompt_file in evals/prompts/*.txt; do\n  claude --restricted -p \"$(cat \"$prompt_file\")\" >> evals/results.jsonl\ndone\n```\n\nPair this with a model flag for cross-version comparisons:\n\n```bash\nclaude --restricted --model claude-sonnet-5 -p \"$(cat eval.txt)\" > baseline.txt\nclaude --restricted --model claude-opus-5-5 -p \"$(cat eval.txt)\" > candidate.txt\ndiff baseline.txt candidate.txt\n```\n\n**When not to use it:** if your eval checks that Claude *creates or modifies files* (for example, testing that a refactoring task produces the right output file), `--restricted` blocks the Write tool and the task will fail. For file-creation evals, use a clean `--worktree` instead — it isolates at the filesystem level while keeping all tools available.\n\n**Limits:** restricted mode is fully read-only, so any eval that depends on agent tool use (code execution, file reads beyond the prompt) needs a separate isolation strategy. It also does not restrict model selection — callers can still pass `--model` to override the default.\n\n**Sources:** [Claude Code Week 35 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w35) · [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Building Reproducible Claude Code Evals — Big Hat Group](https://www.bighatgroup.com/blog/claude-code-ci-integration/)"
+  },
+  {
     "id": "2026-09-25-04-slash-design-reverse-roundtrip",
     "title": "Type `/design` in the Claude Code Terminal to Get Three Artboard Directions Without Opening the Web App",
     "excerpt": "The /design command in Claude Code Desktop drafts artboard directions from your existing component code — explore three visual options without a browser tab or losing your editor context.",
