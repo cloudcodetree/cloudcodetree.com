@@ -10,9 +10,75 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 26 Sep 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 26 Sep 2026 12:04:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your LangChain Agent Can Call Any MCP Server's Tools in Four Lines — Migrate From langchain-mcp-adapters Before It Breaks</title>
+      <link>https://docs.langchain.com/oss/python/langchain/mcp</link>
+      <guid isPermaLink="false">2026-09-26-03-langchain-mcp-adapter-migrate</guid>
+      <pubDate>Sat, 26 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <description>langchain-mcp-adapters was retired Sep 11. The replacement is langchain[mcp]>=1.4.0 with MCPAdapter — four async lines wire any MCP server's tools into a LangChain agent. Limit: beta API.</description>
+      <content:encoded><![CDATA[**`langchain-mcp-adapters` was retired Sep 11; its replacement `langchain[mcp]` ships `MCPAdapter` in four async lines — infers transport, discovers tools, and passes them straight to `create_agent`.**
+
+The standalone `langchain-mcp-adapters` package has been retired. LangChain 1.4.0 (Sep 3) moved MCP support into core under `langchain.mcp`. If you're still importing from the old package, you'll get deprecation errors now and import failures after the Oct 15 yanking window.
+
+**Migration: two command changes**
+
+```bash
+# Remove the old package
+pip uninstall langchain-mcp-adapters
+
+# Install the built-in MCP extra
+pip install "langchain[mcp]>=1.4.0"
+```
+
+**Before (retired `MultiServerMCPClient`)**
+
+```python
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+async with MultiServerMCPClient({
+    "docs": {"url": "https://docs.example.com/mcp", "transport": "streamable_http"},
+}) as client:
+    tools = client.get_tools()
+    # ... pass tools to agent
+```
+
+**After (`MCPAdapter` — infers transport from target)**
+
+```python
+from langchain.mcp import MCPAdapter
+from langchain.agents import create_agent
+
+async with MCPAdapter("https://docs.example.com/mcp") as adapter:
+    tools = await adapter.list_tools()
+    agent = create_agent("claude-sonnet-5", tools)
+    result = await agent.ainvoke({"messages": [{"role": "user", "content": "..."}]})
+```
+
+`MCPAdapter` infers `streamable_http` from an `https://` URL. For a local stdio-based server pass the process command directly — `MCPAdapter(["python", "my_server.py"])`.
+
+**What's new in the built-in namespace**
+
+- **Elicitation via LangGraph interrupts.** When an MCP server calls `elicit()` mid-tool to ask the user a question, `MCPAdapter` surfaces it as a `NodeInterrupt`. Your LangGraph workflow catches it, collects the answer, and resumes — no special wiring required.
+- **Client-side tool discovery caching.** `list_tools()` result is cached for the lifetime of the context manager; repeated `ainvoke` calls don't round-trip the server.
+
+**What breaks**
+
+- Requires MCP SDK 2.x (`mcp>=2.0.0`, `fastmcp>=4.0.1`). Servers still on MCP 1.x won't be recognized — check your server's `mcp` dep before migrating.
+- The `langchain.mcp` namespace is in **beta**: `import langchain.mcp` raises `LangChainBetaWarning` once per process. The API shape may change before LangChain 2.0.
+- Multi-server scenarios that previously used `MultiServerMCPClient` with a dict of named servers now need one `MCPAdapter` per server or a wrapper loop — there is no direct multi-server constructor yet.
+
+**Sources:** [LangChain MCP docs](https://docs.langchain.com/oss/python/langchain/mcp) · [Migration guide from langchain-mcp-adapters](https://docs.langchain.com/oss/python/migrate/langchain-mcp-adapters) · [Third-party migration tracking issue — developmentseed/mcp-toolsets-runtime](https://github.com/developmentseed/mcp-toolsets-runtime/issues/163)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>ParentDocumentRetriever: Index Small Chunks, Return Large Context</title>
@@ -5867,49 +5933,7 @@ Chroma uses `where={"year": 2026}`. Pinecone uses a `filter` dict. LangChain's `
     </item>
 
 
-    <item>
-      <title>The Names You Give Design Elements in Claude Design Are What Claude Code Uses to Look Up Components</title>
-      <link>https://claudelab.net/workflow/component-naming-handoff/</link>
-      <guid isPermaLink="false">2026-09-05-08-claude-design-component-naming-handoff</guid>
-      <pubDate>Sat, 05 Sep 2026 20:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design generates screens with generic element names. Rename them to your actual component names before exporting — Claude Code uses those names to look up your real components.</description>
-      <content:encoded><![CDATA[**Claude Design generates screens with generic element names like "Card" and "Button." Before you export, rename every element to the actual name from your component library — Claude Code uses those names to find your real components, not build new ones.**
-
-When Claude Design generates a screen, its layer panel fills up with generic names: "Card," "Input Field," "Modal Overlay." Those names look reasonable, but they're not your component names. When Claude Code sees the exported design and tries to implement it, it searches your codebase for a component called "Card" — and if your actual component is `<ProductCard>` or `<DashboardCard>`, it won't find it. It builds a fallback from scratch instead.
-
-**The naming pass** happens before you export, in Claude Design's layer panel:
-
-```
-Prompt: "List every element on this screen as a flat list with its current name. I'll rename them."
-```
-
-Go through the list and rename each element to its actual component name from your library. For a design system with a `<DataTable>`, rename "Table" → "DataTable." For `<PrimaryButton>`, rename "Button" → "PrimaryButton." Keep the exact casing your codebase uses.
-
-**Base components** (Button, TextField, Checkbox) can keep their generic name if that's what your library calls them. The rename only matters where your library diverges from the generic.
-
-**Add a component map to DESIGN.md** so Claude Code knows which design element names map to which components:
-
-```md
-## Component name map
-| Design element | Component |
-|---|---|
-| ProductCard | `<ProductCard variant="summary" />` |
-| HeroSection | `<PageHero />` |
-| FilterDrawer | `<SidebarFilter />` |
-```
-
-**Worst failure mode:** modals. A generic "Modal Overlay" becomes a bespoke div with manually managed z-index and focus trapping, bypassing whatever modal system you already have. If your library has `<DialogModal>` or `<Sheet>`, name it that in the design panel.
-
-**One limit:** this only helps when your library uses descriptive names. If your components are named by role (Button, Input) rather than by design intent (PrimaryAction, SearchInput), Claude Code's component lookup lands on the right component regardless — the naming pass matters most for divergent vocabularies.
-
-**Sources:** [claudelab.net — pre-handoff component naming](https://claudelab.net/workflow/component-naming-handoff/) · [aakashg/claude-design-pm-toolkit](https://github.com/aakashg/claude-design-pm-toolkit) · [dev.to/bilelsalemdev — naming components in Claude Design](https://dev.to/bilelsalemdev/naming-components-claude-design-before-handoff)]]></content:encoded>
-    </item>
-
+    
     
     
     

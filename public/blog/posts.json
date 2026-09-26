@@ -1,5 +1,23 @@
 [
   {
+    "id": "2026-09-26-03-langchain-mcp-adapter-migrate",
+    "title": "Your LangChain Agent Can Call Any MCP Server's Tools in Four Lines — Migrate From langchain-mcp-adapters Before It Breaks",
+    "excerpt": "langchain-mcp-adapters was retired Sep 11. The replacement is langchain[mcp]>=1.4.0 with MCPAdapter — four async lines wire any MCP server's tools into a LangChain agent. Limit: beta API.",
+    "author": "Chris Harper",
+    "date": "09-26-2026",
+    "publishedAt": "2026-09-26T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "MCP",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.langchain.com/oss/python/langchain/mcp",
+    "content": "**`langchain-mcp-adapters` was retired Sep 11; its replacement `langchain[mcp]` ships `MCPAdapter` in four async lines — infers transport, discovers tools, and passes them straight to `create_agent`.**\n\nThe standalone `langchain-mcp-adapters` package has been retired. LangChain 1.4.0 (Sep 3) moved MCP support into core under `langchain.mcp`. If you're still importing from the old package, you'll get deprecation errors now and import failures after the Oct 15 yanking window.\n\n**Migration: two command changes**\n\n```bash\n# Remove the old package\npip uninstall langchain-mcp-adapters\n\n# Install the built-in MCP extra\npip install \"langchain[mcp]>=1.4.0\"\n```\n\n**Before (retired `MultiServerMCPClient`)**\n\n```python\nfrom langchain_mcp_adapters.client import MultiServerMCPClient\n\nasync with MultiServerMCPClient({\n    \"docs\": {\"url\": \"https://docs.example.com/mcp\", \"transport\": \"streamable_http\"},\n}) as client:\n    tools = client.get_tools()\n    # ... pass tools to agent\n```\n\n**After (`MCPAdapter` — infers transport from target)**\n\n```python\nfrom langchain.mcp import MCPAdapter\nfrom langchain.agents import create_agent\n\nasync with MCPAdapter(\"https://docs.example.com/mcp\") as adapter:\n    tools = await adapter.list_tools()\n    agent = create_agent(\"claude-sonnet-5\", tools)\n    result = await agent.ainvoke({\"messages\": [{\"role\": \"user\", \"content\": \"...\"}]})\n```\n\n`MCPAdapter` infers `streamable_http` from an `https://` URL. For a local stdio-based server pass the process command directly — `MCPAdapter([\"python\", \"my_server.py\"])`.\n\n**What's new in the built-in namespace**\n\n- **Elicitation via LangGraph interrupts.** When an MCP server calls `elicit()` mid-tool to ask the user a question, `MCPAdapter` surfaces it as a `NodeInterrupt`. Your LangGraph workflow catches it, collects the answer, and resumes — no special wiring required.\n- **Client-side tool discovery caching.** `list_tools()` result is cached for the lifetime of the context manager; repeated `ainvoke` calls don't round-trip the server.\n\n**What breaks**\n\n- Requires MCP SDK 2.x (`mcp>=2.0.0`, `fastmcp>=4.0.1`). Servers still on MCP 1.x won't be recognized — check your server's `mcp` dep before migrating.\n- The `langchain.mcp` namespace is in **beta**: `import langchain.mcp` raises `LangChainBetaWarning` once per process. The API shape may change before LangChain 2.0.\n- Multi-server scenarios that previously used `MultiServerMCPClient` with a dict of named servers now need one `MCPAdapter` per server or a wrapper loop — there is no direct multi-server constructor yet.\n\n**Sources:** [LangChain MCP docs](https://docs.langchain.com/oss/python/langchain/mcp) · [Migration guide from langchain-mcp-adapters](https://docs.langchain.com/oss/python/migrate/langchain-mcp-adapters) · [Third-party migration tracking issue — developmentseed/mcp-toolsets-runtime](https://github.com/developmentseed/mcp-toolsets-runtime/issues/163)"
+  },
+  {
     "id": "2026-09-26-02-claude-parallel-tool-calls",
     "title": "Claude Returns Multiple tool_use Blocks in One Turn — Run Them in Parallel and Reply in One Message",
     "excerpt": "When Claude's response contains multiple tool_use blocks, the calls are independent — run them with asyncio.gather or Promise.all and return all results in a single user message to unlock real para…",
