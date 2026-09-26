@@ -10,9 +10,79 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 26 Sep 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 26 Sep 2026 20:10:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Three Managed Settings Lock Down Claude Code Across Your Whole Team — Cost, Safety, and Audit in One File</title>
+      <link>https://code.claude.com/docs/en/managed-settings</link>
+      <guid isPermaLink="false">2026-09-26-05-claude-code-managed-settings-enterprise-governance</guid>
+      <pubDate>Sat, 26 Sep 2026 20:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>allowManagedPermissionRulesOnly, allowManagedHooksOnly, and maxEffortLevel in managed-settings.json set cost caps, safety rules, and audit trails that developers cannot override in local or project settings.</description>
+      <content:encoded><![CDATA[**`allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`, and `maxEffortLevel` in a `managed-settings.json` deployed via MDM set cost caps, safety rules, and audit trails that developers cannot override in their local settings or project files.**
+
+When you deploy Claude Code to a team, each developer's `~/.claude/settings.json` can re-allow operations your project blocks, and running `--effort max` bypasses any team cost guidance. Managed settings, deployed via MDM or your config management system, sit at the top of the settings stack and override everything below them.
+
+**`allowManagedPermissionRulesOnly: true`**
+
+Drops every `allow` rule that isn't in your managed file — user settings, project `.claude/settings.json`, and `--allowedTools` flags are all ignored for allow entries. Developers can customize themes, prompts, and personal keys, but cannot grant themselves access to `curl`, `rm -rf`, or production credentials.
+
+**`allowManagedHooksOnly: true`**
+
+The only hooks that run are in your managed file. Pair with a `PostToolUse` HTTP hook to stream every tool invocation to your audit system:
+
+```json
+{
+  "allowManagedHooksOnly": true,
+  "hooks": {
+    "PostToolUse": [{
+      "type": "http",
+      "url": "https://audit.yourco.com/claude-code",
+      "headers": {"Authorization": "Bearer $AUDIT_TOKEN"},
+      "allowedEnvVars": ["AUDIT_TOKEN"]
+    }]
+  }
+}
+```
+
+**`maxEffortLevel: "high"`**
+
+Caps every session at `high` effort. The `/effort` picker does not show `xhigh` or `max`, and passing `--effort max` silently runs at `high` instead. Stops the runaway token bill without removing capability from engineers who need it — they request an override through your normal access-request workflow.
+
+Three limits to know: the audit webhook fires best-effort — a network timeout drops the log entry without failing the tool call, so do not treat it as a hard audit trail without additional server-side checks; model controls (`deniedModels`, `availableModelsMatch`) are separate managed settings keys that need their own deployment; and none of this replaces network-level controls — your LLM gateway and VPN policies are still required independently.
+
+**Sources:** [Claude Code managed settings docs](https://code.claude.com/docs/en/managed-settings), [systemprompt.io enterprise managed settings guide](https://systemprompt.io/guides/enterprise-claude-code-managed-settings), [General Analysis enterprise security deployment](https://generalanalysis.com/guides/claude-code-enterprise-security-deployment)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Google, OpenAI, and Anthropic Plan SAFA — A Self-Regulatory Standards Body for Frontier AI, With Independence Questions</title>
+      <link>https://www.govinfosecurity.com/google-openai-anthropic-plan-frontier-ai-standards-body-a-32926</link>
+      <guid isPermaLink="false">2026-09-26-04-safa-frontier-ai-standards-body</guid>
+      <pubDate>Sat, 26 Sep 2026 20:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Policy</category>
+      <category>LLM</category>
+      <description>Google, OpenAI, and Anthropic announced plans to form SAFA, a self-regulatory standards body for frontier AI modeled on FINRA — setting benchmarks, audits, and incident-reporting requirements without government oversight.</description>
+      <content:encoded><![CDATA[**The three largest frontier model labs plan to form SAFA, a self-regulatory standards body for frontier AI — modeled on FINRA, run by the companies it governs.**
+
+On September 25, Google, OpenAI, and Anthropic announced plans to form the Standards Authority for Frontier AI (SAFA), an industry-run body that would define safety benchmarks, pre-deployment testing requirements, and incident-reporting standards for frontier models — without government oversight. The proposal originated with DeepMind CEO Demis Hassabis in July, after a White House executive order on AI standards stalled.
+
+For developers building on these models: cleaner pre-deployment benchmarks could make capability claims more auditable, and incident-reporting standards might speed up disclosure of safety issues that affect production deployments. The structural limit is self-regulation: the same companies competing to ship frontier models are writing the standards those models get measured against. Whether SAFA will commission genuinely independent audits or publish testing methodologies publicly is unanswered; the founding documents propose "auditor qualifications" but do not commit to external methodology review.
+
+Launch timeline: end of 2026 or early 2027. Leadership candidates include former White House AI policy advisor Sriram Krishnan and former OSTP director Arati Prabhakar.
+
+**Why it matters:** If SAFA's benchmarks become the industry baseline, they will shape how model capabilities are documented and what "safe for commercial use" means — which directly affects what developers can rely on in production.
+
+**Sources:** [The Street](https://www.thestreet.com/technology/google-openai-anthropic-launch-ai-safety-safa-regulatory-body), [GovInfoSecurity](https://www.govinfosecurity.com/google-openai-anthropic-plan-frontier-ai-standards-body-a-32926), [Plain English AI](https://plainenglish.io/artificial-intelligence/google-openai-and-anthropic-may-launch-a-frontier-ai-safety-standards-body-by-2027), [Winzheng (independence analysis)](https://www.winzheng.com/en/article/google-openai-anthropic-frontier-ai-standards-authority)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your LangChain Agent Can Call Any MCP Server's Tools in Four Lines — Migrate From langchain-mcp-adapters Before It Breaks</title>
@@ -5817,121 +5887,8 @@ Claude Design generates screens at a fixed canvas width. The artboards look comp
 **Sources:** [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design responsive output — The Human Co.](https://thehumanco.org/ai-resources/claude-design-update-brand-consistency) · [The Claude Design Handoff Playbook — Hyperautomation Labs](https://hyperautomationlabs.co/free/claude-design-long)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Code Hangs in CI Because It's Waiting for You — `--permission-prompts none` Fixes That</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-06-02-claude-code-ci-unattended-no-permission-prompts</guid>
-      <pubDate>Sun, 06 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Three settings for a fully unattended Claude Code run in CI: --permission-prompts none auto-denies unexpected prompts, an explicit allow list handles tool permissions, and bashOutputMaxChars keeps logs from being silently truncated.</description>
-      <content:encoded><![CDATA[**`--permission-prompts none` + auto mode + `bashOutputMaxChars` gives you a Claude Code run that never hangs on a prompt and always surfaces the actual failure, not a timeout.**
-
-A Claude Code agent running in CI hits a permission prompt for an action outside its allow list — and the job silently times out rather than failing. No error, no output, just a hung runner. Three settings together prevent this:
-
-**1. `--permission-prompts none`** (v2.1.259)
-
-Any action that would normally open a permission prompt is auto-denied instead:
-
-```bash
-claude -p --permission-prompts none "run tests, fix any failures, commit the result"
-```
-
-This layers on top of whatever permission mode is active. Auto mode still runs its classifier; anything that falls through to a prompt gets denied rather than blocking the runner.
-
-**2. An explicit allow list in `.claude/settings.json`**
-
-Tell Claude exactly what it's trusted to do in this pipeline so safe actions pass auto mode without a classification delay:
-
-```json
-{
-  "permissions": {
-    "allow": ["Bash(npm test)", "Bash(npm run lint)", "Edit"],
-    "deny": ["Bash(git push)", "Bash(git commit)"]
-  }
-}
-```
-
-**3. `bashOutputMaxChars`** (v2.1.261)
-
-When a test log exceeds the default inline limit, Claude receives a file path instead of the actual errors. Raise the cap so the full output arrives:
-
-```json
-{ "bashOutputMaxChars": 65536 }
-```
-
-**The limit:** This combination keeps the run alive and gives Claude the information it needs — but you still need to review the diff before merging. With `--permission-prompts none`, Claude can't ask when it's unsure; ambiguous actions fail silently rather than being recovered.
-
-**Sources:** [Claude Code auto mode — Anthropic docs](https://code.claude.com/docs/en/core-concepts/auto-mode) · [Running Claude Code agents in CI — Tembo.io](https://www.tembo.io/blog/claude-code-subagents) · [v2.1.259 changelog](https://code.claude.com/docs/en/changelog)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your RAG Retriever Pulls the Right Text — From Last Year's Policy Doc. Metadata Filters Fix That.</title>
-      <link>https://www.youtube.com/watch?v=bBFu6fbmPDk</link>
-      <guid isPermaLink="false">2026-09-06-01-qdrant-metadata-filter-rag-scoped-retrieval</guid>
-      <pubDate>Sun, 06 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>Metadata filtering scopes vector search to documents matching hard attributes — category, year, tenant — before similarity scoring runs, so contextually wrong chunks never compete for top-k slots.</description>
-      <media:content url="https://img.youtube.com/vi/bBFu6fbmPDk/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/bBFu6fbmPDk/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**What you'll be able to do after this:** scope your vector search by document attributes — category, date, tenant, access tier — so retrieval never surfaces semantically close text from the contextually wrong document.
-
-Similarity search finds chunks that are close in embedding space. It doesn't know that "refund policy" from last year's version is the wrong document to surface today. Metadata filtering adds a hard constraint that runs inside the vector index, before similarity scoring starts — only matching chunks enter the retrieval pool.
-
-**At ingest, store structured payload fields alongside your embedding:**
-
-```python
-from qdrant_client import QdrantClient, models
-
-client = QdrantClient("localhost", port=6333)
-
-client.upsert(
-    collection_name="docs",
-    points=[models.PointStruct(
-        id=chunk_id,
-        vector=embedding,
-        payload={"category": "policy", "year": 2026, "department": "support"}
-    )]
-)
-```
-
-**At query time, add a filter before similarity scoring runs:**
-
-```python
-from qdrant_client.http.models import Filter, FieldCondition, MatchValue
-
-results = client.search(
-    collection_name="docs",
-    query_vector=query_embedding,
-    query_filter=Filter(must=[
-        FieldCondition(key="category", match=MatchValue(value="policy")),
-        FieldCondition(key="year",     match=MatchValue(value=2026))
-    ]),
-    limit=5
-)
-```
-
-**Index every field you filter on — without this, filtered queries fall back to a full scan:**
-
-```python
-client.create_payload_index("docs", "category", field_schema="keyword")
-client.create_payload_index("docs", "year",     field_schema="integer")
-```
-
-Chroma uses `where={"year": 2026}`. Pinecone uses a `filter` dict. LangChain's `SelfQueryRetriever` can auto-generate the filter object from a natural language question — useful when users write free-text queries that carry implicit filter intent ("show me last year's support tickets").
-
-**The real limit:** filtering only helps if the metadata is stored at ingest time. Retroactively adding category labels to thousands of existing chunks is the hard part, not the query syntax.
-
-**Sources:** [RAG #8: Metadata Filtering in Vector Databases Explained — YouTube](https://www.youtube.com/watch?v=bBFu6fbmPDk) · [Qdrant filtering docs](https://qdrant.tech/documentation/concepts/filtering/) · [Filter RAG Search Results with Document Metadata Tags — Markaicode](https://markaicode.com/rag-metadata-filtering-document-tags/)]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
