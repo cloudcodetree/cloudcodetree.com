@@ -10,9 +10,209 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 25 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 26 Sep 2026 04:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>ParentDocumentRetriever: Index Small Chunks, Return Large Context</title>
+      <link>https://www.youtube.com/watch?v=KQSTG_c3b10</link>
+      <guid isPermaLink="false">2026-09-26-01-parent-document-retriever</guid>
+      <pubDate>Sat, 26 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>Small chunks retrieve precisely; large chunks preserve context. LangChain's ParentDocumentRetriever does both — index child chunks for similarity search, return their parent chunks at query time.</description>
+      <content:encoded><![CDATA[**Small chunks give you better retrieval precision. Large chunks give you better answer quality. LangChain's ParentDocumentRetriever does both — and it takes about 15 lines to wire up.**
+
+**What you'll be able to do after this:** Use `ParentDocumentRetriever` to get the retrieval accuracy of small embeddings with the answer context of large document sections, and know when this pattern breaks down.
+
+**Three takeaways:**
+- Index child chunks (~400 tokens) for similarity search; store pointers to their parent chunks (~1500 tokens) in a docstore
+- At query time the retriever fetches matching child vectors, then swaps in their parents before passing to the LLM — the LLM never sees the small chunks
+- `InMemoryStore` works locally but is session-only; replace it with `RedisDocstore` or `MongoDBDocstore` before production
+
+**The problem it solves**
+
+Dense retrieval works by embedding query and document chunks and finding high cosine similarity. Shorter chunks embed more precisely — a 400-token chunk about "compensation for delayed flights" matches the same query better than a 1500-token chunk where that topic shares space with boarding procedure and baggage rules.
+
+But the LLM needs context. A 400-token chunk often starts mid-sentence, drops the setup, and leaves the model reasoning from an incomplete picture.
+
+`ParentDocumentRetriever` separates these two concerns: small chunks for matching, large chunks for answering.
+
+**How to set it up**
+
+```python
+from langchain.retrievers import ParentDocumentRetriever
+from langchain.storage import InMemoryStore
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+
+child_splitter = RecursiveCharacterTextSplitter(chunk_size=400)
+parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1500)
+
+vectorstore = Chroma(
+    collection_name="child_chunks",
+    embedding_function=OpenAIEmbeddings()
+)
+docstore = InMemoryStore()
+
+retriever = ParentDocumentRetriever(
+    vectorstore=vectorstore,
+    docstore=docstore,
+    child_splitter=child_splitter,
+    parent_splitter=parent_splitter,
+)
+
+retriever.add_documents(docs)  # indexes child vectors + stores parent lookup
+results = retriever.invoke("compensation for delayed flights")
+# → returns parent chunks (~1500 tokens), not the child matches
+```
+
+`add_documents` does two things: it splits each document into parent chunks, stores them in the docstore with generated IDs, then splits each parent into child chunks and embeds them — each child chunk carries a metadata pointer back to its parent ID.
+
+At query time, `invoke` runs similarity search against child vectors, collects the parent IDs from metadata, and fetches those parents from the docstore. The LLM receives the parents.
+
+**Production swap: replace InMemoryStore**
+
+`InMemoryStore` holds everything in a Python dict — it disappears when the process exits. For any deployed RAG pipeline:
+
+```python
+from langchain_community.storage import RedisDocstore
+import redis
+
+docstore = RedisDocstore(redis.Redis(host="localhost", port=6379))
+```
+
+MongoDB is another common swap (`MongoDBDocstore`). The retriever API is unchanged; only the `docstore=` argument changes.
+
+**Where this breaks down**
+
+- **Context window pressure.** You return parent chunks instead of child chunks, so you pass more tokens to the LLM per retrieved document. If you retrieve `k=5` parents at 1500 tokens each, that is 7500 tokens before the question — watch your context budget.
+- **Parent boundary mismatch.** If your source documents have natural sections (chapters, headings), `RecursiveCharacterTextSplitter` may cut across them. For structured documents, a heading-aware splitter produces better parent boundaries than a character-count split.
+- **No parent = no result.** If `add_documents` is interrupted mid-run, some child vectors exist without their parent in the docstore. The retriever silently returns nothing for those queries. Build a reconciliation check if you ingest incrementally.
+
+**Further reading:** [LangChain Retrievers Part 5 — Parent Document Retriever](https://www.youtube.com/watch?v=KQSTG_c3b10) walks through the full implementation; the [LangChain docs on ParentDocumentRetriever](https://python.langchain.com/docs/how_to/parent_document_retriever/) cover the full constructor options including adding documents without a parent split (for when you want child chunks for retrieval but full documents as context).
+]]></content:encoded>
+      <media:thumbnail url="https://img.youtube.com/vi/KQSTG_c3b10/maxresdefault.jpg"/>
+      <media:content url="https://img.youtube.com/vi/KQSTG_c3b10/maxresdefault.jpg" medium="image"/>
+    </item>
+
+    <item>
+      <title>Claude Returns Multiple tool_use Blocks in One Turn — Run Them in Parallel and Reply in One Message</title>
+      <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use</link>
+      <guid isPermaLink="false">2026-09-26-02-claude-parallel-tool-calls</guid>
+      <pubDate>Sat, 26 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>When Claude's response contains multiple tool_use blocks, the calls are independent — run them with asyncio.gather or Promise.all and return all results in a single user message to unlock real parallelism.</description>
+      <content:encoded><![CDATA[**When Claude returns multiple `tool_use` blocks in one turn, those calls are independent. Run them in parallel with `asyncio.gather` (Python) or `Promise.all` (JS), and return every result in one `user` message. A serial loop leaves speed on the table and can break the protocol.**
+
+**What you'll be able to do after this:** Detect parallel tool calls in a Claude response, dispatch them concurrently, and return all results correctly — and know how to disable the behavior when sequential execution is required.
+
+**Three takeaways:**
+- Claude signals independent calls by including multiple `tool_use` content blocks in a single assistant message; you dispatch them all before the next model turn
+- You must return a `tool_result` for every `tool_use` block in the preceding assistant message — omitting one (even for a call you skipped) violates the protocol
+- Disable with `tool_choice={"type": "auto", "disable_parallel_tool_use": True}` when your tools have side effects that must execute in order
+
+**The default behavior**
+
+When Claude determines that several tool calls are independent — "look up the weather in Paris AND the exchange rate for EUR/USD" — it returns both as separate `tool_use` blocks in the same assistant message:
+
+```json
+{
+  "role": "assistant",
+  "content": [
+    {"type": "tool_use", "id": "tu_01", "name": "get_weather", "input": {"city": "Paris"}},
+    {"type": "tool_use", "id": "tu_02", "name": "get_rate", "input": {"pair": "EUR/USD"}}
+  ]
+}
+```
+
+A loop that processes these one at a time loses the parallelism entirely and blocks the slower call behind the faster one.
+
+**The parallel pattern**
+
+```python
+import asyncio
+
+async def call_tool(tool_use):
+    # dispatch to your actual tool implementation
+    name = tool_use.name
+    args = tool_use.input
+    try:
+        result = await your_tool_registry[name](**args)
+        return {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}
+    except Exception as e:
+        return {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(e), "is_error": True}
+
+# After receiving an assistant message with tool_use blocks:
+tool_uses = [block for block in response.content if block.type == "tool_use"]
+
+# Run all calls concurrently
+results = await asyncio.gather(*[call_tool(tu) for tu in tool_uses])
+
+# Return ALL results in ONE user message
+messages.append({
+    "role": "user",
+    "content": list(results)
+})
+```
+
+In JavaScript with the SDK:
+
+```typescript
+const toolUses = response.content.filter(b => b.type === "tool_use");
+const results = await Promise.all(toolUses.map(async (tu) => {
+  try {
+    const result = await toolRegistry[tu.name](tu.input);
+    return { type: "tool_result", tool_use_id: tu.id, content: String(result) };
+  } catch (e) {
+    return { type: "tool_result", tool_use_id: tu.id, content: String(e), is_error: true };
+  }
+}));
+messages.push({ role: "user", content: results });
+```
+
+**The protocol rule you cannot break**
+
+Every `tool_use` block in the preceding assistant message must have a matching `tool_result` in the next user message. If you skip a call — because you decided not to execute it, because it timed out, because it was for a tool you don't recognize — you still return a result block for it with `is_error: true` and an explanation:
+
+```python
+return {
+    "type": "tool_result",
+    "tool_use_id": tool_use.id,
+    "content": "Tool not executed: unsupported in this context",
+    "is_error": True
+}
+```
+
+Omitting a `tool_result` entirely causes the API to reject the next request with a validation error.
+
+**Disabling parallel calls**
+
+When your tools have ordering constraints — writing a record before reading it back, or making an API call that must complete before a dependent call — disable parallel tool use:
+
+```python
+response = client.messages.create(
+    model="claude-opus-5-5",
+    tools=[...],
+    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
+    messages=messages
+)
+```
+
+Claude will still call multiple tools across turns, but each assistant message will contain at most one `tool_use` block. This is the right default for tools with write side effects or strict ordering requirements.
+
+**Further reading:** [Anthropic parallel tool use docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) covers the full API; the [Tool Runner in the Claude Agent SDK](https://platform.claude.com/docs/en/claude-code/sdk) handles this automatically if you're using the managed agentic loop.
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Canvas Edits Are Free, Inline Comments Cost a Turn, and Claude Code Owns the Production Pass</title>
@@ -5710,86 +5910,8 @@ Go through the list and rename each element to its actual component name from yo
 **Sources:** [claudelab.net — pre-handoff component naming](https://claudelab.net/workflow/component-naming-handoff/) · [aakashg/claude-design-pm-toolkit](https://github.com/aakashg/claude-design-pm-toolkit) · [dev.to/bilelsalemdev — naming components in Claude Design](https://dev.to/bilelsalemdev/naming-components-claude-design-before-handoff)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Fable 5.1 Agent Returns a 400 When You Edit Earlier Turns — Here's the Fix</title>
-      <link>https://arturmarkus.com/ai-unfiltered/fable-51-turn-editing/</link>
-      <guid isPermaLink="false">2026-09-05-07-fable-5-1-conversation-history-append-only</guid>
-      <pubDate>Sat, 05 Sep 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Fable 5.1 validates thinking-block provenance for accounts after August 31 — any harness that edits earlier turns mid-session returns a 400. Use turn-scoped system messages instead.</description>
-      <content:encoded><![CDATA[**Fable 5.1 validates thinking-block provenance. For accounts created after August 31, any harness that edits an earlier turn mid-session gets a 400: "bound to a different conversation." The fix is turn-scoped system messages — not edited history.**
-
-The error surfaces in agentic setups: a harness that injects context by rewriting an earlier turn, or that swaps tool definitions mid-session, now gets back:
-
-```
-400 Bad Request
-thinking_block_binding: bound to a different conversation
-```
-
-**What triggers it:**
-- Editing any turn earlier than the current one mid-session
-- Changing the tool list between turns in the same session
-- Client-side in-place summarization that rewrites earlier assistant turns
-
-**The fix — turn-scoped system messages.** Instead of editing history, inject context as a system message scoped to clear after the next user turn:
-
-```json
-{
-  "role": "system",
-  "content": "...",
-  "clear_at": "next_user_message"
-}
-```
-
-Requires beta header: `anthropic-beta: mid-conversation-system-clear-at-2026-08-21`.
-
-**Tool changes** must happen between sessions (after the conversation ends), not mid-session. If you need a different tool set for a sub-task, start a fresh session.
-
-**Whole-history compaction** is still valid — collapse all prior turns into a single summary turn and start fresh. That resets provenance cleanly. The harness pattern to avoid is surgical rewriting of individual earlier turns.
-
-**Detection:** The beta header `anthropic-beta: thinking-binding-controls-2026-08-01` exposes `thinking.block_binding.prefix_mismatch_behavior`. Set it to `"drop_block"` to downgrade the error to a warning (thinking blocks from mismatched history are silently dropped) while you migrate your harness.
-
-**One limit:** enforcement is currently scoped to accounts created after August 31, 2026. Earlier accounts see the old behavior until future model versions extend enforcement universally — migrate now rather than after the cutover.
-
-**Sources:** [Anthropic Fable 5.1 guide](https://www.anthropic.com/research/fable-51-guide) · [AI Unfiltered — Fable 5.1 turn editing](https://arturmarkus.com/ai-unfiltered/fable-51-turn-editing/) · [Anthropic preserved-thinking docs](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking/preserved-thinking)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Nvidia Buys HuggingFace for $12.9B — and Your Claude Code Limits Drop 17% on Sept. 14</title>
-      <link>https://blogs.nvidia.com/blog/nvidia-acquires-hugging-face/</link>
-      <guid isPermaLink="false">2026-09-05-06-nvidia-huggingface-acquisition-cc-limits</guid>
-      <pubDate>Sat, 05 Sep 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>HuggingFace</category>
-      <category>Developer Tools</category>
-      <description>Nvidia agreed to buy HuggingFace for $12.93B — hardware vendor now owns the primary open-model hub. Claude Code's temp +50% limit promo ends Sept. 14; effective cut is 17%.</description>
-      <content:encoded><![CDATA[**Two items developers need to know about this weekend: Nvidia is buying HuggingFace for $12.93B — a hardware company will own the primary open-model hub — and Claude Code's temporary +50% limits end September 14, which means an effective 17% cut from today's limits.**
-
-**Nvidia acquires HuggingFace — $12.93B, closes H1 2027**
-
-Announced September 3. Nvidia is paying $12.93B for HuggingFace, the host of 3M+ models, 500K datasets, and 18M developers. Jensen Huang's stated position: maintain the open-ecosystem mission, no vendor lock-in. The obvious concern from the Forrester analysis: Nvidia has every incentive to optimize HuggingFace tooling for CUDA hardware, and the pressure to do so will grow as the deal ages.
-
-For engineers who depend on HuggingFace for model access, dataset pipelines, or the Hub API: the platform keeps running under existing terms through close. Post-close behavior depends on what "open ecosystem" means in practice once quarterly earnings expectations apply.
-
-The harder question is what this does to the trust stack under open-weights models. HuggingFace has been a neutral host. Nvidia is not.
-
-**Claude Code limits drop 17% on September 14**
-
-In May, Anthropic added a temporary +50% boost to Claude Code's per-session and daily limits (the SpaceX compute partnership announcement). That boost ends September 14. The permanent increase from May — +25% above the pre-May baseline — stays. Net result: limits drop from the current boosted level to the permanent floor, which is 17% below where they are today.
-
-Session limits are unaffected. The change hits the daily and per-period aggregate caps.
-
-If you're doing large refactors or multi-day agentic runs scheduled around current limits, plan for the reduction now rather than hitting it mid-task on the 14th.
-
-**Sources:** [NVIDIA Blog](https://blogs.nvidia.com/blog/nvidia-acquires-hugging-face/) · [TechCrunch](https://techcrunch.com/2026/09/03/nvidia-acquires-hugging-face-for-12-9-billion/) · [VentureBeat — deal analysis](https://venturebeat.com/ai/nvidia-hugging-face-12-9-billion-implications/) · [AI Catchup](https://www.ai-catchup.com/2026/09/nvidia-hugging-face-acquisition)]]></content:encoded>
-    </item>
-
+    
+    
     
     
                         
