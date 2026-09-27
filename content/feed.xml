@@ -10,9 +10,153 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 26 Sep 2026 20:10:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 27 Sep 2026 04:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Claude Design Generates the Success State — Ask for the State Map Before You Export or Claude Code Has to Guess</title>
+      <link>https://claudedesign.substack.com/p/the-claude-design-mistake-you-dont</link>
+      <guid isPermaLink="false">2026-09-27-03-claude-design-state-map-component-states</guid>
+      <pubDate>Sun, 27 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>Extend your Claude Design prompt with a state map request and the export includes hover, loading, error, empty, and disabled variants — not just the happy path Claude Code has to guess from.</description>
+      <content:encoded><![CDATA[**Add one sentence to your Claude Design prompt requesting a state map panel — hover, loading, error, empty, disabled — and the export includes all states Claude Code needs to implement the component correctly.**
+
+Claude Design reliably generates the primary state: data present, action available, nothing wrong. It doesn't generate the other five unless you ask. When you hand off without a state map, Claude Code reads the export, implements the happy path, and guesses the rest — or leaves the empty state as a blank white box.
+
+**The prompt extension**
+
+Append this to any component prompt:
+
+> After the primary design, add a labeled state map panel showing: hover/focus, loading (skeleton or spinner), error (message and icon), empty (zero-data variant), and disabled. Use annotation labels on each variant.
+
+That's all. Claude Design adds a separate panel with labeled artboards for each state.
+
+**Reviewing the map before export**
+
+Before exporting, check two things in the canvas:
+
+1. The loading state is a real skeleton layout — not the primary state with reduced opacity.
+2. The error state's contrast ratio is above 4.5:1, especially for red-on-dark combinations.
+
+**Passing the spec to Claude Code**
+
+Include the state annotations in your handoff prompt:
+
+> Implement all states per the attached spec: loading → `<Skeleton>` from our design system; error → `<ErrorMessage text="…">`; empty → `<EmptyState>`; disabled → opacity 0.38, `pointer-events: none`.
+
+Claude Code then implements all states in the first pass rather than requiring a second "add the hover styles" round.
+
+**Limits:** the state map shows what each state looks like, not when to trigger it — you still need to specify the state logic (when is `loading` true, what constitutes an error condition). Generated disabled styles often fail interactive tests; verify with keyboard navigation and check that `pointer-events: none` is actually applied, not just opacity.
+
+**Sources:** [Claude Design doesn't fail in the canvas — Claude Design Substack](https://claudedesign.substack.com/p/the-claude-design-mistake-you-dont) · [How to Use Claude Design: 25+ Working Prompts — PromptsRush](https://promptsrush.com/blog/how-to-use-claude-design-prompts) · [Stop Designing, Start Engineering — Medium/Bootcamp](https://medium.com/design-bootcamp/stop-designing-start-engineering-how-to-integrate-claude-code-into-your-ui-workflow-16144ec3f3b2)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Safari 27 Ships a Native MCP Server — `safaridriver --mcp` Gives Claude Code DOM Inspection, Screenshots, and Live JavaScript</title>
+      <link>https://www.ithinkdiff.com/safari-27-adds-an-mcp-server-for-ai-coding-agents-like-claude-code/</link>
+      <guid isPermaLink="false">2026-09-27-02-safari-27-mcp-server-claude-code-browser</guid>
+      <pubDate>Sun, 27 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <description>Safari 27 includes a local MCP server with browser automation tools — enable it in Developer settings, add safaridriver --mcp to your MCP config, and Claude Code gets DOM inspection and screenshots.</description>
+      <content:encoded><![CDATA[**Safari 27 (macOS, September 2026) includes a local MCP server — add `safaridriver --mcp` to your MCP config and Claude Code gets DOM inspection, screenshots, console output, and live JavaScript evaluation in a real browser with no Playwright setup.**
+
+Safari 27 is the first major browser to ship a native MCP server. It's off by default. Enable it in two steps: Safari → Settings → Advanced → "Show features for web developers", then Safari → Settings → Developer → "Allow remote automation and external agents."
+
+**Adding to Claude Code**
+
+In your project or user `settings.json` under `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "safari": {
+      "command": "safaridriver",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Code. Safari prompts for automation permissions on first connect — approve once.
+
+**What you can do from Claude Code**
+
+- Screenshot the current page and ask Claude Code to compare it to a design spec
+- Inspect a specific DOM node's computed styles or ARIA attributes
+- Run JavaScript in the page context: `document.querySelector('.card').getBoundingClientRect()` to verify a measured layout
+- Read the console for errors after a code change
+- Check accessibility issues: missing labels, low-contrast text, incorrect roles — the tools expose computed styles
+
+This fits a tight dev loop: make a change, ask Claude Code to screenshot and flag issues, iterate — without leaving the terminal.
+
+**Security model:** runs entirely locally, uses an isolated automation window with no access to your cookies, passwords, browsing history, or AutoFill, and is off by default. Apple reports no data flows back to Apple.
+
+**Where it breaks:** macOS and Safari only — Chromium and Firefox have no equivalent yet. The isolated window means authenticated pages (anything requiring your login session) need a separate approach — inject test credentials or use a public-facing endpoint. Two-step manual opt-in means CI pipelines are out.
+
+**Sources:** [Safari 27 Adds an MCP Server for AI Coding Agents — iThinkDiff](https://www.ithinkdiff.com/safari-27-adds-an-mcp-server-for-ai-coding-agents-like-claude-code/) · [Safari 27 MCP: Give Your AI Agent a Live Browser — byteiota](https://byteiota.com/safari-27-mcp-server-give-your-ai-agent-a-live-browser/) · [What's New With Safari 27 for Developers — 9to5Mac](https://9to5mac.com/2026/09/17/webkit-blog-breaks-down-whats-new-with-safari-27-for-developers-including-mcp-support/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Fine-Tuned Specialists Can Be Combined Into One Model — mergekit Does It in a YAML File With No Extra Training</title>
+      <link>https://huggingface.co/blog/mlabonne/merge-models</link>
+      <guid isPermaLink="false">2026-09-27-01-mergekit-model-merging-fine-tunes-combine</guid>
+      <pubDate>Sun, 27 Sep 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>mergekit combines two or more fine-tuned LLMs into one model using SLERP, TIES, or DARE — a five-line YAML config and a CPU are all you need, no additional training required.</description>
+      <content:encoded><![CDATA[**mergekit merges specialized fine-tuned LLMs into one model using a YAML config — SLERP for a smooth two-model blend, TIES or DARE for combining three or more. CPU-only, no extra training required.**
+
+**What you'll be able to do after this:**
+- Specify a full merge in five lines of YAML and run it on a CPU without a GPU
+- Choose between SLERP (smooth interpolation between two model weight vectors), TIES (trims redundant parameters and resolves sign conflicts across multiple models), and DARE (sparse pruning before the merge, useful for strongly conflicting models)
+- Upload the result to HuggingFace Hub and run it locally with Ollama or llama.cpp
+
+**Walk-through**
+
+```bash
+pip install mergekit
+```
+
+`merge.yaml` — SLERP blend of a base model and a coding fine-tune at 60/40:
+
+```yaml
+models:
+  - model: mistralai/Mistral-7B-v0.1
+    parameters:
+      weight: 0.6
+  - model: my-org/mistral-7b-coding
+    parameters:
+      weight: 0.4
+merge_method: slerp
+base_model: mistralai/Mistral-7B-v0.1
+dtype: bfloat16
+```
+
+```bash
+mergekit-yaml merge.yaml ./merged-model/
+```
+
+The output is a standard HuggingFace checkpoint. For a zero-setup path, the **LazyMergekit Colab notebook** (linked in Maxime Labonne's HuggingFace blog post) handles the entire flow in a browser — pick a method, enter model IDs, run.
+
+For three or more models, switch to `merge_method: ties`. `dare_ties` adds sparse pruning first, which helps when models strongly conflict on the same parameter regions.
+
+**Limits:** merge results are unpredictable — a merged model can underperform both parents on their individual strengths, and benchmarks show this isn't rare. SLERP only accepts exactly two models; TIES and DARE handle more but run slower and are sensitive to weight scaling. The output is always full precision (fp16/bf16) regardless of source quantization — plan for roughly 14 GB on disk for a 7B merge, even if your source adapters were 4-bit.
+
+**Sources:** [Merge Large Language Models with mergekit — Hugging Face Blog](https://huggingface.co/blog/mlabonne/merge-models) · [mergekit GitHub (arcee-ai)](https://github.com/arcee-ai/mergekit) · [What Is Model Merging — mergekit.com](https://www.mergekit.com/blog/what-is-model-merging)]]></content:encoded>
+    </item>
 
     <item>
       <title>Three Managed Settings Lock Down Claude Code Across Your Whole Team — Cost, Safety, and Audit in One File</title>
@@ -5756,137 +5900,8 @@ A GitHub issue documented that the older `/effort` slash command caused full cac
 **Sources:** [Per-message effort (beta) — Anthropic Platform Docs](https://platform.claude.com/docs/en/build-with-claude/effort#change-effort-mid-conversation-beta) · [GitHub issue #61984: /effort changes cause cache misses on Opus 4.7 — anthropics/claude-code](https://github.com/anthropics/claude-code/issues/61984) · [Claude effort control and mid-conversation system messages — AI for Anything](https://www.aiforanything.io/blog/claude-effort-control-mid-conversation-system-messages-api-guide-2026)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Claude Agents Weren't in Code Review. `ant apply` Changes That.</title>
-      <link>https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply</link>
-      <guid isPermaLink="false">2026-09-06-04-ant-apply-claude-agents-as-code</guid>
-      <pubDate>Sun, 06 Sep 2026 12:13:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>ant apply (ant CLI v1.30.0, Sep 3) declares Claude Platform resources — agents, skills, environments, memory stores, deployments — as files in your repo and reconciles them against the API with a plan-approve-apply loop.</description>
-      <content:encoded><![CDATA[**TL;DR: `ant apply` (ant CLI v1.30.0, released Sep 3) declares your Claude Platform agents, skills, environments, memory stores, and deployments as files in your repo — Terraform-style plan, approve, apply.**
-
-Before this, your agent's system prompt and model config lived in a Console form or an ad-hoc API call that left no trace in git. `ant apply` treats them as code: you PR them, review them, and roll them back like everything else.
-
-**The minimal workflow:**
-
-Write your agent as a Markdown file — frontmatter is config, body is the system prompt:
-
-```markdown
-# agents/summarizer.md
----
-name: Summarizer
-model: claude-opus-5
-tools:
-  - type: agent_toolset_20260401
----
-You are a helpful assistant that writes concise summaries.
-```
-
-Run `ant apply agents/summarizer.md`. The CLI prints a plan, waits for approval, creates the resource, and writes `claude-lock.json`. Commit the lockfile — it maps each file to its API resource ID. The next run on any machine reads the lockfile and updates rather than duplicates.
-
-**CI setup:**
-
-```yaml
-# On PRs: print the plan, informational only (exits 0 even if blocked)
-- run: ant apply --dry-run .
-
-# On merge: apply without prompting
-- run: ant apply --yes .
-- run: git add claude-lock.json && git commit -m "update claude-lock.json [skip ci]"
-```
-
-Resources refer to each other by file path. Your deployment YAML can name `../agents/reviewer.md`; `ant apply` resolves real API IDs at create time in dependency order. Skill references can be GitHub URLs pointing to a directory in any repo, pinned to a commit.
-
-**Real limits:**
-
-- **Can't adopt a resource you already built in the Console**: applying a file that describes an existing agent creates a second one. Use the Console's **Export as code** button to get a starting lockfile.
-- **Nothing serializes the lockfile in CI** — two concurrent `ant apply` runs will conflict. Serialize your CI jobs.
-- Requires ant CLI v1.30.0+; use [Workload Identity Federation](https://platform.claude.com/docs/en/manage-claude/workload-identity-federation) for CI auth rather than a stored API key.
-
-**Sources:** [`ant apply` docs — platform.claude.com](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply) · [Terraform-Style Workflow for Claude Agents — AlphaSignal](https://alphasignal.ai/news/anthropic-ships-terraform-style-workflow-to-deploy-claude-agents-from-code) · [Claude Developer Platform release notes (Sep 3) — platform.claude.com](https://platform.claude.com/docs/en/release-notes/overview)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Four Chunking Strategies for RAG — and the Default That's Right 80% of the Time</title>
-      <link>https://www.firecrawl.dev/blog/best-chunking-strategies-rag</link>
-      <guid isPermaLink="false">2026-09-06-05-rag-chunking-strategies-recursive-semantic</guid>
-      <pubDate>Sun, 06 Sep 2026 12:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <description>Most RAG pipelines default to fixed-size chunking — the lowest-recall strategy. Recursive character splitting at 400-512 tokens beats it in two lines; semantic chunking adds 9% recall at embedding cost.</description>
-      <content:encoded><![CDATA[**TL;DR: Most RAG pipelines use fixed-size chunking by default — lowest recall, easiest to swap. Recursive character splitting at 400–512 tokens beats it with two lines of code; semantic chunking adds recall but costs an embedding call per sentence.**
-
-**What you'll be able to do after this:** choose a chunking strategy for your document type, replace naive splitting with LangChain's `RecursiveCharacterTextSplitter`, and know exactly when semantic chunking's accuracy gain is worth its compute cost.
-
-Chunking controls what your retriever sees. A chunk that splits mid-sentence or folds three topics together embeds poorly, and poor embeddings lose recall before your reranker or LLM touches anything.
-
-**The four strategies (fastest to most accurate):**
-
-**1. Fixed-size (baseline).** Splits at a hard character or token limit. Fastest; fragments sentences mid-thought. Use for prototyping only.
-
-**2. Recursive character (recommended default).** Splits at a hierarchy — `["\n\n", "\n", ". ", " ", ""]` — paragraph breaks first, then lines, then sentences — respecting natural boundaries without reading the content. A February 2026 benchmark by Vecta across 50 academic papers placed this first at 69% end-to-end accuracy, 85–90% retrieval recall:
-
-```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=512,    # tokens
-    chunk_overlap=50,  # ~10% overlap preserves cross-chunk context
-    separators=["\n\n", "\n", ". ", " ", ""]
-)
-chunks = splitter.split_text(doc_text)
-```
-
-Start here for 80% of RAG workloads: 400–512 tokens, 10–20% overlap.
-
-**3. Page-level (PDFs).** Each page is a chunk. Topped NVIDIA's 2024 retrieval benchmark (0.648 accuracy). Only applies to paginated documents where page boundaries carry meaning — financial reports, slide decks. Useless for long-form web content where pages are arbitrary.
-
-**4. Semantic chunking.** Embed every sentence, split where cosine similarity between adjacent sentences drops — each chunk stays on one topic regardless of length. Adds up to 9% recall over recursive splitting, per a Vectara/NAACL 2025 study. The cost: one embedding API call per sentence at ingest time, which compounds on large corpora. Threshold also requires tuning per corpus.
-
-**The decision rule:** start with recursive character splitting at 400–512 tokens + 50-token overlap. Move to semantic chunking only if evaluation shows retrieval quality is the bottleneck *and* you can afford the ingest embedding compute.
-
-**Sources:** [Best Chunking Strategies for RAG (2026) — Firecrawl](https://www.firecrawl.dev/blog/best-chunking-strategies-rag) · [RAG Tutorial 2026 #8: Text Chunking Strategies — YouTube](https://www.youtube.com/watch?v=POE8LDjdAw4) · [RecursiveCharacterTextSplitter — LangChain docs](https://python.langchain.com/docs/modules/data_connection/document_transformers/recursive_text_splitter/)]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" />
-    </item>
-    <item>
-      <title>Claude Design Generates at One Viewport Width — Four Things to Check Before You Hand Off</title>
-      <link>https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00</link>
-      <guid isPermaLink="false">2026-09-06-03-claude-design-responsive-review-before-handoff</guid>
-      <pubDate>Sun, 06 Sep 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design's canvas doesn't simulate responsive behavior. Four failure modes that survive a good prompt: fixed pixel widths, missing flex-wrap, hardcoded font sizes, and absolute-positioned elements.</description>
-      <content:encoded><![CDATA[**Before you hand Claude Design output to Claude Code: four responsive failure modes that survive a good prompt, and the two-pass review that catches them before any code is written.**
-
-Claude Design generates screens at a fixed canvas width. The artboards look complete — but responsive behavior isn't simulated in the canvas. There's no breakpoint preview, no flex-wrap test, no dynamic content check. What typically arrives in Claude Code's first pass:
-
-1. **Fixed pixel widths** — `width: 800px` instead of `max-width` or a percentage
-2. **Missing flex-wrap** — horizontal item rows that overflow on narrow viewports
-3. **Hardcoded font sizes** — `font-size: 20px` where `clamp()` or a type scale belongs
-4. **Absolutely positioned elements** that collide when the viewport narrows
-
-**Two-pass review before you commit to the implementation:**
-
-**Pass 1 — in Claude Design:** Ask "Check this screen for fixed widths, overflow risks, and anything that won't adapt to a narrower layout." Claude Design can flag most of these in text even though the canvas doesn't resize. If a component inventory is already in the session context, this also catches elements that drift between screens.
-
-**Pass 2 — in the browser:** Once the exported bundle lands in your repo, resize to 375px and 768px before writing any new code. Add the breakpoints you need to the handoff message or your CLAUDE.md so Claude Code applies them from the first file it touches.
-
-**The limit:** The canvas editor shows one artboard width and doesn't preview responsive states. Until Claude Design adds breakpoint views, browser testing is the only way to verify responsive behavior.
-
-**Sources:** [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design responsive output — The Human Co.](https://thehumanco.org/ai-resources/claude-design-update-brand-consistency) · [The Claude Design Handoff Playbook — Hyperautomation Labs](https://hyperautomationlabs.co/free/claude-design-long)]]></content:encoded>
-    </item>
-
+    
+        
     
     
 
