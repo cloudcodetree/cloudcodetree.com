@@ -10,7 +10,157 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 28 Sep 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 28 Sep 2026 12:20:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Regenerate in Claude Design or Edit in Your Editor — Here Is the Decision Rule</title>
+      <link>https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026</link>
+      <guid isPermaLink="false">2026-09-28-07-regenerate-claude-design-vs-edit-editor-decision</guid>
+      <pubDate>Mon, 28 Sep 2026 12:20:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>A layout change belongs back in Claude Design; a logic or wiring change belongs in the editor. A decision rule that keeps both sides from fighting each other over the same output.</description>
+      <content:encoded><![CDATA[**If the change touches layout, composition, or design-system variants, go back to Claude Design. If it's state logic, API wiring, or component behavior, stay in the editor. Crossing the wrong way costs a cycle.**
+
+After Claude Design generates output your codebase adopts, every subsequent change raises the same question: where does this change live? The answer isn't a preference — it's a property of the change type.
+
+**The rule:**
+
+| Change | Where |
+|---|---|
+| New layout, spacing variant, component variant | Claude Design → export → re-handoff |
+| State logic (hover, focus, loading, error) | Editor — behavioral, not visual |
+| API wiring, data binding, event handlers | Editor |
+| Typography or spacing tokens tied to design system | Claude Design, then sync tokens |
+| Bug where generated code is wrong but design intent is clear | Editor, fix locally |
+| Exploring a new direction before committing | Claude Design, diverge first |
+
+**The signal that tells you which side you're on:** if you'd have to re-explain the design intent to Claude Code after making the change, the change belongs in the design tool. If the design intent is already captured in existing components and you're extending behavior, edit in place.
+
+**Where this breaks down**
+
+Every editor edit not synced back via `/design-sync` makes the canvas stale. After a large sprint in the editor, the canvas can fall so far behind that regenerating even a single component produces something that fights the existing code — wrong component names, overridden tokens, missing states you added by hand.
+
+The practical fix: run `/design-sync` after major editor phases so Claude Design always starts from actual component state. The June 2026 update tracks per-component diffs instead of regenerating the full canvas, so returning to Claude Design after editor work costs less context than it used to — which should lower your threshold for going back.
+
+**Named limit:** `/design-sync` closes the gap on structure and tokens, but logic and state that exist only in the code have no representation in the design canvas. Those diverge permanently unless you regenerate them from scratch.
+
+**Sources:** [Claude Design + /design-sync: Two-Way Bridge — skills-hub.ai](https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026) · [Claude Design Workflows: From Prototype to Shipped Code — Element Armory](https://elementarmory.com/topics/ai-coding-workflows/claude-code-workflows/claude-design-workflows) · [Claude Design Review 2026 — Builder.io](https://www.builder.io/blog/claude-design)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Pipe Anything Into Claude From Your Shell — `-p` Mode Makes Claude Code Script-Composable</title>
+      <link>https://code.claude.com/docs/en/headless</link>
+      <guid isPermaLink="false">2026-09-28-06-claude-code-print-mode-pipe-scripts</guid>
+      <pubDate>Mon, 28 Sep 2026 12:19:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Run claude -p to pipe git diffs, logs, or JSON into Claude as a shell-composable tool — reads stdin, writes stdout, exits. Wire it into any script or CI step without an interactive session.</description>
+      <content:encoded><![CDATA[**`claude -p "prompt"` reads stdin and writes to stdout — pipe in a git diff, log tail, or JSON file and chain Claude into any shell script without starting an interactive session.**
+
+Most Claude Code use is interactive, but many tasks are one-shot: summarize a log, review a diff before pushing, extract fields from a schema. For those, `-p` (print mode) is the right tool: process a single prompt, write to stdout, exit.
+
+**Three patterns that compose immediately:**
+
+```bash
+# Review a diff before committing
+git diff HEAD | claude -p "List any security issues in this diff. Be brief."
+
+# Summarize the last 200 lines of a log
+tail -200 app.log | claude -p "What errors are in here? One line per issue."
+
+# Extract fields from a JSON schema
+cat schema.json | claude -p "List every required field and its type as CSV rows."
+```
+
+**Machine-readable output.** Pass `--output-format json` to get an envelope with `result`, `usage`, and `stop_reason` that you can route with `jq`:
+
+```bash
+git diff HEAD \
+  | claude -p 'Output a JSON object: {"safe": bool, "issues": [string]}' \
+           --output-format json \
+  | jq .result
+```
+
+**Unattended tool use.** For scripts that need Claude to read or edit files, add `--allowedTools` and `--permission-mode acceptEdits` so the run never blocks on a prompt:
+
+```bash
+echo "Refactor src/utils.ts to remove dead code" \
+  | claude -p - \
+           --allowedTools Read,Edit \
+           --permission-mode acceptEdits
+```
+
+**Named limits:** stdin is capped at 10 MB — larger inputs need chunking or a filename in the prompt instead. Each `-p` call is a cold session with no memory of previous calls; for multi-turn or stateful work, the SDK's managed session is the right tool. Token costs accrue per call like any API request — avoid wrapping it in a tight loop without rate limiting.
+
+**Sources:** [Run Claude Code programmatically — Claude Code Docs](https://code.claude.com/docs/en/headless) · [Claude Code headless mode: scripting autonomous tasks — DEV Community](https://dev.to/jsmanifest/claude-code-headless-mode-in-2026-scripting-autonomous-coding-tasks-without-the-interactive-shell-13l3) · [CI and automation guide — claude-code-best-practices](https://github.com/MuhammadUsmanGM/claude-code-best-practices/blob/main/guides/ci-and-automation.md)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Turn User Questions Into Metadata Filters Before They Hit Your Vector Index — LangChain's SelfQueryRetriever</title>
+      <link>https://theneuralbase.com/rag-fundamentals/learn/advanced/self-querying-metadata-extraction-from-query/</link>
+      <guid isPermaLink="false">2026-09-28-05-langchain-self-query-retriever-metadata-filter</guid>
+      <pubDate>Mon, 28 Sep 2026 12:18:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>Define your document attributes; SelfQueryRetriever has an LLM parse the user's question into structured metadata filters before similarity search runs — narrowing the index, not just searching it.</description>
+      <content:encoded><![CDATA[**Define your document attribute schema once; LangChain's SelfQueryRetriever has an LLM parse the user's question into a structured filter + semantic query — so "engineering runbooks from 2025" narrows the index before any similarity math runs.**
+
+**What you'll be able to do after this:** Add automatic metadata-based narrowing to any LangChain RAG pipeline — so a user asking "tech specs from Q3 2024" retrieves only documents matching that date and type filter, rather than running similarity search across the full corpus.
+
+**Three-bullet takeaway:**
+- An LLM reads the user's question and writes a structured filter expression (e.g. `{"year": {"$gte": 2024}, "doc_type": "spec"}`); the vector store applies it before scoring any embeddings, so irrelevant documents never enter as candidates
+- LangChain's `SelfQueryRetriever` handles the LLM call → filter extraction → filtered retrieval in one `.invoke()` — you define your metadata attribute schema once, it handles the rest
+- The LLM can hallucinate filter values (wrong dates, non-existent categories); validate extracted filters against an allowed-values set before passing to the store
+
+**Walk-through (Chroma + LangChain 0.3, Python 3.12):**
+
+```python
+from langchain_community.vectorstores import Chroma
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain_anthropic import ChatAnthropic
+from langchain.chains.query_constructor.base import AttributeInfo
+
+# 1. Declare the metadata attributes the LLM can filter on
+metadata_field_info = [
+    AttributeInfo(name="dept",     description="Department: engineering, legal, or hr", type="string"),
+    AttributeInfo(name="year",     description="Publication year (2022–2026)",           type="integer"),
+    AttributeInfo(name="doc_type", description="Document type: policy, spec, runbook",   type="string"),
+]
+
+# 2. Build the retriever (vectorstore must support metadata filtering)
+llm = ChatAnthropic(model="claude-sonnet-5")
+retriever = SelfQueryRetriever.from_llm(
+    llm=llm,
+    vectorstore=vectorstore,
+    document_contents="Internal company documents",
+    metadata_field_info=metadata_field_info,
+)
+
+# 3. Query — the LLM writes the filter itself
+docs = retriever.invoke("engineering runbooks from 2025")
+# LLM generates: {dept: "engineering", doc_type: "runbook", year: 2025}
+# Only matching docs enter the similarity search
+```
+
+**Security note for multi-tenant apps:** always hardcode a `tenant_id` filter on top of whatever SelfQueryRetriever produces — the LLM can be prompted to omit or override it.
+
+Not all vector stores support self-querying; [LangChain's supported stores list](https://python.langchain.com/docs/integrations/retrievers/self_query/) is the canonical reference before committing to a store. Chroma and Pinecone use different filter syntax — switching stores requires updating the translator, not just the connection string. For metadata that changes frequently (e.g. document status), regenerate the schema and rebuild the retriever rather than patching filters by hand.
+
+**Sources:** [Self-querying: metadata extraction from query — The Neural Base RAG Fundamentals](https://theneuralbase.com/rag-fundamentals/learn/advanced/self-querying-metadata-extraction-from-query/) · [How to Build a RAG System with SelfQueryRetriever — Towards Data Science](https://towardsdatascience.com/how-to-build-a-rag-system-with-a-self-querying-retriever-in-langchain-16b4fa23e9ad/) · [Enhancing RAG with Metadata: Self-Query Retrievers — Medium](https://medium.com/@lorevanoudenhove/enhancing-rag-performance-with-metadata-the-power-of-self-query-retrievers-e29d4eecdb73)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Explore Three Distinct Layout Directions Before Writing Code — How to Prompt Claude Design for Divergence Instead of Convergence</title>
@@ -5760,183 +5910,9 @@ Run once with `npx playwright test --update-snapshots` to generate `nav-mobile.p
 **Sources:** [Visual comparisons — Playwright docs](https://playwright.dev/docs/test-snapshots) · [Playwright visual regression guide — TestQuality](https://testquality.com/playwright-visual-regression-guide/) · [Responsive design testing tools — BrowserStack](https://www.browserstack.com/guide/responsive-design-testing-tools)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Tool Schema Has One Field That Controls Whether Claude Calls the Right Function — and It's Not the Name</title>
-      <link>https://docs.anthropic.com/en/docs/build-with-claude/tool-use/best-practices-for-tool-definitions</link>
-      <guid isPermaLink="false">2026-09-07-07-tool-description-field-claude-function-selection</guid>
-      <pubDate>Mon, 07 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>The description field is a mini-prompt — write when to call, when not to, what the side effect is, and what comes back. Most tool schemas get the name right and stop there.</description>
-      <content:encoded><![CDATA[**The `description` field is a mini-prompt — write when to call, when not to, what the side effect is, and what comes back. Most tool schemas get the name right and stop there.**
-
-Claude decides whether to call a tool — and how to fill in its arguments — from three things: the tool name, the `description` field, and the `input_schema`. Most schemas get the name right and stop there. The description is where most agents go wrong.
-
-**What the description field is actually for.** It's not a label. It's the instruction Claude reads before every tool call to decide whether this is the right tool and what it will receive. A one-sentence description that restates the name ("search orders in the database") tells Claude nothing it doesn't already know. An effective description answers four questions:
-
-1. **When should I call this?** ("Call when the user asks about an existing order or order status")
-2. **When should I NOT call this?** ("Not for creating new orders — use `create_order` for that")
-3. **What is the side effect?** (for writes: "Cancels the order and triggers a refund if payment was collected")
-4. **What does the response contain?** ("Returns order_id, status, items[], and shipping_address")
-
-**Before:**
-```python
-{
-  "name": "search_orders",
-  "description": "Search orders in the database.",
-  ...
-}
-```
-
-**After:**
-```python
-{
-  "name": "search_orders",
-  "description": (
-    "Look up one or more orders by order_id, customer_email, or date range. "
-    "Use this when the user asks about an existing order — its status, items, or shipping. "
-    "Do NOT use this to create or modify orders. "
-    "Returns: order_id, status (pending|processing|shipped|delivered|cancelled), "
-    "items[], shipping_address, and created_at."
-  ),
-  ...
-}
-```
-
-**The input_schema matters too.** Use `enum` for constrained fields — Claude picks the right value instead of guessing a string. Add a `description` on every property, especially when the parameter name is ambiguous. Mark `required` honestly — don't list optional parameters as required and then null-check in your code.
-
-```python
-"properties": {
-  "status_filter": {
-    "type": "string",
-    "enum": ["pending", "processing", "shipped", "delivered", "cancelled"],
-    "description": "Only return orders in this status. Omit to return all statuses."
-  }
-}
-```
-
-**The real limit.** When a tool list grows past 10–15 entries, Claude's selection accuracy drops even with good descriptions — the context becomes a long scan rather than a targeted lookup. If you hit this, narrow the available set with `tool_choice`, or decompose the agent so each subagent holds only the tools it actually needs.
-
-**Sources:** [Designing Claude Connector Tools — sunpeak.ai](https://sunpeak.ai/blogs/claude-connector-tool-design/) · [Tool use best practices — docs.anthropic.com](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/best-practices-for-tool-definitions)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your LLM App Has No Regression Tests — DeepEval 4 Adds Pytest-Style Quality Gates in 20 Lines</title>
-      <link>https://deepeval.com/docs/getting-started-agents</link>
-      <guid isPermaLink="false">2026-09-07-08-deepeval-pytest-llm-agent-quality-gates</guid>
-      <pubDate>Mon, 07 Sep 2026 20:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>DeepEval 4 lets you write LLM test cases like pytest fixtures and run them in CI: if output quality drops below a threshold, the build fails. @observe traces individual agent spans.</description>
-      <content:encoded><![CDATA[**DeepEval 4 lets you write LLM test cases like pytest fixtures and run them in CI: if output quality drops below a threshold, the build fails.**
-
-**What you'll be able to do after this:** Write test cases for your LLM app that run in CI and block a deploy when answer quality drops, retrieval fails to return relevant chunks, or an agent calls the wrong tool.
-
-- `LLMTestCase` wraps one input/output pair and its retrieval context — the unit of every test
-- `deepeval test run` is the CI command (not `pytest`) — it runs DeepEval's own runner, which aggregates scores and handles async; `pytest` works but skips DeepEval's runner behavior
-- `@observe` on agent functions traces individual spans, letting you attach metrics at the retrieval step or tool-call step rather than only the final answer
-
-**Walk-through.**
-
-```bash
-pip install deepeval
-```
-
-```python
-# test_qa.py
-from deepeval import assert_test
-from deepeval.test_case import LLMTestCase
-from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric
-
-def test_order_status_answer():
-    tc = LLMTestCase(
-        input="What is the status of order #8821?",
-        actual_output=run_my_agent("What is the status of order #8821?"),
-        expected_output="Order #8821 is shipped.",
-        retrieval_context=[
-            "Order #8821 — Status: shipped — Updated: 2026-09-06"
-        ]
-    )
-    assert_test(tc, [
-        AnswerRelevancyMetric(threshold=0.7),
-        FaithfulnessMetric(threshold=0.8),
-    ])
-```
-
-```bash
-deepeval test run test_qa.py
-```
-
-Add `deepeval test run` to your CI step as a normal build stage — it exits non-zero when a test case fails, blocking the deploy.
-
-**For agents, trace individual spans with `@observe`:**
-
-```python
-from deepeval.tracing import observe
-
-@observe()
-def retrieve_context(query: str) -> list[str]:
-    return vector_db.search(query, top_k=5)
-```
-
-This turns each function call into a span in DeepEval's trace. You can attach metrics directly to the span rather than only the final output — useful for catching a retrieval step that returns stale documents even when the final answer looks plausible.
-
-**Where this breaks down.** The default threshold of 0.5 is a starting value, not a quality guarantee — calibrate it on a labeled sample of your own data before making it a CI gate. DeepEval uses an LLM judge internally, which means eval itself costs tokens and isn't deterministic across runs; set a cheap judge model for CI speed. The cloud dashboard (Confident AI) is a paid service; local `deepeval test run` is free. These tests run offline against a fixed dataset — they don't monitor production traffic.
-
-**Sources:** [DeepEval AI Agent Evaluation Quickstart — deepeval.com](https://deepeval.com/docs/getting-started-agents) · [DeepEval 4 tutorial for pytest-style LLM, RAG, and agent testing — qaskills.sh](https://qaskills.sh/blog/deepeval-llm-testing-guide) · [DeepEval alternatives compared — Braintrust](https://www.braintrust.dev/articles/deepeval-alternatives-2026)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>One Task Per Claude Code Session — and How to Resume It the Next Day</title>
-      <link>https://code.claude.com/docs/en/sessions</link>
-      <guid isPermaLink="false">2026-09-07-06-claude-code-continue-resume-session-management</guid>
-      <pubDate>Mon, 07 Sep 2026 12:16:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>--continue loads the most recent session for your directory; --resume picks an older one by ID. One task per session plus a short handoff note keeps multi-day coding work coherent.</description>
-      <content:encoded><![CDATA[**`-c` and `-r` are the two flags that turn Claude Code into a persistent coding partner across days — but the flag alone isn't enough; one task per session and a short handoff note are what keep the work coherent.**
-
-Claude Code saves every session automatically. The session ID, conversation history, and tool call results all persist to disk, scoped to the directory you were working in. Two flags get you back:
-
-```bash
-# Resume the most recent session for this directory
-claude -c                      # short for --continue
-
-# Pick from a list of older sessions for this directory
-claude -r                      # short for --resume; shows an interactive picker
-# Or pass a specific session ID (from claude sessions list)
-claude --resume "$session_id"
-```
-
-**When to use which.** Use `-c` for everyday continuity: you stopped mid-task last night, open a terminal this morning, and `claude -c` picks up exactly where you were. Use `-r` when you're juggling two parallel workstreams in the same project — a feature branch and a hotfix, for example — and you want to switch between them rather than starting fresh each time.
-
-**One task per session.** The strongest pattern is: one session = one task. A session that did ten things becomes hard to resume coherently because the context mixes unrelated history. When a task finishes, let the session close and start a new one for the next thing. Use `-c` to continue the same task across a break, not to pile new tasks onto an old session.
-
-**The handoff note.** When you stop mid-task, type a short status note before you exit:
-
-```
-/status: Refactoring the auth module — completed UserService, next is TokenStore.
-Tests pass. Stopped before wiring TokenStore into the middleware chain.
-```
-
-When you resume, Claude reads this and picks up without the re-orientation questions. Even three sentences of "where I stopped and what's next" cuts the warm-up time significantly.
-
-**Limits to know.** Session context includes conversation history and tool results, but not your git working tree — always commit (or at least stash) before ending a session if you want the code state preserved separately from Claude's memory of it. For long tasks that span many sessions, context eventually grows large enough to need `/compact` — a summary step that compresses prior history so you keep working without hitting the context ceiling.
-
-**Sources:** [Manage sessions — code.claude.com/docs](https://code.claude.com/docs/en/sessions) · [Claude Code session management — SSD Nodes](https://www.ssdnodes.com/learn/claude-code-resume-and-session-history) · [Multi-session workflows — Claude Code Handbook](https://joeyyu23.github.io/claude-code-handbook/en/book2-advanced/18-multi-session)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
