@@ -10,7 +10,81 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 28 Sep 2026 12:20:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 28 Sep 2026 20:04:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Claude Design Starts From Its Own Visual Language — Run `/design-sync` Once Before Prompting So It Uses Yours</title>
+      <link>https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design</link>
+      <guid isPermaLink="false">2026-09-28-09-design-system-seed-claude-design-sync-tokens</guid>
+      <pubDate>Mon, 28 Sep 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>Claude Design defaults to its own tokens and components. Run /design-sync once against your component library repo to seed a project that starts from your design system instead.</description>
+      <content:encoded><![CDATA[**Open Claude Design without setup and you get competent output in Claude's own aesthetic — not your tokens, not your components, not your naming conventions. A one-time import fixes that.**
+
+Open Claude Design without setup and prompt a dashboard. You'll get a competent result in Claude's own visual language: its spacing scale, its color defaults, its interpretation of what a card looks like. None of that is your `Button primary`, your `--color-brand-600`, or your component naming conventions. Your design system is sitting in the repo; the tool just doesn't know about it yet.
+
+The fix is a one-time import before your first real prompt.
+
+**Option A: `/design-sync` (for code-first systems)**
+
+Run from your *component library repo* — not your app repo, but the package that ships the components:
+
+```bash
+/design-sync
+```
+
+Claude Code reads your token files and React components, creates a new Claude Design project, and uploads the system. On a large library this takes time (potentially hours — Claude warns you upfront and asks you to confirm the credit cost). Once done, every new design in that project starts from your `Button`, your `Card`, your spacing scale — not Claude's defaults.
+
+Two things to know: only you can launch it (the skill is not model-invocable, so Claude can't start it on its own). And start in the *design system package repo*, not the consuming application.
+
+**Option B: DESIGN.md upload (lighter, for design-file-first systems)**
+
+Generate a DESIGN.md capturing your token values, component names, and naming conventions. At `claude.ai/design/#org`, create a new design system and upload the file under "Add assets". Faster and cheaper than a full sync, but shallower: Claude Design can follow your token names and values without having the actual component geometry.
+
+**What changes after either:**
+
+Generated screens reference your named tokens (`--color-primary`, `spacing-4`) instead of hardcoded values, use your component names instead of generic ones, and require fewer correction passes when landing in your repo. A `Card` generated after setup looks like *your* Card, not Claude's interpretation of one.
+
+**The real limit:**
+
+Neither option auto-updates. When your design system gets a new token or component, you re-run `/design-sync` or regenerate the DESIGN.md. The June 2026 update tracks per-component diffs rather than regenerating the whole canvas, so a refresh is cheaper than a first import — but it's still a manual step. Treat it like a snapshot you refresh at the start of each design sprint, not a live connection.
+
+**Sources:** [Set up your design system in Claude Design — support.claude.com](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) · [/design-sync in Claude Code — wmedia.es](https://wmedia.es/en/tips/claude-code-design-sync-your-components) · [Design Systems in 2026: Turn Your System into a Claude Skill — Design Systems Collective](https://www.designsystemscollective.com/design-systems-in-2026-turn-your-system-into-a-claude-skill-3dd4d8bf5feb)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Sonnet 5.5 Ships Today as `claude-sonnet-5-5` — Same Price as Sonnet 5, 70.6% Terminal-Bench vs 10.3%, ~1/3 Fewer Tool Calls</title>
+      <link>https://www.anthropic.com/claude-sonnet-5-5</link>
+      <guid isPermaLink="false">2026-09-28-08-claude-sonnet-5-5-launch-agentic-coding</guid>
+      <pubDate>Mon, 28 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>Sonnet 5.5 ships today as claude-sonnet-5-5 at the same $2/$10 pricing as Sonnet 5, 30%+ faster, 70.6% Terminal-Bench vs Sonnet 5's 10.3%, and ~1/3 fewer tool calls per agentic coding job.</description>
+      <content:encoded><![CDATA[**Claude Sonnet 5.5 launches today at `claude-sonnet-5-5` — same token price as Sonnet 5, 30%+ faster, and the biggest agentic coding benchmark jump in the 5.x line so far.**
+
+Anthropic's Sonnet 5.5 is available now on the API, Bedrock, Google Cloud, and Azure. Token pricing stays at $2/$10 per million input/output, with cache reads at $0.20/MTok — same as Sonnet 5. No rate increase; faster and more capable for the same spend.
+
+**For agentic workflows the numbers are notable.** Anthropic's Terminal-Bench 4.0 shows 70.6% for Sonnet 5.5 versus Sonnet 5's 10.3% — per Anthropic's testing, that's the biggest jump in agentic coding capability in this model family. Lovable's co-founder and CTO reports that Sonnet 5.5 needed about one-third fewer tool calls and roughly half as many shell executions to complete coding jobs. Anthropic's own 30% per-task cost figure combines the speed increase with fewer required turns. These are Anthropic's numbers; independent benchmarks are not yet published.
+
+GitHub Copilot switched to Sonnet 5.5 today. Anthropic lists it as suited for agentic coding, multi-file refactors, long-document analysis, vision, and computer use.
+
+**Migration note:** If you're using forced tool use (`tool_choice: {"type": "tool", "name": "…"}`), the [migration guide](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) says to switch to `auto` or `auto` with strict tools — the model performs better without hard-forced single-tool calls.
+
+**Limits:** Sonnet 5.5 ships with frontier-style cyber classifiers that block reasoning-extraction prompts. If your prompts probe internal reasoning or expect full transparency on model steps, those will need rework. Independent benchmark results are pending — the per-task efficiency claims are Anthropic's own figures from their testing.
+
+**Why it matters:** If you're running Sonnet 5 for agentic tasks — in Claude Code or directly via API — switching to `claude-sonnet-5-5` is the same token cost with meaningfully fewer turns per job on Anthropic's benchmarks.
+
+**Sources:** [Introducing Claude Sonnet 5.5 — Anthropic](https://www.anthropic.com/claude-sonnet-5-5) · [30%+ faster, 30% less per task — SiliconAngle](https://siliconangle.com/2026/09/28/anthropic-debuts-claude-sonnet-5-5-running-30-faster-than-the-previous-generation-ai-model/) · [1/3 fewer tool calls — VentureBeat](https://venturebeat.com/technology/anthropic-launches-claude-sonnet-5-5-with-30-cost-reduction-per-task-due-to-faster-speeds-and-fewer-tool-calls) · [Sonnet 5.5 in GitHub Copilot](https://github.blog/changelog/2026-09-28-claude-sonnet-5-5-in-github-copilot/) · [Migration guide — Claude Platform](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Regenerate in Claude Design or Edit in Your Editor — Here Is the Decision Rule</title>
@@ -5828,88 +5902,8 @@ export default { fetch: createMcpHandler(server) };
 **Sources:** [The next generation of MCP — Cloudflare Blog](https://blog.cloudflare.com/mcp-v2/) · [MCP 2026-07-28 Specification — modelcontextprotocol.io](https://blog.modelcontextprotocol.io/posts/2026-07-28/) · [MCP's growing pains for production use — The New Stack](https://thenewstack.io/model-context-protocol-roadmap-2026/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>HuggingFace: A 350M Model Learns Structured Output Compliance in 100 GRPO Steps</title>
-      <link>https://huggingface.co/blog/grpo-with-trl-ifstruct</link>
-      <guid isPermaLink="false">2026-09-08-02-huggingface-grpo-structured-output-finetune</guid>
-      <pubDate>Tue, 08 Sep 2026 04:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>HuggingFace's September 3 guide fine-tunes LFM2.5-350M with GRPO+TRL+LoRA on 500 examples in 100 steps, raising IFStruct structured-output accuracy from 22.6% to 29.7% — runs on a free Colab GPU.</description>
-      <content:encoded><![CDATA[**A September 3 HuggingFace guide shows GRPO fine-tuning a 350M-parameter model on 500 examples in 100 steps — per the IFStruct benchmark, structured output accuracy rises from 22.6% to 29.7% on a free Colab GPU.**
-
-A September 3 HuggingFace post fine-tunes LiquidAI's LFM2.5-350M using GRPO (Group Relative Policy Optimization) with TRL and LoRA adapters — only 6M of the model's 350M parameters are updated. Training data: 500 examples. Steps: 100. Hardware: free-tier Colab or Kaggle GPU. Per the IFStruct benchmark, schema-adherence accuracy goes from 22.6% to 29.7%, with JSON compliance driving most of the gain: +13.9 points on JSON-specific tasks.
-
-The technique works because GRPO uses a verifiable pass/fail reward — valid JSON parses, invalid JSON doesn't — so it doesn't need preference labels or a reward model. The reward function is your schema validator.
-
-**Why it matters for agents:** Local models that drop malformed JSON on 15–20% of turns will interrupt any agentic pipeline that calls tool APIs. 100 GRPO training steps against a JSON schema validator may be the fastest fix — cheaper than switching to a larger model, and cheaper than adding retry logic that obscures the underlying problem.
-
-**Two limits worth knowing:** YAML compliance barely moved (+0.3 points per the same benchmark) despite JSON improving significantly — GRPO's reward needs a reliable verifiable signal, and YAML parsers are strict about whitespace in ways that weaken it. Also, 29.7% still trails Qwen3.5-2B (33.15%) on IFStruct, per the post's own comparison — evaluate before committing to fine-tuning over simply choosing a more capable model.
-
-**Sources:** [Fine-tuning a 350M Model for Better Structured Outputs in 100 GRPO Steps — HuggingFace Blog](https://huggingface.co/blog/grpo-with-trl-ifstruct) · [GRPO Trainer — TRL docs](https://huggingface.co/docs/trl/grpo_trainer) · [GRPO — DeepSeek-R1, arXiv:2501.12948](https://arxiv.org/abs/2501.12948)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your AI-Generated Component Looks Right at 1280px — Here's a 10-Line Playwright Test That Checks 375px Too</title>
-      <link>https://playwright.dev/docs/test-snapshots</link>
-      <guid isPermaLink="false">2026-09-08-01-playwright-viewport-responsive-ai-components</guid>
-      <pubDate>Tue, 08 Sep 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design-to-Code</category>
-      <category>UI/UX</category>
-      <description>AI-generated components look right at 1280px but break at 375px. Playwright's toHaveScreenshot() with multi-project viewport config catches layout regressions per breakpoint automatically in CI.</description>
-      <content:encoded><![CDATA[**Add Playwright's `toHaveScreenshot()` across three viewport projects — mobile, tablet, desktop — and any Claude Code session that breaks your responsive layout fails in CI before it ships.**
-
-**What you'll be able to do after this:**
-- Generate per-breakpoint visual baselines for AI-generated components in a single Playwright config
-- Catch layout regressions introduced by Claude Code edits automatically in CI
-- Update baselines intentionally with `--update-snapshots`, not accidentally on every run
-
-Axe-core ([covered previously](https://cloudcodetree.com/ai-news/2026-08-25-01-axe-core-audit-ai-generated-ui)) catches broken ARIA and missing focus states. It doesn't catch a flex container that stacks vertically at 375px because Claude Design rendered it at 1280px. For that, you need a visual diff.
-
-**`playwright.config.ts`** — three viewport projects, one test file:
-
-```ts
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  projects: [
-    { name: 'mobile',  use: { viewport: { width: 375, height: 812 } } },
-    { name: 'tablet',  use: { viewport: { width: 768, height: 1024 } } },
-    { name: 'desktop', use: { viewport: { width: 1280, height: 800 } } },
-  ],
-});
-```
-
-**The test** — works against Storybook, `next dev`, or a static export:
-
-```ts
-import { test, expect } from '@playwright/test';
-
-test('nav responsive', async ({ page }) => {
-  await page.goto('http://localhost:3000');
-  await page.waitForLoadState('networkidle');
-  await expect(page).toHaveScreenshot('nav.png', { maxDiffPixels: 50 });
-});
-```
-
-Run once with `npx playwright test --update-snapshots` to generate `nav-mobile.png`, `nav-tablet.png`, `nav-desktop.png`. From here on, every Claude Code session that shifts the layout at any breakpoint fails this test and produces a diff image naming the exact viewport where the regression occurred.
-
-**Three things to know:**
-1. Playwright includes the project name in snapshot filenames automatically — no naming collisions between viewports.
-2. `maxDiffPixels: 50` absorbs sub-pixel rendering noise; tighten it only when you're missing real regressions.
-3. When a diff fails, cross-reference it with `/diff` in Claude Code to find the exact CSS rule that caused the shift — the visual diff names the breakpoint, not the line.
-
-**One limit:** Screenshots differ between macOS and Linux by font rendering and anti-aliasing. Generate baselines in the same environment your CI uses — add a CI job that runs `--update-snapshots` on first run if you need that guarantee. Locally generated baselines against a Linux CI runner are the most common source of false failures on this setup.
-
-**Sources:** [Visual comparisons — Playwright docs](https://playwright.dev/docs/test-snapshots) · [Playwright visual regression guide — TestQuality](https://testquality.com/playwright-visual-regression-guide/) · [Responsive design testing tools — BrowserStack](https://www.browserstack.com/guide/responsive-design-testing-tools)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
