@@ -10,7 +10,86 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 29 Sep 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 29 Sep 2026 12:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your OpenAPI Spec Can Generate Its Own MCP Server in CI — Cloudflare Open-Sources Forge</title>
+      <link>https://blog.cloudflare.com/forge-open-source-generation-pipeline/</link>
+      <guid isPermaLink="false">2026-09-29-05-cloudflare-forge-openapi-mcp-server-ci</guid>
+      <pubDate>Tue, 29 Sep 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <description>Cloudflare open-sourced Forge (Sep 28) — a CI pipeline that generates MCP servers, SDKs, CLIs, and docs from an OpenAPI spec. Apache 2.0. Fills the gap left when Anthropic acquired Stainless.</description>
+      <content:encoded><![CDATA[**Cloudflare open-sourced Forge on Sep 28 — a pluggable CI pipeline that generates MCP servers, SDKs, CLIs, and documentation from an OpenAPI spec. Apache 2.0, self-hostable.**
+
+If you maintain a REST API and want Claude Code to call it natively via MCP, the friction has been writing and maintaining the MCP server by hand. Forge treats the MCP server as one output among several in a CI-run code generation pipeline — every pull request that touches your spec generates preview builds of the SDK, CLI, and MCP server alongside it.
+
+Drop your OpenAPI spec in, configure which generators to run (TypeScript, Rust, Python, Go, PHP SDKs; CLI; MCP server; API docs), and Forge runs in CI. Generators can chain — the MCP server generator can consume the TypeScript SDK output rather than the raw spec, so tool signatures stay consistent.
+
+Cloudflare built this to handle 3,500+ API operations across multiple languages after existing commercial generators hit scaling limits. The Stainless-based workflow many teams relied on was shuttered when Anthropic acquired Stainless in September 2026; Forge is the open-source answer, under Apache 2.0.
+
+**Limit:** Only OpenAPI input is supported today — AsyncAPI, GraphQL, and Protobuf generators are on the roadmap but not shipped. You need an OpenAPI spec committed to your repo or available in CI. The generated MCP server writes the plumbing; tool descriptions and complex tool semantics still need human review and customization.
+
+**Why it matters:** if you have been avoiding MCP server maintenance because keeping it in sync with a changing API is a second job, Forge makes the server a build artifact that updates with the spec automatically.
+
+**Sources:** [Introducing Forge — Cloudflare Blog](https://blog.cloudflare.com/forge-open-source-generation-pipeline/) · [Cloudflare Forge and Anthropic's Stainless acquisition — The New Stack](https://thenewstack.io/cloudflare-forge-anthropic-stainless/) · [cloudflare/forge — GitHub](https://github.com/cloudflare/forge)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Embedder Gets a 2,000-Word Wall of Text — RecursiveCharacterTextSplitter Breaks It Into Retrievable Pieces</title>
+      <link>https://www.youtube.com/watch?v=POE8LDjdAw4</link>
+      <guid isPermaLink="false">2026-09-29-04-document-chunking-recursivecharactertextsplitter-rag</guid>
+      <pubDate>Tue, 29 Sep 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <description>Embedding a full document averages everything into one vector — split first. RecursiveCharacterTextSplitter is the default starting point: it tries paragraph → sentence → word separators in order so boundaries land on natural breaks.</description>
+      <media:content url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**Embedding a full document returns one dense vector averaging everything in it — split documents into chunks first, then embed each chunk so retrieval can surface the right piece.**
+
+**What you'll be able to do after this:** split any text document into context-preserving chunks ready for embedding, choose the right parameters for your corpus, and catch the splitter failure mode that silently degrades retrieval at scale.
+
+- LangChain's `RecursiveCharacterTextSplitter` tries separators in order — `"\n\n"` (paragraphs), `"\n"` (lines), `". "` (sentences), `" "` (words) — falling back down the list until each piece fits within `chunk_size`. Boundaries land on natural text breaks rather than arbitrary character positions.
+- `chunk_overlap` copies the tail of each chunk into the head of the next, preserving context for sentences that span a boundary. It adds storage (~10% overhead for a 50-char overlap on 512-char chunks) in exchange for retrieval continuity.
+- The splitter can silently fail to create overlap when separator alignment does not match the overlap window. Always spot-check a sample before vectorizing a large corpus.
+
+**Walk-through:**
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=512,       # characters — not tokens; check your embedding model's limit
+    chunk_overlap=50,
+    separators=["\n\n", "\n", ". ", " ", ""],
+    add_start_index=True, # stores chunk offset in metadata for debugging
+)
+chunks = splitter.split_documents(docs)
+
+# spot-check that overlap actually landed
+for i in range(len(chunks) - 1):
+    if chunks[i].page_content[-30:] not in chunks[i + 1].page_content:
+        print(f"chunk {i}: no overlap — check separators for this document type")
+```
+
+**What to watch for:**
+
+- `chunk_size` is in **characters**, not tokens. A 512-token embedding limit corresponds to roughly 1,500–2,000 characters depending on language and vocabulary.
+- PDFs without embedded newlines cause fallback to character splitting — every chunk breaks mid-sentence. Pre-process with `pdfplumber` or `pypdf` to restore paragraph structure before chunking.
+- For source code, use `RecursiveCharacterTextSplitter.from_language(Language.PYTHON)` (or `Language.JS`, `Language.GO`, etc.) — it substitutes language-aware separators that split on function and class boundaries instead of whitespace.
+
+The video below walks through fixed-size, recursive, and semantic chunking side by side with LangChain, including retrieval quality comparisons for each strategy.
+
+**Sources:** [RAG Tutorial 2025 #8: Text Chunking Strategies for Better RAG — YouTube](https://www.youtube.com/watch?v=POE8LDjdAw4) · [RecursiveCharacterTextSplitter: the workhorse — theneuralbase.com](https://theneuralbase.com/chunking-strategies/learn/beginner/recursivecharactertextsplitter-the-workhorse/) · [LangChain recursive text splitter docs](https://python.langchain.com/docs/how_to/recursive_text_splitter/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Set a Completion Condition and Claude Keeps Working Until Tests Pass — The `/goal` Command</title>
@@ -5783,112 +5862,8 @@ npx style-dictionary build --config sd.config.mjs
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Code Has Been Taking Notes About Your Project in a File You've Probably Never Opened</title>
-      <link>https://code.claude.com/docs/en/memory</link>
-      <guid isPermaLink="false">2026-09-08-07-claude-code-auto-memory-curate-memory-md</guid>
-      <pubDate>Tue, 08 Sep 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code's auto memory writes session notes to ~/.claude/projects/&lt;project&gt;/memory/MEMORY.md — the first 200 lines load every session. Here's how to read, curate, and fix stale entries.</description>
-      <content:encoded><![CDATA[**Claude Code writes cross-session notes about your project to `~/.claude/projects/<project>/memory/MEMORY.md` — the first 200 lines load on every new session, so the quality of that file matters.**
-
-Every time Claude corrects a mistake you flag, discovers your build command, or learns a debugging pattern that consistently works in your project, it optionally saves a note. These accumulate in a `MEMORY.md` index file — loaded at the start of the next session before you type anything.
-
-**Browse what it saved:**
-```bash
-# From within a session:
-/memory    # opens the memory directory browser
-
-# Or directly in the shell:
-cat ~/.claude/projects/*/memory/MEMORY.md
-```
-
-The directory also holds per-topic files — `feedback_testing.md`, `user_role.md`, and any others Claude creates. `MEMORY.md` acts as an index; Claude loads it at session start and reads the topic files on demand as it needs them. The limit is the first 200 lines or 25KB of `MEMORY.md`, whichever comes first — everything past that threshold is silently dropped on load.
-
-**Four note types Claude saves:**
-- `user` — your role and working preferences
-- `feedback` — corrections you've given and approaches you confirmed work
-- `project` — ongoing work, decisions, and context Claude can't derive from the code
-- `reference` — external resources like your issue tracker or dashboard URL
-
-Claude skips anything it can derive from the codebase itself: architecture, file paths, debugging patterns visible in the code. It also doesn't save something every session — only when the information would be useful in a future conversation.
-
-**Monthly audit pattern:**
-```bash
-# Review the index
-cat ~/.claude/projects/*/memory/MEMORY.md
-
-# Edit stale entries directly
-$EDITOR ~/.claude/projects/<project>/memory/MEMORY.md
-```
-
-**The contamination failure mode:** auto memory is per-repository, shared across all worktrees. If you've been on a long-running feature branch, `MEMORY.md` can accumulate contradictory facts — "the payment module uses the v1 API" from last sprint alongside "use the v2 payment API" from this one. Both load every session and both shape Claude's context. A quarterly audit that removes facts about removed dependencies and finished features is the fix.
-
-**Machine-local, not cloud-synced:** auto memory is per-machine. Cloud and remote sessions write to their own separate memory directories and never sync back to your local machine. If you rely on remote execution heavily, check what each environment has accumulated independently.
-
-**To disable for a project:**
-```json
-// .claude/settings.json
-{ "autoMemoryEnabled": false }
-```
-Or set `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` for a single session.
-
-**Sources:** [Claude Code memory docs](https://code.claude.com/docs/en/memory) · [Automatic Memory Is Not Learning — Medium/@brentwpeterson](https://medium.com/@brentwpeterson/automatic-memory-is-not-learning-4191f548df4c) · [Claude Code Memory Persistence Guide — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-memory-persistence-guide-2026/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>'Budget Flights' Should Find 'Cheap Tickets' — Here's the Embedding Pipeline That Makes It Happen</title>
-      <link>https://sbert.net/docs/quickstart.html</link>
-      <guid isPermaLink="false">2026-09-08-06-sentence-transformers-embeddings-foundations</guid>
-      <pubDate>Tue, 08 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Embeddings</category>
-      <category>RAG</category>
-      <description>Dense vector embeddings let you match meaning, not keywords. sentence-transformers generates them in three lines — this is the layer every RAG pipeline and vector database tutorial starts from.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** generate dense vector embeddings from any text, score semantic similarity with cosine to find paraphrases that keyword search misses, and understand why every RAG pipeline starts here before the index.
-
-Keyword search matches tokens. A query for "budget flights" misses a document that says "cheap tickets to Heathrow" — no shared terms, no result. Dense embeddings sidestep this by encoding meaning into a float vector, where similar concepts cluster near each other regardless of wording.
-
-**Three-line version:**
-```python
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-embeddings = model.encode(["cheap tickets", "budget aviation", "quantum entanglement"])
-print(model.similarity(embeddings[0:1], embeddings))
-# → [[1.0, 0.82, 0.15]]
-```
-
-`all-MiniLM-L6-v2` maps each input to a 384-dimension float vector. Cosine similarity — the dot product of L2-normalized vectors — gives a score from −1 to 1. "Cheap tickets" and "budget aviation" score 0.82; "quantum entanglement" scores 0.15.
-
-**Three starting model choices:**
-
-| Model | Params | Dims | When to use |
-|---|---|---|---|
-| `all-MiniLM-L6-v2` | 22M | 384 | Fast, CPU-friendly, good enough for most RAG |
-| `all-mpnet-base-v2` | 110M | 768 | Better quality, ~3× slower |
-| OpenAI `text-embedding-3-small` | — | 1536 | No local GPU, managed scale |
-
-**The one limit that bites before you go further:** sentence-transformers silently truncates input at the model's max sequence length — typically 512 tokens — with no warning. A 2,000-word document gets its tail dropped: the last ~75% of a long document disappears. For anything longer than a short paragraph, chunk first, embed each chunk, and store them as separate vectors. This is why every RAG chunking step comes before embedding, not after.
-
-**3-bullet takeaway:**
-- `SentenceTransformer.encode()` → float vector, `model.similarity()` → cosine score; that's the full retrieval API for a first-pass semantic search
-- `all-MiniLM-L6-v2` is the right default until your recall numbers say otherwise
-- Silent 512-token truncation is the gotcha that causes retrieval misses on long documents — chunk first
-
-**Why this matters for what you build:** when you call `ChromaDB.add()`, `pgvector`'s INSERT, or LangChain's `HuggingFaceBgeEmbeddings.embed_documents()`, one of these models runs under the hood. Knowing what it produces — and where it truncates — is the foundation for diagnosing retrieval misses when your search returns the wrong chunks.
-
-**Sources:** [sentence-transformers quickstart — sbert.net](https://sbert.net/docs/quickstart.html) · [Semantic Search docs — sbert.net](https://sbert.net/examples/sentence_transformer/applications/semantic-search/README.html) · [An Intuitive Explanation of Sentence-BERT — Towards Data Science](https://towardsdatascience.com/an-intuitive-explanation-of-sentence-bert-1984d144a868/)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
