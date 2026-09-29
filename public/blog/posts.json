@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-09-29-07-claude-code-continue-resume-session-flags",
+    "title": "--continue Reopens Your Last Session; --resume Picks Any One — and Four Launch Flags You Must Re-Pass",
+    "excerpt": "--continue reopens the latest session; --resume opens the picker. Both restore history, model, and goals — but --mcp-config, --settings, --plugin-dir, and --add-dir must be re-passed.",
+    "author": "Chris Harper",
+    "date": "09-29-2026",
+    "publishedAt": "2026-09-29T20:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/sessions",
+    "content": "**Every Claude Code session writes to disk in real time — `--continue` and `--resume` restore full history, the model, permission mode, and active goals. Four flags you passed at launch must be re-passed.**\n\nEvery Claude Code session writes to `~/.claude/projects/<dir>/<session-id>.jsonl` continuously, so closing the terminal, rebooting, or Ctrl+C loses nothing. The two main entry points:\n\n```bash\nclaude --continue           # most recent session in the current directory\nclaude --resume             # interactive picker (↑↓ to navigate, / to search)\nclaude --resume auth-fix    # directly by name\nclaude --resume <id>        # by session ID, works from any directory\nclaude --from-pr 42         # picker filtered to sessions linked to PR #42\n```\n\nName sessions while you still know what they are:\n\n```bash\nclaude -n auth-refactor     # at startup\n/rename auth-refactor       # from inside the session\n```\n\n**What restores automatically:** full conversation history including tool calls and results, the model the session was using, the permission mode it was in, any active `/goal`, and scheduled tasks.\n\n**What you must re-pass:** flags given at the original launch — `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model`, and any directories added with `--add-dir`. Settings from `settings.json` and `settings.local.json` re-read at launch automatically; only explicit flags need repeating.\n\n**The 100K-token dialog (Pro/Max):** resuming a session inactive for >1 hour with >100K tokens shows three options: (1) run `/compact` first — cheaper per-request cost, loses detail; (2) resume as-is — re-caches the full history once, higher per-request cost on long sessions; (3) stop asking. If you're not near context limits, resume as-is is the right default.\n\n**One case `--continue` fails silently:** if your most recent session is a background session still running, Claude Code exits with a message rather than attaching. Use `claude agents` to attach, or `--resume` to pick a different session.\n\n**Sources:** [code.claude.com/docs/en/sessions](https://code.claude.com/docs/en/sessions) (official reference) · [mehmetbaykar.com: session resume in practice](https://mehmetbaykar.com/posts/resume-claude-code-sessions-after-restart/)"
+  },
+  {
+    "id": "2026-09-29-06-openai-devday-gpt61-sol-decisions-api",
+    "title": "DevDay: GPT-6.1 Sol Approaches Astra at GPT-6 Sol's Price, Decisions API Returns Typed Routing Answers in 150ms",
+    "excerpt": "OpenAI DevDay: GPT-6.1 Sol keeps GPT-6 Sol's $2/$10 price but claims near-Astra capabilities; Decisions API returns typed routing answers from Luna in 150ms (limited preview).",
+    "author": "Chris Harper",
+    "date": "09-29-2026",
+    "publishedAt": "2026-09-29T20:06:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/",
+    "content": "**OpenAI DevDay shipped GPT-6.1 Sol (same $2/$10 price as GPT-6 Sol, near-Astra capabilities per OpenAI's own claim) and the Decisions API (typed routing answers in 150ms, limited preview).**\n\nTwo DevDay outputs worth tracking for developers building AI apps.\n\n**GPT-6.1 Sol** keeps GPT-6 Sol's $2/$10 per-million input/output pricing, cuts cached input from $0.20 to $0.10, and — per OpenAI's claim — \"approaches Astra\" on coding, computer use, and professional tasks. No independent benchmark confirmation yet; run your evals before switching pipelines. The cached-input cut is immediately verifiable.\n\n**Decisions API** (limited preview, broad release in coming days): developers define a question and a finite answer set; Luna picks from that set in ~150ms vs. 1.6s for a standard generation call. The output space is finite by construction — no post-generation parsing required. Target use: request routing, content classification, next-action selection in an agent loop.\n\nAlso in the release: API-wide time-to-first-token down 45%, tool-call latency down 30% (no model change needed to benefit). The Ultrafast tier (300 tokens/sec) costs 6x standard — relevant for latency-critical paths only.\n\n**Limit:** GPT-6.1 Sol capability claims are from OpenAI; independent benchmarks pending. Decisions API is limited preview for now. Ultrafast's 6x cost makes it narrow in applicability.\n\n**Why it matters:** GPT-6.1 Sol is a concrete reason to re-run Astra-vs-Sol cost/quality evals now. The Decisions API is a new primitive for the \"call a model, parse a string\" routing pattern — if that's a hot path, 150ms vs. 1.6s is meaningful.\n\n**Sources:** [OpenAI DevDay 2026 developer thread](https://community.openai.com/t/devday-2026-announcements-and-developer-resources/1402006) · [OpenAI expands Codex and API at DevDay — The Decoder](https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/) · [GPT-6.1 Sol pricing — The Next Web](https://thenextweb.com/news/openai-gpt-6-1-sol-price-astra-devday)"
+  },
+  {
     "id": "2026-09-29-05-cloudflare-forge-openapi-mcp-server-ci",
     "title": "Your OpenAPI Spec Can Generate Its Own MCP Server in CI — Cloudflare Open-Sources Forge",
     "excerpt": "Cloudflare open-sourced Forge (Sep 28) — a CI pipeline that generates MCP servers, SDKs, CLIs, and docs from an OpenAPI spec. Apache 2.0. Fills the gap left when Anthropic acquired Stainless.",

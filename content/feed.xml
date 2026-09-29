@@ -10,7 +10,78 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 29 Sep 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 29 Sep 2026 20:07:00 +0000</lastBuildDate>
+
+    <item>
+      <title>--continue Reopens Your Last Session; --resume Picks Any One — and Four Launch Flags You Must Re-Pass</title>
+      <link>https://code.claude.com/docs/en/sessions</link>
+      <guid isPermaLink="false">2026-09-29-07-claude-code-continue-resume-session-flags</guid>
+      <pubDate>Tue, 29 Sep 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>--continue reopens the latest session; --resume opens the picker. Both restore history, model, and goals — but --mcp-config, --settings, --plugin-dir, and --add-dir must be re-passed.</description>
+      <content:encoded><![CDATA[**Every Claude Code session writes to disk in real time — `--continue` and `--resume` restore full history, the model, permission mode, and active goals. Four flags you passed at launch must be re-passed.**
+
+Every Claude Code session writes to `~/.claude/projects/<dir>/<session-id>.jsonl` continuously, so closing the terminal, rebooting, or Ctrl+C loses nothing. The two main entry points:
+
+```bash
+claude --continue           # most recent session in the current directory
+claude --resume             # interactive picker (↑↓ to navigate, / to search)
+claude --resume auth-fix    # directly by name
+claude --resume <id>        # by session ID, works from any directory
+claude --from-pr 42         # picker filtered to sessions linked to PR #42
+```
+
+Name sessions while you still know what they are:
+
+```bash
+claude -n auth-refactor     # at startup
+/rename auth-refactor       # from inside the session
+```
+
+**What restores automatically:** full conversation history including tool calls and results, the model the session was using, the permission mode it was in, any active `/goal`, and scheduled tasks.
+
+**What you must re-pass:** flags given at the original launch — `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model`, and any directories added with `--add-dir`. Settings from `settings.json` and `settings.local.json` re-read at launch automatically; only explicit flags need repeating.
+
+**The 100K-token dialog (Pro/Max):** resuming a session inactive for >1 hour with >100K tokens shows three options: (1) run `/compact` first — cheaper per-request cost, loses detail; (2) resume as-is — re-caches the full history once, higher per-request cost on long sessions; (3) stop asking. If you're not near context limits, resume as-is is the right default.
+
+**One case `--continue` fails silently:** if your most recent session is a background session still running, Claude Code exits with a message rather than attaching. Use `claude agents` to attach, or `--resume` to pick a different session.
+
+**Sources:** [code.claude.com/docs/en/sessions](https://code.claude.com/docs/en/sessions) (official reference) · [mehmetbaykar.com: session resume in practice](https://mehmetbaykar.com/posts/resume-claude-code-sessions-after-restart/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>DevDay: GPT-6.1 Sol Approaches Astra at GPT-6 Sol's Price, Decisions API Returns Typed Routing Answers in 150ms</title>
+      <link>https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/</link>
+      <guid isPermaLink="false">2026-09-29-06-openai-devday-gpt61-sol-decisions-api</guid>
+      <pubDate>Tue, 29 Sep 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>OpenAI DevDay: GPT-6.1 Sol keeps GPT-6 Sol's $2/$10 price but claims near-Astra capabilities; Decisions API returns typed routing answers from Luna in 150ms (limited preview).</description>
+      <content:encoded><![CDATA[**OpenAI DevDay shipped GPT-6.1 Sol (same $2/$10 price as GPT-6 Sol, near-Astra capabilities per OpenAI's own claim) and the Decisions API (typed routing answers in 150ms, limited preview).**
+
+Two DevDay outputs worth tracking for developers building AI apps.
+
+**GPT-6.1 Sol** keeps GPT-6 Sol's $2/$10 per-million input/output pricing, cuts cached input from $0.20 to $0.10, and — per OpenAI's claim — "approaches Astra" on coding, computer use, and professional tasks. No independent benchmark confirmation yet; run your evals before switching pipelines. The cached-input cut is immediately verifiable.
+
+**Decisions API** (limited preview, broad release in coming days): developers define a question and a finite answer set; Luna picks from that set in ~150ms vs. 1.6s for a standard generation call. The output space is finite by construction — no post-generation parsing required. Target use: request routing, content classification, next-action selection in an agent loop.
+
+Also in the release: API-wide time-to-first-token down 45%, tool-call latency down 30% (no model change needed to benefit). The Ultrafast tier (300 tokens/sec) costs 6x standard — relevant for latency-critical paths only.
+
+**Limit:** GPT-6.1 Sol capability claims are from OpenAI; independent benchmarks pending. Decisions API is limited preview for now. Ultrafast's 6x cost makes it narrow in applicability.
+
+**Why it matters:** GPT-6.1 Sol is a concrete reason to re-run Astra-vs-Sol cost/quality evals now. The Decisions API is a new primitive for the "call a model, parse a string" routing pattern — if that's a hot path, 150ms vs. 1.6s is meaningful.
+
+**Sources:** [OpenAI DevDay 2026 developer thread](https://community.openai.com/t/devday-2026-announcements-and-developer-resources/1402006) · [OpenAI expands Codex and API at DevDay — The Decoder](https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/) · [GPT-6.1 Sol pricing — The Next Web](https://thenextweb.com/news/openai-gpt-6-1-sol-price-astra-devday)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your OpenAPI Spec Can Generate Its Own MCP Server in CI — Cloudflare Open-Sources Forge</title>
@@ -5773,95 +5844,7 @@ Use `/reload-plugins` inside a session to pick up plugin changes without restart
 **Sources:** [Claude Code 2.1.265 changelog](https://code.claude.com/docs/en/changelog) · [Claude Code plugins documentation](https://code.claude.com/docs/en/plugins) · [Awesome Claude Plugins community list](https://github.com/composio-community/awesome-claude-plugins)
 ]]></content:encoded>
     </item>
-    <item>
-      <title>207 GPU Kernels, No Server Required — @huggingface/kernels Brings ML Ops to Your Users' Browsers</title>
-      <link>https://huggingface.co/blog/webgpu-kernels</link>
-      <guid isPermaLink="false">2026-09-09-02-huggingface-webgpu-kernels-browser-inference</guid>
-      <pubDate>Wed, 09 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Local AI</category>
-      <description>HuggingFace shipped @huggingface/kernels (Sept 1): 207 WebGPU ML operations via npm. Run attention and matmul in your users' browsers — no server endpoint needed.</description>
-      <content:encoded><![CDATA[**HuggingFace's new `@huggingface/kernels` puts 207 WebGPU-optimized ML operations in your npm install — no server endpoint needed for embedding generation or lightweight inference.**
-
-HuggingFace's Web AI team shipped `@huggingface/kernels` on September 1: 207 GPU operations (attention, matrix multiplication, layernorm, activations) that run in the browser via WebGPU. Instead of adding a server endpoint for an embedding call, you load a kernel and pass typed tensors:
-
-```js
-import { getKernel } from "@huggingface/kernels";
-const matmul = await getKernel("huggingface/kernels-matmul-wgsl", { rev: "v0.1" });
-const result = await matmul(a, b, shape);
-```
-
-Each kernel ships with correctness test cases, performance benchmarks, and parameterized WGSL shader implementations as versioned Hub packages. The library includes Fleet, an in-browser GPU benchmarking tool that scores kernels on your specific hardware before you build on them.
-
-**Where it breaks:** WebGPU support varies — Safari's implementation is partial, and the library is preview-tagged for a reason: HuggingFace documents that 947 of the 1,756 ORT WebGPU reference test cases produced unreliable results. Benchmarks measure individual GPU operations only, not full model inference (shader compilation and data transfer add latency on top).
-
-**Why it matters:** If you are adding embedding generation or a lightweight classifier to a web app, this is worth evaluating as an alternative to a server round-trip. For anything requiring a full model pipeline, the coverage gaps mean server inference remains more reliable.
-
-**Sources:** [HuggingFace @huggingface/kernels blog post](https://huggingface.co/blog/webgpu-kernels) · [WebGPU Kernels: Local AI Closer to the Browser — Ken Ashe](https://kenashe.ai/blog/2026-09-01-webgpu-kernels-move-local-ai-closer-to-the-browser) · [HuggingFace ships 207 Apache-2.0 WebGPU kernels](https://ccleaks.com/news/huggingface-webgpu-kernels-sep-2026)
-]]></content:encoded>
-    </item>
-    <item>
-      <title>Your Brand Colors Live in Your Head, Not Claude Code's — Structure a tokens.json File It Can Actually Read</title>
-      <link>https://www.designtokens.org/tr/drafts/format/</link>
-      <guid isPermaLink="false">2026-09-09-01-w3c-dtcg-design-tokens-claude-code</guid>
-      <pubDate>Wed, 09 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Design-to-Code</category>
-      <description>Give Claude Code a W3C DTCG tokens.json file and it uses your actual brand colors and spacing — not generic defaults — from the first component it generates.</description>
-      <content:encoded><![CDATA[**Give Claude Code a W3C DTCG tokens.json file and it uses your actual brand colors and spacing — not generic defaults — from the first component it generates.**
-
-When Claude Code generates a component, it defaults to whatever spacing and colors make sense to it — typically Bootstrap-adjacent values (16px gaps, generic blues). That is not incompetence; it just does not know your system exists.
-
-The fix is a `tokens.json` file in the [W3C Design Tokens Community Group (DTCG) format](https://www.designtokens.org/tr/drafts/format/) — the spec backed by Figma, Adobe, Google, and Shopify, that every serious design-to-code tool now reads and writes. The shape is simple: each token has a `$value` and a `$type`.
-
-```json
-{
-  "color": {
-    "brand": {
-      "primary": { "$value": "#3b82f6", "$type": "color" },
-      "surface": { "$value": "#0f172a", "$type": "color" }
-    }
-  },
-  "spacing": {
-    "md": { "$value": "16px", "$type": "dimension" },
-    "lg": { "$value": "24px", "$type": "dimension" }
-  }
-}
-```
-
-Reference it in your `CLAUDE.md`:
-
-```markdown
-## Design system
-All color and spacing values are in `tokens.json` (W3C DTCG format).
-Use `color.brand.primary.$value` for primary actions,
-`color.brand.surface.$value` for page backgrounds.
-Do not invent values — look them up in the token file.
-```
-
-Then run [Style Dictionary v4](https://styledictionary.com/info/dtcg/) to generate CSS custom properties, Tailwind config, and TypeScript constants from the same source:
-
-```bash
-npx style-dictionary build --config sd.config.mjs
-```
-
-**What you'll be able to do after this:** Claude Code generates components that start from your palette, and the same `tokens.json` drives both the agent instructions and your CSS output.
-
-**Three-bullet takeaway:**
-- The DTCG 2025.10 spec defines the portable JSON shape: `$value`/`$type` per token, with alias references via `{path.to.token}` for semantic token trees.
-- Style Dictionary v4 processes DTCG tokens into CSS vars, Tailwind config, or TS constants in one command — one source file, many output formats.
-- The gap: Claude Code respects the token file when CLAUDE.md points to it, but for multi-component sessions you still benefit from explicit references in your prompts ("use the `color.brand.primary` token, not a hardcoded hex").
-
-**Sources:** [Design Tokens Community Group spec 2025.10](https://www.designtokens.org/tr/drafts/format/) · [Style Dictionary DTCG support docs](https://styledictionary.com/info/dtcg/) · [W3C announcement: specification reaches first stable version](https://www.w3.org/community/design-tokens/2025/10/28/design-tokens-specification-reaches-first-stable-version/) · [W3C DTCG practical guide](https://tasteprofile.io/blog/w3c-dtcg-design-tokens-practical-guide)
-]]></content:encoded>
-    </item>
-
+        
     
     
     
