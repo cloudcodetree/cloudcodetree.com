@@ -10,7 +10,110 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 28 Sep 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 29 Sep 2026 04:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Set a Completion Condition and Claude Keeps Working Until Tests Pass — The `/goal` Command</title>
+      <link>https://code.claude.com/docs/en/goal</link>
+      <guid isPermaLink="false">2026-09-29-03-claude-code-goal-completion-condition-autonomous</guid>
+      <pubDate>Tue, 29 Sep 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>/goal sets a verifiable condition; a Haiku evaluator checks it after every turn and Claude keeps working unattended until the condition is met, impossible, or you run /goal clear.</description>
+      <content:encoded><![CDATA[**`/goal` keeps Claude working turn-by-turn without re-prompting — a separate evaluator checks your condition after each turn and stops only when it's met or impossible.**
+
+The common problem: you kick off a long migration, Claude makes progress, then returns control and waits. You re-read the context, re-prompt, repeat. `/goal` closes that loop: after every turn, a fast Haiku model checks your stated condition against the conversation transcript; if it's not met, Claude takes another turn automatically.
+
+**How to use it:**
+
+```text
+/goal all tests in test/auth pass and the lint step is clean
+```
+
+Setting the goal starts a turn immediately using the condition as the directive — you don't also type a separate prompt. Claude runs tests, fixes failures, re-runs, and repeats until Haiku judges the condition met or impossible. During the run, a `◎ /goal active` indicator shows elapsed time and turn count.
+
+Combine with auto mode for fully unattended work, or run non-interactively in a script:
+
+```bash
+claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
+```
+
+**Write conditions Claude can verify from its own output.** The evaluator reads the conversation transcript, not your filesystem directly. "All tests pass" works because Claude runs the tests and the result appears in the transcript. "eslint exits 0 with the current config" works. "The code is clean" does not — it gives the evaluator nothing measurable to judge.
+
+Add a turn limit to prevent open-ended loops: `/goal all 404s resolved, or stop after 30 turns`.
+
+**Limit:** on very long runs, auto-compaction can overflow and force-clear the goal — Claude Code warns and pauses rather than continuing with degraded context; re-set after compacting. Also: the evaluator reads only what Claude surfaced in the transcript, so a condition that requires fresh file inspection Claude has not yet done in the current run will not resolve until Claude does that inspection explicitly.
+
+**Sources:** [Keep Claude working toward a goal — Claude Code Docs](https://code.claude.com/docs/en/goal) · [Mastering Claude Code /goal — amitray.com](https://amitray.com/claude-code-goal-command-guide-2026/) · [Claude Code autonomous commands — Towards AI](https://medium.com/@richardhightower/claude-code-the-autonomous-commands-that-finish-work-while-you-sleep-goal-loop-batch-etc-7acb82bf46b1)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Ollama v0.40 Makes MLX the Default on Apple Silicon, vLLM 0.30 Lands a Persistent GPU Weight Cache</title>
+      <link>https://github.com/ollama/ollama/releases/tag/v0.40.0</link>
+      <guid isPermaLink="false">2026-09-29-02-ollama-v040-mlx-default-vllm-v030</guid>
+      <pubDate>Tue, 29 Sep 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Self-Hosting</category>
+      <category>Local AI</category>
+      <description>Ollama v0.40 (Sep 25) routes MLX-supported models through Apple's MLX runtime by default — Ollama reports ~1.6x faster prefill, ~2x faster decode. vLLM v0.30 ships Fast Start for cold-start reduction.</description>
+      <content:encoded><![CDATA[**Two local-inference updates from this week: Ollama v0.40 makes Apple Silicon inference faster by default; vLLM 0.30 cuts engine cold-start time on GPU servers.**
+
+**Ollama v0.40.0 (September 25).** MLX-supported model architectures now run on Apple's MLX runtime by default on Apple Silicon — no configuration change needed. Ollama reports ~1.6× faster prefill and roughly 2× faster decode compared to the Metal backend on M3/M4 chips; M5 chips gain additional acceleration from GPU Neural Accelerators. Same release: `/api/tags` drops from ~3 s to ~294 ms cold on large libraries. **Limit:** MLX routing applies only to MLX-supported architectures — models whose weights are not MLX-compatible continue using the Metal backend unchanged. **Why it matters:** if you run local models on a Mac for eval harnesses, subagent routing, or offline RAG dev, the speed improvement is automatic on update with no code changes.
+
+**vLLM v0.30.0 (September 22).** The headline addition is Fast Start: a persistent per-GPU daemon holds post-quantized, TP-sharded weights in GPU memory and maps them over CUDA IPC on engine restart, removing the reload-from-disk step. Also ships: HiSparse (host-resident KV tier for sparse-MLA decode under GPU pressure), DeepSeek-V4.1-Flash with MXFP8 KV storage, and Model Runner V2 with dual-batch overlap. **Limit:** Fast Start requires the weight-cache daemon to already be running — the very first cold start without the daemon is no faster than before. **Why it matters:** makes local vLLM deployments behave more like always-warm services, useful for eval loops or dev pipelines that restart the engine frequently.
+
+**Sources:** [Ollama v0.40.0 release notes — GitHub](https://github.com/ollama/ollama/releases/tag/v0.40.0) · [vLLM v0.30.0 release notes — GitHub](https://github.com/vllm-project/vllm/releases/tag/v0.30.0) · [Ollama adopts MLX for Apple Silicon — 9to5Mac](https://9to5mac.com/2026/03/31/ollama-adopts-mlx-for-faster-ai-performance-on-apple-silicon-macs/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Existing Codebase Is the Artboard's Starting Point — `/design` in Claude Code Reads Your Tokens Before Drawing</title>
+      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
+      <guid isPermaLink="false">2026-09-29-01-design-command-existing-repo-reverse-handoff</guid>
+      <pubDate>Tue, 29 Sep 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>Run /design from inside your repo and Claude drafts artboards using your actual tokens and component names, not its own defaults. Pick one, adjust it on the canvas, then have Claude implement it.</description>
+      <content:encoded><![CDATA[**`/design` inside a repo reads your token definitions, component names, and nearby screens before drawing artboards — so the output starts from your design system, not Claude's defaults.**
+
+**What you'll be able to do after this:** kick off a redesign of an existing screen from your working codebase, review options Claude draws using your actual design system, pick and adjust one in the canvas, then bring it back to the editor — without the screenshot-as-context workaround.
+
+- Before generating artboards, Claude scans your repo for token definitions, component names, and nearby existing screens — artboards start from what is actually there, not invented placeholders
+- You pick and edit the artboard on the published canvas at `claude.ai/design`, then return to the terminal to implement — Claude reads the artboard state directly, no file export needed
+- Artboard → implementation is an iterative loop, not a one-shot: plan for at least one correction pass between picking the artboard and the committed file
+
+**Walk-through:**
+
+In a Claude Code session at your project root:
+
+```text
+> /design three options for reworking the UserProfile sidebar — it's too noisy on mobile
+```
+
+Claude reads your codebase first, then publishes a canvas link. Open it in your browser. You'll see three artboards drawn with your actual token names and component names (not Claude's visual defaults). Adjust whichever you prefer — drag items, change field labels, tweak the spacing.
+
+Return to the terminal with the canvas open:
+
+```text
+> implement option 2 — preserve the existing breakpoint logic in UserProfile.tsx
+```
+
+Claude reads the artboard state from Claude Design and builds against your actual components. Because it drew from your token names, the generated code references them rather than hardcoded hex values or generic class names.
+
+**Limit:** research preview as of v2.1.234 — the artboard carries visual intent, not component state or logic. State machines, event handlers, and animations are inferred during implementation rather than read from the canvas. Plan for a round of correction. Requires v2.1.234 or later on Pro, Max, Team, or Enterprise.
+
+**Sources:** [Week 34: the `/design` skill — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w34) · [Claude Code gets a /design command — The Decoder](https://the-decoder.com/claude-code-gets-a-design-command-that-lets-developers-create-ui-mockups-right-in-the-terminal/) · [Claude Design inside Claude Code workflow — wmedia.es](https://wmedia.es/en/tips/claude-code-design-editable-canvas)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Claude Design Starts From Its Own Visual Language — Run `/design-sync` Once Before Prompting So It Uses Yours</title>
@@ -5786,122 +5889,9 @@ print(model.similarity(embeddings[0:1], embeddings))
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Parallel Claude Code Sessions Can Now Coordinate Without You in the Middle</title>
-      <link>https://code.claude.com/docs/en/cross-session-messaging</link>
-      <guid isPermaLink="false">2026-09-08-05-claude-code-cross-session-messaging</guid>
-      <pubDate>Tue, 08 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Claude Code v2.1.224 adds cross-session messaging: two independent sessions on the same machine can pass findings and decisions directly via ListAgents + SendMessage, no copy-paste required.</description>
-      <content:encoded><![CDATA[**Since v2.1.224 (August 7), Claude Code sessions on the same machine can message each other. `ListAgents` discovers which sessions are running; `SendMessage` delivers. The practical win: parallel sessions pass findings and decisions without you copy-pasting between terminals.**
-
-When you run two Claude Code sessions in parallel — one on a backend schema migration, one on the API layer that depends on it — the natural breakpoint is when one session has a finding the other needs. Before cross-session messaging, you stopped, copied the relevant context, and re-explained it. Now Claude routes it.
-
-**How it works.** Two tools power it: `ListAgents` and `SendMessage`. You never call them yourself — Claude discovers the target and composes the message from your prompt.
-
-The simplest form:
-```
-Let @api-worker know the schema migration finished and tenant_id is the new column
-```
-Claude finds the session named `api-worker` and writes the message. The receiving session shows a preview and Claude reads the full text.
-
-You can also ask Claude to poll another session:
-```
-Ask the session in my other terminal whether the migration is done yet
-```
-Or subscribe to a one-shot notification when a long-running task finishes:
-```
-Tell me when the migration session finishes what it's working on
-```
-That last form sends one notice the next time the watched session goes idle — no polling, no repeated messages.
-
-**Session naming.** Type `/list-agents` (or `/peers`) to see every session Claude can reach. Use `--name <name>` at launch or `/rename` mid-session to make sessions easy to @-mention.
-
-**Limits to know:**
-- **Text only.** No conversation history, no files, no structured tool calls cross session boundaries. The size cap is about 1M characters.
-- **Same machine only** without Remote Control. Reaching sessions on another machine requires a Remote Control connection.
-- **A received message cannot approve pending permission prompts** or change settings in the receiving session — it is not treated as your input.
-- Rapid bursts to one session are throttled automatically; identical repeat messages within a short window are dropped.
-
-Available on macOS and Linux (including WSL2) from v2.1.224; native Windows from v2.1.234.
-
-**Sources:** [Claude Code cross-session messaging docs](https://code.claude.com/docs/en/cross-session-messaging) · [v2.1.224 release — GitHub](https://github.com/anthropics/claude-code/releases/tag/v2.1.224) · [Developers Digest analysis](https://www.developersdigest.tech/blog/claude-code-cross-session-messaging-2026)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Tencent's Hy4 Opens Up the First 1M-Context Open-Weight Model — Self-Hosting Needs a Datacenter</title>
-      <link>https://technode.global/2026/09/04/tencent-hy4-preview-open-source-model/</link>
-      <guid isPermaLink="false">2026-09-08-04-tencent-hy4-open-weight-1m-context</guid>
-      <pubDate>Tue, 08 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Self-Hosting</category>
-      <description>Tencent's Hy4 Preview (770B/49B-active MoE, Apache 2.0) is the first open-weight model with a 1M-token context. Self-hosting needs 8 B300 GPUs; OpenRouter is the practical entry point.</description>
-      <content:encoded><![CDATA[**Tencent's Hy4 Preview is a 770B-total/49B-active-per-token Mixture-of-Experts model released on HuggingFace August 28 under Apache 2.0, with a genuine 1M-token context window — the first open-weight model to credibly offer this at commercial scale.**
-
-The architecture is 78 transformer layers, each with 256 routed experts plus one shared expert; each token activates the top 8 routed experts plus the shared one. On coding benchmarks, Tencent reports 65.7 on SWE-bench Pro and 64.3 on DeepSWE (comparable to closed frontier models, per Tencent's own evaluation). An independent practitioner review by Wavect found it retained "requirements, implementation state, and tool outputs" well across longer agentic workflows.
-
-**The practical ceiling is hardware.** Tencent's own deployment recipes require at minimum 8 NVIDIA B300 GPUs (or 16 B200s) for the BF16 variant under vLLM with 8-way tensor parallelism; an FP8 quantized variant lowers that but remains datacenter-class. Prebuilt containers (`vllm/vllm-openai:hy4-preview`, `lmsysorg/sglang:hy4-preview`) are available for both. For most teams, OpenRouter (Tencent reports $0.83/M input, $2.50/M output) or WorkBuddy is the practical entry point — not self-hosting.
-
-**Two limits before committing.** Independent testing found that 1M-token context ≠ 1M-token recall: accuracy degrades as the context window fills, same as all other long-context models. The model also has a documented tendency to over-verify on complex tasks, generating unnecessary reasoning steps that drive up cost.
-
-**Why it matters:** If your agent pipeline is hitting a ceiling on long repository retrieval or multi-document reasoning, Hy4 is the first open-weight option that competes with closed frontier models on context length — with an Apache 2.0 license that carries none of the community-agreement restrictions on the Llama line.
-
-**Sources:** [TechNode Global](https://technode.global/2026/09/04/tencent-hy4-preview-open-source-model/) · [Independent review — Wavect.io](https://wavect.io/blog/tencent-hy4-preview-coding-agent-review/) · [BenchLM independent benchmarks](https://benchlm.ai/models/hy4-preview) · [Forbes coverage (Aug 31)](https://www.forbes.com/sites/jonmarkman/2026/08/31/tencent-open-sources-hy4-its-770-billion-parameter-flagship-model/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your MCP Server Doesn't Need Durable Objects Anymore — Deploy It as a Stateless Worker</title>
-      <link>https://blog.cloudflare.com/mcp-v2/</link>
-      <guid isPermaLink="false">2026-09-08-03-mcp-stateless-cloudflare-workers-handler</guid>
-      <pubDate>Tue, 08 Sep 2026 04:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Cloud</category>
-      <description>The MCP 2026-07-28 spec made the protocol stateless. Cloudflare's createMcpHandler now deploys any MCP server as a plain Worker — no Durable Objects, no session management required.</description>
-      <content:encoded><![CDATA[**The MCP 2026-07-28 spec redesigned the protocol around stateless request/response. Cloudflare's `createMcpHandler` API deploys any MCP server as a plain Worker — no Durable Objects, no session management, no WebSocket handshake.**
-
-Before the MCP 2026-07-28 specification, every remote MCP server had to maintain per-client session state. On Cloudflare Workers, that meant Durable Objects: one per client session, coordinated handshake, stateful upgrade. It worked, but added infrastructure complexity and per-session storage overhead.
-
-The 2026-07-28 spec redesigned the protocol around stateless request/response. Cloudflare's `createMcpHandler` API ships that consequence as a one-liner:
-
-```ts
-import { createMcpHandler, McpServer } from '@cloudflare/mcp-server';
-import { z } from 'zod';
-
-const server = new McpServer({ name: 'my-tools', version: '1.0.0' });
-server.tool('fetch_weather', { city: z.string() }, async ({ city }) => {
-  const data = await fetch(`https://wttr.in/${city}?format=j1`);
-  return { content: [{ type: 'text', text: await data.text() }] };
-});
-
-export default { fetch: createMcpHandler(server) };
-```
-
-`wrangler deploy` ships it. No Durable Object bindings, no session upgrade handling, no reconnect logic. Cloudflare routes requests using the `Mcp-Method` HTTP header — not a WebSocket session — so each request is independent and the server sits behind any standard round-robin load balancer.
-
-**Three concrete wins from the stateless model:**
-1. No per-session storage overhead — each request is independent from billing through to code.
-2. Local integration tests are plain HTTP calls against `wrangler dev`. No WebSocket client required.
-3. The underlying pattern (stateless HTTP, `Mcp-Method` routing) transfers to any HTTP runtime, even if you don't use the Cloudflare library.
-
-**Two things to know before migrating:**
-1. The 2026-07-28 spec deprecated server-to-client requests (elicitation). If your current server uses that pattern, the formal deprecation window is 12+ months — the migration is not immediate.
-2. `createMcpHandler` is Cloudflare-specific. On Lambda, Modal, or Fly.io, you wire the MCP SDK directly to an HTTP handler using the same stateless architecture, but without this wrapper.
-
-**Sources:** [The next generation of MCP — Cloudflare Blog](https://blog.cloudflare.com/mcp-v2/) · [MCP 2026-07-28 Specification — modelcontextprotocol.io](https://blog.modelcontextprotocol.io/posts/2026-07-28/) · [MCP's growing pains for production use — The New Stack](https://thenewstack.io/model-context-protocol-roadmap-2026/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
