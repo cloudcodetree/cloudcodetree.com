@@ -10,7 +10,44 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 30 Sep 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 30 Sep 2026 12:09:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your CLAUDE.md Has Instructions Written for Older Models — `/doctor prompt-audit` Audits the Whole Stack in One Command</title>
+      <link>https://code.claude.com/docs/en/changelog</link>
+      <guid isPermaLink="false">2026-09-30-04-doctor-prompt-audit-claude-md-stale-patterns</guid>
+      <pubDate>Wed, 30 Sep 2026 12:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Run /doctor prompt-audit in Claude Code 2.1.283 to surface stale paths, contradicting rules, and outdated prompting patterns across every CLAUDE.md, skill, agent, and command file.</description>
+      <content:encoded><![CDATA[**Run `/doctor prompt-audit` to surface stale paths, contradicting rules, and outdated model directives across every CLAUDE.md, skill, and command file.**
+
+Your CLAUDE.md probably has instructions that were correct six months ago and are now wrong. Rules like "avoid using thinking tags" (Claude Code respects extended thinking now), stale `pnpm run` scripts that no longer exist, or contradicting directives spread across a global `~/.claude/CLAUDE.md` and a project-level one. The model silently tries to satisfy all of them; you rarely know which ones are winning.
+
+**What `/doctor prompt-audit` does.** Added in Claude Code 2.1.283 (September 25), the command reads every CLAUDE.md at every directory level, plus every skill, agent definition, and slash command in `.claude/`. It flags:
+
+- **Stale paths and commands** — references to files or scripts that no longer exist in the repo
+- **Contradicting instructions** — "always use TypeScript" in your global file, "prefer JavaScript for this project" in the project file; the auditor surfaces the conflict instead of leaving it silent
+- **Outdated model directives** — instructions that made sense for older Claude behavior but that current Claude Code docs actually preserve (thinking keywords being the main example)
+- **Redundant rules** — instructions the model already follows without prompting
+
+**How to run it:**
+
+```
+/doctor prompt-audit
+```
+
+Or the alias `/checkup prompt-audit`. The output lists findings by severity. Read them, decide which are correct, and update the files. A real September 14 audit [removed a "thinking adds latency, avoid it" directive and three stale pnpm script references](https://github.com/ericluo04/claude-academic-workflow/pull/37) from a project CLAUDE.md.
+
+**The maintenance framing.** Your instruction files are code and they go stale as the codebase changes and as the underlying model improves. Running `/doctor prompt-audit` after a Claude Code upgrade, or monthly if you're actively building out skills and agents, keeps the signal clean.
+
+**Limits.** The auditor reads the instruction layer only — it cannot tell whether a stale-looking path is intentional (a file you plan to add) or accidental. It also does not check whether your instructions produce the results you actually want; that's a behavioral evaluation, not a pattern audit. You make the final call on every finding.
+
+**Sources:** [Claude Code changelog — Anthropic](https://code.claude.com/docs/en/changelog) · [Claude Code /doctor: what it checks and what changed — tim-schipper.nl](https://tim-schipper.nl/en/blog/claude-code-doctor) · [Prompt audit PR: dated patterns removed from CLAUDE.md — GitHub](https://github.com/ericluo04/claude-academic-workflow/pull/37)]]></content:encoded>
+    </item>
 
     <item>
       <title>OpenAI Dots Launches Persistent Agents in ChatGPT; GPT-6.1 Astra Withheld on Safety</title>
@@ -5721,62 +5758,7 @@ async for msg in query(
 **Sources:** [How the agent loop works — Claude Code Docs](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Context Window Management in AI Agents — Atlan (2026)](https://atlan.com/know/ai-agent/ai-agent-context/what-is-context-window-management-in-ai-agents/) · [Context Engineering for AI Agents — Sourcegraph](https://sourcegraph.com/blog/context-engineering)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your RAG Pipeline Stores Vectors. Here's What Actually Searches Them: FAISS Explained</title>
-      <link>https://huggingface.co/learn/llm-course/chapter5/6</link>
-      <guid isPermaLink="false">2026-09-09-07-faiss-vector-similarity-search-foundations</guid>
-      <pubDate>Wed, 09 Sep 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Vectors</category>
-      <category>Embeddings</category>
-      <description>FAISS is Meta's in-memory C++ library for vector similarity search — the engine under most local RAG stacks. Three index types cover most use cases; persistence is a footgun you need to know about.</description>
-      <content:encoded><![CDATA[**FAISS is Meta's pure in-memory C++ library for vector similarity search — the engine under most local RAG stacks. Three index types cover 95% of use cases; persistence requires an explicit save/load or you lose the index on process exit.**
-
-**What you'll be able to do after this:**
-Use FAISS to build a searchable embedding index, pick the right index type for your dataset size, and understand what `Dataset.add_faiss_index()` is actually doing under the hood of a HuggingFace pipeline.
-
-**Three things that clarify how FAISS works:**
-
-- **FAISS does exactly one thing: find the k nearest vectors to a query.** It knows nothing about text, metadata, or persistence — it only handles arrays of float32. Everything else (chunking, embedding, metadata filtering) lives outside FAISS. Vector databases like Chroma, pgvector, and Qdrant manage all of that and offload the actual search step to FAISS or a similar ANN library internally.
-
-- **Three index types cover most use cases.** `IndexFlatIP` (dot product) / `IndexFlatL2` (Euclidean) does exact brute-force search — 100% recall, but slow past ~500K vectors. `IndexIVFFlat` clusters vectors first with k-means and searches only the nearest clusters — 10–100× faster, with tunable recall via the `nprobe` parameter. `IndexHNSWFlat` uses a navigable graph — fast queries with high recall, but ~100 bytes/vector at M=32. For RAG prototypes under 500K chunks, Flat is fine. Past that, IVF first; HNSW when you need consistently high recall and can afford the RAM.
-
-- **Persistence is not automatic.** FAISS lives entirely in RAM. `faiss.write_index(index, "my.index")` and `faiss.read_index("my.index")` are the only path to survive a process restart. This is FAISS's sharpest footgun.
-
-**Hands-on: semantic search over GitHub issues (HuggingFace LLM Course, Chapter 5.6)**
-
-```python
-from datasets import load_dataset
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer("multi-qa-mpnet-base-dot-v1")
-ds = load_dataset("lewtun/github-issues", split="train")
-
-# Embed a column and add the FAISS index in one pass
-ds = ds.map(
-    lambda x: {"embeddings": model.encode(x["text"])},
-    batched=True, batch_size=32
-)
-ds.add_faiss_index(column="embeddings")  # IndexFlatIP by default
-
-# Query
-query_vec = model.encode("How do I install the library?")
-scores, results = ds.get_nearest_examples("embeddings", query_vec, k=5)
-for title in results["title"][:3]:
-    print(title)
-
-# Save and reload (required for production)
-ds.get_index("embeddings").save("github_issues.faiss")
-ds.load_faiss_index("embeddings", "github_issues.faiss")
-```
-
-**Where FAISS fits vs. a vector DB:** Use FAISS when you need pure speed on a dataset that fits in RAM and you don't need metadata filtering or persistence abstractions. Use Chroma, pgvector, or Qdrant when you need filters, multi-tenancy, or want persistence managed for you.
-
-**Sources:** [Semantic search with FAISS — HuggingFace LLM Course Ch. 5.6](https://huggingface.co/learn/llm-course/chapter5/6) · [Vector Search with FAISS: ANN Explained — PyImageSearch (Feb 2026)](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/) · [FAISS library — Facebook Research GitHub](https://github.com/facebookresearch/faiss)]]></content:encoded>
-    </item>
-
+    
 
                     
     
