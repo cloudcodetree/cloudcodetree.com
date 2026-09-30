@@ -1,5 +1,23 @@
 [
   {
+    "id": "2026-09-30-05-claude-worktree-parallel-agent-sessions",
+    "title": "Two Agents, One Repo, Zero Conflicts — `claude --worktree` Puts Each Session on Its Own Branch",
+    "excerpt": "claude --worktree creates an isolated checkout under .claude/worktrees/ on its own branch, so two sessions share git history but not files — no more write conflicts when running parallel agents.",
+    "author": "Chris Harper",
+    "date": "09-30-2026",
+    "publishedAt": "2026-09-30T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Agents"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/agent-sdk/parallel-agents",
+    "content": "**`claude --worktree feature-auth` gives a second agent its own isolated branch — share git history, not files, so two sessions run in parallel without stepping on each other.**\n\nWhen two Claude Code sessions edit the same working tree at the same time, the second write stomps the first. The fix is git worktrees: each `--worktree` session gets its own checkout directory, on its own branch, while all sessions share a single `.git` directory.\n\n**Setting it up**\n\n```bash\n# Terminal 1 — feature work\nclaude --worktree feature-auth\n\n# Terminal 2 — bug fix happening in parallel\nclaude --worktree bugfix-login\n```\n\nEach command creates a fresh checkout at `.claude/worktrees/<name>/` on a new branch that starts from `origin/HEAD`. The sessions share git history but write to completely different directories — no file conflicts regardless of what each agent edits.\n\nTo start from an existing PR instead of `origin/HEAD`:\n\n```bash\nclaude --worktree \"#1234\"\n```\n\nThe short flag `-w` works too. Auto-generated names are available if you omit the name.\n\n**After the sessions finish**\n\nEach worktree is a normal git branch. Merge or open a PR the same way you would any branch:\n\n```bash\ngit merge --no-ff feature-auth\ngit worktree remove .claude/worktrees/feature-auth\ngit worktree prune   # clean up stale .git/worktrees/ entries\n```\n\n**The cost**\n\nEach worktree gets its own copy of everything git doesn't track — `node_modules`, build outputs, Python's `__pycache__`. On a repo with heavy build artifacts, three parallel worktrees can consume 10–15 GB of disk. If that is a problem, symlink `node_modules` across worktrees or use a shared package cache, but test carefully: some build tools assume the package directory is relative to the working tree.\n\nContext limits are per-session: each worktree agent runs its own independent conversation with no shared context, which is the point, but also means each one will hit the same compaction threshold independently.\n\n**When it pays off**\n\nThe pattern is most useful when two tasks are genuinely independent: writing tests for one module while refactoring another, or a hotfix branch while a feature branch is mid-flight. For dependent work where agent B waits on agent A's output, sequential sessions in the same checkout are simpler.\n\n**Sources:** [Git Worktrees + Claude Code — DEV Community](https://dev.to/stacknotice/git-worktrees-claude-code-run-parallel-ai-agents-on-the-same-repo-2026-mga) · [Parallel Claude Code Sessions with Git Worktrees — AgentsCamp](https://agentscamp.com/guides/advanced/parallel-claude-code-worktrees) · [Claude Code Worktrees: The Complete Guide — crystl.dev](https://crystl.dev/blog/git-worktrees-claude-code/)"
+  },
+  {
     "id": "2026-09-30-04-doctor-prompt-audit-claude-md-stale-patterns",
     "title": "Your CLAUDE.md Has Instructions Written for Older Models — `/doctor prompt-audit` Audits the Whole Stack in One Command",
     "excerpt": "Run /doctor prompt-audit in Claude Code 2.1.283 to surface stale paths, contradicting rules, and outdated prompting patterns across every CLAUDE.md, skill, agent, and command file.",

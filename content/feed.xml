@@ -10,7 +10,65 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 30 Sep 2026 12:09:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 30 Sep 2026 20:03:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Two Agents, One Repo, Zero Conflicts — `claude --worktree` Puts Each Session on Its Own Branch</title>
+      <link>https://code.claude.com/docs/en/agent-sdk/parallel-agents</link>
+      <guid isPermaLink="false">2026-09-30-05-claude-worktree-parallel-agent-sessions</guid>
+      <pubDate>Wed, 30 Sep 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>claude --worktree creates an isolated checkout under .claude/worktrees/ on its own branch, so two sessions share git history but not files — no more write conflicts when running parallel agents.</description>
+      <content:encoded><![CDATA[**`claude --worktree feature-auth` gives a second agent its own isolated branch — share git history, not files, so two sessions run in parallel without stepping on each other.**
+
+When two Claude Code sessions edit the same working tree at the same time, the second write stomps the first. The fix is git worktrees: each `--worktree` session gets its own checkout directory, on its own branch, while all sessions share a single `.git` directory.
+
+**Setting it up**
+
+```bash
+# Terminal 1 — feature work
+claude --worktree feature-auth
+
+# Terminal 2 — bug fix happening in parallel
+claude --worktree bugfix-login
+```
+
+Each command creates a fresh checkout at `.claude/worktrees/<name>/` on a new branch that starts from `origin/HEAD`. The sessions share git history but write to completely different directories — no file conflicts regardless of what each agent edits.
+
+To start from an existing PR instead of `origin/HEAD`:
+
+```bash
+claude --worktree "#1234"
+```
+
+The short flag `-w` works too. Auto-generated names are available if you omit the name.
+
+**After the sessions finish**
+
+Each worktree is a normal git branch. Merge or open a PR the same way you would any branch:
+
+```bash
+git merge --no-ff feature-auth
+git worktree remove .claude/worktrees/feature-auth
+git worktree prune   # clean up stale .git/worktrees/ entries
+```
+
+**The cost**
+
+Each worktree gets its own copy of everything git doesn't track — `node_modules`, build outputs, Python's `__pycache__`. On a repo with heavy build artifacts, three parallel worktrees can consume 10–15 GB of disk. If that is a problem, symlink `node_modules` across worktrees or use a shared package cache, but test carefully: some build tools assume the package directory is relative to the working tree.
+
+Context limits are per-session: each worktree agent runs its own independent conversation with no shared context, which is the point, but also means each one will hit the same compaction threshold independently.
+
+**When it pays off**
+
+The pattern is most useful when two tasks are genuinely independent: writing tests for one module while refactoring another, or a hotfix branch while a feature branch is mid-flight. For dependent work where agent B waits on agent A's output, sequential sessions in the same checkout are simpler.
+
+**Sources:** [Git Worktrees + Claude Code — DEV Community](https://dev.to/stacknotice/git-worktrees-claude-code-run-parallel-ai-agents-on-the-same-repo-2026-mga) · [Parallel Claude Code Sessions with Git Worktrees — AgentsCamp](https://agentscamp.com/guides/advanced/parallel-claude-code-worktrees) · [Claude Code Worktrees: The Complete Guide — crystl.dev](https://crystl.dev/blog/git-worktrees-claude-code/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your CLAUDE.md Has Instructions Written for Older Models — `/doctor prompt-audit` Audits the Whole Stack in One Command</title>
@@ -5716,48 +5774,7 @@ One more limit: the bundle URL expires. Don't export on Friday and hand off Mond
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Three Agent SDK Settings That Prevent a Runaway Loop From Running All Night</title>
-      <link>https://code.claude.com/docs/en/agent-sdk/agent-loop</link>
-      <guid isPermaLink="false">2026-09-09-06-agent-sdk-loop-max-turns-budget-effort</guid>
-      <pubDate>Wed, 09 Sep 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Set max_turns, max_budget_usd, and effort before deploying any Agent SDK loop — none have defaults, and an open-ended prompt without limits runs until the context window is exhausted.</description>
-      <content:encoded><![CDATA[**Set `max_turns`, `max_budget_usd`, and `effort` before your first production Agent SDK call — none of them have defaults, and an open-ended prompt with no limits will run until context is exhausted.**
-
-When you call `query()` in the Claude Agent SDK, the loop runs until Claude decides it's done. On a well-scoped task ("fix the failing test in auth.ts") that's usually a few turns. On an open-ended one ("improve this codebase") Claude will keep going until it hits a wall you didn't intend to set.
-
-**`max_turns` / `maxTurns`** counts tool-use turns only (one round of Claude producing tool calls + the SDK executing them). A lint fix runs in 5–10 turns; a full-module refactor might need 30–50. When the limit is hit, `ResultMessage.subtype` is `"error_max_turns"` and `session_id` is preserved — you can resume with a higher limit rather than starting over.
-
-**`max_budget_usd` / `maxBudgetUsd`** caps spend across the whole agent tree, including subagents. Once the budget is hit, Claude Code stops spawning further subagents and exits cleanly. Useful for batch jobs where you need predictable cost per item.
-
-**`effort`** trades reasoning depth for cost. `"low"` for file lookups and directory scans; `"medium"` for routine edits; `"high"` for debugging or refactors; `"xhigh"` / `"max"` for deep multi-step analysis. Set it per subagent via `AgentDefinition.effort` to use cheap reasoning for search tasks and thorough reasoning for the synthesis step.
-
-```python
-from claude_agent_sdk import query, ClaudeAgentOptions
-
-async for msg in query(
-    prompt="Refactor the auth module and update all tests",
-    options=ClaudeAgentOptions(
-        allowed_tools=["Read", "Edit", "Bash", "Glob", "Grep"],
-        max_turns=40,
-        max_budget_usd=0.50,
-        effort="high",
-    ),
-):
-    if msg.type == "result":
-        print(f"Status: {msg.subtype}, Cost: ${msg.total_cost_usd:.4f}")
-```
-
-**Limit to know:** `max_turns` and `max_budget_usd` have no defaults — if you don't set them, there's no automatic stop. An agent given `"improve this codebase"` without limits will run until the context window is exhausted. Also: `effort` is silently ignored on models that don't support it, so pin your model explicitly (`model="claude-sonnet-5"`) if you're relying on `effort` for cost control.
-
-**Sources:** [How the agent loop works — Claude Code Docs](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Context Window Management in AI Agents — Atlan (2026)](https://atlan.com/know/ai-agent/ai-agent-context/what-is-context-window-management-in-ai-agents/) · [Context Engineering for AI Agents — Sourcegraph](https://sourcegraph.com/blog/context-engineering)]]></content:encoded>
-    </item>
-
+    
     
 
                     
