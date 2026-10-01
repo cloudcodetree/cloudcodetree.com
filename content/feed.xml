@@ -10,7 +10,137 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 30 Sep 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 01 Oct 2026 04:04:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Anthropic, OpenAI, and Google Plan SAFA — the Industry Safety Body That Would Require Pre-Deployment Audits for Frontier Models</title>
+      <link>https://www.newsbytesapp.com/news/science/google-openai-and-anthropic-plan-safa-to-set-ai-rules/tldr</link>
+      <guid isPermaLink="false">2026-10-01-01-safa-frontier-ai-standards-industry-self-regulatory-body</guid>
+      <pubDate>Thu, 01 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Policy</category>
+      <description>Three frontier labs announced SAFA on September 25 — an industry-led, FINRA-style body to set pre-deployment testing and auditing requirements for frontier AI, targeting a year-end launch.</description>
+      <content:encoded><![CDATA[**Three frontier labs announced the Standards Authority for Frontier AI (SAFA) on September 25 — an industry-led body modeled on FINRA that would set pre-deployment testing and auditing requirements, without a government role.**
+
+Google, OpenAI, and Anthropic have been coordinating since July to build SAFA, a self-regulatory body that would establish mandatory pre-deployment safety testing, incident-reporting rules, and qualification standards for third-party auditors. The structure is explicitly modeled on FINRA, the Wall Street self-regulator: industry sets the standards, funds the body, and enforces them — no government agency involved. Former White House AI advisor Sriram Krishnan has been approached as CEO; a formal launch is targeted by year-end 2026.
+
+**Limits:** SAFA is a plan, not an operational body. Industry self-regulation has a mixed track record; the body's authority is only as strong as its founding members' willingness to follow it. OpenAI has separately called for governments to play a role, which could mean competing frameworks. The announcement covers "pre-deployment testing" without specifying what tests pass or who runs them.
+
+**Why it matters:** If SAFA ships with real teeth, the frontier models you build on will carry audited safety records for the first time. That changes model selection from "trust the vendor's benchmark" to "compare third-party audit findings" — a meaningful shift when you're choosing a model for a production workload.
+
+**Sources:** [Google, OpenAI and Anthropic plan SAFA to set AI rules — NewsBytesApp](https://www.newsbytesapp.com/news/science/google-openai-and-anthropic-plan-safa-to-set-ai-rules/tldr) · [Google, OpenAI, Anthropic Plan Own AI Regulator — Outspoken Digest](https://outspokendigest.com/article/google-openai-anthropic-frontier-ai-standards-authority-september-2026) · [Google, OpenAI, Anthropic Form New AI Self-Regulation Body — Guru Focus](https://www.gurufocus.com/news/9097076/google-openai-anthropic-form-new-ai-selfregulation-body)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>`--output-format stream-json` Turns a Long Claude Code Run Into a Live NDJSON Feed Your Pipeline Can Act On</title>
+      <link>https://code.claude.com/docs/en/cli-reference</link>
+      <guid isPermaLink="false">2026-10-01-02-claude-code-stream-json-output-format-ci-pipeline</guid>
+      <pubDate>Thu, 01 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>stream-json emits one NDJSON event per step as Claude runs — pipe through jq to watch tool calls, capture cost, and trigger conditional pipeline steps without waiting for the final result.</description>
+      <content:encoded><![CDATA[**`--output-format stream-json` turns a long Claude Code run into a live NDJSON feed — pipe it through `tee` and `jq` to observe what's happening and extract cost or tool-call counts before the run finishes.**
+
+Claude Code's `-p` (print) mode has three output formats:
+
+- `text` — human-readable default; great for terminals, useless for scripts
+- `json` — one JSON envelope after the run finishes: `{type, result, cost_usd, duration_ms, usage}`
+- `stream-json` — NDJSON events emitted as the run progresses, one event per step
+
+Use `json` for simple one-shot queries where you only need the final answer. Use `stream-json` when the run is long and you want observability: log individual tool calls, surface progress to a dashboard, or trigger downstream steps without polling.
+
+**Workflow: capture and parse in parallel**
+
+```bash
+# Run the task and write every event to a log; watch live at the same time
+claude -p "Review the last 5 commits and list files touched"   --output-format stream-json   --verbose   | tee /tmp/claude-run.ndjson
+
+# After the run: extract cost and token usage from the final result event
+jq -rs 'last | {cost_usd, duration_ms, usage}' /tmp/claude-run.ndjson
+
+# Count how many individual tool calls fired
+jq -rs '[.[] | select(.type == "tool")] | length' /tmp/claude-run.ndjson
+```
+
+Add `--verbose` to include tool-call events with the tool name, input arguments, and output. Without it, you get turn-level events but not the details of what each tool did.
+
+**When to reach for it over `json`:** stream-json is worthwhile when the run takes more than a few seconds and you want CI logs that show what Claude actually did — not just the final answer. For quick one-shot prompts, `json` is simpler and produces a single parseable line.
+
+**Limits:** The NDJSON event schema is versioned; check the [`--output-format` reference](https://code.claude.com/docs/en/cli-reference) before treating specific field names as stable across CLI versions. The `jq` selects above use field names consistent with current releases but may need updating after major CLI upgrades.
+
+**Sources:** [Claude Code CLI Reference — code.claude.com](https://code.claude.com/docs/en/cli-reference) · [Claude Code in CI/CD and Headless Automation — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_cicd_and_headless_automation.html) · [Headless Claude in CI — agentpatterns.ai](https://agentpatterns.ai/workflows/headless-claude-ci/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>An Embedding Is a Dense Vector — Here's How to Generate, Compare, and Store Them With sentence-transformers</title>
+      <link>https://sbert.net/docs/quickstart.html</link>
+      <guid isPermaLink="false">2026-10-01-03-sentence-transformers-text-embeddings-cosine-similarity-foundations</guid>
+      <pubDate>Thu, 01 Oct 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Embeddings</category>
+      <category>HuggingFace</category>
+      <description>What you'll be able to do after this: turn raw text into semantic vectors, measure similarity with cosine distance, and plug the output into any retrieval pipeline — 8 lines of Python, no GPU required.</description>
+      <content:encoded><![CDATA[**An embedding turns text into a dense vector so similarity math can operate on meaning, not keywords — sentence-transformers makes this an 8-line, no-GPU install.**
+
+**What you'll be able to do after this:** generate embeddings for arbitrary text, compare them by cosine similarity to find semantically related content, and feed the output to any vector store that accepts numpy arrays — starting on a free CPU with no cloud account required.
+
+- sentence-transformers wraps bi-encoder models and returns a numpy array from `.encode()`. `all-MiniLM-L6-v2` is the 80 MB starter: 384 dimensions, CPU-friendly, 256-token input window
+- Passing `normalize_embeddings=True` returns unit-norm vectors — after that, a dot product equals cosine similarity, which is faster than calling `util.cos_sim` on large batches
+- The same `.encode()` call handles a single string or a list of thousands; always pass a list to get 10–100× better throughput over a single-item loop
+
+**Walk-through:**
+
+```bash
+pip install -U sentence-transformers
+```
+
+```python
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model = SentenceTransformer("all-MiniLM-L6-v2")  # ~80 MB, downloads once
+
+docs = [
+    "pgvector adds cosine similarity to Postgres",
+    "ChromaDB is an in-process vector store for prototyping",
+    "The weather in Paris is mild in October",
+]
+
+# encode returns (n_docs, 384) float32 array
+# normalize_embeddings=True: unit-norm vectors → dot product = cosine similarity
+embeddings = model.encode(docs, normalize_embeddings=True)
+
+# semantic search: encode the query, find the nearest doc
+query = model.encode("which vector database runs in Python without a server?",
+                     normalize_embeddings=True)
+scores = embeddings @ query           # shape: (3,)
+best = docs[int(np.argmax(scores))]   # → "ChromaDB is an in-process vector store..."
+print(f"Best match: {best}")
+```
+
+**Picking a model:**
+- `all-MiniLM-L6-v2` — 384 dims, 80 MB, fast CPU baseline, good for most tasks
+- `all-mpnet-base-v2` — 768 dims, 420 MB, higher quality, slower
+- For production: benchmark on your actual task using the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) — a model that tops the overall average can underperform on domain-specific text
+
+**Limits to know before you ship:**
+- `all-MiniLM-L6-v2` has a **256-token input limit** — inputs longer than that are silently truncated. Always chunk first (see the RecursiveCharacterTextSplitter post).
+- Embeddings from **different models are not interchangeable**: switch models and you must re-encode everything already in your index.
+- A 384-dim float32 vector is ~1.5 KB; 1 million documents ≈ 1.5 GB in memory. Budget storage before indexing a large corpus.
+
+The [sbert.net quickstart](https://sbert.net/docs/quickstart.html) covers five more patterns in the same format, including batched encoding and semantic search over a large corpus with a FAISS index.
+
+**Sources:** [SentenceTransformers Quickstart — sbert.net](https://sbert.net/docs/quickstart.html) · [sentence-transformers/all-MiniLM-L6-v2 — Hugging Face](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) · [MTEB Leaderboard — Hugging Face Spaces](https://huggingface.co/spaces/mteb/leaderboard) · [Sentence Transformers Cheat Sheet — theneuralbase.com](https://theneuralbase.com/cheatsheet/sentence-transformers/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Two Agents, One Repo, Zero Conflicts — `claude --worktree` Puts Each Session on Its Own Branch</title>
@@ -5623,157 +5753,9 @@ Three findings that matter:
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Serve Multiple Fine-Tuned LoRA Adapters on One vLLM Instance</title>
-      <link>https://docs.vllm.ai/en/latest/features/lora/</link>
-      <guid isPermaLink="false">2026-09-10-03-vllm-multi-lora-adapter-serving</guid>
-      <pubDate>Thu, 10 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <description>One vLLM server, multiple LoRA adapters — each request selects its adapter via the `model` param. --enable-lora and --lora-modules are all you need to start; dynamic load/unload via REST is available too.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** run a single vLLM server that hosts a shared base model and routes each request to a different fine-tuned LoRA adapter by name — no extra GPU required for each adapter.
-
-- Load multiple LoRA adapters at launch with `--lora-modules`; clients select the adapter by passing its name in the `model` field
-- Control GPU residency with `--max-loras` and spill the rest to a CPU LRU cache for larger adapter pools
-- Add or remove adapters at runtime — no server restart — with the `/v1/load_lora_adapter` endpoint
-
-**How it works.** The base model weights stay frozen and are computed once per batch. Each request also computes its LoRA delta weights (small — often 10–200 MB per adapter) which are then added to the base output. vLLM keeps up to `max_loras` adapters in GPU memory; others live in a CPU LRU cache and are paged in on demand.
-
-**Start the server:**
-
-```bash
-vllm serve meta-llama/Llama-3.2-8B-Instruct \
-  --enable-lora \
-  --max-loras 4 \
-  --max-lora-rank 64 \
-  --lora-modules \
-    '{"name":"sql-bot","path":"company/llama-sql-lora"}' \
-    '{"name":"support-bot","path":"company/llama-support-lora"}'
-```
-
-Set `--max-lora-rank` to match your highest-rank adapter exactly — setting it higher wastes GPU memory allocation.
-
-**Route requests:**
-
-```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"model":"sql-bot","messages":[{"role":"user","content":"List orders by date"}]}'
-```
-
-The base model is still reachable by its original model name.
-
-**Dynamic load/unload (optional).** Set `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`, then:
-
-```bash
-# Load a new adapter without restarting
-curl -X POST http://localhost:8000/v1/load_lora_adapter \
-  -d '{"lora_name":"new-adapter","lora_path":"/mnt/models/new-adapter"}'
-```
-
-**Where this breaks down.** Adapter switching adds ~2–5% per-request latency overhead for typical ranks. If nearly all traffic goes to one adapter, a dedicated server is cheaper. All adapters must share the same base model architecture — you cannot mix Llama and Mistral adapters on one server. High adapter diversity under load can cause LRU thrashing.
-
-**Sources:** [vLLM LoRA Adapters docs](https://docs.vllm.ai/en/latest/features/lora/), [vLLM multi-LoRA blog (Feb 2026)](https://vllm.ai/blog/2026-02-26-multi-lora), [Spheron multi-adapter serving guide](https://www.spheron.network/blog/lora-multi-adapter-serving-gpu-cloud/), [Anyscale multi-LoRA docs](https://docs.anyscale.com/llm/serving/multi-lora)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Cap Claude's Thinking Budget Globally: The New `maxEffortLevel` Setting in 2.1.267</title>
-      <link>https://code.claude.com/docs/en/settings-reference</link>
-      <guid isPermaLink="false">2026-09-10-02-claude-code-max-effort-level-cap</guid>
-      <pubDate>Thu, 10 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code 2.1.267 adds maxEffortLevel to settings.json. It puts a ceiling on effort level regardless of how it was set — by the user, a flag, an env var, or the model's own default. Bedrock, Vertex, and Foundry included.</description>
-      <content:encoded><![CDATA[**`maxEffortLevel` in Claude Code 2.1.267 caps the thinking budget across every provider — users can't go above it, even with `/effort max`.**
-
-Claude Code 2.1.267 (released September 9) adds `maxEffortLevel` to `settings.json`. It puts a ceiling on the effort level regardless of how the level was requested — whether from `/effort`, `--effort`, `CLAUDE_CODE_EFFORT_LEVEL`, the model picker, or even the model's own default. A user can still pick a lower level; they just can't exceed the cap.
-
-**Adding the setting:**
-
-```json
-// ~/.claude/settings.json (user-level cap)
-{
-  "maxEffortLevel": "medium"
-}
-```
-
-Or scoped to one model inside `modelSettings`:
-
-```json
-{
-  "modelSettings": {
-    "claude-fable-5-1-20260901": {
-      "maxEffortLevel": "high"
-    }
-  }
-}
-```
-
-Valid values: `"low"`, `"medium"`, `"high"`, `"xhigh"`, `"max"`.
-
-**Scope stacking:** when several scopes define a cap (user + project + managed), the lowest wins. A project file can restrict further but cannot raise a stricter cap set above it.
-
-**Three situations where this pays off:**
-
-1. **Org deployments** — managed settings can ship a `maxEffortLevel` that keeps every team member under a cost ceiling without touching their individual configs or restricting which tasks they run.
-2. **CI pipelines** — a project-level cap stops a scheduled pipeline from burning max-thinking budget on a routine lint check or a file scan.
-3. **Budget-conscious local sessions** — set `"medium"` globally and override per task with `/effort high` only when you actually need extended thinking.
-
-**The trade-off to state clearly:** a lower cap genuinely reduces quality on tasks that benefit from extended thinking. Debugging a subtle race condition at `medium` is not the same as at `max`. Pick your ceiling by the class of work your sessions typically do, not by the cheapest option available — and leave room to go higher for the sessions that need it.
-
-**Sources:** [Claude Code changelog — 2.1.267](https://code.claude.com/docs/en/changelog) · [Settings reference — maxEffortLevel](https://code.claude.com/docs/en/settings-reference) · [Community discussion (LINUX DO)](https://linux.do/t/topic/2883035)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Link Your Repo Before the First Prompt: What the Claude Design Export Bundle Hands Claude Code</title>
-      <link>https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux</link>
-      <guid isPermaLink="false">2026-09-10-01-claude-design-handoff-bundle-claude-code</guid>
-      <pubDate>Thu, 10 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>The handoff button bundles design files, chat history, and a README. Whether Claude Code lands your real components depends on one step done before the first prompt.</description>
-      <media:content url="https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a32f0ce3acdbbc3c4395c05_og-claude-design.jpg" medium="image"/>
-      <media:thumbnail url="https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/6a32f0ce3acdbbc3c4395c05_og-claude-design.jpg"/>
-      <content:encoded><![CDATA[**The Claude Design export bundles design files, chat history, and a README — but whether Claude Code lands your actual components depends on linking your codebase before you start.**
-
-**What you'll be able to do after this:** take a Claude Design prototype to code that uses your existing `Button`, `Card`, and `Modal` components — without a manual substitution pass.
-
-**Three things that determine handoff quality:**
-- **A linked codebase gives Claude Design component-level context.** Without it, Claude Code writes Tailwind and generic HTML. With it, it generates calls to the components it already knows from your repo.
-- **Chat history is part of the bundle.** Every design decision you explained in conversation ("this header scrolls sticky on mobile") carries across to Claude Code. Write your constraints in chat, not just in the canvas.
-- **Names carry through.** If you called something "PricingCard" during the design conversation, that name appears in the handoff prompt. Naming elements clearly before Polish is free documentation for the handoff.
-
-**Steps:**
-
-1. **Connect your codebase first.** In Claude Design, click **Import** and connect your GitHub repo or a local directory. Claude reads your component library — this takes a few minutes and is what makes the next steps component-aware instead of generic.
-
-2. **Design normally.** Claude now knows which `Tabs`, `Dialog`, and `Badge` components exist and generates the design using your existing ones rather than placeholders.
-
-3. **Document your decisions in chat as you go.** When you make a choice ("the empty state shows after a 3-second delay, not on load"), say it in the chat. It enters the bundle and Claude Code inherits it.
-
-4. **Export the bundle.** Click **Export → Hand off to Claude Code**. You get a URL and a ready-to-paste prompt.
-
-5. **Paste into Claude Code.** The session fetches the bundle and begins implementing — editing existing components rather than generating from scratch.
-
-**The failure mode independent practitioners report:** the handoff breaks down when designs lack component labels, loading states, and data assumptions. Claude Code inherits the ambiguity from the canvas, and pretty-but-underspecified designs become cleanup work rather than a running start. An extra five minutes on edge cases in the design conversation saves more than it costs.
-
-One more limit: the bundle URL expires. Don't export on Friday and hand off Monday without checking whether it's still valid.
-
-**Sources:** [Using Claude Design for prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux) · [Set up your design system in Claude Design — Claude Help Center](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) · [Claude Design doesn't fail in the canvas. It fails after export.](https://claudedesign.substack.com/p/the-claude-design-mistake-you-dont)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
 
