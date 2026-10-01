@@ -10,8 +10,111 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 01 Oct 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 01 Oct 2026 12:13:00 +0000</lastBuildDate>
 
+
+
+    <item>
+      <title>Your Two Claude Code Sessions Can Now Message Each Other — Mention the Target With `@` and Claude Routes the Handoff</title>
+      <link>https://code.claude.com/docs/en/cross-session-messaging</link>
+      <guid isPermaLink="false">2026-10-01-04-claude-code-cross-session-messaging-list-agents</guid>
+      <pubDate>Thu, 01 Oct 2026 12:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>Cross-session messaging (v2.1.224+) lets one Claude Code session warn another about a breaking change or hand off a decision — text only, works on the same machine with no extra setup.</description>
+      <content:encoded><![CDATA[**Cross-session messaging lets one Claude Code session warn another about a breaking change or send a decision across — useful for parallel worktrees or a frontend/backend split, with no relay from you.**
+
+When you run a library in one terminal and a consuming app in another, the usual workflow is: make a change in session A, then manually re-explain it in session B. Cross-session messaging (v2.1.224+, macOS and Linux) removes that relay.
+
+**How it works.** Claude uses two tools under the hood — `ListAgents` to discover your other live sessions and `SendMessage` to write to one. You never call either directly. Ask Claude to pass something and it handles the addressing:
+
+```
+Let the payments-api session know that users.name is now users.display_name
+```
+
+To name a specific target, type `@` followed by the session name — Claude Code autocompletes from the live session list. For names with spaces: `@"release notes"`.
+
+**`/list-agents`** shows what Claude can reach: subagents, your other sessions on this machine, and (when connected to Remote Control) cloud sessions and sessions on other machines.
+
+**Useful patterns:**
+- **Parallel worktrees on the same repo:** each session notifies the other when a shared API contract changes.
+- **Monorepo frontend/API split:** the API session sends "schema migration finished" instead of you watching two terminals.
+
+**Wait-for-idle:** ask Claude to notify you when a long task finishes:
+```
+Tell me when the migration session finishes what it's working on
+```
+Claude subscribes; the other session sends one notice when it next goes idle.
+
+**What crosses: text only.** Not conversation history, not files, not permissions. The receiving session's own permission rules still apply to anything the message asks for. A received message can never answer a permission prompt on your behalf or change project configuration.
+
+**Limits:** same-machine only without Remote Control; ~1 million character message cap; rapid bursts to one session are rate-limited automatically; macOS and Linux only for same-machine (native Windows requires v2.1.234+).
+
+**Sources:** [Cross-session messaging — Claude Code docs](https://code.claude.com/docs/en/cross-session-messaging) · [Week 32 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w32) · [Claude Code cross-session communication — nexforce.ai](https://nexforce.ai/en/blog/claude-code-sessions-communicate-mid-task)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>VS Code 1.140 Makes HydraFusion the Default and Adds Experimental Multi-Folder Agent Sessions</title>
+      <link>https://code.visualstudio.com/updates/v1_140</link>
+      <guid isPermaLink="false">2026-10-01-05-vscode-1140-hydrafusion-default-multi-folder-agent-sessions</guid>
+      <pubDate>Thu, 01 Oct 2026 12:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>LLM</category>
+      <description>VS Code 1.140 (September 30) enables HydraFusion multi-model routing by default and adds experimental multi-folder agent sessions where each chat owns its own folder without cross-contamination.</description>
+      <content:encoded><![CDATA[**VS Code 1.140 (released September 30) turns on HydraFusion multi-model routing by default in Copilot chat and adds experimental multi-folder agent sessions that isolate agent work across separate repos.**
+
+**HydraFusion** is now on by default in VS Code's Copilot chat. It automatically routes each coding task across three execution patterns: route to a single model directly, cascade from a cheaper model to a stronger one when quality gates aren't met, or have a second model critique and revise the first's output. GitHub's own benchmarks claim 67% cost reduction vs Claude Opus 5 at matched quality on TerminalBench 2.1 — those numbers are GitHub's, independent benchmarks pending. It remains a research preview and its behavior may change.
+
+**Multi-folder agent sessions (experimental)** let each chat tab own its own folder, branch, and PR. Agent work on repo A cannot contaminate repo B in the same VS Code window. Useful for managing related but separate services or packages without leaking context between sessions.
+
+**Worktree symlink reuse:** the new `git.worktreeSymlinkFolders` setting symlinks `node_modules` (and other directories listed in `.gitignore`) from the main checkout into each new worktree. This cuts worktree setup time from "full install" to "symlink creation" on repos with heavy dependencies.
+
+**Limits:** HydraFusion is still a research preview — intermediate model drafts are hidden until completion, and the routing rules may change. Multi-folder sessions are experimental and may not persist across restarts.
+
+**Why it matters:** HydraFusion's cascade pattern (try a cheaper model, escalate only if a quality gate fails) is a practical design principle for anyone building multi-model routing in their own agent stack — regardless of whether you use VS Code Copilot.
+
+**Sources:** [VS Code 1.140 release notes](https://code.visualstudio.com/updates/v1_140) · [VS Code 1.140 agent coordination — Visual Studio Magazine](https://visualstudiomagazine.com/articles/2026/09/30/vs-code-1-140-expands-agent-coordination-across-folders-and-machines.aspx) · [Project HydraFusion — GitHub Blog](https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>The Claude Design Export Is a Bundle — What's in the ZIP, How Claude Code Reads It, and Where Drift Starts</title>
+      <link>https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux</link>
+      <guid isPermaLink="false">2026-10-01-06-claude-design-handoff-bundle-drift-return-trip</guid>
+      <pubDate>Thu, 01 Oct 2026 12:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>The Claude Design "Handoff to Claude Code" export packages components, tokens, and a target-stack README into a bundle Claude Code reads as a spec — drift starts the moment you edit generated code without returning to the canvas.</description>
+      <content:encoded><![CDATA[**"Handoff to Claude Code" packages your Claude Design project into a bundle — components, design tokens, layout, and a README — that Claude Code reads as a spec. Drift starts the moment you edit generated code without returning to the canvas.**
+
+**What you'll be able to do after this:** export a Claude Design project as a handoff bundle, load it into a Claude Code session, and know the decision rule for "iterate here vs. return to the canvas."
+
+**Three things to know before you start:**
+
+1. The bundle contains the component HTML/CSS/JS, the design tokens used on the canvas, a layout spec, and a README that tells Claude Code the target stack and conventions. Claude Code reads the README first and works from the spec rather than guessing from the visual output.
+2. Drift between the design and the code begins the first time you edit generated code without going back to the canvas to make the change there. The fix is to return to Claude Design and re-export; trying to manually reconcile grows exponentially with each round.
+3. The reverse trip already exists: `/design` in Claude Code reads your repo's existing tokens before drawing. Use it when you want to bring something already-coded back into the design surface for a new direction — it starts from your system, not from scratch.
+
+**Concrete walkthrough:**
+
+1. Complete your prototype in Claude Design. Before exporting, test empty states, error states, and varying data volumes — these are the scenarios the bundle consistently misses. Revise on canvas now.
+2. Select **Export → Handoff to Claude Code**. Choose **Local agent** (for a terminal session) or **Web session** (for claude.ai). Claude Design generates a one-line command to paste.
+3. Paste the command into a new Claude Code session. Claude fetches the bundle, reads the README, and generates components following the spec.
+4. If the inferred stack is wrong (the README defaults to React/Tailwind unless your codebase is linked), re-open the Claude Design chat, note your target stack explicitly, and re-export.
+5. For subsequent changes: revise on the Claude Design canvas, re-export, paste the new command. Editing generated code directly is fine for one-offs, but breaks the sync for anything you want to keep in step with the design.
+
+**Limits:** The bundle URL expires — share it before collaborating with teammates. Linking a full monorepo causes browser lag in Claude Design; attach only the package or directory containing your relevant components. Inline comments added in Claude Design may not survive saves; paste them into the canvas chat instead.
+
+**Sources:** [Using Claude Design for prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design to Claude Code handoff — claudefa.st](https://claudefa.st/blog/guide/mechanics/claude-design-handoff) · [Claude Design → Claude Code handoff — claude-code-playbook](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)]]></content:encoded>
+    </item>
 
     <item>
       <title>Anthropic, OpenAI, and Google Plan SAFA — the Industry Safety Body That Would Require Pre-Deployment Audits for Frontier Models</title>
@@ -5619,140 +5722,9 @@ Two things stand out for engineers running agents:
 **Sources:** [Alignment assessment of recent cybersecurity incidents — Anthropic](https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents) · [Anthropic Discloses Fourth AI Hacking Incident — The Hacker News](https://thehackernews.com/2026/09/anthropic-ai-models-breached-real.html) · [Anthropic's safety monitor missed a live cyberattack — VentureBeat](https://venturebeat.com/security/anthropics-safety-monitor-missed-a-live-cyberattack-because-mythos-5s-reasoning-said-everything-was-fine) · [Claude Breaches Sandbox — InfoQ](https://www.infoq.com/news/2026/08/claude-sandox-breach/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Dataset Is Ready — Fine-Tune a 7B Model on a Free T4 GPU in Under 20 Minutes: Unsloth + QLoRA on Colab</title>
-      <link>https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune</link>
-      <guid isPermaLink="false">2026-09-10-06-qlora-unsloth-colab-free-gpu</guid>
-      <pubDate>Thu, 10 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>QLoRA quantizes a 7B base model to 4-bit so the adapter matrices train on a free 16 GB T4 GPU. Unsloth runs the same kernels 2x faster with 70% less VRAM than the HuggingFace baseline.</description>
-      <media:content url="https://unsloth.ai/images/unsloth_logo_light.png" medium="image" />
-      <media:thumbnail url="https://unsloth.ai/images/unsloth_logo_light.png" />
-      <content:encoded><![CDATA[**QLoRA + Unsloth lets you fine-tune a Llama 3.1 8B or Qwen3 checkpoint on a free 16 GB Colab T4 GPU in under 20 minutes — quantize the base to 4-bit, train only the adapter matrices, export to GGUF.**
-
-**What you'll be able to do after this:**
-- Fine-tune any 7–8B model on your own dataset without paying for GPU time
-- Understand why QLoRA needs only 8–10 GB VRAM for a model that normally requires 28 GB
-- Export the trained adapter and merge it into a GGUF file for Ollama or load it into vLLM
-
-**Why it fits a free GPU.**
-QLoRA quantizes the base model's weights to 4-bit (read-only in memory) and trains only small low-rank adapter matrices on top. At rank 16 out of a 4096-dimension projection, those adapter matrices are ~0.4% of the original layer's parameters — almost all the VRAM is used for the frozen base, and almost all the compute is on the tiny adapters. [Unsloth](https://unsloth.ai/) reimplements the attention kernels in Triton, roughly halving training time and cutting VRAM 70% versus the HuggingFace `transformers` baseline per Unsloth's own benchmarks.
-
-**Steps (all inside the Colab notebook):**
-
-1. Open the [official Unsloth Llama 3.1 8B Colab notebook](https://www.gptfrontier.com/unsloth-qlora-llama-3-tutorial/) (or the [Qwen3 version](https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune)) and set the runtime to **T4 GPU** under Runtime → Change runtime type.
-
-2. `!pip install unsloth` — installs Unsloth and its Triton kernels (~90 seconds).
-
-3. Load base model in 4-bit:
-```python
-from unsloth import FastLanguageModel
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
-    max_seq_length=2048,
-    load_in_4bit=True,
-)
-```
-
-4. Add LoRA adapters:
-```python
-model = FastLanguageModel.get_peft_model(
-    model, r=16,
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-    lora_alpha=16,
-    lora_dropout=0,
-)
-```
-
-5. Format your dataset in the chat template (Alpaca or ShareGPT format), point `SFTTrainer` at it, and run `trainer.train()`. A 1k-row dataset takes ~8 minutes on a T4.
-
-6. Export merged weights:
-```python
-model.save_pretrained_gguf("model", tokenizer, quantization_method="q4_k_m")
-# then: ollama create my-model -f Modelfile
-```
-
-**Real limits:** The free Colab T4 has 16 GB VRAM and disconnects after ~3 hours — enough for 7–8B models at 4-bit, but not 13B+ (use Colab Pro or an A100 notebook for larger models). Longer training runs risk disconnect; save a checkpoint early (`save_steps=50`). Unsloth's "same quality as full-precision" claim rests on its own benchmarks; run a before/after eval on your specific task rather than trusting training-loss alone.
-
-**Sources:** [Unsloth official notebooks — Qwen3](https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune) · [Fine-Tune Llama 3.1 8B on Colab — GPT Frontier](https://www.gptfrontier.com/unsloth-qlora-llama-3-tutorial/) · [QLoRA Fine-Tuning on a Consumer GPU — Stack Junkie](https://www.stack-junkie.com/blog/lora-fine-tuning-consumer-gpu) · [LoRA & QLoRA Fine-Tuning 2026 Guide — Meta Intelligence](https://www.meta-intelligence.tech/en/insight-lora-finetuning) · [Build a Stable QLoRA Pipeline with Unsloth — MarkTechPost](https://www.marktechpost.com/2026/03/03/how-to-build-a-stable-and-efficient-qlora-fine-tuning-pipeline-using-unsloth-for-large-language-models/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Expand Claude Code's Workspace Mid-Session with `--add-dir` and `/add-dir`</title>
-      <link>https://code.claude.com/docs/en/cli-reference</link>
-      <guid isPermaLink="false">2026-09-10-05-claude-code-add-dir-multi-directory</guid>
-      <pubDate>Thu, 10 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code's --add-dir flag and /add-dir slash command let you add trusted directories to a session without restarting. For teams, additionalDirectories in settings.json applies the same directories to every session.</description>
-      <content:encoded><![CDATA[**`--add-dir` gives Claude Code read-write access to a directory outside your current working tree — useful for monorepos, shared libraries, and cross-repo refactors.**
-
-By default, Claude Code's file access is scoped to the directory you started it in. `--add-dir` extends that:
-
-```bash
-# At launch: grant access to two extra directories
-claude --add-dir ../shared-components --add-dir ~/company/design-tokens
-
-# During an interactive session: add a directory without restarting
-/add-dir ../backend-api
-```
-
-Paths resolve relative to the directory where Claude Code was started.
-
-**Why this matters for monorepos.** Working on a frontend app and need Claude Code to read (and edit) a sibling package? Without `--add-dir`, you work from the repo root and drown in unrelated context. With it, you get targeted access to exactly the packages you need.
-
-**Team default: `additionalDirectories` in settings.json.** For a team that always needs access to the same sibling repo:
-
-```json
-// .claude/settings.json (committed — shared with the team)
-{
-  "additionalDirectories": ["../shared-api", "../design-system"]
-}
-```
-
-Every session loading this project config gets the directories automatically.
-
-**Loading CLAUDE.md from additional directories (opt-in).** Since 2.1.20, set `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD=1` and Claude Code will also load any `CLAUDE.md` found in additional directories — useful when a sibling repo has its own project instructions.
-
-**Where this breaks down.** `--add-dir` grants full read *and write* access — there is no read-only mode. Don't add directories you don't want Claude to be able to modify. There is also no per-directory permission control. For large monorepos, adding too many packages inflates context; be selective.
-
-**Sources:** [Claude Code CLI reference](https://code.claude.com/docs/en/cli-reference), [GitHub issue #21138 — CLAUDE.md loading from --add-dir](https://github.com/anthropics/claude-code/issues/21138), [Boris Cherny / Threads tip](https://www.threads.com/@boris_cherny/post/DWfjvGZFH8b/use-add-dir-to-give-claude-access-to-more-folders-when-working-across-multiple), [apidog.com multi-directory guide](https://apidog.com/blog/claude-code-multi-directory-support/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic's J-Lens Reveals a Hidden Reasoning Workspace Inside Claude</title>
-      <link>https://transformer-circuits.pub/2026/workspace/index.html</link>
-      <guid isPermaLink="false">2026-09-10-04-anthropic-j-space-global-workspace</guid>
-      <pubDate>Thu, 10 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <description>Anthropic's J-lens maps J-space — a sparse 6–10% of Claude's activation variance that carries nearly all verbalizable reasoning. Swapping its concept vectors causally changes the model's answers.</description>
-      <content:encoded><![CDATA[**Anthropic's interpretability paper from July 2026 is getting wide attention now: Claude has a privileged internal reasoning zone — J-space — where concepts appear before they reach the output tokens.**
-
-The paper "[Verbalizable Representations Form a Global Workspace in Language Models](https://transformer-circuits.pub/2026/workspace/index.html)" introduces the J-lens (Jacobian lens): by computing the average linearized effect of an activation on output probability across thousands of contexts, researchers identify which internal representations Claude can reliably report on. That set of representations is J-space — roughly 6–10% of total activation variance, located in middle layers (~L38–L92).
-
-Three findings that matter:
-
-- **Causal, not just correlational.** Swapping the J-lens vector for "soccer" with the one for "rugby" causally shifted Claude's self-report. The workspace doesn't just read the model — it controls it.
-- **Reasoning steps appear before outputs.** On multi-step math, intermediate answers appear in J-space before they appear in generated text.
-- **Ablate J-space and reasoning collapses.** Fluency survives but summarization, analogy, and chain-of-thought do not. The workspace is where flexible deliberate cognition actually runs.
-
-**Why it matters:** this is the clearest mechanistic picture yet of *where* chain-of-thought prompting has traction inside the model — and where safety interventions can actually land. Directly relevant for anyone building production evals or interpretability tooling.
-
-**Sources:** [Anthropic research paper](https://transformer-circuits.pub/2026/workspace/index.html), [VentureBeat](https://venturebeat.com/technology/anthropics-new-j-lens-reveals-a-silent-workspace-inside-claude-that-mirrors-a-leading-theory-of-consciousness), [Tom's Hardware](https://www.tomshardware.com/tech-industry/artificial-intelligence/anthropic-says-it-can-read-claudes-thoughts-as-detailed-in-new-research-paper-models-observed-to-have-a-global-workspace-revealing-more-of-what-makes-llms-tick)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
