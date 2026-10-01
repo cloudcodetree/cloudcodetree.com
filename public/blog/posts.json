@@ -1,5 +1,23 @@
 [
   {
+    "id": "2026-10-01-07-cloudflare-clef-decision-model-agent-routing-open-source",
+    "title": "Cloudflare Ships Clef: An Open-Source Decision Model for Your Agent's Routing Layer",
+    "excerpt": "Cloudflare ships Clef and Clef-flash today: open-source decision models on Workers AI that return typed probabilities for agent routing without a generation pass.",
+    "author": "Chris Harper",
+    "date": "10-01-2026",
+    "publishedAt": "2026-10-01T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Agents",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-10-01-07-cloudflare-clef-decision-model-agent-routing-open-source",
+    "content": "**Clef returns fast typed probabilities for a fixed schema of routing questions — no generation, no parsing — as a zero-config binding on Cloudflare Workers AI.**\n\nTypeSafe's Jev ([covered September 21](/ai-news/2026-09-21-08-jev-typesafe-decision-model-agent-routing)) introduced the category of specialist decision models for agent routing. Cloudflare's Clef, released today, adds two things Jev doesn't have: open weights (Apache 2.0, available on HuggingFace) and an RL fine-tuning platform so you can adapt the routing schema to your own data.\n\n**Call pattern:**\n\n```javascript\nconst result = await env.AI.run(\"@cf/cloudflare/clef\", {\n  state: \"Checkout failing for all customers for the past hour.\",\n  questions: {\n    urgent: { type: \"noul\", instructions: \"Is this urgent?\" },\n    team: {\n      type: \"choice\",\n      instructions: \"Which team handles this?\",\n      criteria: {\n        billing: \"Payments, invoices, refunds\",\n        technical: \"Outages, errors, configuration\",\n        sales: \"Plans and upgrades\"\n      }\n    }\n  }\n});\n// result: { urgent: { yes: 0.96 }, team: { technical: 0.91, billing: 0.06, sales: 0.03 } }\n```\n\nTwo models: Clef (27B) and Clef-flash (9B). Cloudflare benchmarks Clef at 2.5× faster than Jev at the median on their classification tasks — vendor figures, no independent replication yet.\n\n**Real limits:** the RL fine-tuning platform requires a paid Cloudflare Workers plan; the decision schema must be fixed upfront — Clef doesn't handle open-ended questions where the answer space is unknown; Workers AI only (no local self-hosting despite Apache 2.0 weights on HuggingFace).\n\n**Why it matters:** working on Cloudflare Workers already gets you a zero-config agent routing layer; the open Apache 2.0 weights give everyone an alternative to proprietary routing models.\n\n**Sources:** [Introducing Clef — Cloudflare Blog](https://blog.cloudflare.com/clef-decision-models/) · [Clef Workers AI docs](https://developers.cloudflare.com/workers-ai/models/clef/) · [Cloudflare Clef resource page](https://www.cloudflare.com/resource/clef-rl-interest/)"
+  },
+  {
     "id": "2026-10-01-04-claude-code-cross-session-messaging-list-agents",
     "title": "Your Two Claude Code Sessions Can Now Message Each Other — Mention the Target With `@` and Claude Routes the Handoff",
     "excerpt": "Cross-session messaging (v2.1.224+) lets one Claude Code session warn another about a breaking change or hand off a decision — text only, works on the same machine with no extra setup.",
