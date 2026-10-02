@@ -10,9 +10,84 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 02 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 02 Oct 2026 20:15:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your RAG Answer Cites Nothing — CitationQueryEngine Maps Every Claim to Its Source Chunk</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-02-06-rag-inline-citations-citation-query-engine-source-attribution</link>
+      <guid isPermaLink="false">2026-10-02-06-rag-inline-citations-citation-query-engine-source-attribution</guid>
+      <pubDate>Fri, 02 Oct 2026 20:15:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <description>Two changes to your RAG synthesis step — number every retrieved chunk and instruct the model to cite inline — give every claim a verifiable source. LlamaIndex CitationQueryEngine handles it in 10 lines.</description>
+      <content:encoded><![CDATA[**TL;DR: Number every retrieved chunk, instruct the model to cite inline, and every RAG answer becomes verifiable — LlamaIndex's CitationQueryEngine handles it in ~10 lines.**
+
+**What you'll be able to do after this:** emit numbered inline citations in RAG answers that map each factual claim to the exact source chunk it came from, so answers are verifiable rather than just plausible.
+
+**Three takeaways:**
+- Every chunk needs a stable anchor — a bracketed number `[1]` injected before the text in the synthesis prompt — for inline citation to work; the model cannot invent a citation it has not seen
+- `CitationQueryEngine` handles chunk-numbering, prompt injection, and citation parsing in about 10 lines of setup code
+- A detected citation is not a correct citation — add a structural check (does `[N]` point to a real chunk?) and a semantic check (does chunk N actually support the claim?) before shipping
+
+**The problem with uncited RAG.** Your pipeline retrieves five relevant chunks, sends them to the model, and gets back a fluent answer. The answer is faithful roughly 80% of the time — but you cannot tell which 80%. Without citations, "the model might have hallucinated this" applies to every sentence equally.
+
+**The solution: numbered chunks + prompt instruction.**
+
+```python
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.query_engine import CitationQueryEngine
+
+docs = SimpleDirectoryReader("./docs").load_data()
+index = VectorStoreIndex.from_documents(docs)
+
+query_engine = CitationQueryEngine.from_args(
+    index,
+    similarity_top_k=5,
+    citation_chunk_size=512,   # tokens per source node
+)
+
+response = query_engine.query("What is the refund policy for international orders?")
+print(response)
+# "International orders are subject to a 30-day return window [1]. Refunds are
+#  processed within 5 business days of receipt [2]..."
+
+for i, node in enumerate(response.source_nodes, 1):
+    print(f"[{i}] {node.node.text[:120]}...")
+```
+
+`CitationQueryEngine` injects numbered chunks into the synthesis prompt and instructs the model to place `[1]`, `[2]`, etc. immediately after any claim derived from that chunk. `response.source_nodes` maps each number back to the original text.
+
+**Manual implementation (any LLM, not just LlamaIndex):**
+
+```python
+def build_context(chunks):
+    return "\n\n".join(f"[{i+1}] {chunk}" for i, chunk in enumerate(chunks))
+
+system = (
+    "You are a helpful assistant. Answer using ONLY the provided sources. "
+    "After every factual claim, add [N] where N is the source number you used. "
+    "If a claim is not supported by any source, say so explicitly."
+)
+
+context = build_context(retrieved_chunks)
+```
+
+**Validate citations before you ship.** Two deterministic checks:
+1. **Structural**: parse `[N]` markers with `re.findall(r'\[(\d+)\]', response)` and verify all indices are within `range(1, len(chunks)+1)`
+2. **Semantic**: check whether the cited chunk contains the claim (fuzzy string match for obvious misses; model-as-judge for subtle ones)
+
+**Limits:** citation density varies — the model sometimes cites the same source repeatedly or omits citations on high-confidence facts. `citation_chunk_size=512` is a reasonable floor; chunks below 100 tokens produce poor synthesis. Citations tell you *which chunk* supported a claim, not whether that chunk is accurate — retrieval quality is still the binding constraint.
+
+**Sources:** [Build RAG with inline citations — LlamaIndex CitationQueryEngine notebook](https://developers.llamaindex.ai/python/examples/workflow/citation_query_engine/) · [RAG_Techniques: citation and groundedness notebooks — NirDiamant/GitHub](https://github.com/NirDiamant/RAG_Techniques) · [Citations in the Key of RAG — cianfrani.dev](https://cianfrani.dev/posts/citations-in-the-key-of-rag/) · [Citation and Grounding: Attributing Answers — neelmishra.github.io](https://neelmishra.github.io/blog/mlops/rag/citation-grounding.html)
+]]></content:encoded>
+      <media:content url="https://opengraph.githubassets.com/1/NirDiamant/RAG_Techniques" medium="image" />
+      <media:thumbnail url="https://opengraph.githubassets.com/1/NirDiamant/RAG_Techniques" />
+    </item>
 
     <item>
       <title>Claude Code 2.1.287: 1M Context Is Now Default on Every Major Gateway — and a New Built-in Mod Flags What You Missed</title>
@@ -5670,33 +5745,7 @@ Anything that reads but doesn't decide: Haiku. Anything making a judgement — w
 **Sources:** [Create custom subagents — code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagent Model Routing — Roan Brasil Monteiro, Medium](https://medium.com/@roanmonteiro/claude-code-subagent-model-routing-stop-paying-for-opus-on-haiku-work-ee76dc32cb88) · [Claude Code Agents & Subagents — ksred.com](https://www.ksred.com/claude-code-agents-and-subagents-what-they-actually-unlock/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Claude Code Weekly Budget Drops 17% Today — Here's What Changed and What Helps</title>
-      <link>https://www.bleepingcomputer.com/news/artificial-intelligence/anthropic-is-cutting-claude-codes-current-weekly-limits-by-17-percent/</link>
-      <guid isPermaLink="false">2026-09-14-02-claude-code-weekly-limits-sept-14-cut</guid>
-      <pubDate>Mon, 14 Sep 2026 04:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Anthropic's permanent +25% Claude Code limit increase takes effect today, replacing the temporary +50% boost. For current users, the net change is a 17% reduction in weekly quota.</description>
-      <content:encoded><![CDATA[**Anthropic's permanent +25% limit increase takes effect today, but it replaces the current temporary +50% boost — net result for existing users is a 17% reduction in weekly Claude Code quota.**
-
-Starting September 14, Anthropic is replacing its temporary 50% usage increase with a permanent 25% increase for Pro, Max, Team, and seat-based Enterprise plans. The math Anthropic acknowledged in follow-up: if the baseline limit is 100 units, the temporary promo had users at 150; the new permanent number is 125. That is a 17% drop from what users have had since the promo started.
-
-Two changes that partially offset this:
-
-- **Auto mode's permission classifier no longer counts against your weekly limit.** Every background safety check — the classifier approving or blocking a command — was consuming quota. Those calls are now free, which returns some headroom for users who rely on auto mode.
-- **Faster input loading** ships alongside the limit change, reducing latency on long sessions.
-
-The announcement framed the change as "permanently raising standard weekly limits," leading to community pushback when users did the arithmetic. Anthropic employees acknowledged that leading with the temporary-to-permanent transition would have been clearer.
-
-**Why it matters:** If you're running CI-driven Claude Code workflows or heavy agentic development, your effective weekly ceiling is 17% lower than yesterday — worth recalibrating before you hit a wall mid-project.
-
-**Sources:** [Bleeping Computer — Claude Code limit reduction math](https://www.bleepingcomputer.com/news/artificial-intelligence/anthropic-is-cutting-claude-codes-current-weekly-limits-by-17-percent/) · [ClaudeDevs X — official announcement](https://x.com/ClaudeDevs/status/2093742321473065266) · [pasqualepillitteri.it — the arithmetic](https://pasqualepillitteri.it/en/news/13403/claude-code-weekly-limits-25-percent-17-cut)]]></content:encoded>
-    </item>
-
+    
     
     
     
