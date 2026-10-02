@@ -10,9 +10,65 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 02 Oct 2026 04:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 02 Oct 2026 12:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Claude Code 2.1.287: 1M Context Is Now Default on Every Major Gateway — and a New Built-in Mod Flags What You Missed</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-02-05-claude-code-1m-context-default-gateways-you-should-know-mod</link>
+      <guid isPermaLink="false">2026-10-02-05-claude-code-1m-context-default-gateways-you-should-know-mod</guid>
+      <pubDate>Fri, 02 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <description>Claude Code 2.1.287: Opus 4.7+ and Fable now default to 1M context on Bedrock, Vertex, Foundry, and the Claude apps gateway — no [1m] suffix needed. Also ships: the "You should know" built-in side agent mod.</description>
+      <content:encoded><![CDATA[**Two things in Claude Code 2.1.287 that warrant an immediate action for teams running on cloud gateways.**
+
+**1M context is now the default on Bedrock, Vertex, Foundry, and the Claude apps gateway.** For Opus 4.7+ and Fable models, the expanded context window is on by default — you no longer need the `[1m]` suffix in your model ID string. If your fleet has latency-sensitive workloads or cost budgets set for 200K, revert before upgrading:
+
+```env
+CLAUDE_CODE_DISABLE_1M_CONTEXT=1
+```
+
+Set this environment variable in your gateway config, CI runner, or container image before deploying 2.1.287.
+
+**"You should know" is a new built-in side agent.** It runs alongside the session and flags things you or Claude might miss — missing context, incomplete tool calls, gaps that could cause a silent failure downstream. Enable it with:
+
+```
+/plugin enable cc-plugin-you-should-know@builtin
+```
+
+**Limits:** the built-in path requires telemetry-on, first-party sessions only. It won't activate in telemetry-off or self-hosted fleets — those environments can author a custom mod that watches the same events.
+
+**Sources:** [Claude Code 2.1.287 — AICoder](https://aicoder.com/news/news-20261002-claude-code-2-1-287-mods-you-should-know) · [Claude Code Changelog](https://code.claude.com/docs/en/changelog)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Google Releases Gemini 4 Argon — First Frontier Model in Months, Fairwind Access Only, No Public API Yet</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-02-04-google-gemini-4-argon-fairwind-frontier-no-public-api</link>
+      <guid isPermaLink="false">2026-10-02-04-google-gemini-4-argon-fairwind-frontier-no-public-api</guid>
+      <pubDate>Fri, 02 Oct 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Security</category>
+      <description>Google launched Gemini 4 Argon on October 1 — its first frontier model in several months — but access is limited to vetted cybersecurity defenders through the Fairwind program. No public API date announced.</description>
+      <content:encoded><![CDATA[**Google launched Gemini 4 Argon on October 1, its first frontier model release in several months — and public access isn't coming yet.**
+
+The model replaces Gemini 3.5 Pro at the frontier tier and is positioned against current Claude and GPT-6 class models on software engineering and knowledge tasks. Initial rollout runs through the **Fairwind program**: vetted cybersecurity defenders only. Google cites the model's capability level as the reason for the phased approach.
+
+No date has been announced for paid API access or Google AI Ultra subscriber availability. Those audiences are next in queue after the cybersecurity cohort.
+
+No migration path from Gemini 3.5 Pro API calls announced yet.
+
+**Sources:** [Google limits Gemini 4 Argon access over cybersecurity risks — TechWire Asia](https://techwireasia.com/2026/10/google-gemini-4-argon-cybersecurity-access/) · [Google Rolls Out Gemini 4 Argon to Trusted Cyber Defenders — The Hacker News](https://thehackernews.com/2026/10/google-rolls-out-gemini-4-argon-to.html)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>A Three-File TypeScript Plugin Changes How Every Tool Call in Claude Code Behaves — Mods Let You Hook Any Event</title>
@@ -5641,125 +5697,10 @@ The announcement framed the change as "permanently raising standard weekly limit
 **Sources:** [Bleeping Computer — Claude Code limit reduction math](https://www.bleepingcomputer.com/news/artificial-intelligence/anthropic-is-cutting-claude-codes-current-weekly-limits-by-17-percent/) · [ClaudeDevs X — official announcement](https://x.com/ClaudeDevs/status/2093742321473065266) · [pasqualepillitteri.it — the arithmetic](https://pasqualepillitteri.it/en/news/13403/claude-code-weekly-limits-25-percent-17-cut)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Single Agent Is Doing Too Much — Split It Into a Supervisor Team With LangGraph</title>
-      <link>https://www.langchain.com/blog/langgraph-multi-agent-workflows</link>
-      <guid isPermaLink="false">2026-09-14-01-langgraph-supervisor-multi-agent-orchestration</guid>
-      <pubDate>Mon, 14 Sep 2026 04:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>The LangGraph supervisor pattern routes each sub-task to a specialist agent in its own scratchpad, with a supervisor LLM deciding who acts next — wired with three function calls.</description>
-      <content:encoded><![CDATA[**The LangGraph supervisor pattern gives each specialist agent its own scratchpad and lets a routing LLM decide who acts next — wire it together in three function calls with `langgraph-supervisor`.**
-
-Single-agent designs hit a ceiling when the context fills with tool noise from tasks that don't share state. The supervisor pattern fixes this: each specialist runs in an isolated context, the supervisor decides routing, and only the result crosses back.
-
-**What you'll be able to do after this:** build a multi-agent system where a supervisor LLM routes each task to the right specialist (researcher, writer, coder, reviewer) and collects the result — without hard-coding any routing logic.
-
-- **The supervisor is a tool-calling LLM.** It selects agents by calling handoff tools. Change routing behavior by updating the supervisor's system prompt, not the graph structure.
-- **Each sub-agent has its own scratchpad.** Agents don't see each other's full histories — the supervisor only sees its own instructions plus the task, keeping context lean.
-- **`langgraph-supervisor` abstracts the graph plumbing.** Three function calls replace dozens of lines of raw LangGraph state management.
-
-**Walk-through:**
-
-```bash
-pip install langgraph-supervisor langchain-anthropic
-```
-
-```python
-from langchain_anthropic import ChatAnthropic
-from langgraph.prebuilt import create_react_agent
-from langgraph_supervisor import create_supervisor
-
-# Define specialist tools
-def search_web(query: str) -> str:
-    """Run a web search and return a summary."""
-    return f"Search results for: {query}"  # plug in real search
-
-def draft_section(notes: str, topic: str) -> str:
-    """Draft a prose section from research notes."""
-    return f"Section on {topic}: {notes[:300]}..."
-
-# Create specialized agents (each has its own model and tools)
-research_agent = create_react_agent(
-    model="claude-sonnet-5-20260101",  # substitute your current Sonnet ID
-    tools=[search_web],
-    name="research_agent",
-    prompt="You are a research specialist. Search for facts and return them concisely.",
-)
-
-writing_agent = create_react_agent(
-    model="claude-haiku-4-5-20251001",  # lighter model for structured writing
-    tools=[draft_section],
-    name="writing_agent",
-    prompt="You are a technical writer. Turn research notes into clear prose.",
-)
-
-# Wire them under a supervisor
-workflow = create_supervisor(
-    [research_agent, writing_agent],
-    model=ChatAnthropic(model="claude-sonnet-5-20260101"),
-    prompt="You manage a research and writing team. Route each task to the right specialist.",
-)
-
-app = workflow.compile()
-
-result = app.invoke({
-    "messages": [{"role": "user", "content": "Write a section on vector embeddings for RAG."}]
-})
-print(result["messages"][-1].content)
-```
-
-**What to watch for:** `create_supervisor` returns only the last agent message by default. Pass `output_mode="full_history"` if you need the full turn-by-turn transcript. Parallel tool calls (for routing multiple agents simultaneously) work with Anthropic and OpenAI models only. If your team grows beyond 4–5 agents, consider hierarchical teams — a supervisor coordinating other supervisors — rather than one flat routing list.
-
-**Sources:** [LangGraph multi-agent workflows — langchain.com/blog](https://www.langchain.com/blog/langgraph-multi-agent-workflows) · [create_supervisor API reference — reference.langchain.com](https://reference.langchain.com/python/langgraph-supervisor/supervisor/create_supervisor) · [LangGraph multi-agent systems: supervisor, swarm, network — machinelearningplus.com](https://machinelearningplus.com/gen-ai/langgraph-multi-agent-systems-supervisor-swarm-network/)]]></content:encoded>
-    </item>
-
     
     
-    <item>
-      <title>Your Claude Code Plugin Has No Baseline — `claude plugin eval` Measures the Delta That Proves It Works</title>
-      <link>https://code.claude.com/docs/en/plugin-evals</link>
-      <guid isPermaLink="false">2026-09-13-03-claude-code-plugin-eval-delta</guid>
-      <pubDate>Sun, 13 Sep 2026 20:13:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Shipped September 11 in Claude Code v2.1.269, `claude plugin eval` runs your plugin against scored test cases and shows the delta between with-plugin and without — a high score without a delta means Claude would have done that anyway.</description>
-      <content:encoded><![CDATA[**`claude plugin eval` runs your plugin against scored test cases and shows a delta (Δ) between with-plugin and without. A high score with no delta means Claude would have done that anyway — the delta is what proves your plugin is doing work.**
-
-Shipped in Claude Code v2.1.269 on September 11, 2026, `claude plugin eval` brings test-driven development to plugin authorship. Each test case is a realistic prompt paired with one or more graders — a regex over the reply, a tool-call assertion, or a rubric a judge model scores.
-
-**The key number is the delta, not the WITH score:**
-
-```
-Test           WITH   W/OUT   Δ
-summarize      1.00   0.33   +0.67   ← plugin is doing real work
-format-json    0.95   0.92   +0.03   ← Claude already handles this well
-```
-
-A plugin that scores 1.00 both with and without it is decoration. The baseline comparison is what proves otherwise.
-
-**Start with the init command:**
-
-```bash
-claude plugin eval init
-```
-
-It asks about your plugin, proposes test cases and graders, dry-runs them, and writes the eval files. Results land at `evals/results/<timestamp>/report.html` with per-grader verdicts and judge votes.
-
-**Four grader types are free** (exact match, substring, regex, tool-call assertion). Two cost judge-model tokens: `llm` (a rubric graded by a second model) and `baseline` (runs each prompt without your plugin to compute the delta). The `baseline` grader is nearly always worth adding — without it you only know how Claude behaves *with* your plugin, not how much it contributed.
-
-**One real limit:** the `llm` and `baseline` graders bill a judge model per test case per run. A large eval suite with rubric-style graders can cost a few dollars each time. Use the free graders for fast regression detection in CI; add `llm` graders only for cases where exact-match checking isn't expressive enough.
-
-**Sources:** [Test plugins with evals — official docs](https://code.claude.com/docs/en/plugin-evals) · [Claude Code 2.1.269 release notes (AI/TLDR)](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-269/) · [Read the delta, not the score (byteiota)](https://byteiota.com/claude-code-plugin-evals-read-the-delta-not-the-score/) · [MarkTechPost writeup](https://www.marktechpost.com/2026/09/11/anthropic-adds-plugin-evals-to-claude-code-6-grader-types-a-no-plugin-baseline-and-a-ci-gate-for-skills/)
-]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
