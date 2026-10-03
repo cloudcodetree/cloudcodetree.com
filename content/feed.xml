@@ -10,8 +10,126 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 03 Oct 2026 04:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 03 Oct 2026 12:07:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>CLAUDE.md Is Layer One — The Other Four Extension Points That Make Claude Code Agents Reliable and Distributable</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-04-claude-code-five-layer-context-stack-skills-hooks-subagents-plugins</link>
+      <guid isPermaLink="false">2026-10-03-04-claude-code-five-layer-context-stack-skills-hooks-subagents-plugins</guid>
+      <pubDate>Sat, 03 Oct 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Claude Code exposes five extension points — CLAUDE.md, skills, hooks, subagents, plugins — each solving a different reliability problem. Most teams stop at layer one; here is when to reach for each.</description>
+      <content:encoded><![CDATA[**Claude Code's extension stack has five layers: CLAUDE.md anchors always-on context, skills load domain expertise on demand, hooks enforce invariants the model cannot skip, subagents run isolated tasks with separate context windows, and plugins bundle everything into a single distributable unit. Most teams stop at layer one.**
+
+CLAUDE.md works fine for project-level conventions and gotchas — but it has no mechanism for "this rule must hold regardless of what the model decides," no way to isolate a large task from the main context, and no distribution story. The other four layers exist for those gaps.
+
+**Layer 1: CLAUDE.md** — always-on project memory. Everything here is in context for every turn. Keep it short: a long CLAUDE.md fills the context window before the agent starts working. Rule of thumb: if an instruction only matters for one kind of task, it belongs in a skill, not here.
+
+**Layer 2: Skills** (`.claude/skills/`) — on-demand expertise. Only the skill's description is always in context; the body loads only when invoked. A skill that is never triggered costs nothing. Use for: deploy procedures, specialized review checklists, tool-specific workflows. Write one skill per concern, not one giant file.
+
+**Layer 3: Hooks** (`.claude/settings.json`, `hooks:`) — deterministic guardrails. Shell commands that fire before or after tool calls. The model cannot skip or override a hook. Use for invariants: "run lint before every commit", "block API key patterns in diffs". If a rule truly must hold, it belongs in a hook — not in CLAUDE.md, where the model can reason around it.
+
+**Layer 4: Subagents** — isolated context windows. Each subagent starts fresh and can read a large codebase or run a long task without polluting the parent session. Use for: parallel analysis passes, independent code reviews, anything too large to fit in the current context window. Each subagent allocates a full context window; do not spawn one per function.
+
+**Layer 5: Plugins** — distributable bundles. A plugin is a manifest that packages MCP servers, skills, hooks, and commands into a single `claude install` unit. Use when you want to share a workflow across your team or multiple repos without per-project manual configuration.
+
+**The decision rule:**
+- Know it always → CLAUDE.md
+- Know it only sometimes → skill
+- Must be true regardless of the model → hook
+- Needs its own context window → subagent
+- Needs to travel with the team → plugin
+
+**Limits:** CLAUDE.md loads only project-scoped context; user-level overrides live at `~/.claude/CLAUDE.md`. Hooks fire on every matching tool call — keep each under ~200ms or they visibly slow the agent loop. Subagents each allocate a full context window; at scale, spawning many gets expensive.
+
+**Sources:** [Context Engineering Beyond CLAUDE.md: The 5-Layer Hierarchy — Pixelmojo](https://www.pixelmojo.io/blogs/context-engineering-ai-coding-agents-beyond-claude-md) · [Dive into Claude Code (arXiv 2604.14228) — VILA-Lab](https://arxiv.org/html/2604.14228v1) · [Claude Code Extension Layer Decision Guide — Hidekazu Konishi](https://hidekazu-konishi.com/entry/claude_code_extension_layers_decision_guide.html)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>GitHub Copilot Adds Scheduled Automations and Agent Merge — Two Modes That Advance a PR Without You Watching</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-05-copilot-automations-agent-merge-pr-hands-free</link>
+      <guid isPermaLink="false">2026-10-03-05-copilot-automations-agent-merge-pr-hands-free</guid>
+      <pubDate>Sat, 03 Oct 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Agents</category>
+      <description>GitHub Copilot September releases ship two unattended modes: automations run tasks on hourly/daily/weekly schedules; agent merge handles review feedback, conflict resolution, and CI reruns automatically (preview).</description>
+      <content:encoded><![CDATA[**GitHub Copilot September releases ship two unattended modes: automations run repeatable tasks on a configurable schedule; agent merge takes over once a PR enters review, handling feedback, conflicts, and CI reruns until the branch is green.**
+
+**Automations** are cron jobs for Copilot agent sessions. Define a task (from a template or a custom prompt), pick a cadence — hourly, daily, or weekly — and the agent runs it independently. Use cases GitHub documents: daily dependency audits, weekly stale-branch cleanup, on-demand test generation for changed files. Automations run in Copilot's cloud workspace, not on a local machine.
+
+**Agent merge** takes over once a PR is in review. Enabled per PR, the Copilot agent applies reviewer suggestions, resolves merge conflicts, reruns CI when checks fail, and iterates until the branch is mergeable without you watching the thread at 10pm. The manual cycle it replaces: incorporate feedback → push → wait for CI → handle new conflict from main → repeat.
+
+**Why it matters:** the async PR review cycle is one of the biggest sources of developer context-switching. Offloading the mechanical parts of the review-to-merge loop compounds over a sprint.
+
+**Limits:** agent merge is in preview and stops at design-level disagreements — it will not make architectural decisions or ask for clarification when a reviewer comment is ambiguous. Its interpretation of feedback can diverge from intent. Automations cannot deploy to production or make calls outside GitHub. Both features are currently cloud-only and unavailable in GitHub Enterprise Server.
+
+**Sources:** [GitHub Copilot in VS Code September 2026 releases — GitHub Changelog](https://github.blog/changelog/2026-10-01-github-copilot-in-vs-code-september-2026-releases/) · [Agentic autofix now uses Copilot Memory — GitHub Changelog](https://github.blog/changelog/2026-09-25-agentic-autofix-now-uses-copilot-memory/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Vector Index Misses Exact Keywords — Combine BM25 With Vector Search and RRF for a Retriever That Wins Both Ways</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-06-hybrid-search-bm25-vector-rrf-lancedb</link>
+      <guid isPermaLink="false">2026-10-03-06-hybrid-search-bm25-vector-rrf-lancedb</guid>
+      <pubDate>Sat, 03 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Vectors</category>
+      <description>BM25 finds exact keywords your embedding model misses; combine it with vector ANN and Reciprocal Rank Fusion for a retriever that handles both concept queries and exact strings.</description>
+      <media:content url="https://img.youtube.com/vi/JSGQkyKZ8Rg/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/JSGQkyKZ8Rg/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**What you'll be able to do after this:** add a BM25 full-text index alongside your existing vector index and run a single hybrid query that consistently outperforms either retriever alone on real-world question sets with mixed exact-string and concept queries.
+
+**Why either retriever alone fails:**
+- **Vector search** captures semantic similarity — "bought" and "purchased" score high — but loses exact strings. Ask for "error code E1234" and a dense retriever may return semantically related content that never contains that exact token.
+- **BM25** scores exact keyword matches using term frequency and document length, with no concept of meaning. "GPT-6.1 Sol" and "the model at one-fifth the price" return different scores even though they describe the same thing.
+- **Hybrid search** runs both in parallel and merges the ranked lists, covering both failure modes.
+
+**Reciprocal Rank Fusion as the merge function:** RRF computes `1 / (rank + 60)` for each document in each result list, then sums across lists. A document ranked #1 in both lists wins clearly; a document ranked #4 in one list and absent from the other still beats one ranked #30 in each. It requires no calibration and no weight tuning between the two retrievers.
+
+**How to do it in LanceDB (Python):**
+
+```python
+import lancedb
+
+db = lancedb.connect("rag_db")
+table = db.open_table("docs")
+
+# One-time: build the BM25 full-text index on the text column
+table.create_fts_index("text")
+
+# Hybrid query: vector ANN + BM25, fused with RRF
+results = (
+    table.search("error code E1234 retry behavior", query_type="hybrid")
+    .rerank(reranker=lancedb.rerankers.RRFReranker())
+    .limit(5)
+    .to_pandas()
+)
+```
+
+`create_fts_index` is a one-time call; subsequent queries pick it up automatically. `RRFReranker()` is the default — swap in `CrossEncoderReranker` for a second-pass quality boost at higher latency.
+
+**Three takeaways:**
+- Hybrid search is the right fix when vector-only RAG handles concept questions well but drops on exact strings, error codes, model IDs, or version numbers.
+- RRF is parameter-free — no calibration needed between the two retrievers.
+- LanceDB, Weaviate, and Qdrant expose hybrid search natively; pgvector users need to compose `tsvector` + pgvector queries at the SQL layer — more setup, same principle.
+
+**Limit:** LanceDB's FTS index is disk-backed; for very large tables it adds measurable query latency vs. a pure ANN search. Benchmark with your corpus before deciding whether the quality gain justifies the added query time.
+
+**Sources:** [Hybrid Search in LanceDB: Vector + BM25 + RRF (Python 2026) — YouTube](https://www.youtube.com/watch?v=JSGQkyKZ8Rg) · [LanceDB hybrid search docs](https://lancedb.com/docs/search/hybrid-search/) · [Hybrid Search in 100 Lines: BM25 + pgvector with RRF — DEV Community](https://dev.to/gabrielanhaia/hybrid-search-in-100-lines-bm25-pgvector-with-rrf-merge-58cn)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Subagent No Longer Goes Silent When maxTurns Hits — Claude Code 2.1.288 Returns Partial Output and Tells You How to Continue It</title>
@@ -5589,143 +5707,9 @@ MCP Inspector gives you a browser UI to invoke tools and inspect returned conten
     </item>
 
 
-    <item>
-      <title>Your Subagent Inherits Your Whole CLAUDE.md — Opt Out With One Frontmatter Line</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-15-03-omitclaudemd-subagent-context-isolation</guid>
-      <pubDate>Mon, 15 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>omitClaudeMd: true in a subagent's frontmatter strips project and user CLAUDE.md files before the agent runs — cleaner context, lower cost, more predictable behavior for utility agents.</description>
-      <content:encoded><![CDATA[**`omitClaudeMd: true` in a subagent's frontmatter strips project and user CLAUDE.md files before the agent starts — so a focused utility agent runs with only its own system prompt, not the whole project's instruction stack.**
-
-By default, every agent Claude Code spawns loads the full CLAUDE.md hierarchy: user-level instructions, project file, and any local overrides. For your main coding session, that context is the right behavior. For a narrow utility agent — a doc-formatter, a grep-and-summarize step, a test runner, a code-review tool with its own rubric — it's noise, and when the instructions conflict, they degrade output.
-
-The GitHub issue [#4908: Scoped Context Passing for Subagents](https://github.com/anthropics/claude-code/issues/4908) captured this precisely: a subagent assigned a fixed style rule would receive conflicting guidance from project-level architectural instructions it had no part in.
-
-Claude Code v2.1.271 (Sept 14) adds `omitClaudeMd: true` to agent frontmatter. Add it to any `.claude/agents/*.md` file:
-
-```yaml
----
-name: doc-formatter
-description: Rewrites docstrings in a file to Google-style format. Call with the file path.
-omitClaudeMd: true
----
-
-Your task: rewrite every docstring in the file at $ARGUMENTS to Google style.
-Rules:
-- Args section lists each parameter with type and description
-- Returns section describes the return value and its type
-- Raises section lists exceptions the function can throw
-Output the modified file and nothing else.
-```
-
-The agent's own system prompt (everything after the frontmatter block) is the only instruction layer it sees. Managed policy files still load — this flag only clears what you as the project operator control.
-
-**When to reach for it:** any subagent with a repeatable, bounded task — grep pipelines, file converters, doc generators, review passes against a fixed rubric. Practitioner experience with Claude Code subagent isolation, like [Asa Nyaga's write-up on keeping context clean](https://asanyaga.com/tutorials/2026/03/17/part-5-claude-code-subagents.html), confirms that predictability degrades as the instruction surface grows past what the task needs.
-
-**Pair it with per-command `allowed_domains`.** Also in v2.1.271: Bash, PowerShell, and Monitor commands in auto mode can each carry their own `allowed_domains` list. Each command is reviewed and restricted to only the hosts it needs; other hosts are refused for that command only. Together these two options give you a fully scoped utility agent: no inherited project instructions, no unrestricted outbound network.
-
-**The limit:** project conventions you normally rely on from CLAUDE.md — error handling patterns, test directory structure, naming rules — don't reach the subagent. Replicate what you need inside the agent's own system prompt. That's the right trade for a utility agent; for a full-task coding agent that needs to understand your project, don't set this flag.
-
-**Sources:** [Claude Code v2.1.271 changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Issue #4908: Scoped Context Passing for Subagents — GitHub](https://github.com/anthropics/claude-code/issues/4908) · [Subagents: Keeping Your Context Clean — Asa Nyaga](https://asanyaga.com/tutorials/2026/03/17/part-5-claude-code-subagents.html)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic's September Threat Report Names Your API Keys as a Primary Attack Target</title>
-      <link>https://www.anthropic.com/threat-intelligence-report-september-2026</link>
-      <guid isPermaLink="false">2026-09-15-02-anthropic-threat-intelligence-api-keys-agents</guid>
-      <pubDate>Mon, 15 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Agents</category>
-      <description>AI-enabled pipelines now harvest credentials from repos and containers at scale, completing cloud breaches in 2-3 hours. Anthropic's September report names three mitigations for engineers building AI-powered systems.</description>
-      <content:encoded><![CDATA[**AI-enabled attack pipelines now harvest API credentials from public code at industrial scale — Anthropic's September threat report names credential theft as the primary multiplier for follow-on attacks and autonomous agent frameworks as the delivery mechanism.**
-
-Anthropic's September 2026 threat intelligence report covers operations from December 2025 through August 2026 across seven harm categories. The finding most directly relevant to engineers building AI-powered systems: AI API keys embedded in public repos, Docker images, and mobile app bundles are actively harvested at scale and immediately redeployed to fund follow-on attacks. Compromised credentials function as both loot and free compute. The report documents cloud breaches completing in 2–3 hours using multi-step autonomous pipelines, where human operators handle only target selection and result review.
-
-The report is also candid about the democratization effect: "Sophisticated attacks no longer require sophisticated attackers." Individual operators now run the kind of multi-target, multi-step campaigns that previously required specialist teams.
-
-**Three things to do now:**
-
-1. **Rotate API keys on a short TTL** and alert on anomalous per-minute call rates from unfamiliar IPs. Most providers support per-key spending caps; set one. A key in a public repo is discovered by automated scanners within minutes of the push.
-
-2. **Restrict agent capabilities to what the task actually requires.** An agent that reads documents doesn't need shell access or unrestricted outbound HTTP. Scope tool permissions in your agent harness (`disallowedTools`, network egress rules, capability gates) before the agent starts — not after an incident prompts it.
-
-3. **Treat every dynamic agent input path as untrusted.** A document your agent reads can instruct it to call `http://169.254.169.254/latest/meta-data/iam/security-credentials/role-name` — the AWS metadata endpoint that returns temporary IAM credentials. Input validation on agent prompts carries the same weight as input validation on HTTP endpoints.
-
-Independently, MITRE ATLAS ([atlas.mitre.org](https://atlas.mitre.org/)) and the UK NCSC's AI cyber threat guidance document the same shift in operational tempo: the attacks are familiar; the automation that scales them is new.
-
-**Why it matters:** If your agents have broad tool access or your API keys get exported to subprocesses, this isn't theoretical. The report makes the attack playbook explicit enough that the mitigations above aren't optional hardening — they're the expected baseline.
-
-**Sources:** [Countering misuse of AI: September 2026 — Anthropic](https://www.anthropic.com/threat-intelligence-report-september-2026) · [MITRE ATLAS: Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your HuggingFace Model Is 16 GB — Quantize It to 4.9 GB in Three Commands With llama.cpp</title>
-      <link>https://www.youtube.com/watch?v=vvrGfqd1oxE</link>
-      <guid isPermaLink="false">2026-09-15-01-gguf-quantize-llama-cpp-run-local</guid>
-      <pubDate>Mon, 15 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>Local AI</category>
-      <description>Convert any HuggingFace model to Q4_K_M GGUF with llama.cpp: a 16 GB BF16 8B checkpoint shrinks to ~4.9 GB, runs on a laptop, and imports into Ollama in one command.</description>
-      <media:content url="https://img.youtube.com/vi/vvrGfqd1oxE/maxresdefault.jpg" medium="image"/>
-      <media:thumbnail url="https://img.youtube.com/vi/vvrGfqd1oxE/maxresdefault.jpg"/>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** take any HuggingFace model — a Qwen3-8B, a Llama-3.1-8B, anything in SafeTensors or PyTorch format — quantize it to Q4_K_M GGUF with llama.cpp, and run it locally in Ollama or with llama-server, with no cloud fees and no data leaving your machine.
-
-**Three things to know before you start:**
-- **Q4_K_M** is the community's default starting point: a mixed 4-bit scheme that protects the most sensitive weight layers, shrinking a 16 GB BF16 8B model to about 4.9 GB while losing less than 1.5 percentage points on standard benchmarks vs. the full-precision baseline (community-measured MMLU-Pro evals; model labs don't publish these figures for their own models, so treat numbers as approximations).
-- **imatrix calibration** is optional but worthwhile at Q4: it runs the full-precision model over a text corpus to map which weights carry the most activation energy, then places bits more carefully. At Q4_K_M it typically recovers most of the quality gap vs. Q5_K_M — worth the 20–40-minute one-time cost for a model you'll run daily.
-- **Models below ~3B parameters** lose more quality at Q4 because fewer weights means less redundancy to exploit. For small models, start at Q5_K_M or Q8_0.
-
-**The walkthrough.** The video [GGUF Quantization Tutorial: Run Fine-Tuned LLMs on CPU with llama.cpp](https://www.youtube.com/watch?v=vvrGfqd1oxE) covers the end-to-end workflow hands-on. Commands below match llama.cpp v0.4:
-
-```bash
-# 1. Build llama.cpp (one-time)
-git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
-cmake -B build && cmake --build build --config Release -j$(nproc)
-
-# 2. Convert a HuggingFace model to BF16 GGUF
-python tools/convert_hf_to_gguf.py \
-  --outfile qwen3-8b-bf16.gguf \
-  --outtype bf16 \
-  --remote Qwen/Qwen3-8B   # or pass a local HF directory
-
-# 3a. Quantize to Q4_K_M (no imatrix — fast, good enough for Q5+)
-./build/bin/llama-quantize qwen3-8b-bf16.gguf qwen3-8b-q4_k_m.gguf Q4_K_M
-
-# 3b. Or build an imatrix first for better Q4 quality
-./build/bin/llama-imatrix \
-  -m qwen3-8b-bf16.gguf \
-  -f tools/data/groups_merged.txt \
-  -o qwen3-8b-imatrix.dat \
-  -ngl 99                     # offload to GPU if available
-./build/bin/llama-quantize \
-  --imatrix qwen3-8b-imatrix.dat \
-  qwen3-8b-bf16.gguf qwen3-8b-q4_k_m.gguf Q4_K_M
-
-# 4. Import into Ollama
-printf 'FROM ./qwen3-8b-q4_k_m.gguf\n' > Modelfile
-ollama create qwen3-local -f Modelfile
-ollama run qwen3-local
-```
-
-**Limits.** The BF16 conversion step requires holding the full-precision model in RAM — about 16 GB for an 8B model. For 70B+ you need server-class RAM; if you don't have it, look for pre-converted GGUF uploads on HuggingFace (most popular models have community GGUF branches). The imatrix step is CPU-bound by default; `-ngl 99` offloads it to GPU when CUDA or Metal is available. And GGUF conversion is currently gated to decoder-only (GPT-style) transformer architectures — encoder and encoder-decoder models need separate tooling.
-
-**Sources:** [GGUF Quantization Tutorial: Run Fine-Tuned LLMs on CPU with llama.cpp — YouTube](https://www.youtube.com/watch?v=vvrGfqd1oxE) · [llama.cpp quantize README — GitHub](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md) · [GGUF quantization guide — tonisagrista.com](https://tonisagrista.com/blog/2026/quantization/)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
 
     
     
