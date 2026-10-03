@@ -1,5 +1,59 @@
 [
   {
+    "id": "2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience",
+    "title": "Your Subagent No Longer Goes Silent When maxTurns Hits — Claude Code 2.1.288 Returns Partial Output and Tells You How to Continue It",
+    "excerpt": "Claude Code 2.1.288 fixes two agentic pipeline failure modes: subagents that hit maxTurns now return partial output with a continuation hint, and non-interactive sessions recover from mid-stream AP…",
+    "author": "Chris Harper",
+    "date": "10-03-2026",
+    "publishedAt": "2026-10-03T04:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Agents"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience",
+    "content": "**TL;DR: Two 2.1.288 fixes — subagents at maxTurns now return partial output with a SendMessage hint, and non-interactive sessions continue from partial responses instead of failing on API timeout.**\n\nIf you run agentic pipelines in non-interactive mode — SDK scripts, cloud sessions, CI agents — two fixes in 2.1.288 directly change how failures look.\n\n**1. Subagents reaching maxTurns no longer appear finished.** Previously, a subagent that exhausted its turn budget would return empty or ambiguous output, leaving the orchestrator to infer that it had stopped mid-task. In 2.1.288, the subagent returns its accumulated output marked as `partial`, with a hint: \"continue via SendMessage.\" The orchestrator can inspect the partial result and decide whether to send a follow-up — rather than treating silence as completion.\n\n**2. Mid-stream API timeouts in non-interactive sessions no longer fail the turn.** A dropped connection during a long response previously ended the turn with an error. Now the session retries from the partial response and continues. Thinking-only responses (where the model reasoned but produced no visible output before the disconnect) are retried from scratch. This matters most in cloud sessions and SDK scripts where there's no human to retry.\n\n**3. MCP OAuth scope changes prompt re-authentication automatically.** If an MCP server requests additional OAuth scope mid-session, 2.1.288 now surfaces a re-auth prompt rather than silently failing the tool call.\n\n**4. `/code-review` now accepts `--max-findings <n>` or `--max-findings all`** — useful for CI pipelines that need to control the volume of findings per run.\n\n**What this doesn't fix:** The timeout and partial-response fixes apply only to non-interactive sessions (`-p`, SDK, cloud). Interactive terminal sessions already handled mid-stream failures differently. The maxTurns partial output is a signal to the caller — if your orchestrator doesn't inspect the response body before checking completion status, you won't see the hint.\n\n**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [2.1.288 release notes](https://github.com/Mai0313/claude-code-binaries/releases/tag/2.1.288)"
+  },
+  {
+    "id": "2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency",
+    "title": "Anthropic Commits $100M to Train 10,000 Enterprise AI Engineers — Invitation-Only Residencies at Accenture, Deloitte, Morgan Stanley",
+    "excerpt": "Claude Frontier Academy backs $100M in 12-week in-company residencies for software engineers deploying Claude at enterprise scale — currently invitation-only through Anthropic account teams.",
+    "author": "Chris Harper",
+    "date": "10-03-2026",
+    "publishedAt": "2026-10-03T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency",
+    "content": "**TL;DR: $100M to train 10,000 enterprise AI engineers by 2027 via 12-week residencies — invitation-only through Anthropic's corporate partners.**\n\nAnthropic describes a skills gap inside the companies it works with: a small group of deeply skilled people drives most of what AI actually delivers, while everyone else struggles to get past demos. The [Claude Frontier Academy](https://www.anthropic.com/news/claude-frontier-academy) is the proposed fix.\n\nThe program follows a medical-residency model: multi-day in-person training with Anthropic engineers → simulated enterprise deployments → 12-week residency running real Claude projects at the participant's own organization. Two credential levels: Claude Resident Engineer and the full Claude Frontier Deployed Engineer.\n\n**Curriculum scope:** use-case selection, security review, production deployment, and building agentic systems that transform business operations.\n\n**First cohorts:** Accenture, Bain, Capgemini, Commonwealth Bank of Australia, Deloitte, McKinsey, Morgan Stanley, Novo Nordisk. Locations: San Francisco, New York, London, expanding through 2027.\n\n**Why it matters:** The curriculum scope signals what Anthropic considers the current bottleneck — not model capability, but getting it into production with the right security posture and agentic architecture. Even without direct access, that framing is useful for calibrating your own deployment work.\n\n**Limits:** Access is by corporate nomination only — no self-enrollment, no public cohort dates, no individual path outside a participating organization. The 10,000-engineer target runs through end of 2027, not a near-term number.\n\n**Sources:** [Anthropic newsroom](https://www.anthropic.com/news/claude-frontier-academy) · [Unite.ai](https://www.unite.ai/new-anthropic-academy-backs-10-000-engineer-residencies-with-100m/) · [Crypto Briefing](https://cryptobriefing.com/anthropic-100-million-claude-frontier-academy/)"
+  },
+  {
+    "id": "2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model",
+    "title": "A Full Fine-Tune Needs 40+ GB of VRAM — QLoRA + Unsloth Shrinks That to a Free Colab T4 in 30 Minutes",
+    "excerpt": "QLoRA freezes the base model in 4-bit NF4, trains only small LoRA adapters (~1–2% of params), and Unsloth's custom kernels make the whole thing run in ~30 minutes on Colab's free T4 GPU.",
+    "author": "Chris Harper",
+    "date": "10-03-2026",
+    "publishedAt": "2026-10-03T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Fine-Tuning",
+      "HuggingFace"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model",
+    "content": "**TL;DR: QLoRA freezes the base model in 4-bit, trains only ~1% of params as adapters, and runs on a free T4 in 30 minutes — Unsloth handles the VRAM math.**\n\n**What you'll be able to do after this:** Fine-tune an open-source model on your own dataset using a free Colab T4 GPU (16 GB), producing a ~50 MB LoRA adapter you can load at inference time or merge with the base weights for a self-contained deployment.\n\n**Three things to know before you start:**\n- Full fine-tuning a 7B model in bfloat16 requires ~60 GB of VRAM. QLoRA quantizes the frozen base model to 4-bit NF4 (~4 GB for 7B) and only trains the small inserted adapter layers — about 1–2% of total parameters.\n- [Unsloth](https://github.com/unslothai/unsloth) wraps HuggingFace TRL's SFTTrainer with hand-written CUDA kernels. Unsloth reports 2× faster training and 70% less VRAM than standard HuggingFace; independent results vary by GPU generation — the free T4 (Turing arch) sees less speedup than an A100 (Ampere).\n- The trained adapter is ~50 MB regardless of base model size. Distribute the adapter alone to HuggingFace Hub, or export merged weights with `save_pretrained_merged()` for a self-contained model file.\n\n**The walkthrough (Qwen 2.5 3B — confirmed on free Colab T4):**\n\n```python\n# In Colab: Runtime → Change runtime type → T4 GPU, then:\npip install \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\npip install --no-deps trl peft accelerate bitsandbytes\n```\n\n```python\nfrom unsloth import FastLanguageModel\n\nmodel, tokenizer = FastLanguageModel.from_pretrained(\n    model_name=\"unsloth/Qwen2.5-3B-Instruct\",\n    max_seq_length=2048,\n    load_in_4bit=True,        # NF4 quantization — base model frozen\n)\n\nmodel = FastLanguageModel.get_peft_model(\n    model,\n    r=16,                     # LoRA rank — reliable starting point\n    target_modules=[\"q_proj\", \"k_proj\", \"v_proj\", \"up_proj\", \"down_proj\"],\n    lora_alpha=16,\n    lora_dropout=0,\n    bias=\"none\",\n)\n```\n\n```python\nfrom trl import SFTTrainer\nfrom transformers import TrainingArguments\n\ntrainer = SFTTrainer(\n    model=model,\n    tokenizer=tokenizer,\n    train_dataset=dataset,          # your HuggingFace Dataset\n    dataset_text_field=\"text\",\n    max_seq_length=2048,\n    args=TrainingArguments(\n        per_device_train_batch_size=4,\n        gradient_accumulation_steps=4,\n        num_train_epochs=3,\n        learning_rate=2e-4,\n        fp16=True,\n        output_dir=\"outputs\",\n    ),\n)\ntrainer.train()\n\n# Save adapter (~50 MB) or merged weights\nmodel.save_pretrained(\"my-adapter\")\n# model.save_pretrained_merged(\"my-merged\", tokenizer, save_method=\"merged_16bit\")\n```\n\n**Where it breaks:**\n- Models above 8B require at least 24 GB VRAM (A10G or A100 40 GB for 13B+). An 8B model at r=16 uses ~10 GB on the T4.\n- `max_steps=100` (the tutorial quick-test default) is far too brief for production quality — 500–1000 steps minimum.\n- `max_seq_length=4096` roughly doubles VRAM requirements relative to 2048.\n- Free Colab sessions cap at ~12 hours; a 3B run at 1000 steps finishes in time, a larger run may not.\n\n**Full hands-on tutorial with function-calling dataset and complete code:** [LLM_log #015 — Teach a 3B model to call functions with QLoRA + Unsloth on Colab T4](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/).\n\n**Sources:** [Unsloth GitHub](https://github.com/unslothai/unsloth) · [datahacker.rs LLM_log #015](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/) · [QLoRA paper (arXiv:2305.14314)](https://arxiv.org/abs/2305.14314) · [TRL SFTTrainer docs](https://huggingface.co/docs/trl/sft_trainer)"
+  },
+  {
     "id": "2026-10-02-06-rag-inline-citations-citation-query-engine-source-attribution",
     "title": "Your RAG Answer Cites Nothing — CitationQueryEngine Maps Every Claim to Its Source Chunk",
     "excerpt": "Two changes to your RAG synthesis step — number every retrieved chunk and instruct the model to cite inline — give every claim a verifiable source. LlamaIndex CitationQueryEngine handles it in 10 l…",

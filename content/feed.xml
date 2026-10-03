@@ -10,9 +10,155 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 02 Oct 2026 20:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 03 Oct 2026 04:07:00 +0000</lastBuildDate>
 
 
+    <item>
+      <title>Your Subagent No Longer Goes Silent When maxTurns Hits — Claude Code 2.1.288 Returns Partial Output and Tells You How to Continue It</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience</link>
+      <guid isPermaLink="false">2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience</guid>
+      <pubDate>Sat, 03 Oct 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>Claude Code 2.1.288 fixes two agentic pipeline failure modes: subagents that hit maxTurns now return partial output with a continuation hint, and non-interactive sessions recover from mid-stream API timeouts instead of failing.</description>
+      <content:encoded><![CDATA[**TL;DR: Two 2.1.288 fixes — subagents at maxTurns now return partial output with a SendMessage hint, and non-interactive sessions continue from partial responses instead of failing on API timeout.**
+
+If you run agentic pipelines in non-interactive mode — SDK scripts, cloud sessions, CI agents — two fixes in 2.1.288 directly change how failures look.
+
+**1. Subagents reaching maxTurns no longer appear finished.** Previously, a subagent that exhausted its turn budget would return empty or ambiguous output, leaving the orchestrator to infer that it had stopped mid-task. In 2.1.288, the subagent returns its accumulated output marked as `partial`, with a hint: "continue via SendMessage." The orchestrator can inspect the partial result and decide whether to send a follow-up — rather than treating silence as completion.
+
+**2. Mid-stream API timeouts in non-interactive sessions no longer fail the turn.** A dropped connection during a long response previously ended the turn with an error. Now the session retries from the partial response and continues. Thinking-only responses (where the model reasoned but produced no visible output before the disconnect) are retried from scratch. This matters most in cloud sessions and SDK scripts where there's no human to retry.
+
+**3. MCP OAuth scope changes prompt re-authentication automatically.** If an MCP server requests additional OAuth scope mid-session, 2.1.288 now surfaces a re-auth prompt rather than silently failing the tool call.
+
+**4. `/code-review` now accepts `--max-findings <n>` or `--max-findings all`** — useful for CI pipelines that need to control the volume of findings per run.
+
+**What this doesn't fix:** The timeout and partial-response fixes apply only to non-interactive sessions (`-p`, SDK, cloud). Interactive terminal sessions already handled mid-stream failures differently. The maxTurns partial output is a signal to the caller — if your orchestrator doesn't inspect the response body before checking completion status, you won't see the hint.
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [2.1.288 release notes](https://github.com/Mai0313/claude-code-binaries/releases/tag/2.1.288)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Anthropic Commits $100M to Train 10,000 Enterprise AI Engineers — Invitation-Only Residencies at Accenture, Deloitte, Morgan Stanley</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency</link>
+      <guid isPermaLink="false">2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency</guid>
+      <pubDate>Sat, 03 Oct 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>Claude Frontier Academy backs $100M in 12-week in-company residencies for software engineers deploying Claude at enterprise scale — currently invitation-only through Anthropic account teams.</description>
+      <media:content url="https://www-cdn.anthropic.com/images/4zrzovbb/website/cd4fd51deacd067d4e30aee4f4b149f6cba1b97b-1000x1000.svg" medium="image" />
+      <media:thumbnail url="https://www-cdn.anthropic.com/images/4zrzovbb/website/cd4fd51deacd067d4e30aee4f4b149f6cba1b97b-1000x1000.svg" />
+      <content:encoded><![CDATA[**TL;DR: $100M to train 10,000 enterprise AI engineers by 2027 via 12-week residencies — invitation-only through Anthropic's corporate partners.**
+
+Anthropic describes a skills gap inside the companies it works with: a small group of deeply skilled people drives most of what AI actually delivers, while everyone else struggles to get past demos. The [Claude Frontier Academy](https://www.anthropic.com/news/claude-frontier-academy) is the proposed fix.
+
+The program follows a medical-residency model: multi-day in-person training with Anthropic engineers → simulated enterprise deployments → 12-week residency running real Claude projects at the participant's own organization. Two credential levels: Claude Resident Engineer and the full Claude Frontier Deployed Engineer.
+
+**Curriculum scope:** use-case selection, security review, production deployment, and building agentic systems that transform business operations.
+
+**First cohorts:** Accenture, Bain, Capgemini, Commonwealth Bank of Australia, Deloitte, McKinsey, Morgan Stanley, Novo Nordisk. Locations: San Francisco, New York, London, expanding through 2027.
+
+**Why it matters:** The curriculum scope signals what Anthropic considers the current bottleneck — not model capability, but getting it into production with the right security posture and agentic architecture. Even without direct access, that framing is useful for calibrating your own deployment work.
+
+**Limits:** Access is by corporate nomination only — no self-enrollment, no public cohort dates, no individual path outside a participating organization. The 10,000-engineer target runs through end of 2027, not a near-term number.
+
+**Sources:** [Anthropic newsroom](https://www.anthropic.com/news/claude-frontier-academy) · [Unite.ai](https://www.unite.ai/new-anthropic-academy-backs-10-000-engineer-residencies-with-100m/) · [Crypto Briefing](https://cryptobriefing.com/anthropic-100-million-claude-frontier-academy/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>A Full Fine-Tune Needs 40+ GB of VRAM — QLoRA + Unsloth Shrinks That to a Free Colab T4 in 30 Minutes</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model</link>
+      <guid isPermaLink="false">2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model</guid>
+      <pubDate>Sat, 03 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>QLoRA freezes the base model in 4-bit NF4, trains only small LoRA adapters (~1–2% of params), and Unsloth's custom kernels make the whole thing run in ~30 minutes on Colab's free T4 GPU.</description>
+      <media:content url="https://img.youtube.com/vi/Lt7KrFMcCis/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/Lt7KrFMcCis/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**TL;DR: QLoRA freezes the base model in 4-bit, trains only ~1% of params as adapters, and runs on a free T4 in 30 minutes — Unsloth handles the VRAM math.**
+
+**What you'll be able to do after this:** Fine-tune an open-source model on your own dataset using a free Colab T4 GPU (16 GB), producing a ~50 MB LoRA adapter you can load at inference time or merge with the base weights for a self-contained deployment.
+
+**Three things to know before you start:**
+- Full fine-tuning a 7B model in bfloat16 requires ~60 GB of VRAM. QLoRA quantizes the frozen base model to 4-bit NF4 (~4 GB for 7B) and only trains the small inserted adapter layers — about 1–2% of total parameters.
+- [Unsloth](https://github.com/unslothai/unsloth) wraps HuggingFace TRL's SFTTrainer with hand-written CUDA kernels. Unsloth reports 2× faster training and 70% less VRAM than standard HuggingFace; independent results vary by GPU generation — the free T4 (Turing arch) sees less speedup than an A100 (Ampere).
+- The trained adapter is ~50 MB regardless of base model size. Distribute the adapter alone to HuggingFace Hub, or export merged weights with `save_pretrained_merged()` for a self-contained model file.
+
+**The walkthrough (Qwen 2.5 3B — confirmed on free Colab T4):**
+
+```python
+# In Colab: Runtime → Change runtime type → T4 GPU, then:
+pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+pip install --no-deps trl peft accelerate bitsandbytes
+```
+
+```python
+from unsloth import FastLanguageModel
+
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/Qwen2.5-3B-Instruct",
+    max_seq_length=2048,
+    load_in_4bit=True,        # NF4 quantization — base model frozen
+)
+
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=16,                     # LoRA rank — reliable starting point
+    target_modules=["q_proj", "k_proj", "v_proj", "up_proj", "down_proj"],
+    lora_alpha=16,
+    lora_dropout=0,
+    bias="none",
+)
+```
+
+```python
+from trl import SFTTrainer
+from transformers import TrainingArguments
+
+trainer = SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    train_dataset=dataset,          # your HuggingFace Dataset
+    dataset_text_field="text",
+    max_seq_length=2048,
+    args=TrainingArguments(
+        per_device_train_batch_size=4,
+        gradient_accumulation_steps=4,
+        num_train_epochs=3,
+        learning_rate=2e-4,
+        fp16=True,
+        output_dir="outputs",
+    ),
+)
+trainer.train()
+
+# Save adapter (~50 MB) or merged weights
+model.save_pretrained("my-adapter")
+# model.save_pretrained_merged("my-merged", tokenizer, save_method="merged_16bit")
+```
+
+**Where it breaks:**
+- Models above 8B require at least 24 GB VRAM (A10G or A100 40 GB for 13B+). An 8B model at r=16 uses ~10 GB on the T4.
+- `max_steps=100` (the tutorial quick-test default) is far too brief for production quality — 500–1000 steps minimum.
+- `max_seq_length=4096` roughly doubles VRAM requirements relative to 2048.
+- Free Colab sessions cap at ~12 hours; a 3B run at 1000 steps finishes in time, a larger run may not.
+
+**Full hands-on tutorial with function-calling dataset and complete code:** [LLM_log #015 — Teach a 3B model to call functions with QLoRA + Unsloth on Colab T4](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/).
+
+**Sources:** [Unsloth GitHub](https://github.com/unslothai/unsloth) · [datahacker.rs LLM_log #015](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/) · [QLoRA paper (arXiv:2305.14314)](https://arxiv.org/abs/2305.14314) · [TRL SFTTrainer docs](https://huggingface.co/docs/trl/sft_trainer)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your RAG Answer Cites Nothing — CitationQueryEngine Maps Every Claim to Its Source Chunk</title>
@@ -5581,170 +5727,9 @@ ollama run qwen3-local
     </item>
 
 
-    <item>
-      <title>Your Claude Code Bash Steps Can Now Show Their File Diffs — Wire a PostToolUse Hook for an Audit Log</title>
-      <link>https://code.claude.com/docs/en/hooks</link>
-      <guid isPermaLink="false">2026-09-14-05-bash-edit-diff-posttooluse-hook-audit</guid>
-      <pubDate>Mon, 14 Sep 2026 12:17:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Enable bashEditDiffEnabled in Claude Code and every Bash command that modifies files appends a diff to its tool result — your PostToolUse hooks can read it to build a full file-change audit log.</description>
-      <content:encoded><![CDATA[**Enable `bashEditDiffEnabled` and every Bash command that edits files appends a diff to its tool result — turning a silent write into an auditable record your hooks can act on.**
-
-Claude Code v2.1.269 (Sept 11) ships an opt-in setting that solves a specific pain point in agentic runs: knowing what a Bash step actually changed on disk, without running a separate `git diff` after the fact.
-
-**Enable it** in `.claude/settings.json` (project) or `~/.claude/settings.json` (global):
-```json
-{
-  "bashEditDiffEnabled": true
-}
-```
-
-Once set, any Bash command that writes to files — a `sed -i` patch, a build script that emits config, a generator writing output — appends the file diff to the tool result that Claude receives.
-
-**The hook angle.** PostToolUse hooks bound to the `Bash` matcher receive the complete tool result as JSON, diff included. That makes a full file-change audit log straightforward:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "Bash",
-      "hooks": [{"type": "command", "command": "scripts/log-bash-edits.sh"}]
-    }]
-  }
-}
-```
-
-Your `log-bash-edits.sh` receives the tool result on stdin, extracts the diff block, and appends it to a log file. During a long unattended run you can review exactly what changed, step by step.
-
-You can also alert when the diff touches something it shouldn't — `.env`, dotfiles, or paths outside a project directory. PostToolUse hooks run after the fact; for a harder boundary that prevents the write, pair with a PreToolUse hook that pattern-matches the command string.
-
-**The limit:** the diff appears only when Bash itself handles the file write. If Claude Code's own `Edit` or `Write` tools made the change, those go through separate hooks — no Bash diff is produced. The setting covers Bash-initiated edits only; `Edit`/`Write` tool calls need their own PostToolUse hooks if you want to log those too.
-
-**Sources:** [Claude Code v2.1.269 changelog — releasebot.io](https://releasebot.io/updates/anthropic/claude-code) · [Hooks reference — code.claude.com](https://code.claude.com/docs/en/hooks)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Vector-Only RAG Misses Error Codes and Product SKUs — Combine BM25 + Dense Search in 15 Lines With LangChain</title>
-      <link>https://www.youtube.com/watch?v=eNzsuWaOCEI</link>
-      <guid isPermaLink="false">2026-09-14-04-hybrid-search-bm25-ensembleretriever-langchain</guid>
-      <pubDate>Mon, 14 Sep 2026 12:16:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>LangChain EnsembleRetriever wires BM25 keyword search alongside your vector store. Queries hit both, results merge via Reciprocal Rank Fusion, and exact-string recall climbs without rebuilding your pipeline.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** retrieve documents that match both meaning and exact strings — fixing the failure where vector-only search returns the semantically similar wrong chunk for a specific error code, API method name, or product SKU.
-
-**The problem vector-only RAG has.** A dense embedding model maps meaning, not identity. "Connection timeout error" and "network failure" land close in vector space. But `errno: ETIMEDOUT` and `errno: ECONNREFUSED` are different errors — and your vector index, asked for one, may return the other. The same gap shows up for product codes, function names, log IDs, and any string whose meaning is its exact spelling.
-
-BM25 — the same keyword model behind most search engines — inverts this: it scores exact term overlap precisely, but treats "cheap flight" and "budget travel" as unrelated. Hybrid search runs both on the same query and merges the ranked lists.
-
-**The hands-on tutorial.** The YouTube walkthrough [Hybrid Search RAG Pipeline From Scratch](https://www.youtube.com/watch?v=eNzsuWaOCEI) builds a full pipeline with LangChain, BM25, and ChromaDB from scratch.
-
-**Install:**
-```bash
-pip install langchain rank_bm25 faiss-cpu
-```
-
-**Wire BM25 + dense retrieval with EnsembleRetriever:**
-```python
-from langchain.retrievers import EnsembleRetriever
-from langchain.retrievers.bm25 import BM25Retriever
-from langchain.vectorstores import FAISS
-from langchain_openai import OpenAIEmbeddings
-
-docs = [...]  # your Document list
-
-bm25 = BM25Retriever.from_documents(docs)
-dense = FAISS.from_documents(docs, OpenAIEmbeddings()).as_retriever()
-
-retriever = EnsembleRetriever(
-    retrievers=[bm25, dense],
-    weights=[0.4, 0.6]  # 40% keyword, 60% semantic
-)
-
-results = retriever.invoke("ETIMEDOUT error in connection pool")
-```
-
-`EnsembleRetriever` merges the result lists using Reciprocal Rank Fusion (RRF), which operates on ranks rather than raw scores — so there's no need to normalize incompatible BM25 and cosine similarity scores before merging.
-
-**Tune the weights.** Start with `[0.4, 0.6]` and test on real queries from your domain. Code search and support-ticket RAG typically benefit from a higher BM25 weight; narrative document search skews toward the semantic side.
-
-**Three takeaways:**
-- BM25 fills the exact-match gap vector search leaves; embeddings fill the semantic gap keyword search leaves — you need both
-- RRF fusion sidesteps score incompatibility; the only parameter to tune is the relative weight
-- Pinecone, Weaviate, and Elasticsearch also offer native hybrid search if you're already on those; `EnsembleRetriever` is the drop-in for any vector store + BM25 combo
-
-**The limits:** two retrieval steps add latency and double the index maintenance surface. BM25 doesn't benefit from fine-tuned embeddings, so any domain customization you've done to your dense model doesn't transfer to the keyword side. And the weight ratio is a hyperparameter you need to tune per corpus — the right split for a customer support knowledge base is different from an API reference.
-
-**Sources:** [Hybrid Search RAG Pipeline From Scratch — YouTube](https://www.youtube.com/watch?v=eNzsuWaOCEI) · [Hybrid Search with LangChain — LanceDB/Medium](https://medium.com/etoai/hybrid-search-combining-bm25-and-semantic-search-for-better-results-with-lan-1358038fe7e6) · [Hybrid Search: BM25 + Dense Vector Reference 2026 — digitalapplied.com](https://www.digitalapplied.com/blog/hybrid-search-bm25-vector-reranking-reference-2026) · [LangChain EnsembleRetriever docs — python.langchain.com](https://python.langchain.com/docs/how_to/ensemble_retriever/)
-]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/eNzsuWaOCEI/maxresdefault.jpg" medium="image"/>
-      <media:thumbnail url="https://img.youtube.com/vi/eNzsuWaOCEI/maxresdefault.jpg"/>
-    </item>
-
-    <item>
-      <title>Your File-Search Subagent Doesn't Need Opus — Route Cheap Tasks to Haiku With One Env Var</title>
-      <link>https://code.claude.com/docs/en/sub-agents</link>
-      <guid isPermaLink="false">2026-09-14-03-subagent-model-routing-haiku-cost</guid>
-      <pubDate>Mon, 14 Sep 2026 04:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Set CLAUDE_CODE_SUBAGENT_MODEL=haiku to run read-only subagents on Haiku and save your Sonnet/Opus budget for tasks that actually need it. Particularly timely as limits reset today.</description>
-      <content:encoded><![CDATA[**Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` to run read-only and search subagents on Haiku — saves your weekly budget for the reasoning work that actually needs Sonnet or Opus.**
-
-With today's permanent +25% limit replacing the temporary +50% boost (a net 17% cut for current users), subagent model routing is the most direct lever for stretching what you have.
-
-By default every subagent inherits the main session's model. An Explore subagent doing a codebase grep, a test-runner scanning diffs, or a docs agent summarizing files does not need the same reasoning depth as the session doing the actual coding. Three patterns:
-
-**Pattern 1 — Session-wide default (fastest)**
-
-In `.claude/settings.json`:
-
-```json
-{
-  "env": {
-    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku",
-    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"
-  }
-}
-```
-
-`_FORCE=1` prevents any subagent from escalating back to the heavier model. Good for exploration-heavy workflows where most delegated tasks are read-only.
-
-**Pattern 2 — Per-agent model in frontmatter**
-
-In `.claude/agents/explorer.md`:
-
-```yaml
----
-name: explorer
-description: Fast read-only codebase search. Use for grep, glob, and file reads.
-model: haiku
-tools: Read, Glob, Grep
----
-```
-
-This routes just the named agent to Haiku while leaving other agents at their defaults.
-
-**Pattern 3 — The decision rule**
-
-Anything that reads but doesn't decide: Haiku. Anything making a judgement — what to build, change, or write — gets Sonnet or Opus. "Reads but doesn't decide" covers grep, glob, test runner output, doc generation, summarizing files.
-
-**The limit:** Haiku is not suitable for multi-step reasoning, complex code generation, or ambiguous tasks where a wrong answer costs rework. If a subagent needs to plan before acting, routing it to Haiku costs more than it saves. Also: `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` is all-or-nothing; if one agent sometimes needs heavier reasoning, use per-agent frontmatter instead.
-
-**Sources:** [Create custom subagents — code.claude.com/docs/en/sub-agents](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagent Model Routing — Roan Brasil Monteiro, Medium](https://medium.com/@roanmonteiro/claude-code-subagent-model-routing-stop-paying-for-opus-on-haiku-work-ee76dc32cb88) · [Claude Code Agents & Subagents — ksred.com](https://www.ksred.com/claude-code-agents-and-subagents-what-they-actually-unlock/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
