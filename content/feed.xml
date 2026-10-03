@@ -10,8 +10,36 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 03 Oct 2026 12:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 03 Oct 2026 20:07:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Infostealers Are Harvesting Claude, Cursor, and Cline Tokens From Developer Machines — What They Target and How to Cut the Surface</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-03-07-infostealers-ai-coding-agents-claude-cursor-cline-token-harvest</link>
+      <guid isPermaLink="false">2026-10-03-07-infostealers-ai-coding-agents-claude-cursor-cline-token-harvest</guid>
+      <pubDate>Sat, 03 Oct 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Agents</category>
+      <description>Four infostealer families now target AI coding-agent tokens, MCP config secrets, and prompt histories — here is what they harvest and how to reduce your exposure.</description>
+      <content:encoded><![CDATA[**Four infostealer families now specifically harvest AI coding-agent tokens, MCP config secrets, and prompt histories from developer endpoints.**
+
+Adversa AI's October 2026 catalog documents 10 attack classes against AI coding agents, four targeting predictable local paths without elevated access. The CallbackBeaver family logged 5,000+ samples in a recent 30-day window after expanding to Claude, Cursor, Cline, and Codex targets; [Gurucul's HypeAgent Stealer analysis](https://gurucul.com/blog/hypeagent-stealer-multi-stage-infostealer-hijacking-claude-chatgpt-and-cursor-sessions/) (independent security research) confirms the haul: session and refresh tokens, API keys, full MCP config files with nested credentials, and complete prompt histories. A stolen session token lets an attacker silently drain quota; Anthropic reports issuing warnings and partial refunds when it detects the pattern.
+
+The highest-friction vector: [booby-trapped `.git/config` files](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) that fire attacker code when a folder is opened — before any approval prompt appears. Claude Code's deny rules in `.claude/settings.json` narrow this surface but do not block attacks that execute at the IDE level before the session opens.
+
+**Reduce your exposure now:**
+- Rotate Claude.ai credentials after opening any untrusted repository
+- Keep MCP config files free of raw secrets — use env references or a secrets manager
+- On macOS, exclude `~/Library/Application Support/Claude/` from iCloud backup; the macOS-native Djinn stealer knows this path
+- Add `.claude/settings.json` deny rules for `git config`, `curl`, and commands that read env files
+
+**Why it matters:** Agent runtimes now hold credentials, code context, and execution capability in one place — infostealers know it, and that directory deserves the same protection as `~/.ssh/`.
+
+**Sources:** [Infostealers Target AI Coding Agents — GBHackers](https://gbhackers.com/infostealers-target-ai-tools/) · [HypeAgent Stealer analysis — Gurucul](https://gurucul.com/blog/hypeagent-stealer-multi-stage-infostealer-hijacking-claude-chatgpt-and-cursor-sessions/) · [AI coding agent vulnerabilities October 2026 — Adversa AI](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Hackers Target Claude, Cursor and Codex — Cybersecurity News](https://cybersecuritynews.com/ai-agents-2/)]]></content:encoded>
+    </item>
 
     <item>
       <title>CLAUDE.md Is Layer One — The Other Four Extension Points That Make Claude Code Agents Reliable and Distributable</title>
@@ -5629,83 +5657,7 @@ For Python stacks: [`pytest-testmon`](https://testmon.org) tracks source-to-test
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Agent Asks the Same Questions Every Session — Build the MCP Server That Answers Them Once</title>
-      <link>https://modelcontextprotocol.io/quickstart/server</link>
-      <guid isPermaLink="false">2026-09-15-04-build-mcp-server-typescript-sdk-tools-resources</guid>
-      <pubDate>Mon, 15 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>MCP</category>
-      <category>Agents</category>
-      <description>Build a TypeScript MCP server in 30 minutes with the official SDK — tools, resources, and prompts — and stop pasting the same context into every agent session.</description>
-      <media:content url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png?fit=max&amp;auto=format&amp;n=4ZXF1PrDkEaJvXpn&amp;q=85&amp;s=dce7b2f8a06c20ba358e4bd2e75fa4c7" medium="image" />
-      <media:thumbnail url="https://mintcdn.com/mcp/4ZXF1PrDkEaJvXpn/images/current-weather.png?fit=max&amp;auto=format&amp;n=4ZXF1PrDkEaJvXpn&amp;q=85&amp;s=dce7b2f8a06c20ba358e4bd2e75fa4c7" />
-      <content:encoded><![CDATA[**Build a TypeScript MCP server in 30 minutes and turn repetitive context-pasting into persistent, callable tools your agent finds automatically.**
-
-**What you'll be able to do after this:** Give any MCP client — Claude Code, Cursor, Windsurf — a named server with tools it calls and data it reads, so recurring questions are answered without pasting context every session.
-
-Three things to know before writing a line of code:
-
-- **MCP has three capability types.** *Tools* = functions Claude calls (`get_build_status`, `search_codebase`). *Resources* = data it reads (a file, a database row, a config). *Prompts* = reusable message templates. Most servers start with just tools.
-- **Use stdio for local, Streamable HTTP for remote.** The HTTP+SSE transport from the 2024-era spec was deprecated on 2026-03-26. Local stdio servers are simpler to wire; anything deployed for a team needs Streamable HTTP.
-- **Never use `console.log` in a stdio server.** The protocol uses stdout for JSON-RPC frames. A stray log line corrupts the framing silently. Use `console.error()` for debugging output.
-
-**The 30-minute path:**
-
-```bash
-npm init -y
-npm install @modelcontextprotocol/sdk zod
-```
-
-```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-
-const server = new McpServer({ name: "my-server", version: "1.0.0" });
-
-server.tool(
-  "get_build_status",
-  "Returns current CI status for a branch",
-  { branch: z.string().describe("branch name") },
-  async ({ branch }) => ({
-    content: [{ type: "text", text: `Status for ${branch}: passing` }]
-  })
-);
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-Add to `claude_desktop_config.json` (or `~/.claude.json` for Claude Code):
-
-```json
-{
-  "mcpServers": {
-    "my-server": { "command": "node", "args": ["dist/index.js"] }
-  }
-}
-```
-
-Test tools before wiring to any client:
-
-```bash
-npx @modelcontextprotocol/inspector dist/index.js
-```
-
-MCP Inspector gives you a browser UI to invoke tools and inspect returned content — faster than debugging inside Claude.
-
-**One real limit:** MCP has no built-in authentication. A stdio server only your account runs is safe. A remote Streamable HTTP server others can reach needs you to implement auth yourself — the 2026-07-28 spec outlines an OAuth 2.1 handshake, but the SDK does not enforce it. An unauthenticated public MCP server that can write to your systems is a privilege escalation surface. A [2026 arXiv taxonomy of MCP implementation faults](https://arxiv.org/html/2603.05637v1) found auth gaps as the most common class of real-world vulnerability. Build the tool before you expose it; decide who can call it before you deploy it.
-
-**Sources:**
-- [Build an MCP server — official quickstart](https://modelcontextprotocol.io/quickstart/server) (modelcontextprotocol.io)
-- [TypeScript SDK v2](https://github.com/modelcontextprotocol/typescript-sdk)
-- [Real Faults in MCP Software: a Comprehensive Taxonomy](https://arxiv.org/html/2603.05637v1) — arXiv, independent analysis of implementation mistakes in production MCP servers
-]]></content:encoded>
-    </item>
-
+    
 
     
     
