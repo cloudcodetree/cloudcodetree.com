@@ -10,8 +10,72 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 04 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 04 Oct 2026 20:10:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title>Your Local Model Tag Is a Quality Setting — GGUF Quantization Levels, When Q4_K_M Is Enough, and When Q8_0 Is Worth It</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-07-gguf-quantization-q4-k-m-q8-local-model-selection</link>
+      <guid isPermaLink="false">2026-10-04-07-gguf-quantization-q4-k-m-q8-local-model-selection</guid>
+      <pubDate>Sun, 04 Oct 2026 20:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>Local AI</category>
+      <description>GGUF quantization maps model size to quality: Q4_K_M halves VRAM vs FP16 at 98.9% accuracy; Q8_0 recovers 99%+ at 2x the size. Pick based on task, not instinct.</description>
+      <content:encoded><![CDATA[**GGUF quantization maps model size to quality: Q4_K_M is the practical default at ~98.9% of FP16 quality; Q8_0 recovers 99%+ at roughly double the file size. The tag on your model is a decision you're making by default.**
+
+## What you'll be able to do after this:
+- Read a GGUF quantization tag and know what quality-memory tradeoff you accepted
+- Choose the right level for code generation, structured output, and retrieval tasks
+- Use `ollama show` and `ollama ps` to audit what's actually running
+
+When you run `ollama pull llama3.3:8b`, Ollama silently downloads Q4_K_M — a 4-bit quantized checkpoint that's ~4.6 GB instead of ~15 GB at FP16. That default hides a decision you probably want to make consciously.
+
+## Reading the tag
+
+GGUF K-quants use mixed precision: different tensor groups get different bit widths, with the most sensitive layers kept at higher precision. The tag encodes the scheme:
+
+| Tag | Avg bits | ~Size (8B model) | Quality vs FP16 |
+|---|---|---|---|
+| Q4_0 | 4.5 | ~4.1 GB | 97.8% |
+| Q4_K_M | 4.8 | ~4.6 GB | 98.9% |
+| Q5_K_M | 5.7 | ~5.3 GB | 99.3% |
+| Q6_K | 6.6 | ~6.1 GB | 99.6% |
+| Q8_0 | 8.0 | ~7.7 GB | 99.8% |
+
+Source: Red Hat's 500,000-evaluation benchmark suite across instruction-following, summarization, and code tasks.
+
+**Q4_K_M is the right default** for iteration, exploration, and general chat. The 0.1% quality gap vs Q8_0 is invisible on most prompts. Pick it when RAM is the binding constraint.
+
+## When Q8_0 earns its extra 3 GB
+
+- **Structured output** (JSON schema, strict formatting) — the extra precision holds format constraints more reliably; Q4 drift can produce a valid-looking JSON that fails schema validation
+- **Code generation** — particularly for complex multi-file edits or uncommon API surfaces where exact token choice matters
+- **Short, factual answers** — a 1–2 sentence response where the quality gradient can flip the meaning
+
+## Checking and controlling what you run
+
+```bash
+# See the quantization level, parameter count, and context length of any local model
+ollama show llama3.3:8b
+
+# Show active model and live VRAM usage
+ollama ps
+
+# Pull an explicit Q8_0 checkpoint
+ollama pull llama3.3:8b-instruct-q8_0
+
+# Pull via explicit tag — Ollama's library page lists available tags per model
+ollama pull qwen3:8b-q5_k_m
+```
+
+**Limit:** quantization does not address model selection — a smaller model at Q8_0 can underperform a larger model at Q4_K_M. Tune quantization only after you've picked the right model for the task. Also: not every model on Ollama's library exposes the full quant range; some only publish Q4_K_M and Q8_0 checkpoints.
+
+**Sources:** [GGUF Format: A Complete Guide — DataCamp](https://www.datacamp.com/tutorial/gguf-format-a-complete-guide) · [GGUF Quantization for Fast and Memory-Efficient Inference — kaitchup/Benjamin Marie](https://kaitchup.substack.com/p/gguf-quantization-for-fast-and-memory) · [Red Hat Q4_K_M vs Q8_0 500k evaluation — sitepoint.com](https://www.sitepoint.com/quantized-local-llms-4bit-vs-8bit-analysis/) · [llama.cpp quantize README — GitHub](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>One Conversation Can't Hold a 50-File Migration — Dynamic Workflows Fan Out to Dozens of Agents and Synthesize Their Results</title>
@@ -5574,52 +5638,7 @@ One documented project (published on Zenn) reduced always-loaded rule overhead f
 **Sources:** [Explore the context window — code.claude.com](https://code.claude.com/docs/en/context-window) · [Claude Code Rules Directory: Modular Instructions That Scale — claudefa.st](https://claudefa.st/blog/guide/mechanics/rules-directory) · [Path-Scoped Skills — claudefa.st](https://claudefa.st/blog/guide/mechanics/path-scoped-skills)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Design Canvas and Your Repo Drift Every Sprint — `/design-sync` Closes That Gap in Two Commands</title>
-      <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
-      <guid isPermaLink="false">2026-09-16-04-design-sync-claude-design-claude-code-workflow</guid>
-      <pubDate>Wed, 16 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>The /design-sync command in Claude Code imports your real design system into Claude Design's canvas (pull), then syncs built components back to the canvas (push) — generated screens start from your actual component library.</description>
-      <content:encoded><![CDATA[**`/design-sync` in Claude Code imports your real design tokens and components into Claude Design's canvas, and `--push` syncs built components back — generated screens start from your actual component library, not generic HTML.**
-
-**What you'll be able to do after this:** run a full sprint from canvas prompt to production component without manually copying tokens, describing screenshots to Claude Code, or discovering mid-PR that the generated code references components that don't exist in your repo.
-
-**Three things to know:**
-- `/design-sync` (pull mode) reads your design tokens and component definitions from the repo and populates the Claude Design canvas — generated screens reference your real `Button`, `Card`, and `Modal`, not scaffolded HTML
-- `/design-sync --push` runs the reverse: Claude Code scans your built components and updates the canvas so the design file reflects what's actually in the codebase
-- Claude Design validates generated output against the synced system before showing it — reducing the "correct on canvas, broken in the codebase" debugging loop
-
-**The four-step sprint workflow:**
-
-**1. Pull your design system (once per project; repeat when tokens change):**
-```
-# In Claude Code:
-/design-sync
-```
-Claude Code reads tokens and component definitions from the repo and uploads them to the Claude Design project you last had open. If the project already has a GitHub repo attached, `/design-sync` detects it automatically. Nothing writes to disk — it populates the canvas.
-
-**2. Prompt in Claude Design.** With your real components loaded, the canvas generates screens that reference your actual imports. Refine spacing and copy with the canvas editor or inline comments — no need to re-prompt the whole screen for small adjustments.
-
-**3. Hand off to Claude Code.** Use "Send to Claude Code" (or "Send to local coding agent") from the canvas. Claude Code receives the screen spec along with the component context it just synced and generates implementation that references your real component paths — not invented names it will hallucinate when building.
-
-**4. Push the built component back before review:**
-```
-/design-sync --push
-```
-The canvas updates to reflect the as-built component. Run this before a design review so the reviewer is looking at what's in the codebase, not the original sketch — they approve what ships, not what was planned.
-
-**Two limits before you plan around this:**
-- Large repos (thousands of files) slow the pull sync; Anthropic's docs recommend "linking from Claude Code" rather than uploading for very large codebases — expect lag or browser issues otherwise
-- Multi-person canvas editing is listed as "basic and may not work reliably" in the current release — coordinate who edits before using it in a collaborative review
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + /design-sync: The Two-Way Bridge — skills-hub.ai](https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026) · [Claude Code and Claude Design Now Sync Both Ways — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync)]]></content:encoded>
-    </item>
-
+    
     
     
     
