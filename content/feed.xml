@@ -10,7 +10,122 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 04 Oct 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 04 Oct 2026 12:05:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>One Conversation Can't Hold a 50-File Migration — Dynamic Workflows Fan Out to Dozens of Agents and Synthesize Their Results</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-04-claude-code-dynamic-workflow-pipeline-parallel-fan-out</link>
+      <guid isPermaLink="false">2026-10-04-04-claude-code-dynamic-workflow-pipeline-parallel-fan-out</guid>
+      <pubDate>Sun, 04 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>Claude Code's dynamic workflows write a JS orchestration script that fans out to dozens of subagents with pipeline() and parallel()—running in the background while your session stays free.</description>
+      <content:encoded><![CDATA[**Claude Code's Workflow tool generates a JavaScript orchestration script that fans out to dozens (or hundreds) of subagents, runs in the background, and returns structured results — while your session stays free to do other work.**
+
+When a task outgrows one context window — a 50-file migration, a parallel audit across every API route, a multi-repo research sweep — ask Claude to "use a workflow" or include "ultracode" in your prompt. The runtime executes the script, not Claude's internal planner, so intermediate results never fill your context.
+
+## The three building blocks
+
+```js
+export const meta = { name: 'audit', description: 'Audit all routes' }
+
+const SCHEMA = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } } }
+
+const results = await pipeline(
+  routeFiles,
+  file => agent(`Audit ${file} for OWASP Top 10`, { label: `audit:${file}`, schema: SCHEMA })
+)
+return { findings: results.flatMap(r => r.findings) }
+```
+
+- **`agent(prompt, opts)`** — spawns one subagent, returns its structured or text result
+- **`pipeline(items, item => ...)`** — one agent per item, no global barrier; items flow through independently as each finishes
+- **`parallel([() => agent(...), ...])`** — global barrier; all must finish before the next stage
+
+Default to `pipeline()`. Use `parallel()` only when a later stage genuinely needs every prior result at once — for voting, merging, or deduplication across the full set.
+
+## When a workflow beats plain subagents
+
+With the Agent tool or subagents, Claude is the orchestrator — every result feeds back into one context window. That works for tasks up to roughly 10 independent units. A workflow moves the orchestration logic into JavaScript outside Claude's context, so 50 or 100 agents report their JSON results directly to the script. The script is resumable: re-invoke with `resumeFromRunId` and completed `agent()` calls return their cached results instantly — no re-running what already settled.
+
+## One real limit
+
+Workflows require explicit user opt-in ("use a workflow", "ultracode", or `/config`). Every subagent call bills your usage separately — a 50-agent run costs as much as 50 conversations. Calibrate on a small input list before scaling.
+
+**Sources:** [Orchestrate subagents at scale with dynamic workflows — code.claude.com](https://code.claude.com/docs/en/workflows) · [Claude Code Workflows: Deterministic Multi-Agent Orchestration — alexop.dev](https://alexop.dev/posts/claude-code-workflows-deterministic-orchestration/) · [Claude Code Dynamic Workflows — matthewswong.com](https://www.matthewswong.com/en/blog/claude-code-dynamic-workflows-orchestration/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>A Poisoned .git/config in a Zip File Runs Code in Seven AI Coding Agents Before Any Permission Prompt</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-05-gitspawn-git-config-rce-ai-coding-agents-claude-code</link>
+      <guid isPermaLink="false">2026-10-04-05-gitspawn-git-config-rce-ai-coding-agents-claude-code</guid>
+      <pubDate>Sun, 04 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Developer Tools</category>
+      <description>Manifold Security disclosed GitSpawn: 8 CVEs across 7 AI coding agents. A malicious .git/config triggers RCE via core.fsmonitor before any model-level permission prompt runs.</description>
+      <content:encoded><![CDATA[**Manifold Security disclosed GitSpawn: a poisoned `.git/config` in a received zip file, shared folder, or USB stick triggers arbitrary code execution in seven AI coding agents when any background `git status` runs — before any permission prompt is shown.**
+
+Git's `core.fsmonitor` config key accepts a shell command that git runs whenever it checks file state. A `.git/config` file that sets this key doesn't need a `git clone` to arrive — it can come via a zip, a mounted share, or a CI artifact. Open a project folder, an agent runs a routine `git status` in the background, and the payload executes as you, outside the sandbox.
+
+**Patching status at disclosure:**
+- **Claude Code 2.1.196+**: patched — update to 2.1.289+ (latest)
+- **Codex CLI 0.152.1+, Cursor (latest), Goose 1.44.0+**: patched
+- **Hermes Agent, Qwen Code, Grok Build**: unpatched at time of writing
+
+Eight CVEs across the seven affected agents.
+
+**Why it matters:** This bypasses the agent permission model. Watching what the agent does and denying suspicious commands doesn't help — the payload runs before the model receives any request. The attack surface is any project archive you didn't build yourself.
+
+**What to do now:** Run `claude --version` and update if below 2.1.196. Avoid opening untrusted project folders in any coding agent until your vendor ships a patch.
+
+**Sources:** [GitSpawn disclosure — adversa.ai](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Manifold Security coverage — getreadyforagents.com](https://www.getreadyforagents.com/news/gitspawn-ai-coding-agent-git-hijack-vulnerability/) · [GitSpawn: Malicious .git Configs Run Code in AI Coding Agents — agentoffense.com](https://agentoffense.com/blog/malicious-git-config-ai-agents-rce-gitspawn/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Model Gets the Facts Right but the Format Wrong, or the Format Right but the Facts Wrong — the Two Questions That Tell You Which Problem You Have</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-06-rag-vs-fine-tuning-when-each-wins-decision-framework</link>
+      <guid isPermaLink="false">2026-10-04-06-rag-vs-fine-tuning-when-each-wins-decision-framework</guid>
+      <pubDate>Sun, 04 Oct 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>RAG</category>
+      <description>RAG fixes wrong facts; fine-tuning fixes wrong behavior. The decision tree that keeps most teams from spending three weeks building the wrong solution.</description>
+      <media:content url="https://img.youtube.com/vi/DQiMy1JV7J4/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/DQiMy1JV7J4/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**What you'll be able to do after this:** identify whether your LLM problem is a knowledge problem (reach for RAG) or a behavioral problem (reach for fine-tuning), and know when you need both.
+
+### Three takeaways
+
+- **RAG for facts that change.** If the right answer depends on current docs, tickets, prices, or code, RAG wins by default. Fine-tuning bakes data into weights — it goes stale the moment anything changes.
+- **Fine-tune for behavior that doesn't.** If the model produces correct information in the wrong format, drifts off a strict JSON schema, or refuses a safe request it should accept — that's behavioral. Retrieval won't fix it.
+- **Most production apps need both.** RAG keeps knowledge current; fine-tuning disciplines the routes where retrieved answers still aren't in the right shape.
+
+### The decision tree (two questions)
+
+1. **Does the right answer depend on data that changes — pricing, docs, tickets, codebase, policies?** → Start with RAG.
+2. **Does the model have correct knowledge but produce it in the wrong format, tone, or structure?** → Fine-tune on the behavioral gap, after RAG is working.
+
+If neither fires, you have a prompting problem. Solve it with prompting before reaching for either approach.
+
+### The catch: retrieval quality sets the ceiling
+
+Evaluating retrieval (with RAGAS or a held-out test set) before fine-tuning is non-optional. A fine-tune on top of poor retrieval teaches the model to hallucinate confidently in your preferred format. Fix retrieval first; fine-tune only on the residual behavioral gap.
+
+### The escalation path in practice
+
+Prompt engineering → add RAG for knowledge gaps → fine-tune for behavioral gaps on RAG-backed routes → re-evaluate retrieval quality after fine-tuning. Each step is reversible until the last.
+
+**Sources:** [RAG vs Fine-Tuning: Most People Pick the Wrong One — YouTube](https://www.youtube.com/watch?v=DQiMy1JV7J4) · [RAG vs Fine-Tuning in 2026: A Decision Framework for LLM Teams — winder.ai](https://winder.ai/rag-vs-fine-tuning-2026-decision-framework/) · [Fine-tuning vs RAG: why most teams pick wrong — channel.tel](https://www.channel.tel/blog/fine-tuning-vs-rag-when-to-use-which-lora-qlora)]]></content:encoded>
+    </item>
 
     <item>
       <title>Scope Each Subagent to Its Job — Tool Restrictions, Model Overrides, and a Spend Cap in the Claude Agent SDK</title>
@@ -5505,165 +5620,9 @@ The canvas updates to reflect the as-built component. Run this before a design r
 **Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + /design-sync: The Two-Way Bridge — skills-hub.ai](https://skills-hub.ai/blog/claude-design-sync-code-handoff-2026) · [Claude Code and Claude Design Now Sync Both Ways — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Gateway Logs Every Claude Code Request as "claude-sonnet-4-6" — These Headers Let You Track Them by Session and Agent</title>
-      <link>https://code.claude.com/docs/en/llm-gateway-protocol</link>
-      <guid isPermaLink="false">2026-09-16-03-claude-code-gateway-session-agent-headers-cost-attribution</guid>
-      <pubDate>Wed, 16 Sep 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code sends x-claude-code-session-id and x-claude-code-agent-id on every API request — extract them in your LLM gateway to attribute costs per session and per subagent without parsing request bodies.</description>
-      <content:encoded><![CDATA[**When Claude Code routes through an LLM gateway, extract three built-in request headers to attribute API costs per session and per subagent — no request-body parsing needed.**
-
-When Claude Code routes through an LLM gateway (LiteLLM, Portkey, or a custom FastAPI proxy), every request arrives looking identical: `POST /v1/messages`, model `claude-sonnet-4-6`. Your logs show token counts but no way to tell which requests belong to which developer session, which are from subagents running in parallel, or which background tasks are burning the budget.
-
-Claude Code sends three attribution headers on every request to an `ANTHROPIC_BASE_URL` gateway:
-
-| Header | When present | Tells you |
-|---|---|---|
-| `x-claude-code-session-id` | Always | Unique ID for this session — aggregate all requests from one run |
-| `x-claude-code-agent-id` | Subagent requests only | ID of the spawned subagent that issued the request |
-| `x-claude-code-parent-agent-id` | Nested agents only | ID of the parent agent (for multi-level agent trees) |
-
-Extract them in your gateway middleware before forwarding:
-
-```python
-# FastAPI gateway proxy (simplified)
-from fastapi import Request
-
-@app.post("/v1/messages")
-async def proxy(request: Request):
-    session_id = request.headers.get("x-claude-code-session-id")
-    agent_id    = request.headers.get("x-claude-code-agent-id")
-    parent_id   = request.headers.get("x-claude-code-parent-agent-id")
-
-    log_request_attribution(
-        session_id=session_id,
-        is_subagent=bool(agent_id),
-        agent_depth=2 if parent_id else (1 if agent_id else 0),
-    )
-    # ... forward to upstream
-```
-
-With these tags your dashboards go from "1,000 Sonnet calls" to "120 interactive sessions, 680 subagent calls, 200 nested-agent calls" — actionable enough for per-project chargeback or per-developer budget alerts.
-
-**New in v2.1.273 (opt-in):** Set `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1` on the developer's machine to add five more request headers — `x-claude-code-request-class`, `x-claude-code-agent-type`, `x-claude-code-prev-tool-durations`, `x-claude-code-compaction`, and `x-claude-code-context-compacted` — that give the gateway finer-grained signal about what Claude Code is doing with each request.
-
-**Limits:** These headers are sent only when routing through `ANTHROPIC_BASE_URL`; they are not present on Bedrock-format (`CLAUDE_CODE_USE_BEDROCK=1`) or Vertex-format connections. The `x-claude-code-agent-id` is generated fresh each time a subagent spawns, so it cannot be used to track the same logical agent across different sessions. Do not treat agent IDs as user identifiers.
-
-**Sources:** [Gateway protocol reference — Claude Code docs](https://code.claude.com/docs/en/llm-gateway-protocol) · [Claude Code changelog v2.1.273](https://code.claude.com/docs/en/changelog) · [LiteLLM gateway setup](https://docs.litellm.ai/docs/proxy/configs) (independent gateway reference)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Text Is Already in Postgres — Build Semantic Search on Top of It With Supabase vecs in 25 Lines</title>
-      <link>https://supabase.com/docs/guides/ai/vecs-python-client</link>
-      <guid isPermaLink="false">2026-09-16-02-supabase-vecs-pgvector-semantic-knowledge-base-python</guid>
-      <pubDate>Wed, 16 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>Use Supabase's vecs Python client to embed documents, store them in pgvector, filter by metadata, and run semantic similarity searches — from connection to first query in 25 lines.</description>
-      <content:encoded><![CDATA[**Use Supabase's vecs Python library to build a metadata-filtered semantic knowledge base on pgvector — create a collection, upsert embeddings, index once, and query with filters in under 25 lines.**
-
-**What you'll be able to do after this:**
-- Connect a Python app to Supabase's pgvector extension using the vecs client
-- Embed and upsert documents with arbitrary metadata (source, date, department) for filtered retrieval
-- Run semantic similarity queries constrained by metadata without writing any SQL
-
-The resource: [Getting Started with Supabase Vector Databases](https://www.youtube.com/watch?v=6xchFWcHkaI) (YouTube, June 2026) walks the full workflow hands-on. The steps below match the vecs 0.4.x API.
-
-**Install:**
-```bash
-pip install vecs sentence-transformers
-```
-
-**Complete workflow:**
-```python
-import vecs
-from sentence_transformers import SentenceTransformer
-
-# 1. Connect to your Supabase Postgres instance
-vx = vecs.create_client(
-    "postgresql://postgres:<password>@<project-ref>.supabase.co:5432/postgres"
-)
-
-# 2. Create (or retrieve) a named collection
-#    dimension must match your embedding model's output size
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-docs = vx.get_or_create_collection(name="knowledge_base", dimension=384)
-
-# 3. Embed and upsert documents with metadata
-records = []
-for doc in my_documents:
-    vec = model.encode(doc["text"]).tolist()
-    records.append((
-        doc["id"],                                          # stable identifier (string)
-        vec,                                               # 384-dim list or np.array
-        {"source": doc["source"], "year": doc["year"]}     # arbitrary metadata dict
-    ))
-docs.upsert(records=records)
-
-# 4. Build an HNSW index — run once as a migration, not on every upsert
-docs.create_index()
-
-# 5. Semantic query with metadata filter
-query_vec = model.encode("annual leave policy").tolist()
-results = docs.query(
-    data=query_vec,
-    limit=5,
-    filters={"source": {"$eq": "hr_policies"}}  # MongoDB-style filter operators
-)
-# returns: ["doc-42", "doc-19", "doc-77", ...]
-```
-
-**The key decisions:**
-- `dimension` must match your embedding model exactly — set it once at collection creation
-- `create_index()` builds an HNSW graph synchronously; on large collections (>100,000 records) this takes minutes. Run it as a one-time schema migration
-- Metadata filters use MongoDB-style operators: `$eq`, `$lt`, `$gt`, `$in`, `$contains`
-
-**Limits:** vecs is Python-only — there is no official JS/TypeScript equivalent; JavaScript apps query pgvector through raw SQL or the Supabase client's `rpc()` method. vecs does not support hybrid (keyword + vector) search out of the box; for BM25 + vector retrieval you need to compose queries at the SQL layer directly. Index creation blocks the calling thread; do it in a migration script, not in a request handler.
-
-**Sources:** [vecs Python client docs — Supabase](https://supabase.com/docs/guides/ai/vecs-python-client) · [supabase/vecs — GitHub](https://github.com/supabase/vecs) · [Getting Started with Supabase Vector Databases — YouTube](https://www.youtube.com/watch?v=6xchFWcHkaI) · [Semantic Search with Supabase — OpenAI Cookbook](https://developers.openai.com/cookbook/examples/vector_databases/supabase/semantic-search) (independent implementation reference)
-]]></content:encoded>
-      <media:content url="https://i.ytimg.com/vi/6xchFWcHkaI/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://i.ytimg.com/vi/6xchFWcHkaI/maxresdefault.jpg" />
-    </item>
-
-    <item>
-      <title>Claude Code v2.1.273 Patches an Auto-Mode Permission Bypass and Adds MCP Disconnect Alerts</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-16-01-claude-code-v2-1-273-subshell-permission-mcp-disconnect</guid>
-      <pubDate>Wed, 16 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>Security</category>
-      <description>Claude Code 2.1.273 (Sept 15) closes two auto-mode permission-checker bugs including a subshell bypass, adds a visible MCP disconnect notification, and fixes an over-inflated context meter.</description>
-      <content:encoded><![CDATA[**Claude Code 2.1.273 (Sept 15) closes two permission-checker bugs in auto mode — including a subshell bypass — and adds a notification when MCP reconnection gives up for good.**
-
-Three changes in the September 15 release worth acting on.
-
-**Auto-mode subshell bypass (fixed).** In auto mode, a destructive command wrapped inside a `$()` subshell — e.g. `echo $(rm -rf /build/cache)` — bypassed the permission checker and executed without a review prompt. Separately, Bash commands the analyzer couldn't fully parse were silently allowed under `blockReadsOutsideWorkingDirectories` instead of triggering a review. Both are patched.
-
-**MCP disconnect notification (new).** When an MCP server disconnects mid-session and automatic reconnection gives up, Claude Code now surfaces a notification pointing to `/mcp`. Previously the server disappeared silently and you'd notice only when a tool call returned an unexpected error.
-
-**Context meter fix.** Advisor-tool turns were being counted at roughly twice their real context size, causing premature "running low" warnings during tool-heavy sessions. The meter now reflects actual context usage.
-
-**The limit:** The permission checker analyzes command syntax statically. It cannot catch obfuscated commands built through dynamic string concatenation at runtime. In high-risk CI environments, pair auto mode with OS-level sandboxing as a second control layer rather than relying on the permission model alone.
-
-**Why it matters:** The subshell bypass was a real gap in auto mode's safety model. If you run Claude Code with `auto` permissions in CI pipelines, deploy v2.1.273 before your next run. The MCP fix removes a silent failure mode that was hard to debug.
-
-**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Sandboxed Bash tool — code.claude.com](https://code.claude.com/docs/en/sandboxing)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
 
     
     
