@@ -10,7 +10,166 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 03 Oct 2026 20:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 04 Oct 2026 04:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Scope Each Subagent to Its Job — Tool Restrictions, Model Overrides, and a Spend Cap in the Claude Agent SDK</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-03-claude-agent-sdk-subagent-tool-restriction-model-budget-cap</link>
+      <guid isPermaLink="false">2026-10-04-03-claude-agent-sdk-subagent-tool-restriction-model-budget-cap</guid>
+      <pubDate>Sun, 04 Oct 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Claude Code</category>
+      <description>Three AgentDefinition fields — tools, model, and maxBudgetUsd — scope each subagent to exactly what its job needs, prevent accidental writes, and cap spend across the whole query tree.</description>
+      <content:encoded><![CDATA[**A subagent that can't write files can't accidentally overwrite them. Three fields in the Claude Agent SDK's `AgentDefinition` enforce this at the API level, not by convention.**
+
+A subagent defined without a `tools` field inherits every tool the parent has — including `Edit`, `Write`, and `Bash`. For ad hoc use that's fine; in a production pipeline it means a bug in your code-reviewer could rewrite the files it's reviewing. OWASP LLM Top 10 names this pattern "LLM08: Excessive Agency" and recommends minimal tool grants as the primary mitigation. The SDK's `AgentDefinition` implements it directly:
+
+**`tools`** — explicit allowlist, agent can't access anything outside it:
+```typescript
+agents: {
+  "code-reviewer": {
+    description: "Security and quality reviewer for PR diffs.",
+    prompt: "Review for security vulnerabilities and coding standards. Never modify files.",
+    tools: ["Read", "Grep", "Glob"]
+  }
+}
+```
+
+**`model`** — per-subagent model override. Route cheap tasks to `haiku`, complex synthesis to `opus`:
+```typescript
+model: "haiku"  // accepts "sonnet", "opus", "fable", a full model ID, or "inherit"
+```
+
+**`maxBudgetUsd`** — caps the entire query tree (parent + every spawned subagent) at a dollar amount. The query stops with `error_max_budget_usd` when it hits the limit:
+```typescript
+options: { allowedTools: [..., "Agent"], agents: { ... }, maxBudgetUsd: 5 }
+```
+
+Two environment variables bound the tree further:
+- `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` — prevents subagents from spawning their own (default depth is 3)
+- `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS=5` — caps parallel execution (default is 20)
+
+**Limit:** `tools`, `model`, and `maxBudgetUsd` are programmatic-definition-only. Filesystem-based agents (`.claude/agents/*.md`) don't support them — they inherit all parent tools. The spend cap requires TypeScript SDK v0.3.219 / Python SDK v0.2.127 or later.
+
+**Why it matters:** tool scope is principle of least privilege applied to agents. A read-only code-reviewer is safe to run in an automated pipeline with broad permissions granted to the parent session — the restriction is enforced by the model layer, not by hoping the agent behaves.
+
+**Sources:** [Claude Agent SDK — Subagents](https://code.claude.com/docs/en/agent-sdk/subagents) · [Cap subagent depth, concurrency, and spend](https://code.claude.com/docs/en/agent-sdk/subagents#cap-subagent-depth-concurrency-and-spend) · [OWASP LLM Top 10: LLM08 Excessive Agency](https://owasp.org/www-project-top-10-for-large-language-model-applications/)]]></content:encoded>
+    </item>
+    <item>
+      <title>MCP Config Files Are Leaking Live Credentials — 2,117 Valid Secrets Found, Protocol Gets Stateless Core and Fixed OAuth</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-02-mcp-secrets-config-files-gitguardian-stateless-protocol-oauth</link>
+      <guid isPermaLink="false">2026-10-04-02-mcp-secrets-config-files-gitguardian-stateless-protocol-oauth</guid>
+      <pubDate>Sun, 04 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>MCP</category>
+      <category>Security</category>
+      <description>GitGuardian found 24,008 secrets in public MCP config files (2,117 still valid); the MCP protocol's July update replaces its handshake model with a stateless core and patches an OAuth mix-up attack vector.</description>
+      <content:encoded><![CDATA[**GitGuardian's 2026 secrets-sprawl report found 24,008 secrets in public MCP config files; 2,117 were still valid at time of scan.**
+
+The top exposed types: Google API Keys (19%), PostgreSQL connection strings (14%), Firecrawl API keys (12%). The cause is structural — popular MCP setup guides still recommend pasting API keys directly into JSON config files or command-line arguments, and those configs routinely land on GitHub as dotfiles, project scaffolds, or example repos.
+
+**The one-line fix:** replace hardcoded values with environment variable references. Most MCP clients read these at startup:
+```json
+{ "env": { "MY_API_KEY": "${MY_API_KEY}" } }
+```
+The secret stays in your shell environment; the config file is safe to commit.
+
+**Separately:** the Agentic AI Foundation (Linux Foundation, backed by Anthropic, OpenAI, Google, and others) shipped a major protocol update on July 28. Two meaningful changes for server authors:
+- **Stateless request-centric model:** each request carries all the information it needs; servers no longer maintain per-connection state. This enables load balancing across replicas without shared storage — a real operational improvement for multi-instance deployments.
+- **Fixed OAuth mix-up attack:** the previous authorization flow let a malicious server intercept authorization codes from a legitimate one. The update closes that with stricter authorization metadata handling.
+
+**Limit:** the stateless shift is a breaking change for servers that rely on connection-level state. The Foundation's deprecation policy keeps old behavior functional for twelve months, so nothing breaks immediately — but migration planning starts now.
+
+**Why it matters:** MCP config files are the new `.env` — they carry real credentials and they need the same secrets-management discipline. The OAuth fix is separately important if you're building servers that authenticate users via third-party providers.
+
+**Sources:** [GitGuardian State of Secrets Sprawl 2026](https://blog.gitguardian.com/the-state-of-secrets-sprawl-2026/) · [MCP major protocol update — ITdaily](https://itdaily.com/news/software/mcp-2026-update-specs/) · [MCP ecosystem growth numbers — DEV Community](https://dev.to/grahamduescn/mcp-in-2026-the-numbers-behind-the-ecosystem-explosion-2b8e)]]></content:encoded>
+    </item>
+    <item>
+      <title>Your Data Source Has No Claude Integration — Build One in 30 Minutes With the MCP TypeScript SDK</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio</link>
+      <guid isPermaLink="false">2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio</guid>
+      <pubDate>Sun, 04 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <description>An MCP server registers typed tools that Claude, Cursor, and Windsurf can call natively — build one connecting any data source to the agent loop in under 30 minutes with the official TypeScript SDK.</description>
+      <content:encoded><![CDATA[**An MCP server is a process that registers typed tools (functions with Zod schemas) that any MCP-compatible client can call — build one in under 30 minutes using the official TypeScript SDK.**
+
+**What you'll be able to do after this:** connect a calendar, database, REST API, or internal tool to Claude (and any other MCP client) as a native tool the agent calls, not a prompt trick you maintain.
+
+**Three things to know before you start:**
+- The SDK is the standard implementation: 97 million monthly downloads, 13,000+ servers registered on npm and GitHub.
+- Tools expose a name, a Zod schema for inputs, and an async handler — the client never sees your code, only the schema.
+- stdio transport works for local use; HTTP/SSE transport is needed for remote or multi-client deployments.
+
+**Walk-through (Node 20, TypeScript):**
+
+1. Initialize and install:
+```bash
+npm init -y && npx tsc --init
+npm install @modelcontextprotocol/sdk zod
+```
+
+2. Create `server.ts` and initialize `McpServer`:
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+
+const server = new McpServer({ name: "my-tools", version: "1.0.0" });
+```
+
+3. Register a tool with a Zod schema:
+```typescript
+server.tool(
+  "get-events",
+  "Fetch calendar events for a given date (YYYY-MM-DD)",
+  { date: z.string().describe("ISO date string, e.g. 2026-10-04") },
+  async ({ date }) => {
+    const events = await fetchCalendarEvents(date); // your API call here
+    return { content: [{ type: "text", text: events.join("\n") }] };
+  }
+);
+```
+
+4. Connect and run:
+```typescript
+const transport = new StdioServerTransport();
+await server.connect(transport);
+```
+
+5. Register in Claude Desktop's `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "my-tools": {
+      "command": "node",
+      "args": ["dist/server.js"],
+      "env": { "MY_API_KEY": "${MY_API_KEY}" }
+    }
+  }
+}
+```
+
+6. Test with MCP Inspector (`npx @modelcontextprotocol/inspector`) before wiring to a live client — it shows the handshake, tool list, and individual call results.
+
+**Limits:** Tool descriptions are the only documentation the model has about your tool — vague descriptions produce inconsistent calls, so write them like docstrings. stdio transport works only for local single-client use; if you need the server running remotely or serving multiple clients, you'll need the streamable HTTP transport, which adds session management.
+
+**Full hands-on video (40 min, free lab environment):** [MCP Tutorial: Build Your First MCP Server and Client from Scratch — KodeKloud](https://www.youtube.com/watch?v=RhTiAOGwbYE). Covers JSON-RPC 2.0 internals, both server and client side, and walks through the inspector flow.
+
+**Sources:** [FreeCodeCamp MCP server handbook](https://www.freecodecamp.org/news/how-to-build-a-custom-mcp-server-with-typescript-a-handbook-for-developers/) · [MCP TypeScript SDK — modelcontextprotocol/sdk on GitHub](https://github.com/modelcontextprotocol/sdk) · [KodeKloud YouTube — MCP Tutorial](https://www.youtube.com/watch?v=RhTiAOGwbYE)]]></content:encoded>
+      <media:content url="https://img.youtube.com/vi/RhTiAOGwbYE/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/RhTiAOGwbYE/maxresdefault.jpg" />
+    </item>
+
+
 
 
     <item>
@@ -5506,157 +5665,9 @@ Three changes in the September 15 release worth acting on.
     </item>
 
 
-    <item>
-      <title>Hundreds of AI Agents Coordinated a Real-World Attack at 395 Organizations — Here Is What the Logs Show</title>
-      <link>https://www.greynoise.io/blog/ai-orchestrated-campaign-against-papercut-ng-mf</link>
-      <guid isPermaLink="false">2026-09-15-06-ai-agents-papercut-attack-orchestration</guid>
-      <pubDate>Mon, 15 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Agents</category>
-      <description>A threat actor ran hundreds of Codex and DeepSeek agents against PaperCut NG/MF servers, hitting 440 instances at 395 orgs in 48 countries — first RCE in under four hours, domain admin in seven minutes at one school.</description>
-      <content:encoded><![CDATA[**A threat actor ran hundreds of Codex and DeepSeek agents against PaperCut NG/MF servers in late August, hitting 440 instances at 395 orgs in 48 countries — first RCE in under four hours, domain admin in seven minutes at one school.**
-
-GreyNoise published the full breakdown on September 9. The threat actor — believed to be Russian-speaking — first stood up a private lab with a vulnerable PaperCut instance and an Active Directory server to develop and test exploits, then launched at scale. Two CVEs were targeted: CVE-2026-81578 (authentication bypass) and CVE-2026-82078 (unsafe reflection remote code execution).
-
-The attack economics, from the GreyNoise analysis:
-
-| Milestone | Time |
-|---|---|
-| Empty workspace → first RCE on a real victim | Under 4 hours |
-| First access → domain admin (typical) | ~2 hours |
-| One high school: initial access → domain admin | 7 minutes |
-| 11 organizations compromised | 26 seconds |
-
-The agentic approach enabled rapid parallel exploitation — scanning, credential harvesting from LSASS, noPac attacks, and domain admin creation all running concurrently across hundreds of targets. 280 victims had credentials harvested; 147 had OS/domain secrets extracted; 12 reached full domain admin compromise. The education sector accounted for 204 of 395 victims.
-
-One detail worth noting: in some cases the agents deviated from the attacker's own geographical targeting restrictions. The same coordination problem you manage in your agentic builds applies to the attacker's too — though that is cold comfort for the 395 organizations in the data.
-
-**What worked on defense:** a Cloudflare WAF successfully defeated exploitation attempts in at least one recorded case. Patching, network segmentation, and WAF rules remain effective — the underlying attack surface was unpatched CVEs, not some AI-specific bypass.
-
-**Context this week:** on September 12, Dario Amodei published "We Must Pace the Frontier," arguing frontier labs should deliberately slow capability gains by one to two years so safety work can catch up. Sam Altman publicly agreed within hours. The PaperCut campaign — empty workspace to domain admin in under six hours, using publicly available models and tools — illustrates what that urgency looks like from the defender's side.
-
-**Why it matters:** the infrastructure for this attack (Codex + DeepSeek + commodity offensive tools) is largely the same infrastructure you build production agents with. The speed — <4 hours from scratch to real-world RCE — is not a theoretical future; it is August 2026 activity. Understanding how agents were orchestrated here is directly useful for designing your own agent architectures with appropriate guardrails.
-
-**Sources:** [Agents Gone Wild: An AI-Orchestrated Global Campaign Against PaperCut NG/MF](https://www.greynoise.io/blog/ai-orchestrated-campaign-against-papercut-ng-mf) (GreyNoise, Sept 9 2026) · [AI-powered attack exploited PaperCut flaws to hack 395 organizations](https://www.bleepingcomputer.com/news/security/ai-powered-attack-exploited-papercut-flaws-to-hack-395-organizations/) (BleepingComputer) · [Hundreds of AI agents helped PaperCut attacker hit 395+ orgs, and some went off script](https://www.theregister.com/security/2026/09/10/hundreds-of-ai-agents-helped-papercut-attacker-hit-395-orgs-and-some-went-off-script/5295650) (The Register)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>You've Been Setting r=16 Without Knowing Why — Here Is the LoRA Decision From First Principles</title>
-      <link>https://huggingface.co/docs/peft/main/en/conceptual_guides/lora</link>
-      <guid isPermaLink="false">2026-09-15-07-lora-rank-alpha-target-modules-explained</guid>
-      <pubDate>Mon, 15 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>LLM</category>
-      <description>LoRA trains two small matrices instead of updating all weights, betting fine-tuning lives in a low-dimensional subspace. Here is how to pick rank, alpha, and target_modules from that logic.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** choose LoRA rank (`r`), `lora_alpha`, and `target_modules` from first principles, understand what each parameter actually controls, and stop cargo-culting `r=16`.
-
-**Why LoRA works — the one idea underneath all the parameters**
-
-Full fine-tuning adjusts every weight in the model. LoRA instead parameterizes the update as ΔW = B×A, where A is an r×d matrix and B is d×r — two small matrices whose product approximates the change you need. The bet: for most fine-tuning tasks, the useful update lives in a much lower-dimensional subspace than the full d×d weight matrix. For instruction-following, style adaptation, and domain shift on standard tasks, this bet is almost always correct. The adapter adds roughly 0.5% of the original parameters; the base model stays frozen.
-
-**Picking rank (`r`)**
-
-| Task | r | Why |
-|---|---|---|
-| Style / format only | 8 | Narrow change; low capacity needed |
-| Instruction-following (default) | 16 | Enough for most tasks without overfitting |
-| Complex domain shift, 10K+ examples | 32–64 | Broader subspace, more capacity |
-
-Start at r=16. Increase only if validation loss stagnates and you're not already overfitting. Going to r=128 rarely helps and often hurts.
-
-**Setting alpha (`lora_alpha`)**
-
-The effective scale applied to the adapters is `lora_alpha / r`. Start with `lora_alpha = r` (scale = 1.0). If training is sluggish and the model doesn't converge, try `lora_alpha = 2r`. Set `use_rslora=True` in the PEFT config — this switches the denominator to `sqrt(r)` instead of `r`, which keeps the effective scale numerically stable at higher ranks without changing your alpha value.
-
-**Choosing `target_modules`**
-
-Apply LoRA to all major linear layers, not just attention:
-
-```
-Attention: q_proj, k_proj, v_proj, o_proj
-MLP:       gate_proj, up_proj, down_proj
-```
-
-In PEFT, `target_modules="all-linear"` does this automatically and consistently outperforms attention-only targeting. The VRAM saving from restricting modules is minimal; the accuracy cost is not.
-
-**Minimal working config**
-
-```python
-from peft import LoraConfig, get_peft_model
-
-config = LoraConfig(
-    r=16,
-    lora_alpha=16,
-    target_modules="all-linear",
-    lora_dropout=0.05,
-    use_rslora=True,
-    bias="none",
-)
-model = get_peft_model(base_model, config)
-model.print_trainable_parameters()
-# trainable params: ~40M / 8B total (~0.5%)
-```
-
-After training, merge with `model.merge_and_unload()` to fold adapter weights into the base and remove inference overhead.
-
-**Three real limits**
-
-1. **Inference memory is unchanged.** The adapter and base both load. You save VRAM during training, not deployment. Merging solves this but removes per-task switching.
-2. **LoRA learns rare facts less reliably than full fine-tuning.** A 2024 arXiv study ([LoRA Learns Less and Forgets Less, 2405.09673](https://arxiv.org/pdf/2405.09673)) found LoRA retains common knowledge better (less catastrophic forgetting) but struggles more with rare domain-specific information than full fine-tuning does. If your task depends heavily on rare facts, evaluate carefully.
-3. **Dynamic imports fool TIA.** Not a LoRA issue — just the related context if you're running fine-tuning in a CI pipeline: static dependency analysis misses dynamic imports. (See this week's CI scaling post for the pattern.)
-
-**Sources:** [LoRA Conceptual Guide — Hugging Face PEFT](https://huggingface.co/docs/peft/main/en/conceptual_guides/lora) · [LoRA Hyperparameters Guide — Unsloth](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide/lora-hyperparameters-guide) · [LoRA Learns Less and Forgets Less (arXiv 2405.09673)](https://arxiv.org/pdf/2405.09673) — independent academic study on LoRA retention vs. full fine-tuning
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your CI Was Designed for One PR a Day — Here Is the Architecture That Handles Agentic Code at Scale</title>
-      <link>https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic</link>
-      <guid isPermaLink="false">2026-09-15-05-ci-test-impact-analysis-claude-code-scale</guid>
-      <pubDate>Mon, 15 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>When AI writes 80% of your code, your CI sees 25x more jobs. Test impact analysis — mapping changes to the minimum valid test set — is the architecture fix Anthropic shipped.</description>
-      <content:encoded><![CDATA[**When AI authors 80% of your code and generates 25× more CI jobs in six months, "bigger machine" is a patch. Stateless test selection is the fix.**
-
-Anthropic's engineering blog published yesterday on a problem most teams running Claude Code will hit: agentic code generation creates exponential CI load, not linear. Their trajectory:
-
-| Change | Bought | How it broke |
-|---|---|---|
-| 2× machines | 70 days | Memory saturation |
-| Shard by package | 29 days | Package count kept growing |
-| Daily restart | <1 day | Hit load by mid-afternoon |
-| Stateless workers + TIA | Scales horizontally | — |
-
-The fix was **test impact analysis (TIA)**: a service that maps each code change to the minimum set of tests that could be affected, using past run data and the package dependency graph. Instead of running 10,000 tests on every agent commit, each change gets a targeted list — and agents self-verify against that. The service is stateless, runs as disposable workers, and scales out rather than up.
-
-Three things this implies for your stack:
-
-1. **Design for 5× your current CI load, not 1.1×.** If agents write 20% of your commits today, extrapolate forward. The curve is not linear.
-2. **A focused test set gives agents better feedback.** 200 targeted tests let an agent iterate; waiting 20 minutes on a full suite induces guessing. Tighter feedback loops produce fewer follow-up fixes.
-3. **Stateless beats stateful at scale.** A single process accumulating per-test history across thousands of changes becomes a bottleneck. Workers that process one change and exit scale horizontally without any coordination problem.
-
-For Python stacks: [`pytest-testmon`](https://testmon.org) tracks source-to-test dependencies and re-runs only affected tests. For polyglot monorepos, Bazel's affected-target analysis does this at the build graph level. The technique predates LLMs; agentic coding just made it load-bearing.
-
-**One real limit:** TIA depends on accurate static dependency data. Dynamic imports, generated code, and metaprogramming can cause under-selection — the service may skip tests it should have run. Anthropic validated coverage by running TIA alongside the full suite for the first few weeks before relying on it exclusively.
-
-**Sources:**
-- [Agentic coding is straining CI: how we scaled test impact analysis at Anthropic](https://claude.com/blog/agentic-coding-is-straining-ci-heres-how-we-scaled-test-impact-analysis-at-anthropic) (Anthropic engineering blog, Sept 14 2026)
-- [TDAD: Test-Driven Agentic Development — Graph-Based Impact Analysis](https://arxiv.org/html/2603.17973) — independent arXiv paper on automated test selection for AI coding agents
-- [pytest-testmon](https://testmon.org) — open-source Python TIA; the same principle applied to smaller stacks
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
 
     
