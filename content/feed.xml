@@ -10,9 +10,141 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 05 Oct 2026 12:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 05 Oct 2026 20:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your API Hard-Codes a Thinking Budget — Adaptive Thinking Lets the Model Decide; Fable 5 and Mythos 5 Only Accept the New Form</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-05-07-adaptive-thinking-budget-tokens-migration-when-model-decides</link>
+      <guid isPermaLink="false">2026-10-05-07-adaptive-thinking-budget-tokens-migration-when-model-decides</guid>
+      <pubDate>Mon, 05 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>LLM</category>
+      <category>Best Practices</category>
+      <description>Claude Fable 5 and Mythos 5 don't accept budget_tokens at all — adaptive thinking is the only mode. Here's the migration pattern and when manual budgets still make sense on older models.</description>
+      <content:encoded><![CDATA[**Claude Fable 5 and Mythos 5 don't accept `budget_tokens` at all — the only thinking mode is adaptive. If you're passing a manual budget today, migrate before you hit a model you can't use.**
+
+Extended thinking on older models used an explicit token budget:
+
+```python
+# ❌ Works on claude-3-7-sonnet, claude-opus-4.6; fails on Fable 5 / Mythos 5
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=16000,
+    thinking={"type": "enabled", "budget_tokens": 8000},
+    messages=[{"role": "user", "content": prompt}]
+)
+```
+
+Adaptive thinking replaces the explicit budget with model-driven reasoning:
+
+```python
+# ✅ Works on Opus 4.6, Sonnet 4.6, Fable 5, Mythos 5
+response = client.messages.create(
+    model="claude-fable-5-1",
+    max_tokens=16000,
+    thinking={"type": "adaptive"},
+    messages=[{"role": "user", "content": prompt}]
+)
+```
+
+The model decides when deep reasoning is worth the tokens and when it isn't. A classification prompt won't burn thinking tokens; a multi-step logic problem will reason deeply. Anthropic reports this outperforms a fixed budget on most benchmarks because the model can scale effort to actual difficulty.
+
+## Reading the output
+
+The response still includes a `thinking` content block when the model used extended reasoning — your parsing code doesn't change:
+
+```python
+for block in response.content:
+    if block.type == "thinking":
+        print("Reasoning:", block.thinking[:200])
+    elif block.type == "text":
+        print("Answer:", block.text)
+```
+
+## When manual budget_tokens is still the right choice
+
+- **Older models** (claude-3-7-sonnet, claude-opus-4, claude-opus-4.6, claude-sonnet-4.6): manual budgets still work and give you a hard ceiling on thinking cost.
+- **Evaluation pipelines with strict cost caps**: when you're running thousands of classification calls and don't want any of them to surprise you with a 20,000-token thinking pass, a hard budget is your guardrail.
+- **Debugging**: forcing a minimum thinking budget (`budget_tokens: 8000`) reproduces reasoning traces reliably; adaptive mode may not trigger for trivial test prompts.
+
+## The limit to know
+
+Adaptive thinking gives you less cost predictability than a hard budget. Thinking tokens cost the same as input tokens on the same model — a complex prompt could trigger a long reasoning pass without warning. Monitor `usage.thinking_tokens` in your response objects and set `max_tokens` high enough to accommodate the worst case.
+
+**Sources:** [Adaptive thinking — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking) · [Extended thinking — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/extended-thinking) · [Extended Thinking in Claude: When Deep Reasoning Pays For Itself — developersdigest.tech](https://www.developersdigest.tech/blog/extended-thinking-claude-production-guide) · [Claude Extended Thinking API: Cost & When to Use 2026 — apiscout.dev](https://apiscout.dev/guides/claude-api-extended-thinking-mode-2026)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Local Machine Is an Inference Server — Ollama Turns a Model Download Into an OpenAI-Compatible REST API in One Command</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-05-06-ollama-local-llm-pull-run-openai-api</link>
+      <guid isPermaLink="false">2026-10-05-06-ollama-local-llm-pull-run-openai-api</guid>
+      <pubDate>Mon, 05 Oct 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Local AI</category>
+      <category>Self-Hosting</category>
+      <description>Ollama wraps llama.cpp with a single CLI for pulling and running 7B+ models locally; your existing OpenAI SDK code connects by changing base_url to http://localhost:11434/v1.</description>
+      <media:content url="https://img.youtube.com/vi/xJu2DzQVmis/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/xJu2DzQVmis/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**Ollama wraps llama.cpp with a one-command CLI for pulling, running, and serving open-weight models; your existing OpenAI SDK code connects by changing `base_url` to `http://localhost:11434/v1`.**
+
+**What you'll be able to do after this:**
+- Pull and run Llama 3.2, Phi-3.5, Mistral, and Qwen locally with no API key or cloud dependency
+- Call your local model from Python code that already uses the OpenAI client — zero rewrite
+- Pick the right quantization level for your RAM budget (the [GGUF post from yesterday](https://cloudcodetree.com/ai-news/2026-10-04-07-gguf-quantization-q4-k-m-q8-local-model-selection) has the tradeoff table)
+
+## Setup (macOS/Linux, under 5 min)
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh   # Windows: download installer at ollama.com
+ollama pull llama3.2     # 2.0 GB, runs on 8 GB RAM
+ollama pull phi3.5       # 2.2 GB, strong at reasoning for its size
+ollama run llama3.2      # opens an interactive chat shell
+```
+
+## Your existing OpenAI code works unchanged
+
+Ollama serves `/v1/chat/completions` on `localhost:11434`, matching the OpenAI API shape:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+response = client.chat.completions.create(
+    model="llama3.2",
+    messages=[{"role": "user", "content": "Write a Python decorator that logs execution time."}]
+)
+print(response.choices[0].message.content)
+```
+
+`api_key="ollama"` is a placeholder the SDK requires; Ollama ignores it.
+
+## Useful CLI
+
+```bash
+ollama list                # all downloaded models
+ollama ps                  # what's currently loaded in GPU/CPU memory
+ollama show llama3.2       # metadata: family, parameters, context length, quantization
+ollama rm llama3.2         # delete model and reclaim disk space
+```
+
+## The limits that matter
+
+**RAM is your wall.** 7B models need ~6 GB VRAM (or ~8 GB system RAM for CPU inference); 13B need ~10 GB; 70B need ~40 GB. Q4 quantization cuts those numbers roughly in half at some quality cost. Loading a model for the first time takes 5–30 seconds depending on disk speed; subsequent requests are fast.
+
+**Disk adds up.** Models store in `~/.ollama/models/` — a few 7B downloads fill a laptop SSD. Run `ollama rm` to prune models you're done with.
+
+**The `/v1/` compatibility layer has gaps.** Ollama's OpenAI-compatible endpoint does not support the Batch API, `o1`-style reasoning tokens, or fine-tuned model IDs. Tool use and structured output work on most models but behavior varies by model family.
+
+**Sources:** [Ollama docs — ollama.com](https://ollama.com) · [Ollama Full Tutorial for Beginners — YouTube](https://www.youtube.com/watch?v=xJu2DzQVmis) · [Run Local LLMs 2026 complete developer guide — SitePoint](https://www.sitepoint.com/run-local-llms-2026-complete-developer-guide/) · [OpenAI-Compatible LLM APIs 2026: Ollama, vLLM & LiteLLM — vucense.com](https://vucense.com/dev-corner/openai-compatible-llm-apis-2026/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your SubagentStop Hook Can Now Pass Audit Context to the Lead — Wire the Gating Pattern in One Script</title>
@@ -5624,87 +5756,8 @@ The shared memory component is the key architectural change: every thread reads 
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Agent Forgets Everything at Session End — A Free 90-Minute Course Builds the Two-Tier Memory That Fixes It</title>
-      <link>https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory</link>
-      <guid isPermaLink="false">2026-09-17-05-agent-memory-letta-deeplearning-ai-two-tier</guid>
-      <pubDate>Thu, 17 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Free 90-min DeepLearning.AI course by Letta co-founders covers two-tier agent memory: in-context core blocks + external archival storage that agents self-edit via tool calls.</description>
-      <content:encoded><![CDATA[**Build agents with persistent memory that survives session end — a free DeepLearning.AI course covers the two-tier architecture that replaces "it forgot everything" with searchable, self-updating state.**
-
-**What you'll be able to do after this:** Implement in-context core memory blocks paired with external archival storage, let agents self-edit their own memory using tool calls, and share memory blocks across a multi-agent coordinator pattern.
-
-**Three takeaways:**
-1. **Two tiers, one agent.** In-context core memory holds immediate context (user info, task state, preferences). External archival storage is a searchable database the agent queries when it needs something that's been evicted from the window — bridging sessions without re-prompting.
-2. **Agents edit their own memory via tool calls.** The agent inserts, updates, and prunes its stored knowledge as it learns, rather than you managing state externally. You can audit these edits in the conversation log.
-3. **Shared memory blocks enable coordinator patterns.** A coordinator agent writes state that worker agents read — no context-passing in prompts; the memory layer is the coordination mechanism.
-
-**Concrete setup (Letta):**
-
-```python
-from letta import create_client
-from letta.schemas.memory import BasicBlockMemory, Block
-
-client = create_client()
-agent = client.create_agent(
-    memory=BasicBlockMemory(
-        blocks=[
-            Block(name="human", value="User: Alice — working on RAG pipeline with Qdrant"),
-            Block(name="persona", value="Expert coding assistant focused on retrieval systems"),
-        ]
-    )
-)
-
-# Agent updates core memory as it learns new context
-client.send_message(
-    agent_id=agent.id, role="user",
-    message="Note: Alice prefers Python and Qdrant runs on localhost:6333"
-)
-# Core memory block now updated — persists across sessions
-```
-
-The memory update is a tool call visible in the conversation — auditable, reversible.
-
-**The course:** [LLMs as Operating Systems: Agent Memory](https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory) — free, 90 minutes, 8 lessons with 5 code examples, taught by Charles Packer and Sarah Wooders (Letta co-founders, MemGPT paper authors).
-
-**Limits:** Letta's perpetual-single-thread model is opinionated — it suits long-running assistants well but adds overhead for stateless task agents where you don't need persistence. If you're already on LangGraph, [LangMem](https://langchain-ai.github.io/langmem/) is a lower-ceremony alternative that integrates natively with LangGraph's store and distinguishes semantic, episodic, and procedural memory without Letta's architectural constraints.
-
-**Sources:** [DeepLearning.AI course](https://www.deeplearning.ai/courses/llms-as-operating-systems-agent-memory) · [Letta agent memory docs](https://docs.letta.com/guides/agents/memory/) · [LangMem docs](https://langchain-ai.github.io/langmem/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Claude Optimized 30 ML Models in 4 Weeks — Anthropic Is Open-Sourcing the Code</title>
-      <link>https://www.anthropic.com/research/claude-uplifts-biomolecular-modeling</link>
-      <guid isPermaLink="false">2026-09-17-03-anthropic-claude-ml-kernel-optimization-open-source</guid>
-      <pubDate>Thu, 17 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Best Practices</category>
-      <description>Anthropic used Claude to write custom CUDA kernels for 30+ bioscience ML models, averaging 4x speedup in under four weeks — the optimized code is now open-source on GitHub.</description>
-      <content:encoded><![CDATA[**Claude generated custom CUDA kernels for 30+ bioscience ML models in under four weeks, averaging a 4× speedup — Anthropic reports all optimized code is now open-source.**
-
-Anthropic published results of a project where Claude optimized deep learning models used for biomolecular prediction and protein design. Claude wrote custom kernels — including a FlashPairformer implementation Anthropic reports outperforms field standards by 2.7–3.2× on triangle operations — and reduced memory requirements enough to handle systems over 10,000 tokens on a single GPU node.
-
-The comparison the post draws: "It normally takes an experienced team of engineers weeks to produce such optimizations for each model." Claude covered 30 in parallel in under four weeks.
-
-The [open-source repo](https://github.com/anthropics/uplifting-biomolecular-modeling) includes reference implementations across structure prediction, protein language modeling, and genomics. The kernel optimization patterns (fused operations, attention reformulations) are worth reading even if you're not working on bioscience models.
-
-**Limits:** The 4× average Anthropic reports covers variants with "minimal precision loss"; the strictly lossless path is closer to 2×. The target models are bioscience-specific — transferring patterns to NLP or vision architectures requires additional work.
-
-**Why it matters:** kernel-level ML optimization is now a task where Claude can do genuine low-level engineering work, not just high-level glue code. The repo is a concrete artifact to study and adapt.
-
-**Sources:** [Anthropic research post](https://www.anthropic.com/research/claude-uplifts-biomolecular-modeling) · [Open-source code](https://github.com/anthropics/uplifting-biomolecular-modeling)
-]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
