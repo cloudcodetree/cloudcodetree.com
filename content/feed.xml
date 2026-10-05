@@ -10,9 +10,160 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 05 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 05 Oct 2026 12:08:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your SubagentStop Hook Can Now Pass Audit Context to the Lead — Wire the Gating Pattern in One Script</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-05-05-subagent-stop-hook-additional-context-lead-audit</link>
+      <guid isPermaLink="false">2026-10-05-05-subagent-stop-hook-additional-context-lead-audit</guid>
+      <pubDate>Mon, 05 Oct 2026 12:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <description>SubagentStop's hookSpecificOutput.additionalContext (2.1.163+) injects a string into the lead's context window the instant a subagent finishes. Gate and audit in one script instead of two hooks and a temp file.</description>
+      <content:encoded><![CDATA[**SubagentStop's `hookSpecificOutput.additionalContext` (Claude Code 2.1.163+) lets your hook inject a string into the lead's context window the instant a subagent finishes — turn a binary pass/block gate into an audit log with details, without a second hook or a temp file.**
+
+A SubagentStop hook fires between a subagent's last message and the lead seeing its summary. Before 2.1.163, your options were `exit 0` (let it pass) or `exit 2` (block and retry). Now you can return `hookSpecificOutput.additionalContext` — a string the lead sees injected into its context right after the subagent's turn.
+
+This matters for multi-subagent workflows where the lead needs to act on *what* a subagent found, not just whether it passed. Previously the standard workaround was writing state to a temp file and picking it up in a separate UserPromptSubmit hook; `additionalContext` collapses that into one script.
+
+## Pattern: gate + audit trail
+
+```python
+# .claude/hooks/gate_subagent.py
+import sys, json, subprocess
+
+payload = json.loads(sys.stdin.read())
+
+result = subprocess.run(
+    ["pnpm", "test", "--reporter=compact"],
+    capture_output=True, text=True
+)
+
+if result.returncode != 0:
+    sys.stderr.write(json.dumps({
+        "decision": "block",
+        "reason": result.stdout[-500:]
+    }))
+    sys.exit(2)   # block: subagent is sent back to fix it
+
+sha = subprocess.check_output(
+    ["git", "rev-parse", "--short", "HEAD"]
+).decode().strip()
+
+summary_line = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "all passed"
+print(json.dumps({
+    "continue": True,
+    "hookSpecificOutput": {
+        "additionalContext": f"tests passed at {sha}: {summary_line}"
+    }
+}))
+```
+
+Wire it in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SubagentStop": [{
+      "matcher": "**",
+      "hooks": [{"type": "command", "command": "python3 .claude/hooks/gate_subagent.py"}]
+    }]
+  }
+}
+```
+
+The lead sees your string injected as a system reminder immediately after the subagent's turn. In the transcript it appears as a hook-injected context block labelled with the hook type. The lead can reference it when planning its next action.
+
+**Limits:** Hook timeout is 5 seconds. If your validation (build + test) takes longer, spawn it in a background process, write the result to a cache file, and have the hook return the cached result on subsequent fires. `additionalContext` is a flat string — no structured fields. Avoid dumping large logs into it since it costs tokens in the lead's context window verbatim.
+
+**Sources:** [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks) · [SubagentStop patterns in production — pixelmojo](https://www.pixelmojo.io/blogs/claude-code-hooks-production-quality-ci-cd-patterns) · [claude-code-hooks-mastery examples — disler GitHub](https://github.com/disler/claude-code-hooks-mastery)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Similarity Search Scans Every Vector — FAISS IVF Clusters First, HNSW Graphs It: Pick the One That Scales</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process</link>
+      <guid isPermaLink="false">2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process</guid>
+      <pubDate>Mon, 05 Oct 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Vectors</category>
+      <category>Embeddings</category>
+      <description>FAISS is the in-process ANN library for similarity search without a DB server. IVF clusters at train time and searches a subset; HNSW builds a graph and needs no training. Both beat brute-force past 100K vectors.</description>
+      <content:encoded><![CDATA[**FAISS is Meta's in-process ANN library for similarity search when you want no server. IVF clusters at train time and searches a subset of them; HNSW builds a navigable graph and needs no training. Both beat brute-force past 100K vectors.**
+
+## What you'll be able to do after this:
+
+Run approximate nearest-neighbor search over millions of vectors inside a Python process — no Postgres, no Chroma server, no Qdrant — and know when to hand off to a managed vector DB instead.
+
+**Three things to take away:**
+
+1. `IndexFlatL2` is exact brute-force: no training, always correct, but O(n) per query. Use it only for baselines and datasets under ~100K vectors.
+2. `IndexIVFFlat` clusters vectors into `nlist` buckets at train time; at query time it searches only `nprobe` buckets. Fast, but recall drops if `nprobe` is too low.
+3. `IndexHNSWFlat` builds a multi-layer proximity graph — no training required, high recall at high QPS, but uses 2–3× more RAM than IVF at millions of vectors.
+
+## Walk-through
+
+```bash
+pip install faiss-cpu sentence-transformers
+```
+
+```python
+import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+encoder = SentenceTransformer("all-MiniLM-L6-v2")
+docs = [
+    "Embeddings are dense vector representations of text",
+    "FAISS indexes vectors for approximate nearest-neighbor search",
+    "Chunking splits documents before embedding them",
+]
+vecs = encoder.encode(docs).astype("float32")   # FAISS requires float32
+d = vecs.shape[1]  # 384 for MiniLM
+
+# --- IVF ---
+nlist = 2                                        # ~sqrt(N) in real data
+quantizer = faiss.IndexFlatL2(d)
+index_ivf = faiss.IndexIVFFlat(quantizer, d, nlist)
+index_ivf.train(vecs)                            # required: learns cluster centers
+index_ivf.add(vecs)
+index_ivf.nprobe = 1                             # how many clusters to search
+
+q = encoder.encode(["vector similarity"]).astype("float32")
+D, I = index_ivf.search(q, k=2)
+print([docs[i] for i in I[0]])
+
+# --- HNSW ---
+m = 32                                           # edges per node (16–64)
+index_hnsw = faiss.IndexHNSWFlat(d, m)
+index_hnsw.add(vecs)                             # no training step
+D2, I2 = index_hnsw.search(q, k=2)
+print([docs[i] for i in I2[0]])
+```
+
+## When to use which
+
+| | IVF | HNSW |
+|---|---|---|
+| Training required | Yes | No |
+| Memory | Lower | 2–3× higher |
+| Recall tuning knob | `nlist` / `nprobe` | `efSearch` |
+| Best for | Large datasets, memory-constrained | High throughput, simpler ops |
+
+**FAISS is in-memory only** — no persistence between restarts, no built-in delete (you rebuild or use `remove_ids` on an IDMap wrapper). For production workloads that need durability or deletes, use pgvector or ChromaDB as the store and optionally layer FAISS as a read-side cache.
+
+**Primary resource:** [Pinecone FAISS series — vector indexes deep-dive](https://www.pinecone.io/learn/series/faiss/vector-indexes/) covers recall@k benchmarks at scale and IVF-PQ (adding product quantization to cut memory further).
+
+**Sources:** [Pinecone FAISS tutorial](https://www.pinecone.io/learn/series/faiss/faiss-tutorial/) · [FAISS ANN explained — PyImageSearch 2026](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/) · [FAISS Python API reference — GoLinuxCloud](https://www.golinuxcloud.com/faiss-python-api/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Repetitive Claude Code Tasks Are Three Lines of Markdown — Custom Slash Commands Take $ARGUMENTS and Live in Git</title>
@@ -5555,84 +5706,8 @@ The [open-source repo](https://github.com/anthropics/uplifting-biomolecular-mode
     </item>
 
 
-    <item>
-      <title>Agents Spent 10× More Time Reading Than Writing — Orchestration Lessons From GitHub&#x27;s 800K-Line Rust Port</title>
-      <link>https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/</link>
-      <guid isPermaLink="false">2026-09-17-02-multi-agent-orchestration-github-copilot-rust-port</guid>
-      <pubDate>Thu, 17 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>One developer used AI agents to port 430K lines of TypeScript to 832K lines of Rust in 3-4 months. Tool call logs show 10:1 reads-to-edits and 96% cache hit rate — two numbers that change how you structure agent sessions.</description>
-      <media:content url="https://github.blog/wp-content/uploads/2026/01/generic-github-copilot-logo-stripe.png" medium="image"/>
-      <media:thumbnail url="https://github.blog/wp-content/uploads/2026/01/generic-github-copilot-logo-stripe.png"/>
-      <content:encoded><![CDATA[**One developer and AI agents ported 430K lines of TypeScript to 832K lines of Rust in 3-4 months — tool call logs show 591K reads, 282K searches, and 41K edits: a 10:1 investigation-to-mutation ratio.**
-
-GitHub published a detailed engineering account of rewriting the Copilot agent runtime (CLI, Desktop app, six-language SDK) using AI agents. One developer directed the effort; agents handled most code exploration and porting while the human operated the "control loop" — reviewing decisions, enforcing quality gates, pushing agents that treated intermediate states as done.
-
-The numbers are worth reading as agent design guidance:
-
-**1. Separate the orchestrator from the workers.** The largest component used a primary session coordinating 15 concurrent child sessions across 7 waves. Each child received a bounded slice (~1,100-character kickoff prompt — specific enough to define scope, loose enough for autonomy) and handled its own implementation decisions. The parent enforced constraints and reviewed outputs.
-
-**2. Prefix-cache aggressively to keep costs manageable.** The project ran thousands of model calls and hit a 96.22% prompt-cache hit rate. Per the provider's pricing, cached tokens carry a ~90% discount. The author estimates an uncached equivalent would have cost an order of magnitude more. If your agent loop repeatedly reads the same context, structure prompts so the invariant portion sits at the top and gets cached.
-
-**3. Plan for more exploration than generation.** Of all tool calls: `view` (read file) = 590,988; `rg` (search) = 281,783; `edit` = 40,591. The author: "The popular image of AI spewing code is almost backwards — at this scale, the work looked much more like iterative investigation." If your agent is generating more than it is reading, it is probably cutting corners on context.
-
-**Limits:** A senior developer operated the control loop throughout. The regression count was "dozens," spread across ambiguous TypeScript semantics, ambient behaviors (timezone, env var handling), incomplete migrations, and lifecycle management. Fully autonomous migration without human oversight would have shipped those bugs silently.
-
-**Sources:** [Migrating the GitHub Copilot runtime to Rust, using Copilot — GitHub Blog](https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Bi-Encoder Found 100 Candidates — A Cross-Encoder Takes Two Seconds to Tell You Which 5 Matter</title>
-      <link>https://www.sbert.net/docs/sentence_transformer/usage/semantic_search/retrieve_rerank/README.html</link>
-      <guid isPermaLink="false">2026-09-17-01-cross-encoder-reranking-sentence-transformers-rag</guid>
-      <pubDate>Thu, 17 Sep 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <description>Bi-encoders retrieve fast but score documents independently. Cross-encoders score query+document jointly for higher precision — two stages give you both speed at scale and accuracy at the top.</description>
-      <content:encoded><![CDATA[**Bi-encoders retrieve fast but score documents independently; cross-encoders score query and document together in one forward pass — running both in sequence gives your RAG pipeline speed at scale and precision at the top.**
-
-**What you'll be able to do after this:** add a re-ranking stage to your existing RAG retriever that improves the precision of chunks sent to the LLM, without replacing your vector store.
-
-- Bi-encoders encode query and document separately, then compare by dot product. Fast enough to scan millions of docs; embeddings pre-compute offline.
-- Cross-encoders take query + one candidate document as a pair, run them through a transformer together, and output a single relevance score. More accurate — the model attends across both inputs — but cannot pre-compute embeddings, so only practical on a short candidate list.
-- Standard pipeline: retrieve top 100 with a bi-encoder → re-rank with a cross-encoder → pass top 5–10 to the LLM.
-
-**Walk-through using `sentence-transformers`:**
-
-```python
-from sentence_transformers import SentenceTransformer, CrossEncoder, util
-
-# Stage 1 — retrieve candidates (pre-compute corpus embeddings once)
-bi_encoder = SentenceTransformer("multi-qa-mpnet-base-dot-v1")
-corpus_embeddings = bi_encoder.encode(corpus, convert_to_tensor=True)
-
-query_embedding = bi_encoder.encode(query, convert_to_tensor=True)
-hits = util.semantic_search(query_embedding, corpus_embeddings, top_k=100)[0]
-
-# Stage 2 — re-rank the top-100 candidates
-cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L6-v2")
-pairs = [(query, corpus[hit["corpus_id"]]) for hit in hits]
-cross_scores = cross_encoder.predict(pairs)
-
-# Sort by cross-encoder score, pass top 5 to your LLM
-ranked = sorted(zip(hits, cross_scores), key=lambda x: x[1], reverse=True)
-top_chunks = [corpus[h["corpus_id"]] for h, _ in ranked[:5]]
-```
-
-`cross-encoder/ms-marco-MiniLM-L6-v2` scores 74.30 NDCG@10 on the TREC Deep Learning 2019 track — an independent IR community evaluation run by NIST, not by Hugging Face. It runs at roughly 1,800 documents per second on a V100.
-
-**Limits:** You cannot pre-compute cross-encoder scores — re-ranking happens at query time. A top-100 re-rank at 1,800 docs/sec adds negligible latency; a top-1,000 re-rank gets noticeable. For production scale, Cohere Rerank (`co.rerank(model="rerank-v3.5", ...)`) offloads the compute. Also: if your bi-encoder misses the right documents in stage 1, the cross-encoder cannot recover them — retrieval recall still sets the ceiling.
-
-**Sources:** [Retrieve & Re-Rank tutorial — sbert.net](https://www.sbert.net/docs/sentence_transformer/usage/semantic_search/retrieve_rerank/README.html) · [Retrieve & Rerank Colab notebook — sentence-transformers/GitHub](https://colab.research.google.com/github/huggingface/sentence-transformers/blob/main/examples/sentence_transformer/applications/retrieve_rerank/retrieve_rerank_simple_wikipedia.ipynb) · [ms-marco-MiniLM-L6-v2 model card — HuggingFace](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L6-v2) · [TREC Deep Learning 2019 overview — NIST/TREC](https://trec.nist.gov/pubs/trec28/papers/OVERVIEW.DL.pdf) (independent IR evaluation)]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
