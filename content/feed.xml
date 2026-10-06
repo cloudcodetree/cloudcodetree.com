@@ -10,9 +10,151 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 05 Oct 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 06 Oct 2026 04:05:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title>Your Agent's Memory Store Gets Stale — Dreams Run an Async Cleanup Pass Over Past Sessions and Hand You a Reorganized Store to Review</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-03-claude-managed-agents-dreams-api-memory-cleanup-async</link>
+      <guid isPermaLink="false">2026-10-06-03-claude-managed-agents-dreams-api-memory-cleanup-async</guid>
+      <pubDate>Tue, 06 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>Dreaming is an async API call that reads a memory store plus 1-100 past sessions, runs a dedup-and-synthesize pass, and returns a cleaned output store for you to review and swap in.</description>
+      <content:encoded><![CDATA[**Dreaming is an async API call that takes a memory store + 1–100 past sessions, runs a dedup-and-synthesize pass, and returns a cleaned output store you review and swap in on your next session.**
+
+Every session write is local and incremental: preferences, corrections, and task facts accumulate in a Claude Managed Agents memory store over time. After a few weeks you have duplicates, contradictions, and entries that no longer match the current work. You can prune manually — or you can let the model do it.
+
+```python
+# Requires: anthropic-beta: managed-agents-2026-04-01,dreaming-2026-04-21
+dream = client.beta.dreams.create(
+    inputs=[
+        {"type": "memory_store", "memory_store_id": store_id},
+        {"type": "sessions", "session_ids": [session_a, session_b, session_c]},
+    ],
+    model="claude-opus-4-8",
+    instructions="Focus on coding-style preferences; ignore one-off debugging notes.",
+)
+
+# Dreams run asynchronously — poll until complete
+while dream.status in ("pending", "running"):
+    time.sleep(10)
+    dream = client.beta.dreams.retrieve(dream.id)
+
+# Use the output store in your next session
+output_store_id = next(
+    o.memory_store_id for o in dream.outputs if o.type == "memory_store"
+)
+session = client.beta.sessions.create(
+    agent=agent_id,
+    environment_id=env_id,
+    resources=[{"type": "memory_store", "memory_store_id": output_store_id}],
+)
+```
+
+The input store is **never modified**. You get a separate output store to inspect via the Memory Stores API or the Console before you decide whether to attach it to production agents.
+
+**When to run it:** After 10+ sessions of activity on one agent, or when the agent starts acting on stale context. The `instructions` field steers what survives vs. what gets merged — useful when certain memory categories matter more than others ("ignore debugging notes from last quarter" keeps the store lean).
+
+**Three limits:**
+1. **Research preview — gated.** Dreams need the `dreaming-2026-04-21` beta header and a separate access request at `claude.com/form/claude-managed-agents`. If you're already using Managed Agents, apply separately for dream access.
+2. **Cost scales with session count.** Billed at standard API token rates; start with 2–5 sessions to calibrate before running across your full history.
+3. **Synthesis can introduce errors.** The reorganized store is Claude's interpretation of patterns — review it before attaching to a production agent. Inspect individual memories with the Memory Stores API; apply targeted corrections with `store.update()` before promoting.
+
+**Sources:** [Dreams — Anthropic Platform Docs](https://platform.claude.com/docs/en/managed-agents/dreams) · [Claude Managed Agents: Dreaming, Outcomes, Orchestration — Developers Digest](https://www.developersdigest.tech/blog/claude-managed-agents-dreaming-outcomes-multi-agent)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Two Oct 5 Signals: OpenAI Watermarks API Output for EU Compliance; Reflection AI Previews a 501B Open-Weight Coding Model</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-02-textgrain-eu-watermarking-reflection-beam-501b-open-weight</link>
+      <guid isPermaLink="false">2026-10-06-02-textgrain-eu-watermarking-reflection-beam-501b-open-weight</guid>
+      <pubDate>Tue, 06 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>OpenAI's textGrain adds invisible statistical watermarks to API output for EU AI Act compliance (opt-in from Oct 5). Reflection AI previews Beam, a 501B-param sparse MoE open-weight model for coding and agents — weights not out yet.</description>
+      <content:encoded><![CDATA[**Two separate October 5 announcements worth tracking: OpenAI's invisible text watermarking for EU compliance is live as an opt-in; Reflection AI previewed a large open-weight model targeting coding and agent workloads.**
+
+**textGrain: watermarking AI-generated text.** From October 5, [OpenAI API customers globally can opt in](https://openai.com/index/text-watermarking/) to textGrain — an invisible statistical signal embedded in token sampling that flags AI-generated text. ChatGPT and Codex users in the EU will get it applied automatically in the coming weeks, under Article 50 of the EU AI Act (in force since August 2, 2026). A detector is available to researchers and qualified organizations on application; the SDK gains a `watermark` parameter on the Responses API.
+
+One published limit: replacing 25% of the output's words with synonyms drops detection from 92% to 17%. The signal degrades with paraphrase, which is the same property that limits all statistical watermarking schemes.
+
+**Why it matters:** If you build apps serving EU users via the OpenAI API and downstream that text, your provider's output is now signed with a detectable signal users can't see. As the EU Act enforcement ramps, expect other providers to follow with equivalent implementations.
+
+**Reflection AI Beam.** [Reflection AI previewed Beam](https://reflection.ai/blog/introducing-beam), a sparse Mixture-of-Experts model with 501B total parameters and 23B active, trained on 23.8T tokens. Reflection claims it's competitive with larger open models like GLM-5.2 on coding and agentic tasks. The weights aren't out: the model is on a waitlist, with an Apache 2.0 release expected "later in October 2026." Independent benchmarks won't exist until the weights ship.
+
+**Why it matters:** Another potential high-efficiency open-weight option for teams that self-host inference. Worth watching, but premature to plan around — the gap between a preview claim and what independent evals show on your task can be wide.
+
+**Sources:** [OpenAI textGrain — TechCrunch](https://techcrunch.com/2026/10/05/openai-will-start-watermarking-chatgpts-text-in-the-eu/) · [Reflection AI Beam — TechCrunch](https://techcrunch.com/2026/10/05/reflection-debuts-beam-a-open-weight-ai-model-to-rival-chinese-models-at-lower-compute-cost/) · [Reflection Beam blog](https://reflection.ai/blog/introducing-beam)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Agent Starts Fresh Every Session — LangGraph's Checkpointer and Store Fix Different Halves of That Problem</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-01-langgraph-checkpointer-store-cross-session-memory-agents</link>
+      <guid isPermaLink="false">2026-10-06-01-langgraph-checkpointer-store-cross-session-memory-agents</guid>
+      <pubDate>Tue, 06 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <description>LangGraph's checkpointer tracks conversation within one thread; a Store persists user facts across threads. They work differently and you need both — here's the pattern and when to swap in production backends.</description>
+      <media:content url="https://img.youtube.com/vi/59GB3tW2Kns/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/59GB3tW2Kns/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**What you'll be able to do after this:** Build a LangGraph agent that maintains conversation history within a session (checkpointer) and user-specific facts across sessions (store), then swap the dev-only in-memory backends for production PostgreSQL without touching graph logic.
+
+**Three takeaways:**
+1. **Checkpointer ≠ store.** A checkpointer saves conversation within one `thread_id` — it resets when the thread changes. A store persists user-scoped facts across *any* thread. The most common LangGraph memory architecture mistake is using a checkpointer to solve a cross-session problem.
+2. **Checkpointer is automatic; store requires explicit node code.** Compile with `checkpointer=` and LangGraph manages conversation history automatically. Store reads and writes belong in your node functions: `store.search()` before the model call to load context, `store.put()` after the response to save new facts.
+3. **Swapping backends is one argument.** `InMemorySaver` → `SqliteSaver` or `PostgresSaver`; `InMemoryStore` → `PostgresStore`. Both take a connection string; your graph logic is unchanged.
+
+**The pattern:**
+
+```python
+from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.store.memory import InMemoryStore
+from langchain_openai import OpenAIEmbeddings
+
+# Dev backends — replace with PostgresSaver/PostgresStore in production
+checkpointer = SqliteSaver.from_conn_string(":memory:")
+store = InMemoryStore(
+    index={"embed": OpenAIEmbeddings(), "dims": 1536, "fields": ["memory"]}
+)
+
+graph = builder.compile(checkpointer=checkpointer, store=store)
+
+# In a node: load relevant long-term memories before the model call
+def call_model(state, config, *, store):
+    user_id = config["configurable"]["user_id"]
+    memories = store.search(
+        ("users", user_id, "facts"),
+        query=state["messages"][-1].content
+    )
+    # Inject memories into system prompt
+
+# After a response: save new facts the user stated
+def save_facts(state, config, *, store):
+    user_id = config["configurable"]["user_id"]
+    store.put(
+        ("users", user_id, "facts"),
+        key="stack_preference",
+        value={"memory": "Prefers TypeScript and Next.js for all new projects"}
+    )
+```
+
+**Three limits:**
+- `InMemoryStore` is session-only and not safe for concurrent writes — never use it in production.
+- Semantic search in the store adds an embedding call per node read; cache the embedding when you call the same store in a tight loop.
+- LangGraph does not auto-expire memories. Stale facts accumulate without a pruning strategy — plan for periodic cleanup (or use [LangMem's forgetting policies](https://langchain-ai.github.io/langmem/), which sit on top of the same store API).
+
+**Resource:** [How to Add Memory in LangGraph AI Agents — YouTube full tutorial](https://www.youtube.com/watch?v=59GB3tW2Kns) · [Official LangGraph memory docs](https://docs.langchain.com/oss/python/langgraph/add-memory) · [LangMem](https://langchain-ai.github.io/langmem/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your API Hard-Codes a Thinking Budget — Adaptive Thinking Lets the Model Decide; Fable 5 and Mythos 5 Only Accept the New Form</title>
@@ -5580,103 +5722,8 @@ docstore = SimpleDocumentStore.from_persist_path("./docstore.json")
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Fine-Tune Looks Good on Training Loss — Three Checks That Tell You If It&apos;s Actually Better</title>
-      <link>https://www.youtube.com/watch?v=yR6v-Hnp8fc</link>
-      <guid isPermaLink="false">2026-09-18-01-evaluate-fine-tuned-llm-three-tier-holdout</guid>
-      <pubDate>Fri, 18 Sep 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>Best Practices</category>
-      <description>Three evaluation tiers that reveal whether your fine-tuned model actually beats the base: task holdout, capability drift check, and LLM-as-judge on real production inputs.</description>
-      <content:encoded><![CDATA[**TL;DR: Training loss goes down, but that doesn't mean your fine-tuned model beats the base. Three evaluation tiers catch what a loss curve misses.**
-
-**What you'll be able to do after this:** Build a reliable evaluation pipeline for a fine-tuned model — one that checks whether it beat the base on its intended task, didn't silently break other capabilities, and holds up on real production examples.
-
-Resource: **[How to Actually Evaluate Fine-Tuned LLMs (3-Tier Framework)](https://www.youtube.com/watch?v=yR6v-Hnp8fc)** — June 24, 2026, hands-on walkthrough with code.
-
-**Three takeaways:**
-1. Training loss is a training signal, not an evaluation. A model that memorized your training set can have near-zero loss and fail every real task.
-2. A fine-tune that improves task performance often quietly degrades other capabilities — instruction-following, refusals, output formatting. Your task holdout only catches what it was designed to test.
-3. LLM-as-judge on paired production examples — base vs. fine-tune on the same inputs, same judge, pinned rubric — is more signal-dense than any off-the-shelf benchmark.
-
-**Tier 1 — Task holdout (did it improve on the job it was hired for?)**
-
-Hold out at least 10–20% of your curated data; score both the fine-tune and the base model on this partition. The fine-tune must beat the base here or it is not deployable. For structured-output fine-tunes, score JSON schema validity and field-level accuracy. For generation fine-tunes, use task-completion rate and rubric scoring.
-
-**Tier 2 — Capability drift (what did it break?)**
-
-Run both models on tasks the fine-tune was not supposed to change: general instruction-following, refusals on safety prompts, formatting conventions. A 5% drift on refusals shows up here, not in Tier 1. This is the check most teams skip and the one that bites them in production.
-
-**Tier 3 — Paired LLM-as-judge on production inputs**
-
-Take 50–100 real inputs from your production log. Run both models. Use a strong judge model (e.g., Claude Opus) to compare outputs on your rubric: completeness, on-tone, no hallucinations, format. Pin the judge model and rubric version alongside the prompt — a different judge is a different test.
-
-**Statistical check on small sample sizes:**
-
-A 2-point lift on 50 examples can be judge noise. Bootstrap confidence intervals catch this:
-
-```python
-import numpy as np
-deltas = [fine_tune[i] - base[i] for i in range(len(examples))]
-bootstrap = [np.mean(np.random.choice(deltas, len(deltas), replace=True))
-             for _ in range(1000)]
-lower = np.percentile(bootstrap, 5)   # 90% CI lower bound
-print(f"Lower bound: {lower:.3f}")    # Ship only if positive
-```
-
-Only ship the fine-tune if the lower bound is positive. A 3-point mean lift with a negative lower bound means your sample size is too small to conclude anything.
-
-**Real limit:** This evaluation assumes you have a representative holdout drawn from the same distribution as production traffic. A holdout built from the training corpus's leftovers is not a holdout; it is a test set that shares the same biases. Collect it independently.
-
-**Sources:** [How to Actually Evaluate Fine-Tuned LLMs — YouTube](https://www.youtube.com/watch?v=yR6v-Hnp8fc) · [LLM-as-a-Judge Complete Guide — Evidently AI](https://www.evidentlyai.com/llm-guide/llm-as-a-judge) · [Evaluating Fine-Tuned LLMs: A 2026 Playbook — FutureAGI](https://futureagi.com/blog/evaluating-fine-tuned-llms-2026/)
-]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/yR6v-Hnp8fc/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/yR6v-Hnp8fc/maxresdefault.jpg" />
-    </item>
-
-    <item>
-      <title>Claude Leads 26% of Anthropic's AI R&amp;D — and the Framework for Measuring Your Team's Level</title>
-      <link>https://www.anthropic.com/institute/measuring-pace-of-ai-development</link>
-      <guid isPermaLink="false">2026-09-18-02-anthropic-rd-automation-index-epoch-ai-al-framework</guid>
-      <pubDate>Fri, 18 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Best Practices</category>
-      <description>Anthropic's R&amp;D Automation Index (Sept 17): Claude leads 26% of AI R&amp;D as of Aug 2026, up from &lt;1% in Feb, using Epoch AI's AL0-AL5 automation-level scale.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic's R&D Automation Index shows Claude leads 26% of their AI research work, up from <1% in February, using Epoch AI's AL0–AL5 scale — a reusable measurement for any engineering team.**
-
-On September 17, Anthropic's research institute published the first results from a prototype R&D Automation Index. Claude models "lead" 26% of Anthropic's AI R&D work as of August 2026, up from under 1% in February. The index uses Epoch AI's Automation Level (AL) scale, developed independently.
-
-**"Leads" means AL4 — not autonomous.** 90%+ of Anthropic's AI R&D sits at AL3 or above ("collaborates"); 0% is at AL5 (fully autonomous). The 26% at AL4 means Claude can complete most of a task from a high-level prompt while a human supervises.
-
-**The Epoch AI AL scale — a reusable framework:**
-
-| Level | What it means |
-|-------|---------------|
-| AL0 | No AI involvement |
-| AL1 | AI suggests; human decides |
-| AL2 | AI completes the step; human reviews every output |
-| AL3 | AI and human work interactively through the task |
-| AL4 | AI leads from a high-level prompt; human supervises |
-| AL5 | Fully autonomous; no human in the loop |
-
-This framework is the useful part regardless of Anthropic's specific numbers. The most actionable question it generates: at what AL level is each type of engineering work your team does most of?
-
-Anthropic's projection — "could reach 80% AL4 by end of 2026 if the trend holds" — is their own forecast based on extrapolating eight months of growth, not an independent estimate. Treat it accordingly.
-
-**Also this week:** Google DeepMind launched an AGI research institute on September 16–17, led by Shane Legg (DeepMind co-founder) and Google SVP James Manyika, to examine AGI's economic and social impacts. Its inaugural papers cover economic policy, model transparency, and global access. Less directly actionable for engineers writing code today, but the institutional momentum here mirrors what Anthropic's automation index describes — the question of "what AL does AI reach, and how fast" is becoming something frontier labs track explicitly and publish.
-
-**Why it matters:** "We use AI" is too vague to act on. "Our PR review pipeline is AL3; our architecture decisions are AL1" is not. The Epoch AI framework gives teams a shared vocabulary to track their actual progress.
-
-**Sources:** [Measurements for understanding the pace of AI development — Anthropic Institute](https://www.anthropic.com/institute/measuring-pace-of-ai-development) · [Anthropic Says Claude Leads 26% of AI R&D — Unite.AI](https://www.unite.ai/anthropic-says-claude-leads-26-of-its-ai-research-and-development/) · [Claude leads 26% — Engadget](https://www.engadget.com/2261909/anthropic-says-claude-leads-26-percent-of-its-ai-research-and-development/) · [Google DeepMind launches AGI institute — TechCrunch](https://techcrunch.com/2026/09/17/google-deepmind-launches-institute-to-widen-the-agi-debate/)
-]]></content:encoded>
-    </item>
-
+    
+    
     <item>
       <title>Stop Committing Skills to Every Repo — Your claude.ai Account Is Now a Config Source of Truth</title>
       <link>https://code.claude.com/docs/en/changelog</link>
@@ -5721,41 +5768,7 @@ Project-level skills override account-synced ones when names collide. Org-manage
     </item>
 
 
-    <item>
-      <title>Describe the Goal, Not the Steps: Claude Projects' Coordinator-Thread Model for Parallel Autonomous Work</title>
-      <link>https://claude.com/blog/projects-redesigned</link>
-      <guid isPermaLink="false">2026-09-17-04-claude-projects-coordinator-thread-pattern</guid>
-      <pubDate>Thu, 17 Sep 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Claude Projects redesigned as a coordinator: describe the goal once and Claude creates parallel branch-scoped threads, shares memory across them, opens PRs, and assembles results.</description>
-      <content:encoded><![CDATA[**Claude Projects redesigned today: describe your goal once and Claude acts as coordinator — spawning parallel thread sessions on separate branches, sharing memory across them, opening PRs, and assembling results.**
-
-Anthropic shifted Projects from a folder-based system to a coordinator model. You describe what needs to happen; Claude scopes it into parallelizable chunks, spins up concurrent threads (each an independent cloud session on its own branch), and coordinates them through shared project memory.
-
-**What this looks like:**
-
-Set a performance optimization goal. Claude profiles each endpoint in parallel threads, opens PRs per thread, and runs your tests. The coordinator reads all outputs and assembles the result. Each thread can itself spawn subagents, loops, or workflows for its slice.
-
-The shared memory component is the key architectural change: every thread reads from and writes to the same project memory, so the coordinator doesn't re-explain project decisions, conventions, or preferences per delegation.
-
-**When to reach for it:** work that genuinely parallelizes — profiling a set of endpoints, refactoring across independent services, sweeping a parameter space. The pattern validates against real data: GitHub's Copilot Rust migration used 15 child sessions with a 10:1 read-to-edit ratio. Reading the codebase in parallel is cheap; the edit-validate-merge loop is the bottleneck that threads parallelize.
-
-**Real limits to know before you use it:**
-- Cloud-only today. Running threads on your own machine (with your local tools and network) is coming but not live yet.
-- Concurrent threads consume your usage quota faster — Projects can hit limits faster than a single session.
-- Merge conflicts between overlapping thread work land as standard PRs — you still review and resolve.
-- Beta: currently limited to select Claude Pro/Max users with cloud sessions.
-
-**When NOT to reach for it:** sequential work where context from step A gates step B, tasks that need local tooling or private network access, or anything where you need direct control over context-trimming and retry semantics.
-
-**Sources:** [Claude Projects redesign](https://claude.com/blog/projects-redesigned) · [GitHub Copilot Rust migration (independent parallel-agent case study)](https://github.blog/ai-and-ml/generative-ai/migrating-the-github-copilot-runtime-to-rust-using-copilot/)
-]]></content:encoded>
-    </item>
-
+    
     
     
 
