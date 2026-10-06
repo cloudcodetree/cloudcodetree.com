@@ -10,10 +10,193 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 06 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 06 Oct 2026 20:07:00 +0000</lastBuildDate>
 
 
 
+
+    <item>
+      <title>Forcing a Tool Call Gets You JSON — In Sonnet 5.5, It Also Costs You Reasoning. Use `type: 'any'` with a Sentinel Tool Instead.</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-07-tool-choice-structured-output-sonnet-5-5-sentinel-pattern</link>
+      <guid isPermaLink="false">2026-10-06-07-tool-choice-structured-output-sonnet-5-5-sentinel-pattern</guid>
+      <pubDate>Tue, 06 Oct 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Best Practices</category>
+      <category>Developer Tools</category>
+      <description>tool_choice: {type: 'tool'} guarantees structured output but suppresses Claude's ability to flag ambiguous input. A two-tool pattern with type: 'any' and a clarify sentinel preserves structure while recovering from bad inputs gracefully.</description>
+      <content:encoded><![CDATA[**`tool_choice: {type: 'tool', name: X}` guarantees structured output — but in Sonnet 5.5 it also suppresses the model's ability to flag ambiguous input. A two-tool pattern with `type: 'any'` and a `clarify` sentinel gives you both.**
+
+The Claude Messages API exposes three `tool_choice` modes:
+
+```json
+// Mode 1: Claude decides whether to call a tool
+{ "type": "auto" }
+
+// Mode 2: Claude must call *some* tool — it picks which
+{ "type": "any" }
+
+// Mode 3: Claude must call exactly *this* tool
+{ "type": "tool", "name": "extract_order" }
+```
+
+**When `type: 'tool'` is right.** High-volume, predictable inputs where you control the content — structured API responses, your own database records, fixed document templates. Output is always valid JSON, no prompt engineering required.
+
+**When it breaks.** Sonnet 5.5 was trained to reason through ambiguity. Forcing a specific tool call works against that: the model fills in schema fields rather than pausing on uncertain inputs. The Anthropic migration guide notes that forced single-tool calls can lead to less thoughtful, mechanical output in Sonnet 5.5 — you get silently wrong JSON instead of a legible failure or a clarifying question.
+
+**The fix: `type: 'any'` with a sentinel.** Add a second minimal tool alongside your extraction tool:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+tools = [
+    {
+        "name": "extract_order",
+        "description": "Extract structured order details from the user's message.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "item": {"type": "string"},
+                "quantity": {"type": "integer"},
+                "delivery_date": {"type": "string", "format": "date"}
+            },
+            "required": ["item", "quantity"]
+        }
+    },
+    {
+        "name": "clarify",
+        "description": "Ask one clarifying question when the input is ambiguous or missing required fields.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"question": {"type": "string"}},
+            "required": ["question"]
+        }
+    }
+]
+
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    tools=tools,
+    tool_choice={"type": "any"},   # must call some tool; Claude picks which
+    messages=[{"role": "user", "content": user_input}]
+)
+
+tool_call = response.content[0]
+if tool_call.name == "clarify":
+    # Return the question to the user and loop
+    follow_up = tool_call.input["question"]
+elif tool_call.name == "extract_order":
+    order = tool_call.input  # guaranteed valid JSON
+```
+
+`type: 'any'` ensures Claude always calls a tool (no free-text fallback), but lets it route to `clarify` when the input is ambiguous. Handle the `clarify` branch by returning the question and re-running with the user's answer. Structured output semantics hold either way.
+
+**One real limit:** `type: 'any'` with two tools adds a small reasoning cost relative to `type: 'tool'`. For high-volume pipelines with stable, predictable inputs, forced tool calls are still the right default. Reserve the sentinel pattern for user-facing agents and workflows that consume variable real-world text.
+
+**Sources:** [Tool use overview — tool_choice — Anthropic Docs](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) · [Claude Sonnet 5.5 migration guide — Anthropic Docs](https://docs.anthropic.com/en/docs/about-claude/models/migration-guide)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>ORPO: Fine-Tune and Align a LLaMA Model in One Pass — No Reference Model, No Separate DPO Step</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-08-orpo-fine-tune-align-llama-single-pass-no-reference-model</link>
+      <guid isPermaLink="false">2026-10-06-08-orpo-fine-tune-align-llama-single-pass-no-reference-model</guid>
+      <pubDate>Tue, 06 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>ORPO (Odds Ratio Preference Optimization) combines SFT and preference alignment into a single training pass. No reference model, no separate DPO stage. A Colab notebook by Maxime Labonne fine-tunes LLaMA 3 8B on a consumer GPU using TRL's ORPOTrainer.</description>
+      <content:encoded><![CDATA[**ORPO combines SFT and preference alignment into one training pass. No reference model, no separate DPO stage — and TRL ships `ORPOTrainer` to handle the math. A Google Colab notebook fine-tunes LLaMA 3 8B end to end.**
+
+Standard RLHF-derived pipelines have two costs: a supervised fine-tuning run to specialize the model, then a second preference-alignment run (DPO or PPO) that needs a frozen reference copy to compute a KL divergence penalty. ORPO eliminates the second step by adding a small odds-ratio penalty directly to the SFT loss:
+
+```
+ORPO loss = SFT cross-entropy loss
+           + λ × odds_ratio_penalty(chosen, rejected)
+```
+
+The odds-ratio term penalizes the model for assigning higher probability to rejected completions than to chosen ones, relative to the model's own current outputs — no reference model needed, because the ratio is computed against the current model weights at each step. `λ` is typically 0.1–1.0 (the Labonne notebook uses the TRL default).
+
+**Key tradeoff vs DPO.** DPO anchors the alignment signal to a stable pre-SFT baseline. ORPO's reference is the model's own current state, which updates every batch. In practice this trains faster and needs less memory, but can be noisier at high `λ`; start at 0.1 and validate on a held-out preference test set.
+
+**Running it with TRL.**
+
+```python
+from trl import ORPOConfig, ORPOTrainer
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_id = "meta-llama/Meta-Llama-3-8B"
+model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+# Dataset must have 'prompt', 'chosen', 'rejected' columns
+dataset = load_dataset("mlabonne/orpo-dpo-mix-40k", split="train")
+
+orpo_args = ORPOConfig(
+    learning_rate=8e-6,
+    beta=0.1,           # λ — the odds-ratio weight
+    max_length=1024,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=4,
+    num_train_epochs=1,
+    output_dir="./orpo-llama3-8b",
+)
+
+trainer = ORPOTrainer(
+    model=model,
+    args=orpo_args,
+    train_dataset=dataset,
+    processing_class=tokenizer,
+)
+trainer.train()
+```
+
+The dataset format is the same three-column schema used by DPO (`prompt`, `chosen`, `rejected`), so existing DPO datasets work without changes.
+
+**Practical checklist:**
+- Memory: 8B model at bf16 + LoRA fits in ~16 GB VRAM (A100 or 2× consumer GPUs with FSDP)
+- Validation: hold out 5–10% of preference pairs; measure rejection rate (% of steps where model scores chosen > rejected) before and after
+- `beta` tuning: start at 0.1; increase to 0.5 if alignment is weak; watch for mode collapse above 1.0
+- The Labonne notebook uses QLoRA (4-bit) for a free Colab T4 — slower but accessible without renting a GPU node
+
+**Sources:** [Fine-tune LLaMA 3 with ORPO — Maxime Labonne, HuggingFace Blog](https://huggingface.co/blog/mlabonne/orpo-llama-3) · [ORPOTrainer — TRL Docs](https://huggingface.co/docs/trl/en/orpo_trainer) · [ORPO: Monolithic Preference Optimization without Reference Model (arXiv)](https://arxiv.org/abs/2403.07691)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Claude Now in Google Docs, Sheets, and Slides — Add-On in the Sidebar, Connectors in Claude.ai (Beta, Oct 6)</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-06-claude-google-workspace-docs-sheets-slides-add-on-connectors</link>
+      <guid isPermaLink="false">2026-10-06-06-claude-google-workspace-docs-sheets-slides-add-on-connectors</guid>
+      <pubDate>Tue, 06 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Agents</category>
+      <description>Anthropic launched two complementary features on Oct 6: a Claude for Google Workspace add-on (sidebar in Docs, Sheets, Slides) and Google Docs, Sheets, Slides connectors in Claude.ai — both in beta for Pro, Max, Team, and Enterprise.</description>
+      <content:encoded><![CDATA[**Anthropic shipped two complementary Google Workspace integrations today: a sidebar add-on for Docs, Sheets, and Slides, and reciprocal connectors that let Claude.ai read and write those files directly. Both are in beta for Pro, Max, Team, and Enterprise plans.**
+
+**The add-on: Claude inside Google Workspace.** Install from the Google Workspace Marketplace and a Claude panel appears in the Docs, Sheets, and Slides sidebars. You can draft text, rewrite selected ranges, generate formulas, and summarize slide decks without leaving the document. The add-on integrates with Claude Projects — conversation history and any connected resources follow you across Workspace apps.
+
+**The connectors: Google files inside Claude.ai.** New Docs, Sheets, and Slides connectors in Claude.ai Projects → Connectors let you attach live files to a conversation. Claude reads the current version of a file and can write back to it on request. A developer refining an architecture spec in Docs, for example, can now ask Claude to update the doc directly rather than copy-pasting between tabs.
+
+**Why it matters for developers.** The connectors are the more consequential piece for agentic workflows. Claude can now hold a spec document as a first-class resource — reading requirements, generating code, and updating the spec as a living artifact in the same session. Combined with the existing GitHub connector, a design-to-PR loop is now possible without a local Claude Code session: Docs spec → Claude generates code → pushes to GitHub → updates the spec with the PR link.
+
+**Current limits:**
+- Both features are in beta — the Marketplace listing updated October 2, the connectors are new today
+- Connectors are in Claude.ai Projects only; Claude Code cloud sessions don't yet surface them as MCP sources
+- Slide write-back is text and layout only; custom animations and embedded media can't be authored via the connector
+
+**Sources:** [Claude now works in Google Docs, Sheets, and Slides — Anthropic](https://claude.com/resources/articles/claude-now-works-in-google-docs-sheets-and-slides) · [Claude for Google Workspace — Google Workspace Marketplace](https://workspace.google.com/marketplace/app/claude_for_google_workspace)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Main Session Allows Bash — That Permission Shouldn't Ride Into Every Subagent. Use `agent_id` in PreToolUse to Set Per-Tier Limits.</title>
@@ -5582,162 +5765,9 @@ The 85.6% token reduction per Anthropic's benchmark is genuine but not universal
 **Sources:** [Programmatic tool calling — Claude Platform Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling) · [PTC cookbook (Colab-style notebook) — Claude Cookbook](https://platform.claude.com/cookbook/tool-use-programmatic-tool-calling-ptc) · [JSON vs Programmatic Tool Calling with Claude — DEV Community](https://dev.to/thomastartrau/json-vs-programmatic-tool-calling-with-claude-17i4)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Auto Compaction Blocks Your Next Agent Turn — On-Demand Mode Runs the Summary Off the Critical Path</title>
-      <link>https://platform.claude.com/docs/en/build-with-claude/compaction</link>
-      <guid isPermaLink="false">2026-09-18-06-on-demand-compaction-agentic-workflows</guid>
-      <pubDate>Fri, 18 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>The compact-2026-09-04 beta header (Sept 14) splits context summarization from conversation turns: fire a background compaction request, receive a signed summary block, swap it in when ready.</description>
-      <content:encoded><![CDATA[**TL;DR: Auto-compaction pauses your agent mid-task while Claude writes a summary. On-demand mode lets you trigger that summary in the background and inject it only when your queue is idle.**
-
-Every long-running Claude agent eventually hits the context limit. The default behavior — auto-compaction — is convenient: when the window fills, Claude automatically summarizes the conversation and continues. The problem is timing: that summary write happens synchronously, blocking the next agent turn. For an interactive agent, the user sees a multi-second stall at the worst possible moment.
-
-**The new on-demand option (released September 14, 2026):**
-
-Pass the `compact-2026-09-04` beta header and set `compaction_mode: "on_demand"` in your API request. Instead of blocking to compact, the API returns a `compaction_required` event. You call the compaction endpoint separately, get back a signed `summary_block`, then include it in the next conversation turn.
-
-```python
-# Conceptual flow — check the docs for current parameter names
-response = anthropic.beta.messages.create(
-    model="claude-opus-4-7",
-    system=system_prompt,
-    messages=conversation_history,
-    betas=["compact-2026-09-04"],
-    compaction_mode="on_demand",
-)
-
-if response.stop_reason == "compaction_required":
-    # Fire this while your agent is processing other work
-    summary = anthropic.beta.compaction.create(
-        conversation_id=response.conversation_id
-    )
-    # Swap into history when ready; agent doesn't stall
-    conversation_history = [{"role": "user", "content": [summary.block]}]
-```
-
-**The custom instructions field:** The compaction API accepts a `custom_instructions` string so you can tell the summarizer what to preserve — current task state, key decisions made, variables in scope — rather than hoping the default summary captures what your agent needs.
-
-**Three limits to know:**
-- Beta header required on every request; on-demand is API-only (no Workbench support yet)
-- Thinking blocks in your history require special handling — the compaction endpoint documentation covers the `thinking` preservation flag
-- **Billing gotcha:** `response.usage` only covers the current turn. Full compaction cost appears in `response.usage.iterations` — sum across all iterations to get the real token spend for a long-running session
-
-**The architectural shift:** auto-compaction treats summarization as a blocking step in the conversation loop; on-demand treats it as a background task you schedule. If your agent has any period of low activity (waiting on a tool call, an API response, a human review), that's when you run the compaction. The turn that would have stalled never sees the delay.
-
-[GitHub discussion: PinkyBot #1266](https://github.com/anthropics/anthropic-sdk-python/discussions/1266) has community notes on conversation_id scoping and session management patterns that complement the official docs.
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Inference Bill Scales With Your Hardest Requests — Route the Easy Ones to a Cheap Model With vLLM Semantic Router</title>
-      <link>https://vllm.ai/blog/2026-07-21-vllm-sr-new-chapter-mom</link>
-      <guid isPermaLink="false">2026-09-18-07-vllm-semantic-router-mixture-models-inference-routing</guid>
-      <pubDate>Fri, 18 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <media:content url="https://vllm.ai/blog-assets/figures/2026-07-21-vllm-sr-new-chapter/hero.png" medium="image" />
-      <media:thumbnail url="https://vllm.ai/blog-assets/figures/2026-07-21-vllm-sr-new-chapter/hero.png" />
-      <description>vLLM Semantic Router classifies each request in sub-milliseconds and routes it to the right model pool — cheap local model for simple tasks, frontier API for complex ones.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** configure a two-pool vLLM setup where 80% of your requests (the simple ones) never touch your expensive model.
-
-Running a single frontier model for every request — whether it's "summarize this paragraph" or "debug this multi-file refactor" — is like taking a taxi to the corner store. The model that can handle your hardest 20% of requests is overkill for the other 80%, and you're paying frontier-model prices for all of it.
-
-vLLM Semantic Router solves this with a Mixture-of-Models (MoM) approach: a classifier inspects each incoming request and sends it to the appropriate model pool before any generation tokens are spent.
-
-**How the signal pipeline works:**
-
-The router runs two stages in sequence:
-
-1. **Heuristic rules (<1ms):** Pattern matching on prompt length, presence of code blocks, explicit complexity markers. Cheap and fast — catches the obvious cases without inference.
-2. **Neural classifier (5–10ms):** A small embedded classifier scores complexity for requests that pass the heuristic filter. This is where the routing actually happens for ambiguous prompts.
-
-Total overhead per request: 5–15ms, which is negligible against the latency difference between a 7B local model and a frontier API call.
-
-**Minimal working config (two pools):**
-
-```yaml
-# vllm-sr-config.yaml
-router:
-  strategy: semantic
-  pools:
-    - name: fast
-      model: Qwen/Qwen2.5-7B-Instruct
-      endpoint: http://localhost:8001/v1
-      threshold: 0.65   # route here if complexity score < threshold
-    - name: capable
-      model: claude-opus-4-7
-      endpoint: https://api.anthropic.com/v1
-      threshold: 1.0    # fallback for everything above 0.65
-```
-
-**Getting started:**
-
-```bash
-pip install vllm-sr
-# Start your local model pool first (vLLM, Ollama, etc.)
-vllm-sr start --config vllm-sr-config.yaml --port 8080
-# Your application points at port 8080 — same OpenAI-compatible API
-```
-
-The router exposes a standard OpenAI-compatible endpoint. No application code changes: swap your `base_url` and the router handles the rest.
-
-**Two limits that trip people up:**
-
-- **Routing latency overhead:** The 5–15ms overhead matters for real-time applications where the fast pool handles most traffic. If your fast pool is a local 7B model answering in 200ms, 15ms overhead is 7.5%. If your fast pool is a GPU farm answering in 50ms, it's 30%. Profile your actual pools before assuming the routing is free.
-- **Session-aware routing:** The router routes each request independently by default. If your application relies on multi-turn coherence (a conversation where turn 3 depends on turn 1's reasoning), configure `sticky_routing: true` in the pool config. Without it, turn 1 might hit the capable pool and turn 3 might hit the fast pool, producing inconsistent behavior.
-
-For a deeper walkthrough of the neural classifier training and threshold calibration, the Red Hat Developer tutorial (March 2026) covers building a custom classifier for domain-specific routing rather than relying on the generic complexity score.
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Agent SDK System Prompt Re-Caches on Every Request — One Array Fixes That</title>
-      <link>https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts</link>
-      <guid isPermaLink="false">2026-09-18-05-agent-sdk-system-prompt-dynamic-boundary-cache</guid>
-      <pubDate>Fri, 18 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Split your Claude Agent SDK system prompt at SYSTEM_PROMPT_DYNAMIC_BOUNDARY so static instructions hit the prompt cache and per-request context doesn't invalidate them.</description>
-      <content:encoded><![CDATA[**TL;DR: Concatenating static instructions + per-request context into one string costs full input tokens every request. An array with SYSTEM_PROMPT_DYNAMIC_BOUNDARY gives each section its own cache breakpoint.**
-
-When you build a custom-system-prompt agent with the Claude Agent SDK, it's easy to concatenate fixed instructions and per-request context into one string. That works — but destroys your prompt cache. Any change to the dynamic part (a ticket ID, a customer tier, the current PR diff) invalidates the entire string. Claude pays full input-token cost on every request for instructions it has seen a thousand times.
-
-**The fix in TypeScript:**
-
-```typescript
-import { ClaudeCode, SYSTEM_PROMPT_DYNAMIC_BOUNDARY } from '@anthropic-ai/claude-agent-sdk';
-
-const agent = new ClaudeCode({
-  systemPrompt: [
-    `You are a support agent. ${STATIC_RULES}`,   // cached after first request
-    SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
-    `Ticket: ${ticket.summary}\nCustomer tier: ${customer.tier}`,  // never cached
-  ],
-});
-```
-
-The SDK wraps the strings before the marker in one text block (with its own cache breakpoint) and the strings after it in a second block. After the first request, the static section is served from cache; only the dynamic half counts as fresh input.
-
-**What breaks:**
-- Array form is TypeScript-only — the Python SDK does not accept an array yet.
-- If your "static" section includes anything per-user — a name, permissions, a feature flag — those are dynamic. Move them after the boundary or they invalidate the cache for every distinct user.
-- A change to the static section (new instructions, a version bump) still pays full input cost on the first request after the change. The cache is not pre-warmed; it fills on the first real call.
-
-**Sources:** [Modifying system prompts — Claude Agent SDK docs](https://code.claude.com/docs/en/agent-sdk/modifying-system-prompts) · [Why your custom system prompt silently kills Claude's prompt cache — mer.vin](https://mer.vin/2026/08/why-your-custom-system-prompt-silently-kills-claudes-prompt-cache/) · [Prompt caching — Claude Platform docs](https://platform.claude.com/docs/en/build-with-claude/prompt-caching)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
