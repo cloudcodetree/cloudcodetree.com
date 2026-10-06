@@ -10,9 +10,95 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 06 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 06 Oct 2026 12:05:00 +0000</lastBuildDate>
 
 
+
+
+    <item>
+      <title>Your Main Session Allows Bash — That Permission Shouldn't Ride Into Every Subagent. Use `agent_id` in PreToolUse to Set Per-Tier Limits.</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-05-agent-id-pretooluse-hook-subagent-bash-gate</link>
+      <guid isPermaLink="false">2026-10-06-05-agent-id-pretooluse-hook-subagent-bash-gate</guid>
+      <pubDate>Tue, 06 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Claude Code v2.1.290 adds agent_id to PreToolUse events. A jq check in your hook now lets subagents inherit read-only Bash while the main session keeps its full permissions.</description>
+      <content:encoded><![CDATA[**Claude Code v2.1.290 (Oct 5) adds `agent_id` to PreToolUse events — a one-line jq check now lets your hook apply tighter Bash rules inside subagents than in the main session.**
+
+Before this release, hooks ran identically whether the call came from your session or from a subagent. If you'd allowed `Bash` for read-write work in your main session, every spawned worker inherited it — including ones meant only to read files.
+
+`agent_id` is absent for main-session calls and set to the subagent's UUID otherwise. That's enough to split on:
+
+```bash
+#!/bin/bash
+# ~/.claude/hooks/subagent-bash-gate.sh
+input=$(cat)
+agent_id=$(jq -r '.agent_id // empty' <<< "$input")
+tool_name=$(jq -r '.tool_name' <<< "$input")
+command=$(jq -r '.tool_input.command // ""' <<< "$input")
+
+# Apply a read-only allowlist inside any subagent
+if [ -n "$agent_id" ] && [ "$tool_name" = "Bash" ]; then
+  if ! echo "$command" | grep -qE "^(cat |ls |grep |find |head |tail |wc |echo |git (log|status|diff|show))"; then
+    printf '{"decision":"block","reason":"subagent bash is read-only; %s needs main-session approval"}
+' "$command" >&2
+    exit 2
+  fi
+fi
+```
+
+Wire it in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{ "type": "command", "command": "~/.claude/hooks/subagent-bash-gate.sh" }]
+      }
+    ]
+  }
+}
+```
+
+Exit code 2 blocks the call and returns the reason to Claude. The main session hits the same hook but `agent_id` is absent, so the check falls through and nothing changes for you.
+
+v2.1.290 also adds `agent_type` to the same event, so if you name your subagents (e.g., `"type": "security-reviewer"`) you can gate by role instead of just "is this a subagent at all."
+
+**One real limit:** the allowlist above is a pattern-prefix match, not a parser — a command that starts with `cat` passes even if it pipes output somewhere interesting. For high-security contexts, pair this with an explicit denylist for commands you want blocked in every session (e.g., `rm -rf`, `git push --force`), and use `exit 1` (prompt the user) rather than `exit 2` (block silently) for anything ambiguous.
+
+**Sources:** [Automate actions with hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks-guide), [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks), [Claude Code v2.1.290 Changelog (gradually.ai)](https://www.gradually.ai/en/changelogs/claude-code/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Cowork Tasks Now Run in Anthropic's Cloud by Default — Scheduled Jobs Survive a Closed Laptop, but Local Files Still Need the Desktop App</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-06-04-claude-cowork-cloud-default-oct-6-scheduled-tasks</link>
+      <guid isPermaLink="false">2026-10-06-04-claude-cowork-cloud-default-oct-6-scheduled-tasks</guid>
+      <pubDate>Tue, 06 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <description>Starting October 6, new Cowork tasks on Pro and Max plans run in Anthropic's cloud. The "Only on your computer" toggle is removed. Scheduled tasks no longer need a device online.</description>
+      <content:encoded><![CDATA[**Starting today, new Cowork tasks on Pro and Max plans run in Anthropic's cloud. Anthropic removed the "Only on your computer" toggle in Settings → General.**
+
+Scheduled tasks now run without a device staying awake — that was the main reason people left laptops on overnight. Tasks that access local files or run browser automations still need the Claude Code desktop app open as an intermediary; the cloud session bridges to your machine through the desktop app rather than reading the filesystem directly.
+
+Tasks already running on your computer finish where they started. Anthropic added a transcript-download button to existing tasks so you can archive them before those sessions close.
+
+For developers using Cowork to automate scheduled ingest jobs or nightly research runs, the practical takeaway is simple: tasks now reliably complete. For tasks that read local paths, swap those paths for MCP connector URLs or Shared Folder paths the desktop bridge can serve, so they're not blocked when the app isn't open.
+
+**Why it matters:** removes the "laptop must stay on" constraint for scheduled automation — at the cost of local-file tasks becoming conditionally dependent on the desktop app.
+
+**Sources:** [Use Claude Cowork on web, desktop, and mobile](https://support.claude.com/en/articles/15520349-use-claude-cowork-on-web-desktop-and-mobile)
+]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Agent's Memory Store Gets Stale — Dreams Run an Async Cleanup Pass Over Past Sessions and Hand You a Reorganized Store to Review</title>
@@ -5652,121 +5738,10 @@ The SDK wraps the strings before the marker in one text block (with its own cach
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your RAG Index Answers Questions About Last Month's Docs — LlamaIndex IngestionPipeline Keeps It Current</title>
-      <link>https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/</link>
-      <guid isPermaLink="false">2026-09-18-04-llamaindex-ingestion-pipeline-document-management</guid>
-      <pubDate>Fri, 18 Sep 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>Attach a docstore to LlamaIndex's IngestionPipeline and only new or changed documents re-embed on each run — hash-based dedup, automatic skip, one config flag.</description>
-      <content:encoded><![CDATA[**TL;DR: Without a docstore, IngestionPipeline re-embeds every document on every run. Add one and only changed docs pay the embedding cost.**
-
-**What you'll be able to do after this:**
-- Keep a RAG knowledge base synchronized as files change, without re-ingesting the full corpus each time
-- Cut embedding costs on runs where most documents are unchanged
-- Detect and re-process only the documents that changed since the last run
-
-**Resource:** [Ingestion Pipeline + Document Management — LlamaIndex official docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/)
-
-**Three takeaways:**
-1. `IngestionPipeline` hashes each document by ID + content. Attach a `SimpleDocumentStore` and the pipeline skips any document whose hash matches the stored value.
-2. Transformation outputs are also cached step by step — if you swap only the embedding model, only the embedding step re-runs, not the splitter.
-3. With `DocstoreStrategy.UPSERTS` and a vector store attached, the pipeline replaces only the nodes whose source document changed; orphaned nodes from unchanged documents are left alone.
-
-**Setup:**
-
-```python
-from llama_index.core.ingestion import IngestionPipeline
-from llama_index.core.ingestion.pipeline import DocstoreStrategy
-from llama_index.core.storage.docstore import SimpleDocumentStore
-from llama_index.core.node_parser import SentenceSplitter
-
-pipeline = IngestionPipeline(
-    transformations=[
-        SentenceSplitter(chunk_size=512, chunk_overlap=64),
-        embed_model,        # HuggingFaceEmbedding, OpenAIEmbedding, etc.
-    ],
-    docstore=SimpleDocumentStore(),
-    docstore_strategy=DocstoreStrategy.UPSERTS,
-    vector_store=vector_store,  # pgvector, Chroma, Qdrant, …
-)
-
-# First run: embeds and stores everything
-nodes = pipeline.run(documents=load_all_docs())
-
-# Later runs: only new/changed docs go through embeddings
-nodes = pipeline.run(documents=load_all_docs())
-```
-
-Set `doc_id` on each `Document` to a stable identifier — a file path, a database row ID, a URL. That is the key the pipeline deduplicates on. If you let LlamaIndex assign IDs, two runs on the same file may generate different IDs and re-embed unnecessarily.
-
-**Persist the docstore between runs:**
-
-```python
-pipeline.docstore.persist("./docstore.json")
-# load on next startup:
-from llama_index.core.storage.docstore import SimpleDocumentStore
-docstore = SimpleDocumentStore.from_persist_path("./docstore.json")
-```
-
-**Real limits:**
-- `SimpleDocumentStore` is a single JSON file — correct for one process, not for multi-worker deploys. Use `RedisDocumentStore` or `MongoDocumentStore` for distributed pipelines.
-- The hash check covers document ID + content only. A metadata-only change (e.g., a `last_updated` timestamp field) is invisible to the dedup logic; if you need it indexed, include it in the document text.
-- The pipeline transformation cache grows unbounded on long-running processes; call `pipeline.cache.clear()` periodically if disk space matters.
-
-**Sources:** [Ingestion Pipeline + Document Management — LlamaIndex docs](https://developers.llamaindex.ai/python/examples/ingestion/document_management_pipeline/) · [Document Management module guide — LlamaIndex](https://developers.llamaindex.ai/python/framework/module_guides/indexing/document_management/) · [IngestionPipeline source — GitHub](https://github.com/run-llama/llama_index/blob/main/llama-index-core/llama_index/core/ingestion/pipeline.py) (independent codebase reference)
-]]></content:encoded>
-    </item>
-
     
     
-    <item>
-      <title>Stop Committing Skills to Every Repo — Your claude.ai Account Is Now a Config Source of Truth</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-18-03-claude-code-skills-sync-account-team-config</guid>
-      <pubDate>Fri, 18 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>A September 17 Claude Code update syncs skills and plugins from your claude.ai account to every signed-in terminal session — team config without dotfiles or a git commit.</description>
-      <content:encoded><![CDATA[**TL;DR: A September 17, 2026 Claude Code update syncs the skills and plugins enabled on your claude.ai account to your terminal sessions. Team config without a dotfile convention or git commit.**
-
-Claude Code skills have historically lived in two places: project `.claude/skills/` (committed to the repo, project-scoped) and `~/.claude/skills/` (per-machine, managed manually). Getting a whole team onto the same set of utility skills meant either committing them to every repo's `.claude/` directory or maintaining a shared dotfiles convention that someone had to enforce.
-
-The September 17, 2026 Claude Code changelog adds a third source: **your claude.ai account**. Enable skills and plugins in the web UI, and every terminal session signed into that account picks them up automatically — across machines.
-
-**What this creates: a three-tier config hierarchy**
-
-| Tier | Source | Scope |
-|------|--------|-------|
-| Project | `.claude/skills/` in the repo | This codebase only |
-| Account | claude.ai skills/plugins sync | Per user, all machines |
-| Org | Managed settings / `managed-mcp.json` | Org-wide, enforced |
-
-Project-level skills override account-synced ones when names collide. Org-managed settings (`managed-mcp.json`) override both — a skill blocked in managed settings cannot be re-enabled by account sync.
-
-**The practical team workflow:**
-
-1. **Org layer:** Deploy company-wide MCP servers and shared policies via managed settings — these ship to everyone automatically.
-2. **Account layer:** Each engineer enables their personal utility skills on claude.ai (e.g., their preferred code-review or doc-search skill) — syncs to their terminal sessions on any machine.
-3. **Project layer:** Each repo carries skills specific to that codebase in `.claude/skills/` — version-controlled, reviewed in PRs.
-
-**Limits to know:**
-- Sync requires an active `claude auth login` session. A session running off a raw `ANTHROPIC_API_KEY` with no sign-in gets no account-synced skills.
-- Signing out drops the synced skills for that session. Signing into a different account switches to that account's skills.
-- CI and headless runs that use the API key path are unaffected — no change needed there.
-- Same release also adds `CLAUDE_CODE_MCP_STARTUP_WAIT_MS`, an env var that bounds how long a non-interactive turn waits for connecting MCP servers — useful if your CI MCP servers are slow to start.
-
-**Sources:** [Claude Code Changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code September 2026 updates — Havoptic](https://www.havoptic.com/tools/claude-code) · [Control MCP access for your organization — Claude Code Docs](https://code.claude.com/docs/en/managed-mcp)
-]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
