@@ -10,7 +10,116 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 07 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 07 Oct 2026 20:03:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Add `isolation: worktree` to an Agent's Frontmatter — Every Invocation Gets Its Own Isolated Branch, No `--worktree` Flag Needed</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-07-06-agent-frontmatter-isolation-worktree-auto-branch</link>
+      <guid isPermaLink="false">2026-10-07-06-agent-frontmatter-isolation-worktree-auto-branch</guid>
+      <pubDate>Wed, 07 Oct 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description>Add isolation: worktree to a .claude/agents/ definition and every invocation — yours, a teammate's, or an orchestrator's — runs in its own auto-created branch automatically.</description>
+      <content:encoded><![CDATA[**One frontmatter line makes every invocation of a subagent automatically land on its own isolated git branch — no `--worktree` flag, no per-run setup.**
+
+`claude --worktree` is imperative: you add it when you want isolation. Frontmatter `isolation: worktree` is declarative: isolation is part of what the agent *is*. Any invocation — yours, a teammate's, or an orchestrator's Agent tool call — runs in its own worktree without the caller doing anything.
+
+Add it to any `.claude/agents/` definition:
+
+```yaml
+---
+name: code-refactor
+description: Refactors a module for readability. Call with the file or directory path.
+isolation: worktree
+---
+
+Your task: refactor the code at $ARGUMENTS for readability...
+```
+
+Claude creates a temporary worktree on its own branch, runs the agent there, then:
+- **If no commits or untracked files remain:** the worktree and branch are removed automatically.
+- **If changes were made:** Claude prompts whether to keep or remove the worktree.
+
+**Base branch control.** By default the worktree branches from `origin/main`. To branch from the current `HEAD` instead — useful when the agent continues work in progress — add `worktree.baseRef: "head"` to the frontmatter.
+
+**When to reach for it:**
+- Refactoring or generation agents whose output you want to review before merging
+- Shared team agents in `.claude/agents/` — isolation declared once, honored in every session
+- Orchestrator subagents fanning out to work on independent parts of a codebase in parallel
+
+**The limit:** The worktree starts from committed git state. Uncommitted changes in your working tree are invisible to the agent — it sees only the committed history. Commit first, or set `worktree.baseRef: "head"` to branch from HEAD and stash in-progress changes before invoking.
+
+**Sources:** [Worktrees — Claude Code Docs](https://code.claude.com/docs/en/worktrees) · [Claude Code Subagents guide — morphllm.com](https://www.morphllm.com/claude-subagents)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Every RAG Tutorial Teaches the Pieces Separately — Here Is the Six-Step Pipeline That Connects Them</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-07-07-langchain-rag-pipeline-load-split-embed-retrieve-generate</link>
+      <guid isPermaLink="false">2026-10-07-07-langchain-rag-pipeline-load-split-embed-retrieve-generate</guid>
+      <pubDate>Wed, 07 Oct 2026 20:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <description>Six Python steps — load, split, embed, store, retrieve, generate — form the minimal RAG scaffold. Here is the pipeline that connects all the individual pieces into a working system.</description>
+      <content:encoded><![CDATA[**Six Python steps — load, split, embed, store, retrieve, generate — form the minimal RAG scaffold that every advanced variant builds on top of.**
+
+**What you'll be able to do after this:** Wire a complete RAG pipeline from document loading to grounded answer generation; swap any stage independently; and know the three changes that move it from prototype to production.
+
+**Three takeaways:**
+- The six steps are strictly sequential — each output feeds the next. The retriever (step 5) is the seam between storage and generation; most RAG optimization work lives there.
+- `InMemoryVectorStore` works for local testing but disappears on process exit. Swapping it for Chroma or pgvector is one argument change.
+- `OpenAIEmbeddings()` is the quickest start. `HuggingFaceEmbeddings("all-MiniLM-L6-v2")` runs the same pipeline fully locally with no external call.
+
+**The minimal pipeline:**
+
+```python
+# pip install langchain langchain-community langchain-openai langchain-text-splitters
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.prompts import ChatPromptTemplate
+
+# 1. Load
+docs = TextLoader("your_docs.txt").load()
+
+# 2. Split
+chunks = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50).split_documents(docs)
+
+# 3+4. Embed + store
+store = InMemoryVectorStore.from_documents(chunks, OpenAIEmbeddings())
+
+# 5. Retrieve
+retriever = store.as_retriever(search_kwargs={"k": 4})
+
+# 6. Generate
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "Answer only from this context:\n{context}"),
+    ("human", "{question}"),
+])
+chain = prompt | ChatOpenAI(model="gpt-4.1")
+
+question = "..."
+context = "\n\n".join(d.page_content for d in retriever.invoke(question))
+print(chain.invoke({"context": context, "question": question}).content)
+```
+
+**The three production swaps:**
+- `InMemoryVectorStore` → `Chroma("./db", OpenAIEmbeddings())` for persistence across restarts
+- `OpenAIEmbeddings()` → `HuggingFaceEmbeddings("all-MiniLM-L6-v2")` to run fully local
+- `TextLoader` → `WebBaseLoader([url])` or `PyPDFLoader("doc.pdf")` for different input sources
+
+**The limit:** This pipeline runs k=4 similarity searches across all stored chunks with no metadata filtering. As your corpus grows past a few hundred documents, retrieval precision degrades — add metadata filtering or hybrid search (BM25 + vector) before that happens. It also has no citation tracking and no conversation memory; each is a one-layer addition covered in separate posts.
+
+**Sources:** [Build a RAG agent with LangChain — Official Docs](https://docs.langchain.com/oss/python/langchain/rag) · [Build a semantic search engine — LangChain Official Docs](https://docs.langchain.com/oss/python/langchain/knowledge-base) · [LangChain Part 3: Retrieval and RAG — jtdub.com (Aug 2026)](https://www.jtdub.com/2026/08/27/langchain-part-3-retrieval-and-rag/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Remote MCP Server Is Already a Tool List — Pass `mcp_servers` in the API Call and Skip Writing the Client</title>
@@ -5741,103 +5850,8 @@ To load both — AGENTS.md as a supplement to CLAUDE.md — go to `/config` → 
 **Sources:** [Claude Code changelog v2.1.278 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code adds AGENTS.md fallback for multi-agent repos — RuntimeWire](https://runtimewire.com/article/claude-code-adds-agents-md-support) · [Anthropic Claude Code joins cross-tool AI coding standard — Cryptobriefing](https://cryptobriefing.com/anthropic-claude-code-agents-md-support/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Fine-Tuning Script Probably Skips apply_chat_template — Here Is the SFT Walkthrough That Does Not</title>
-      <link>https://huggingface.co/learn/llm-course/chapter11/3</link>
-      <guid isPermaLink="false">2026-09-19-08-supervised-fine-tuning-sfttrainer-chat-template-trl</guid>
-      <pubDate>Sat, 19 Sep 2026 20:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>The chat template step most SFT tutorials skip. HuggingFace LLM Course Ch. 11 shows the complete TRL SFTTrainer workflow: dataset format, apply_chat_template, training, and what validation loss tells you.</description>
-      <media:content url="https://i.ytimg.com/vi/JbgZKWqN4fI/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://i.ytimg.com/vi/JbgZKWqN4fI/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**The chat template step most SFT tutorials skip: without apply_chat_template, your model trains on raw text instead of the structured format it was pre-trained on — and validation loss hides the problem until inference.**
-
-**What you will be able to do after this:**
-
-- Convert a JSONL instruction dataset into properly formatted inputs that match your model's chat template (Qwen-style, Llama-style, etc.)
-- Configure and run TRL SFTTrainer in under 20 lines with LoRA — a free T4 Colab GPU handles models up to 3B parameters
-- Read training logs correctly: distinguish training loss drop from genuine generalization; catch overfitting before it bakes in
-
-[HuggingFace LLM Course Chapter 11: Supervised Fine-Tuning](https://huggingface.co/learn/llm-course/chapter11/3) is the anchor resource — official, current (2026), and covers the three things most quickstarts skip.
-
-**The step most tutorials gloss over:**
-
-Your dataset has entries shaped like `{"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}`. Before training, each example must be converted into the model's actual token format. `tokenizer.apply_chat_template(messages, tokenize=False)` does this — it produces the model-specific string (`<|im_start|>user` for Qwen-style, `[INST]...[/INST]` for older Llama-style). SFTTrainer calls this automatically when your dataset has a `messages` column, but if you are manually preprocessing and skip this step, the model trains on formatting noise: the role keys become literal text in the input, not structural tokens the model already understands.
-
-**Minimal SFT loop (under 20 lines):**
-
-```python
-from trl import SFTTrainer, SFTConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from datasets import load_dataset
-
-model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B")
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
-dataset = load_dataset("json", data_files="train.jsonl")["train"]
-
-trainer = SFTTrainer(
-    model=model,
-    args=SFTConfig(output_dir="./sft-out", num_train_epochs=3, per_device_train_batch_size=4),
-    train_dataset=dataset,
-    processing_class=tokenizer,
-)
-trainer.train()
-```
-
-SFTTrainer formats your `messages` column automatically. When training loss drops below 1.0 while validation loss rises, that is overfitting — the fix is fewer epochs or more training data, not a lower learning rate.
-
-**Two limits:** SFTTrainer handles instruction following; it does not do preference alignment. Use TRL's DPOTrainer for that. SFT alone also will not make a model refuse harmful requests — that requires RLHF or RLVR on top. For a model that needs to decline certain outputs, SFT is table stakes, not the finish line.
-
-**Sources:** [Supervised Fine-Tuning — HuggingFace LLM Course Ch. 11](https://huggingface.co/learn/llm-course/chapter11/3) · [SFTTrainer — TRL documentation](https://huggingface.co/docs/trl/sft_trainer) · [How to Fine-Tune an LLM (SFT): Complete Tutorial — YouTube](https://www.youtube.com/watch?v=JbgZKWqN4fI)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Claude Code Sessions Forget Everything at Session End — funes Indexes Past Decisions So the Agent Can Recall Them</title>
-      <link>https://huggingface.co/blog/funes</link>
-      <guid isPermaLink="false">2026-09-19-04-funes-claude-code-persistent-memory-owned</guid>
-      <pubDate>Sat, 19 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>funes (HuggingFace) gives your coding agents durable local memory: one command wires recall and ask tools into Claude Code, indexing raw session traces you own via vector + BM25 search.</description>
-      <content:encoded><![CDATA[**funes is a single binary that indexes Claude Code session traces locally, gives agents a `recall` tool to search past decisions, and keeps the data on your machine — no account or external service required.**
-
-Every Claude Code session starts cold. Decisions made two projects ago — why you chose that architecture, why that approach was abandoned, what the workaround was for a specific edge case — are gone from the agent's context the moment the session closes. funes solves this by indexing the raw trace files your agent already writes, building a hybrid vector + BM25 index on your machine, and wiring a `recall` tool directly into the next agent session.
-
-**One-time setup:**
-
-```bash
-pip install funes
-funes add claude-code   # wires recall + ask tools; builds first index
-```
-
-After setup, Claude Code sessions automatically have access to `recall("why did we avoid direct S3 writes")` — the agent uses it spontaneously when a decision looks like something it might have seen before.
-
-**Searching from the CLI:**
-
-```bash
-funes search "how did we handle rate limiting in that API project"
-```
-
-**Optional cross-machine sync** — memory stays local by default, you own the dataset:
-
-```bash
-funes sync --repo your-hf-username/my-agent-memory --private
-```
-
-The memory store is a private HuggingFace Hub dataset in your account. Another machine or a teammate can bind to the same repo; the index merges, and every hit shows which agent and session it came from.
-
-**Limits:** funes indexes *finished* sessions only — there is no real-time recall of the current session until it ends. Index quality depends on trace verbosity; short sessions with minimal output produce sparse, less-useful entries. As of the current release, supported agents are Claude Code, Codex, pi, and Hermes — other agent runtimes are not yet indexed.
-
-**Sources:** [Give Your Coding Agents a Memory You Own — HuggingFace Blog](https://huggingface.co/blog/funes) · [huggingface/funes — GitHub](https://github.com/huggingface/funes) · [Hugging Face releases funes to give coding agents durable, local memory — korshunov.ai](https://korshunov.ai/en/article/23053-hugging-face-releases-funes-to-give-coding-agents-durable-local-memory/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
