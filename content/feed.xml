@@ -10,7 +10,117 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 08 Oct 2026 12:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 08 Oct 2026 20:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Claude Code Has Been Writing Notes About Your Repo — Here's What's in Them and How to Keep Them Accurate</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-07-claude-code-auto-memory-review-curate-project-memory</link>
+      <guid isPermaLink="false">2026-10-08-07-claude-code-auto-memory-review-curate-project-memory</guid>
+      <pubDate>Thu, 08 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Since v2.1.59, Claude Code writes a per-project MEMORY.md during sessions. Run /memory to see what it recorded, then curate what's wrong before it silently shapes future sessions.</description>
+      <content:encoded><![CDATA[**Since v2.1.59, Claude Code writes a per-project `MEMORY.md` in `~/.claude/projects/` during sessions — run `/memory` to see it, then delete what's wrong before it silently steers future work.**
+
+Since v2.1.59 (February 2026), Claude Code has auto-memory: during a session it evaluates whether an insight — a debugging conclusion, a preference you stated, a design decision — is worth keeping for future sessions, and if so, writes it to a per-project store at `~/.claude/projects/<project>/`. That store loads at every session start, before your `CLAUDE.md`.
+
+This is quiet and useful. Claude picks up something you said in passing ("we never use class components") and carries it forward correctly. It also carries forward wrong conclusions ("the build fails because of X" — but you fixed X last week) without saying so.
+
+**Three things to do with it:**
+
+**1. Run `/memory` to see what's there.** The command lists all memory files and lets you open any of them. The store is plain Markdown, capped at 200 lines for the main index; overflow goes into topic files read on demand.
+
+**2. Audit after major refactors.** Whenever you rename a module, move to a different framework, or change a core assumption, check the memory files for stale facts. A wrong memory entry doesn't surface as an error — it just silently mis-steers every future session until you remove it.
+
+**3. Delete outright rather than "correct".** If an entry is wrong, delete the line. Correcting it leaves a longer file with a contradiction Claude now has to reconcile. Keep only entries that would still be true if a colleague read them cold next month.
+
+**What auto-memory does NOT replace:** team-visible rules belong in your committed `CLAUDE.md`. Auto-memory is personal — stored in your home directory, not the repo — so teammates' Claude sessions won't see insights recorded in yours. Anything that should apply to everyone goes in `.claude/CLAUDE.md` and gets committed.
+
+**The long-running failure mode:** the store grows without compaction. After a few months on a project you'll have accumulated contradictions and outdated facts. A smaller, accurate memory beats a large, uncertain one — add a line to your monthly cleanup checklist: open `/memory`, scan for stale facts, delete liberally.
+
+**Sources:** [Claude Code Memory Files — morphllm.com](https://www.morphllm.com/claude-code-memory-files) · [Claude Code Auto Memory: Audit It Safely — aident.ai](https://aident.ai/blog/audit-claude-code-auto-memory) · [Persistent memory in Claude Code — web-developpeur.com](https://www.web-developpeur.com/en/blog/memoire-auto-claude-code)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Fine-Tuned Model Needs a Before-and-After Score — the HF `evaluate` Library Gives You One in Five Lines</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-06-huggingface-evaluate-library-compute-metrics-fine-tune</link>
+      <guid isPermaLink="false">2026-10-08-06-huggingface-evaluate-library-compute-metrics-fine-tune</guid>
+      <pubDate>Thu, 08 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <description>Three evaluate.load() calls give you accuracy, F1, and ROUGE for your fine-tuned model — always run the same metrics on the base to confirm tuning actually helped.</description>
+      <content:encoded><![CDATA[**Three `evaluate.load()` calls give you accuracy, F1, and ROUGE for your fine-tuned model — always run the same metrics on the base model first to confirm tuning actually helped.**
+
+**What you'll be able to do after this:**
+- Put a number on your fine-tuned model's performance on a held-out test set
+- Compare base vs. fine-tuned with identical metrics so the comparison is valid
+- Wire metric computation into a Hugging Face `Trainer` via `compute_metrics`
+
+After QLoRA, ORPO, or any supervised fine-tuning run, the natural question is: did it actually get better? The Hugging Face `evaluate` library is the standard toolkit — one uniform `load → compute` API covering 50+ metrics for classification, text generation, and retrieval.
+
+**Install:**
+
+```bash
+pip install evaluate
+```
+
+**Standalone accuracy and F1:**
+
+```python
+import evaluate
+import numpy as np
+
+accuracy = evaluate.load("accuracy")
+f1       = evaluate.load("f1")
+
+preds = [0, 1, 0, 1, 1]
+refs  = [0, 1, 1, 0, 1]
+
+print(accuracy.compute(predictions=preds, references=refs))
+# {'accuracy': 0.6}
+
+print(f1.compute(predictions=preds, references=refs, average="weighted"))
+# {'f1': 0.6...}
+```
+
+For multiclass data pass `average="macro"` or `average="weighted"` — the wrong choice gives a misleadingly high number.
+
+**Trainer integration** — the most common pattern:
+
+```python
+def compute_metrics(eval_preds):
+    logits, labels = eval_preds
+    predictions = np.argmax(logits, axis=-1)
+    return accuracy.compute(predictions=predictions, references=labels)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+    compute_metrics=compute_metrics,
+)
+trainer.train()
+```
+
+The key step: `np.argmax(logits, axis=-1)` before calling `.compute()` — Transformers models return logits, not class indices.
+
+**For text generation (ROUGE/BLEU):** `evaluate.load("rouge")` or `evaluate.load("bleu")` use the same `compute()` call but expect strings, not indices. BLEU references are a list of lists (`references=[["the cat sat"]]`); check each metric's Hub card for the exact schema.
+
+**Always baseline:** run the exact same eval on the base model before fine-tuning. Without a baseline the score is meaningless — you don't know if the improvement came from tuning or was already there.
+
+**Where it breaks down:** `evaluate` covers classic NLP metrics well but isn't built for open-ended generation evaluation — use Braintrust or an LLM-as-judge for that. For benchmark-style evaluation (MMLU, HumanEval, domain leaderboards) use `lm-evaluation-harness` instead; `evaluate` wasn't designed for it. Also, the library hasn't tracked the newest generative metrics closely, so for perplexity, MAUVE, or BERTScore verify the metric version against the Hub card before trusting the output.
+
+**Sources:** [HF evaluate quick tour — huggingface.co](https://huggingface.co/docs/evaluate/main/a_quick_tour) · [How to Evaluate LLMs Using HF Evaluate — Analytics Vidhya](https://www.analyticsvidhya.com/blog/2025/04/hugging-face-evaluate/) · [HF evaluate metrics benchmarking — adhdecode.com](https://adhdecode.com/articles/huggingface/huggingface-evaluate-metrics-model-benchmarking/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Claude Code Session Gets Less Reliable the Longer It Runs — Compact at 60%, One Task Per Session, and Scope Your Subagents</title>
@@ -5807,107 +5917,8 @@ The simplest path: run your SFT model on 1,000–2,000 prompts with temperature 
 **Sources:** [HuggingFace SMOL Course Unit 2.2 — DPO](https://huggingface.co/learn/smol-course/unit2/2) · [TRL DPOTrainer docs](https://huggingface.co/docs/trl/dpo_trainer) · [ADHDecode — DPO and RLHF with TRL 2026](https://adhdecode.com/articles/huggingface/huggingface-dpo-rlhf-alignment-fine-tuning/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your LLM Returns Free Text When the Pipeline Needs a Schema — instructor Enforces It and Retries Until Valid</title>
-      <link>https://python.useinstructor.com/integrations/anthropic/</link>
-      <guid isPermaLink="false">2026-09-21-06-instructor-pydantic-structured-llm-outputs-retry</guid>
-      <pubDate>Mon, 21 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Wrap any Anthropic or OpenAI client with instructor.from_anthropic() and a Pydantic model — the library enforces your schema and retries automatically when validation fails, no json.loads() needed.</description>
-      <content:encoded><![CDATA[**Wrap your Anthropic or OpenAI client with `instructor` and pass a Pydantic model — it enforces your schema and retries on validation failure, without a `json.loads()` anywhere in your pipeline.**
-
-When an agent's output feeds a database, a UI component, or the next automated step, "the model usually returns JSON" is not a contract. The `instructor` library solves this with one wrapper and automatic retries:
-
-```python
-import instructor
-from anthropic import Anthropic
-from pydantic import BaseModel
-
-class Ticket(BaseModel):
-    title: str
-    priority: str   # "low" | "medium" | "high"
-    labels: list[str]
-
-client = instructor.from_anthropic(Anthropic())
-
-ticket = client.messages.create(
-    model="claude-sonnet-5",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Parse: Login button broken on mobile, crashes on tap"}],
-    response_model=Ticket,
-)
-# ticket.priority, ticket.labels — typed, validated, no try/except
-```
-
-When the model returns a response that fails Pydantic validation, instructor retries the call (up to `max_retries=3` by default), sending the validation error back as context. Most failures resolve in one retry.
-
-**Three situations where instructor helps:**
-
-1. **Classification pipelines** — support tickets, content labeling, document routing. The schema is simple; the model returns something unexpected 1% of the time; you need that handled.
-2. **Extraction into typed records** — parse invoices, pull meeting action items, extract structured data from free text.
-3. **Multi-step agent pipelines** — when one agent's output is the next step's structured input and you need the schema enforced at the boundary.
-
-**Where to reach for the native API instead:** If you're already on a single provider and cost is tight, the Claude API's tool-use JSON mode or the Agent SDK's `outputFormat` parameter is cheaper — no extra round-trip on the retry path. `instructor` shines when you need provider-agnostic code or want Pydantic's field-level validation (regex patterns, value ranges, custom validators) to run against the model's output.
-
-**Named limits:** Each retry adds full token cost for that call. Streaming support varies by provider and is not available on all instructor modes. Instructor doesn't manage tool-call sequences or agent memory — it's a structured-output layer, not an orchestrator.
-
-**Sources:** [instructor — Anthropic integration](https://python.useinstructor.com/integrations/anthropic/) · [How to use Pydantic with LLM structured outputs — TheNeuralBase](https://theneuralbase.com/structured-outputs/qna/how-to-use-pydantic-with-llm-structured-outputs/) · [Structured Output from LLMs with Python — Tech Tutorials](https://tutorials.technology/tutorials/tutorials/structured-output-llm-python-2026.html.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Codebase Already Speaks OpenAI — Point It at OpenRouter to Access 400+ Models With One String Change</title>
-      <link>https://openrouter.ai/docs/quickstart</link>
-      <guid isPermaLink="false">2026-09-21-05-openrouter-unified-api-400-models-one-string</guid>
-      <pubDate>Mon, 21 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Developer Tools</category>
-      <category>Cloud</category>
-      <description>OpenRouter is an OpenAI-compatible endpoint for 400+ models — change base_url and api_key in your existing client, and any model string routes to the right provider with automatic fallback.</description>
-      <content:encoded><![CDATA[**Change `base_url` to `https://openrouter.ai/api/v1` in your existing OpenAI SDK client and you get access to 400+ hosted models — Claude, Gemini, Llama, Mistral, DeepSeek, and others — without rewriting anything else.**
-
-**What you'll be able to do after this:** Switch any pipeline to run against any of 400+ hosted models by changing a single string, get automatic provider fallback when your chosen model's backend has an outage, and benchmark models side by side in development without maintaining multiple API integrations.
-
-OpenRouter exposes one endpoint (`https://openrouter.ai/api/v1`) with the same request/response shape as the OpenAI API. The only code change is the base URL and key:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="<OPENROUTER_API_KEY>",   # from openrouter.ai/keys
-)
-
-completion = client.chat.completions.create(
-    model="anthropic/claude-sonnet-5",   # or any of 400+ model strings
-    messages=[{"role": "user", "content": "Summarize this ticket"}],
-)
-print(completion.choices[0].message.content)
-```
-
-Change `model` to `"google/gemini-3.8-flash"` or `"meta-llama/llama-3.3-70b-instruct"` — nothing else changes. This is useful during development: run the same prompt against three models by changing one string, compare outputs, commit the winner.
-
-**Three things to know:**
-
-1. **Automatic fallback.** If the provider behind your chosen model rate-limits or goes down, OpenRouter routes to the next available provider serving that model transparently.
-2. **The `:nitro` suffix** (`anthropic/claude-sonnet-5:nitro`) routes to the fastest available provider for that model, trading price for speed. `openrouter/auto` lets OpenRouter pick the best model per request from its internal benchmarks — useful for experimentation, but commit to an explicit model string in production.
-3. **Model strings change.** Check [openrouter.ai/models](https://openrouter.ai/models) before hardcoding any model ID; availability depends on the upstream provider's agreement with OpenRouter.
-
-**Where it breaks down:** OpenRouter charges your provider's list price plus a 5.5% platform fee on pay-as-you-go usage — once you've committed to a specific model, direct API access is cheaper. OpenRouter doesn't handle fine-tuned LoRA adapters (those require the provider's own endpoint). Rate limits are per-provider, so `:nitro` on an overloaded model won't help if every backend for it is saturated.
-
-**Three-bullet takeaway:**
-- Two-line setup: change `base_url` and `api_key` in your existing OpenAI client — 400+ models, no client rewrites.
-- `:nitro` = fastest available provider; `openrouter/auto` = OpenRouter picks the model from its benchmarks.
-- 5.5% platform fee on list price; migrate to the direct API once you've committed to one model.
-
-**Sources:** [OpenRouter Quickstart](https://openrouter.ai/docs/quickstart) · [A practical guide to OpenRouter — Medium](https://medium.com/@milesk_33/a-practical-guide-to-openrouter-unified-llm-apis-model-routing-and-real-world-use-d3c4c07ed170) · [OpenRouter: A Guide With Practical Examples — DataCamp](https://www.datacamp.com/tutorial/openrouter)]]></content:encoded>
-    </item>
-
+    
+    
     
             
 
