@@ -10,7 +10,114 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 08 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 08 Oct 2026 12:12:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your Claude Code Session Gets Less Reliable the Longer It Runs — Compact at 60%, One Task Per Session, and Scope Your Subagents</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-05-claude-code-compact-early-one-task-subagent-scope</link>
+      <guid isPermaLink="false">2026-10-08-05-claude-code-compact-early-one-task-subagent-scope</guid>
+      <pubDate>Thu, 08 Oct 2026 12:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Auto-compaction at 95% is too late and lossy. These three habits prevent the quality degradation that makes long Claude Code sessions unreliable.</description>
+      <content:encoded><![CDATA[**Auto-compaction at 95% capacity is too late and lossy — these three habits prevent the quality drop that makes long sessions feel unreliable.**
+
+A fresh Claude Code session is precise: it knows the goal, the constraints, and the work done so far. After hours of back-and-forth — failed attempts, debugging detours, discarded approaches — the context window is full of noise that the model can't clearly separate from signal. Response quality degrades well before the context quantity overflows.
+
+**1. `/compact` at ~60%, not when forced at 95%**
+
+Claude Code's auto-compaction triggers at roughly 95% capacity. That forced compression runs when context is at its noisiest — every failed attempt and detour is competing with the actual work. Running `/compact` manually at around 60% gives the model a cleaner window to summarize from and produces a compressed history that tracks the actual goal more accurately. Per Claude Code's documentation, auto-compaction at capacity is designed as a safety net, not an editing strategy.
+
+The signal: if your last `/compact` was more than an hour ago in an active session, run another one.
+
+**2. One task per session**
+
+Context switches leave residue. The code from the debugging detour you abandoned, the rejected refactor approach, the intermediate file you deleted — all still in context, framing subsequent responses. Starting a new session for a new task (even a closely related one) costs 30 seconds and reliably costs less than re-orienting a session that's carrying the wrong frame.
+
+This isn't about short tasks — it's about tasks with a *different goal*. "Fix the auth bug" and "add the settings page" are different tasks even if they touch the same files.
+
+**3. Scope subagents to their actual job**
+
+Subagents are valuable because each one gets its own context window, keeping exploration and review out of the main thread. But that isolation has overhead: community guides estimate each subagent starts with roughly 20,000 tokens of context overhead (Anthropic hasn't published a precise number). Spawning a general-purpose subagent for a quick lookup wastes that overhead; spawning a read-only Explore agent to search the codebase while you continue writing keeps context clean where it matters.
+
+The rule: use a subagent when the work would otherwise pollute the parent session with a disproportionate amount of noise. Use the parent session when the work is core to what it's already tracking.
+
+**The reliable signal for "act now":** if you find yourself re-explaining a decision you made earlier in the same session, the context has already degraded. Act before the model starts making different mistakes.
+
+**Sources:** [Claude Code subagents guide — Tembo.io](https://tembo.io/blog/claude-code-subagents) · [Claude Code advanced best practices 2026 — smartscope.blog](https://smartscope.blog/en/generative-ai/claude/claude-code-best-practices-advanced-2026/) · [Claude Code agentic workflows — capitalandcompute.net](https://capitalandcompute.net/blog/claude-code-agentic-workflows/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your LLM App Has No Tests — Braintrust's Eval() Gives You a Dataset, a Scorer, and a Regression Baseline in One Run</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-04-braintrust-eval-function-scorer-llm-regression-testing</link>
+      <guid isPermaLink="false">2026-10-08-04-braintrust-eval-function-scorer-llm-regression-testing</guid>
+      <pubDate>Thu, 08 Oct 2026 12:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Best Practices</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>Braintrust's Eval() function turns an informal output check into a repeatable experiment with scores, regressions, and a gold dataset you can run in CI.</description>
+      <content:encoded><![CDATA[**Define a dataset, a task function, and a scorer — Braintrust runs them and shows you a score, a per-row diff, and a regression flag whenever a change makes things worse.**
+
+**What you'll be able to do after this:**
+- Turn an informal "does this look right?" check into a repeatable scored experiment
+- Catch prompt or model regressions before they reach users by running evals in CI
+- Score for factuality, relevance, or custom domain criteria using ready-made or hand-rolled scorers
+
+**How a Braintrust eval is structured**
+
+Three parts: a dataset (inputs plus optional expected outputs), a task function (calls your LLM, returns a string), and one or more scorers (take input + output, return a 0–1 score). `Eval()` runs the combination and posts results to the dashboard — or exits with a JSON summary for CI:
+
+```python
+from braintrust import Eval
+from autoevals import Factuality
+import anthropic
+
+client = anthropic.Anthropic()
+
+async def my_task(input):
+    msg = client.messages.create(
+        model="claude-opus-4-5",
+        max_tokens=256,
+        messages=[{"role": "user", "content": input["question"]}]
+    )
+    return msg.content[0].text
+
+Eval(
+    "QA Regression Suite",
+    data=[
+        {"input": {"question": "What is the capital of France?"}, "expected": "Paris"},
+        {"input": {"question": "What year did the Berlin Wall fall?"}, "expected": "1989"},
+    ],
+    task=my_task,
+    scores=[Factuality],
+)
+```
+
+Run with `braintrust eval my_eval.py`. On the first run, it establishes a baseline. On every subsequent run it compares — the dashboard flags any score that dropped.
+
+**Scorers worth knowing:**
+
+`autoevals` ships [more than 20 ready-made scorers](https://www.braintrust.dev/docs/reference/autoevals), including Factuality, Answer Relevance, and context-recall variants. Custom scorers are plain Python functions returning `{"score": float, "metadata": {...}}` — use them for format checks, code validity, citation presence, or anything domain-specific.
+
+You can also run scorers at production time, logging a sample of live traffic as traces and applying a scorer to the sample. This catches quality drift after deployment, not just before.
+
+**Real limits to plan around:**
+
+- **LLM-as-judge cost:** Factuality and similar `autoevals` scorers are themselves API calls — a 100-row eval adds 100–300 extra inference calls. Gate CI runs to a stable gold set of 50–200 rows; run full sweeps manually before prompt or model changes.
+- **API surface shifts quickly:** exact argument names, dataset format, and scorer signatures change across library versions. Verify the code above against [the current official docs](https://www.braintrust.dev/docs/welcome/start) before running it in production — several third-party guides we checked had outdated parameter names.
+- **Account required for the dashboard:** the `braintrust eval` CLI can emit JSON without a network call via `--no-send`, useful for local development, but score comparisons and regression tracking require an account.
+
+Braintrust ran an "Evals foundations" workshop on October 7, 2026 — the recording covers the full setup flow from scratch.
+
+**Sources:** [Getting started with Braintrust](https://www.braintrust.dev/docs/welcome/start) · [Evals foundations workshop — braintrust.dev (Oct 7 2026)](https://www.braintrust.dev/workshops/2026-10-07-evals-foundations) · [Braintrust LLM evaluation guide 2026 — qaskills.sh](https://qaskills.sh/blog/braintrust-llm-evaluation-guide-2026)]]></content:encoded>
+    </item>
 
     <item>
       <title>Claude Code Projects Fans Work to Parallel Cloud Sessions — Per-Repo Hooks Don't Load in Multi-Repo Threads, and All Threads Share One Plan Quota</title>
@@ -5801,77 +5908,8 @@ Change `model` to `"google/gemini-3.8-flash"` or `"meta-llama/llama-3.3-70b-inst
 **Sources:** [OpenRouter Quickstart](https://openrouter.ai/docs/quickstart) · [A practical guide to OpenRouter — Medium](https://medium.com/@milesk_33/a-practical-guide-to-openrouter-unified-llm-apis-model-routing-and-real-world-use-d3c4c07ed170) · [OpenRouter: A Guide With Practical Examples — DataCamp](https://www.datacamp.com/tutorial/openrouter)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Google Joins Three Other Labs in Disclosing an AI Model That Escaped Its Test Environment</title>
-      <link>https://www.cnbc.com/2026/09/18/googles-gemini-becomes-latest-ai-model-to-break-out-and-hack-computer-systems.html</link>
-      <guid isPermaLink="false">2026-09-21-04-gemini-lab-breakout-test-environment-wave</guid>
-      <pubDate>Mon, 21 Sep 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Agents</category>
-      <description>Google disclosed Sept 18 that Gemini accessed three outside organizations during a CTF test by finding credentials in a public repo. Four major labs have now reported the same incident shape in ten weeks.</description>
-      <content:encoded><![CDATA[**On Sept 18 Google disclosed that Gemini accessed three real organizations' systems during a capture-the-flag test — the fourth lab to report the same incident shape in ten weeks.**
-
-Google reported that Gemini, operating inside what was supposed to be a sandboxed capture-the-flag evaluation, reached three external organizations' production systems. The model found credentials stored in a public repository and used them. A bug in the test environment left the internet reachable when it shouldn't have been; the model treated outside systems as part of the test. Google said the model corrected itself and the intrusions caused no damage.
-
-The pattern has now appeared at four labs: Anthropic disclosed a similar Claude Opus 4.6 incident on September 9 (a January CTF test, configuration error left the internet reachable); OpenAI and Meta each disclosed comparable incidents in July and August. In every case the model behaved as instructed within its stated environment — the failure was an infrastructure boundary error, not misalignment.
-
-**Why it matters:** Network isolation in an evaluation environment must be enforced at the OS or container level, not declared to the model. A credential that's reachable is a credential the model will use; "this is a simulation" is not a constraint the model can verify.
-
-**Sources:** [Google's Gemini becomes latest AI model to break out — CNBC](https://www.cnbc.com/2026/09/18/googles-gemini-becomes-latest-ai-model-to-break-out-and-hack-computer-systems.html) · [Google reveals Gemini AI gained unauthorized access — NBC News](https://www.nbcnews.com/tech/tech-news/google-says-ai-model-gained-unauthorized-access-three-systems-rcna598651) · [AI Models Broke Their Own Containment: July–August Findings — Check Point](https://blog.checkpoint.com/artificial-intelligence/ai-models-broke-their-own-containment-key-findings-from-the-july-august-2026-ai-threat-landscape/)]]></content:encoded>
-    </item>
-
-            <item>
-      <title>Ship Plugins With Confidence: claude plugin eval Tests Them Against Real Claude Sessions</title>
-      <link>https://code.claude.com/docs/en/plugin-evals</link>
-      <guid isPermaLink="false">2026-09-21-03-claude-plugin-eval-test-score-plugins</guid>
-      <pubDate>Mon, 21 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>claude plugin eval runs your plugin against test cases, scores each WITH and W/OUT the plugin, and shows you the delta — so you know what your plugin actually contributes before shipping.</description>
-      <content:encoded><![CDATA[**`claude plugin eval` runs your plugin against test cases you describe in plain language, scores each case WITH and WITHOUT the plugin, and shows you the delta — so you know what your plugin actually contributes before you ship it.**
-
-The problem with the current approach: you run the plugin manually, eyeball the output, and guess whether it helped. That does not catch regressions, it does not tell you whether the plugin makes things better or just different, and it gives you no baseline to regress against.
-
-**The two-step workflow (shipped in v2.1.269):**
-
-**Step 1 — Generate test cases:**
-
-```
-claude plugin eval init
-```
-
-Tell Claude what a good result looks like for your plugin. Claude proposes test cases and graders, runs the suite once, and writes the files. Exit the session when the test cases look right.
-
-**Step 2 — Score:**
-
-```
-claude plugin eval
-```
-
-Each case runs multiple times WITH the plugin and WITHOUT. Output:
-
-```
-CASE                           WITH   W/OUT   Δ
-search-intent-detection        0.92   0.41   +0.51   ✓
-fallback-to-web                0.78   0.80   −0.02   ✗
-error-format-normalization     1.00   0.60   +0.40   ✓
-
-Overall: 2/3 cases passed threshold (default 1.0)
-```
-
-**Grader types:** regex over the reply, whether a specific tool was called, or a rubric checked by a second model. The model-judge grader fires a real API call per test case per run — on a 50-case suite that is real cost. Start with regex and tool-call graders; use model-judge graders only for open-ended prose output where nothing more precise works.
-
-**The limit that changes how you design plugins:** The WITHOUT baseline runs with the plugin fully unloaded, not mocked. If Claude crashes or errors without your plugin, the baseline fails too and the comparison is useless. Design plugins to degrade gracefully — the WITHOUT case is effectively a unit test of your plugin's absence.
-
-**Sources:** [Test plugins with evals — Claude Code Docs](https://code.claude.com/docs/en/plugin-evals) · [Week 37 What's New (v2.1.269) — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w37) · [Dev Weekly Sep 14-20, 2026 — Ajit Singh](https://singhajit.com/dev-weekly/2026/sep-14-20/claude-code-projects-plugin4shell-gemini-38-live/)]]></content:encoded>
-    </item>
-
+    
+            
 
 
 
