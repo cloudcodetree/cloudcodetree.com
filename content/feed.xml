@@ -10,7 +10,139 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 07 Oct 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 08 Oct 2026 04:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Claude Code Projects Fans Work to Parallel Cloud Sessions — Per-Repo Hooks Don't Load in Multi-Repo Threads, and All Threads Share One Plan Quota</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-03-claude-code-projects-parallel-threads-hooks-quota</link>
+      <guid isPermaLink="false">2026-10-08-03-claude-code-projects-parallel-threads-hooks-quota</guid>
+      <pubDate>Thu, 08 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description>Claude Code Projects parallel threads persist server-side but don't load per-repo settings.json hooks in multi-repo sessions; all threads share one Pro/Max plan allowance.</description>
+      <content:encoded><![CDATA[**Claude Code Projects fans work to parallel cloud sessions — but per-repo hooks don't load in multi-repo threads, and all threads share one plan quota.**
+
+Projects, which entered beta in mid-September and has been expanding to more Pro and Max cloud subscribers, restructures how a large Claude Code task runs. A coordinator session sets the objective and distributes work to separate cloud sessions ("threads"), each with its own branch and repository clone, running on Anthropic's servers — so they persist after you close your laptop.
+
+**How the coordinator model works:**
+The coordinator dispatches tasks and receives completed results — it does not see every intermediate step. Each thread inherits the project's repositories, project instructions (up to 16,000 characters), and the project's `MEMORY.md` store.
+
+**The per-repo settings catch:**
+According to a [snapshot of the claude-code-docs mirror](https://github.com/thevibeworks/claude-code-docs/pull/1297), threads that start above multiple repo clones don't load per-repo `.claude/settings.json` files — which means Bash allow/deny rules, PostToolUse validators, and custom hooks wired at the repo level won't run inside those threads. If your repo-level settings enforce policies you depend on, verify there's a project-level or global equivalent before routing sensitive work through threads. (Single-source claim; verify against current Anthropic docs before relying on it.)
+
+**Quota implication:**
+Every parallel thread draws from the same Pro or Max plan allowance. Four simultaneous threads consume limits four times as fast — account for this in any long parallel run.
+
+**When it makes sense:**
+- Large tasks you can genuinely decompose: parallel PR reviews across repos, integration test runs, research across multiple codebases, generating tests and implementation in parallel
+- Work where losing a terminal connection mid-task is a real risk
+
+**When to skip it:**
+- Short tasks where coordinator overhead likely exceeds the parallelism gain
+- Any flow where repo-level hooks carry security or validation responsibilities (until confirmed otherwise)
+- When you're near your plan limit
+
+**Sources:** [Anthropic launches Claude Code Projects in beta — MarkTechPost](https://www.marktechpost.com/2026/09/17/anthropic-launches-claude-code-projects-in-beta-parallel-cloud-sessions-that-keep-running-after-you-close-your-laptop/) · [Per-repo settings caveat — claude-code-docs PR #1297](https://github.com/thevibeworks/claude-code-docs/pull/1297) · [Claude Code Projects: access and limits — beevaults.com](https://beevaults.com/claude-code-projects/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Haiku 5.5 Ships: Anthropic Claims ~75% Cheaper Than Haiku 4.5, Adds Effort Controls, 1M Context — Sonnet 5.5 Cache Reads Also Cut</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-02-claude-haiku-5-5-pricing-effort-controls-launch</link>
+      <guid isPermaLink="false">2026-10-08-02-claude-haiku-5-5-pricing-effort-controls-launch</guid>
+      <pubDate>Thu, 08 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <description>Claude Haiku 5.5 launched Oct 7 at $0.10/M input—Anthropic claims ~75% cheaper than Haiku 4.5, adds effort controls, 1M context. Sonnet 5.5 cache reads also cut to $0.10/M.</description>
+      <content:encoded><![CDATA[**Claude Haiku 5.5 shipped October 7: $0.10/M input tokens, 1M context, first Haiku with effort controls; Sonnet 5.5 cache reads drop to $0.10/M simultaneously.**
+
+Anthropic released Haiku 5.5 on October 7, generally available on the Claude API, Amazon Bedrock, and Google Cloud. Anthropic claims the model costs about 75% less to run than Haiku 4.5 on most tasks. Published pricing: $0.10 per million input tokens and $0.50 per million output tokens — those rates apply up to 100,000 tokens in context. Above 100K, the input rate rises to $0.50/M, so the savings narrow for long-context calls.
+
+The notable addition for agentic workflows is **effort controls** — a first for the Haiku tier. You can now configure effort per call rather than committing one setting across an entire workload: low effort for filtering and classification, higher for code generation or multi-step tool use.
+
+Alongside the Haiku 5.5 launch, Anthropic cut the Sonnet 5.5 cache read price to $0.10 per million tokens, reducing costs for applications that rely on prompt caching for repeated system prompts or large shared context.
+
+**Why it matters:** High-volume subagent pipelines — classifiers, dispatchers, summarizers — get materially cheaper if per-call token counts stay under 100K. Effort controls let you right-size inference cost per task type rather than paying for a single setting across everything.
+
+**Limits to know:** The 75% figure and benchmarks are Anthropic's own claims. VentureBeat reports a different figure (90%) in their headline — the discrepancy is unresolved. The input price step-up at 100K tokens matters for long-context calls. No new capabilities over Haiku 4.5 were announced; this is a price and speed refresh.
+
+**Sources:** [Claude on X — @claudeai](https://x.com/claudeai/status/2107894039626277339) · [Haiku 5.5 — MarkTechPost](https://www.marktechpost.com/2026/10/07/anthropic-releases-claude-haiku-5-5-a-small-model-with-1m-context-priced-at-0-10-per-million-input-tokens/) · [Haiku 5.5 on AWS — AWS Blog](https://aws.amazon.com/blogs/machine-learning/introducing-claude-haiku-5-5-on-aws/) · [VentureBeat coverage](https://venturebeat.com/technology/anthropic-launches-claude-haiku-5-5-with-90-api-price-reduction-matching-gpt-6-luna)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Cloudflare Worker Is One Binding Away from Calling Open Models at the Edge — No Separate Inference Server, No Extra API Keys</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-08-01-cloudflare-workers-ai-binding-wrangler-inference</link>
+      <guid isPermaLink="false">2026-10-08-01-cloudflare-workers-ai-binding-wrangler-inference</guid>
+      <pubDate>Thu, 08 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>Cloud</category>
+      <category>Building AI Products</category>
+      <description>Add the [ai] binding to wrangler.toml, call env.AI.run() with any open model ID, and Cloudflare routes it to GPU — also accessible via an OpenAI-compatible REST endpoint.</description>
+      <content:encoded><![CDATA[**Your Cloudflare Worker is one binding away from calling open models at the edge — no separate inference server, no API key management beyond your existing CF token.**
+
+**What you'll be able to do after this:** call Llama, Mistral, Qwen, or Gemma from any Worker function; route inference through an OpenAI-compatible endpoint from any language; add streaming LLM responses to an existing API without a separate backend.
+
+**Three things to understand before you start:**
+- The `[ai]` binding in `wrangler.toml` exposes `env.AI.run(modelId, input)` from inside your handler — it works like a local async function; Cloudflare routes it to GPU hardware on the nearest edge node.
+- Model IDs follow `@cf/<vendor>/<model>` naming (e.g. `@cf/meta/llama-3.1-8b-instruct-fast`). Run `npx wrangler ai models list` for the current catalog — IDs rotate and old ones break without warning.
+- Cloudflare also exposes an OpenAI-compatible endpoint at `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1` — swap `base_url` and use your CF API token, and any OpenAI SDK client works unchanged.
+
+**Walk-through (Workers + Wrangler):**
+
+```bash
+npm create cloudflare@latest my-ai-worker
+# select: Worker → TypeScript → no Git
+cd my-ai-worker
+```
+
+In `wrangler.toml`, add:
+```toml
+[ai]
+binding = "AI"
+```
+
+In `src/index.ts`:
+```typescript
+interface Env { AI: Ai }
+
+export default {
+  async fetch(req: Request, env: Env): Promise<Response> {
+    const result = await env.AI.run(
+      "@cf/meta/llama-3.1-8b-instruct-fast",
+      {
+        messages: [
+          { role: "system", content: "You are a helpful assistant." },
+          { role: "user",   content: await req.text() }
+        ]
+      }
+    );
+    return Response.json(result);
+  }
+} satisfies ExportedHandler<Env>;
+```
+
+Test locally with `wrangler dev` (you'll be prompted to log in). Deploy with `wrangler deploy`.
+
+**Streaming:** pass `stream: true` in the run options and pipe the resulting `ReadableStream` directly with `Content-Type: text/event-stream`.
+
+**Limits to know before you ship:**
+- All Workers AI models run at 4-bit or 8-bit quantization. Full-precision inference isn't available on this platform.
+- The free plan includes a daily neuron quota (Cloudflare's billing unit per Cloudflare's pricing docs); usage beyond that is billed. Check the dashboard for current rates — they change.
+- Model IDs rotate. Pin a specific ID in your Worker, test on each deploy, and monitor for 404s in production.
+- No persistent sessions: each request cold-starts if the edge node hasn't warmed recently on low-traffic routes.
+- Worker inputs are processed on Cloudflare's shared infrastructure. Review Cloudflare's data handling terms before routing confidential data through this path.
+
+**Sources:** [Workers AI — Workers + Wrangler get started (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/) · [Workers AI models catalog (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/models/) · [REST API quickstart (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) · [Workers AI LLM inference guide — noqta.tn](https://noqta.tn/en/tutorials/cloudflare-workers-ai-llm-inference-typescript-2026)]]></content:encoded>
+    </item>
 
     <item>
       <title>Add `isolation: worktree` to an Agent's Frontmatter — Every Invocation Gets Its Own Isolated Branch, No `--worktree` Flag Needed</title>
@@ -5691,87 +5823,7 @@ The pattern has now appeared at four labs: Anthropic disclosed a similar Claude 
 **Sources:** [Google's Gemini becomes latest AI model to break out — CNBC](https://www.cnbc.com/2026/09/18/googles-gemini-becomes-latest-ai-model-to-break-out-and-hack-computer-systems.html) · [Google reveals Gemini AI gained unauthorized access — NBC News](https://www.nbcnews.com/tech/tech-news/google-says-ai-model-gained-unauthorized-access-three-systems-rcna598651) · [AI Models Broke Their Own Containment: July–August Findings — Check Point](https://blog.checkpoint.com/artificial-intelligence/ai-models-broke-their-own-containment-key-findings-from-the-july-august-2026-ai-threat-landscape/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Agent Has a Bug Two Levels Deep — One Decorator Tells You Exactly Where It Went Wrong</title>
-      <link>https://docs.wandb.ai/weave/tutorial-eval</link>
-      <guid isPermaLink="false">2026-09-21-01-weave-llm-tracing-agent-observability</guid>
-      <pubDate>Mon, 21 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>W&amp;B Weave traces every LLM call, tool use, and sub-agent step with @weave.op — one decorator per function turns your agent into an inspectable, scoreable system you can compare across versions.</description>
-      <content:encoded><![CDATA[**W&B Weave traces every LLM call, tool use, and sub-agent step with `@weave.op` — one decorator per function turns your agent into an inspectable, scoreable system you can compare across model versions and prompt changes.**
-
-**What you will be able to do after this:**
-
-- Trace a multi-step agent so every LLM call, tool call, and sub-agent session is recorded with inputs, outputs, latency, and cost
-- Build a `weave.Evaluation` that scores model output against a labelled dataset, then run it in CI to catch regressions before they reach users
-- Compare two versions of your prompt or model side-by-side on the same set of test cases and see which graders changed
-
-[W&B Weave Evaluation Tutorial](https://docs.wandb.ai/weave/tutorial-eval) is the anchor resource — official, runnable, covers the full cycle from tracing to scoring to comparison.
-
-**The two-line start:**
-
-```python
-import weave
-weave.init("your-project")
-```
-
-Weave automatically patches Anthropic, OpenAI, and Gemini SDKs at import time — every `client.messages.create()` call is captured without further change. For your own functions (retrieval, chunking, tool wrappers), add `@weave.op` and Weave records inputs, output, and timing, nested inside the parent LLM trace.
-
-**Building an evaluation:**
-
-```python
-@weave.op
-def score_response(model_output: str, expected: str) -> dict:
-    return {"match": expected.lower() in model_output.lower()}
-
-evaluation = weave.Evaluation(
-    dataset=[{"question": "What is pgvector?", "expected": "postgres extension"}],
-    scorers=[score_response],
-)
-asyncio.run(evaluation.evaluate(your_model))
-```
-
-The Weave UI shows pass/fail per case, score distribution, and a side-by-side diff between runs on the same inputs. Two scores appear per case: WITH and W/OUT any change you're A/B-ing.
-
-**Two limits to know before you start:** Every LLM-as-judge scorer fires a real API call per test case — on a 100-case suite that is 100 additional completions, and the cost adds up fast. Start with regex and tool-call graders; reserve model-judge graders for open-ended outputs where nothing else works. Weave also stores all traces in W&B cloud by default; if your traces include PII or proprietary code, configure data masking before you initialise — self-hosted options exist but require separate setup.
-
-**Sources:** [W&B Weave Evaluation Tutorial — docs.wandb.ai](https://docs.wandb.ai/weave/tutorial-eval) · [Weave Quickstart — docs.wandb.ai](https://docs.wandb.ai/weave/quickstart) · [AI Observability in 2026: LangSmith vs Langfuse vs Arize vs W&B Weave — AppScale Blog](https://appscale.blog/en/blog/ai-observability-monitoring-llms-langsmith-langfuse-arize-wandb-2026)]]></content:encoded>
-    </item>
-    <item>
-      <title>Plugin4Shell: SHA Pin Bypass Lets a Repo Serve Malicious Code — Claude Code Patched, Copilot Still Open</title>
-      <link>https://www.air.security/blog-posts/plugin4shell</link>
-      <guid isPermaLink="false">2026-09-21-02-plugin4shell-sha-pin-bypass-coding-agents</guid>
-      <pubDate>Mon, 21 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Claude Code</category>
-      <description>AIR Security disclosed Plugin4Shell Sept 17: a SHA-pinning bypass enabling zero-click RCE in Claude Code, Codex, Copilot, and Gemini CLI. Claude Code and Codex are patched; Copilot is not; Gemini CLI is deprecated.</description>
-      <content:encoded><![CDATA[**AIR Security disclosed Plugin4Shell on September 17: a zero-click vulnerability that breaks SHA pinning across all four major coding agents. Claude Code and Codex are patched; GitHub Copilot is not; Google deprecated Gemini CLI rather than fix it.**
-
-SHA pinning is how coding agents lock a plugin to a specific, reviewed commit — the stated defense against plugin supply-chain attacks. Plugin4Shell breaks it: the agents check out the pinned 40-character commit SHA but never verify the commit they actually land on. A repository owner who creates a branch named after that SHA can silently serve different code under an intact-looking pin.
-
-**Status by tool:**
-
-- **Claude Code**: patched — update to the latest version
-- **Codex**: patched in v0.146.0
-- **GitHub Copilot**: Microsoft was notified but has not shipped a fix; users remain exposed
-- **Gemini CLI**: Google deprecated the CLI entirely instead of patching; all existing installs stay exposed
-
-No exploitation in the wild has been reported. AIR says the researchers found it through a source-code audit, not an active attack.
-
-**What to do:** Update Claude Code. Audit which plugins you have installed — even a patched client is only as safe as the plugin repos it points to. Until Copilot ships a fix, treat its plugin ecosystem as unverified regardless of the pinned SHA.
-
-**Why it matters:** This is the first public advisory showing a shared assumption failure across all four major coding agents simultaneously. SHA pinning was the stated supply-chain control; this finding means it was never end-to-end verified in any of them. If you run plugins in Claude Code, the update is the minimum action; auditing the repos is the actual fix.
-
-**Sources:** [Plugin4Shell — AIR Security](https://www.air.security/blog-posts/plugin4shell) · [Zero-click RCE hits four major AI coding agents, two remain unpatched — Help Net Security](https://www.helpnetsecurity.com/2026/09/18/plugin4shell-ai-coding-agents-vulnerability/) · [Claude Code and Codex Patched, Copilot and Gemini CLI Remain Exposed — AiCybr](https://aicybr.com/blog/plugin4shell-ai-coding-agents-claude-code-codex-copilot-gemini-cli)]]></content:encoded>
-    </item>
-    <item>
+            <item>
       <title>Ship Plugins With Confidence: claude plugin eval Tests Them Against Real Claude Sessions</title>
       <link>https://code.claude.com/docs/en/plugin-evals</link>
       <guid isPermaLink="false">2026-09-21-03-claude-plugin-eval-test-score-plugins</guid>
@@ -5823,33 +5875,7 @@ Overall: 2/3 cases passed threshold (default 1.0)
 
 
 
-    <item>
-      <title>Your CLAUDE.md Is Claude-Specific — Put Shared Coding-Agent Rules in AGENTS.md Instead</title>
-      <link>https://code.claude.com/docs/en/changelog</link>
-      <guid isPermaLink="false">2026-09-19-07-claude-code-agents-md-cross-tool-instructions</guid>
-      <pubDate>Sat, 19 Sep 2026 20:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.278 reads AGENTS.md as fallback when CLAUDE.md is absent. Keep shared project rules in AGENTS.md for all agents; use CLAUDE.md for Claude-specific config only.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.278 reads AGENTS.md as a fallback when no CLAUDE.md is found — the same file OpenAI Codex, GitHub Copilot, and Gemini CLI already respect, letting you maintain one instruction set for the whole repo.**
-
-AGENTS.md is a tool-agnostic Markdown file for project-level agent configuration. It is already adopted in over 60,000 repositories (per Cryptobriefing), with OpenAI Codex, GitHub Copilot, and Gemini CLI all reading it. Claude Code v2.1.278 joins the standard: when it cannot find CLAUDE.md (or any of its variants) in the project hierarchy, it reads AGENTS.md instead.
-
-**The practical split for mixed-agent repos:**
-
-- **AGENTS.md** — shared rules every agent in the repo should follow: coding standards, architecture decisions, naming conventions, test patterns, commit format. All agents read this.
-- **CLAUDE.md** — Claude-specific config: tool permissions, hooks, memory instructions, subagent setup. When present, Claude Code uses it and ignores AGENTS.md unless you configure otherwise.
-
-To load both — AGENTS.md as a supplement to CLAUDE.md — go to `/config` → "Project instructions" and configure priority or dual-load there.
-
-**One limit worth knowing:** When both files exist, CLAUDE.md wins and other agents see only AGENTS.md. In repos where Copilot, Codex, or Gemini CLI are also running, this means they receive a different instruction set than Claude Code does. Audit for conflicts before assuming a single source of truth. Also: AGENTS.md fallback is not yet available on AWS Bedrock, Google Vertex, or Anthropic Foundry.
-
-**Sources:** [Claude Code changelog v2.1.278 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code adds AGENTS.md fallback for multi-agent repos — RuntimeWire](https://runtimewire.com/article/claude-code-adds-agents-md-support) · [Anthropic Claude Code joins cross-tool AI coding standard — Cryptobriefing](https://cryptobriefing.com/anthropic-claude-code-agents-md-support/)]]></content:encoded>
-    </item>
-
+    
     
     
     
