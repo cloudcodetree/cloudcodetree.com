@@ -10,9 +10,123 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 09 Oct 2026 12:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Oct 2026 12:24:00 +0000</lastBuildDate>
 
 
+    <item>
+      <title><![CDATA[Your Claude Code Subagents Don't Have to Be General-Purpose — Write a .claude/agents/ Markdown File, Restrict Its Tools, and Contain What Prompt Injection Can Reach]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-08-claude-code-custom-agent-definition-markdown-frontmatter-tools</link>
+      <guid isPermaLink="false">2026-10-09-08-claude-code-custom-agent-definition-markdown-frontmatter-tools</guid>
+      <pubDate>Fri, 09 Oct 2026 12:24:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>A .claude/agents/ Markdown file with YAML frontmatter creates a specialized subagent — lock its tools to what it actually needs to limit blast radius on untrusted inputs.</description>
+      <content:encoded><![CDATA[**A `.claude/agents/` Markdown file creates a specialized subagent the Agent tool auto-dispatches by description — restrict its tools to limit what a prompt-injected input can reach.**
+
+When the Agent tool selects from "Available agent types," those types come from Markdown files in `.claude/agents/` (project) or `~/.claude/agents/` (user). Writing one takes two minutes.
+
+**The file format**
+
+Create `.claude/agents/code-reviewer.md`:
+
+~~~md
+---
+name: code-reviewer
+description: Use to review changed files for correctness and edge cases. Does not modify files.
+model: haiku
+tools:
+  - Read
+  - Grep
+  - Glob
+---
+
+Review the files at the given paths for correctness, off-by-one errors, and unhandled edge cases. Report findings as a numbered list with file and line. Do not suggest refactors or style changes.
+~~~
+
+**Field reference**
+
+| Field | Required | What it does |
+|---|---|---|
+| `name` | yes | How the Agent tool addresses this agent |
+| `description` | yes | The routing key — write "Use to …" so dispatch is unambiguous |
+| `model` | no | `haiku` for cheap narrow tasks; omit to inherit session default |
+| `tools` | no | Allowed set; omit = all tools (blast-radius risk) |
+| Body | no | The system prompt |
+
+**Scope and priority**
+
+`.claude/agents/` is project scope — commit it for shared team agents. `~/.claude/agents/` applies to all your projects. Name collisions resolve highest-priority first; in nested project directories the file closest to the working directory wins (v2.1.178+).
+
+**The blast-radius argument for `tools`**
+
+A read-only reviewer with `Read`, `Grep`, `Glob` cannot write files or run commands — even if a prompt-injected input in a third-party file tries to override its instructions. When an orchestrator fans out parallel subagents over untrusted data (third-party code, user-supplied documents), tool restrictions are the containment boundary.
+
+**Check what's loaded**
+
+```bash
+claude agents    # lists all agents grouped by source, marks name overrides
+```
+
+**Stated limits:** No live reload — restart the session after editing frontmatter. The `/agents` wizard was removed in v2.1.198; write the file directly or ask Claude to scaffold it.
+
+**Sources:** [Subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Claude Code best practices 2026 — smartscope.blog](https://smartscope.blog/en/generative-ai/claude/claude-code-best-practices-advanced-2026/)]]></content:encoded>
+    </item>
+    <item>
+      <title><![CDATA[LIMA Proved 1,000 Curated Examples Beat 50,000 Noisy Ones — Build and Validate the Alpaca JSONL Dataset Your Fine-Tune Actually Needs]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-07-alpaca-jsonl-instruction-tuning-dataset-lima-quality</link>
+      <guid isPermaLink="false">2026-10-09-07-alpaca-jsonl-instruction-tuning-dataset-lima-quality</guid>
+      <pubDate>Fri, 09 Oct 2026 12:23:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <description>LIMA showed data quality beats data volume for instruction tuning — Alpaca JSONL format, four quality checks, and the Hugging Face datasets load that catches errors before training.</description>
+      <content:encoded><![CDATA[**LIMA (Meta, 2023) proved that 1,000 carefully curated instruction pairs matched or outperformed 175,000-example baselines — here's the Alpaca JSONL format, four quality checks, and the `datasets` load that catches schema errors before you touch a training script.**
+
+**What you'll be able to do after this:** build a well-formed Alpaca-format JSONL dataset, validate it for schema errors and near-duplicates, and load it with Hugging Face `datasets`, ready to hand to Unsloth, TRL, or any PEFT trainer.
+
+- LIMA showed that diversity and quality beat raw volume — 1,000 examples matched or outperformed 175,000-example baselines on several benchmarks.
+- The Alpaca format is `{"instruction": "...", "input": "...", "output": "..."}` — one JSON object per line in a `.jsonl` file; dumping a JSON array into `.jsonl` breaks most loaders silently.
+- Deduplicate, enforce consistent instruction style, and hold out 10–20% as validation before training — most practitioners skip this and blame the model.
+
+**Build and validate**
+
+```python
+import json
+from datasets import load_dataset
+
+rows = [
+    {"instruction": "Summarize this issue in one sentence.",
+     "input": "PR #42 breaks mobile auth because the session cookie lacks SameSite=Strict.",
+     "output": "PR #42 breaks mobile auth due to a missing SameSite flag."},
+    # Use input="" when there is no context — don't omit the key
+]
+
+with open("train.jsonl", "w") as f:
+    for row in rows:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+ds = load_dataset("json", data_files={"train": "train.jsonl"}, split="train")
+assert all("instruction" in ex and "output" in ex for ex in ds), "Missing required fields"
+
+ds.push_to_hub("yourorg/my-fine-tune-data", private=True)
+```
+
+**Four quality checks before training**
+
+1. **Schema:** every row has `instruction` and `output`; `input` is `""` when empty, not absent.
+2. **Duplicates:** the original Stanford Alpaca data has known duplicate answers — use the [cleaned fork](https://github.com/gururise/AlpacaDataCleaned) if you start from it.
+3. **Instruction consistency:** mixed imperative/question style forces the model to learn format variation alongside the actual task.
+4. **Length balance:** a 2,000-word `output` against a one-line instruction creates a distribution mismatch the model internalizes.
+
+**Stated limit:** Alpaca is single-turn only. Multi-turn dialogue requires ChatML (`{"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}`); Axolotl, TRL, and Unsloth all support both formats via a dataset type field in their config.
+
+**Sources:** [Preparing a Dataset for Instruction Tuning — W&B](https://wandb.ai/capecape/alpaca_ft/reports/How-to-Fine-Tune-an-LLM-Part-1-Preparing-a-Dataset-for-Instruction-Tuning--Vmlldzo1NTcxNzE2) · [AlpacaDataCleaned — gururise/GitHub](https://github.com/gururise/AlpacaDataCleaned) · [LLM Fine-Tuning Data Preparation — centron.de](https://www.centron.de/en/tutorial/llm-fine-tuning-data-preparation-guide/)]]></content:encoded>
+    </item>
     <item>
       <title>Your Data Extraction Retries on Schema Violations — `output_config.format` in the Claude API Uses Constrained Decoding to Make Invalid JSON Structurally Impossible</title>
       <link>https://cloudcodetree.com/ai-news/2026-10-09-06-claude-api-output-config-format-constrained-json</link>
@@ -5821,113 +5935,8 @@ For well-formed queries that already use your corpus vocabulary, standard dense 
 **Sources:** [LangChain HypotheticalDocumentEmbedder (Python)](https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html), [NirDiamant RAG Techniques notebook](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/HyDe_Hypothetical_Document_Embedding.ipynb), [Haystack HyDE documentation](https://docs.haystack.deepset.ai/docs/hypothetical-document-embeddings-hyde)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Orchestrator Session Guesses When to Delegate — A Ten-Line .claude/agents/ File Tells It Exactly</title>
-      <link>https://code.claude.com/docs/en/sub-agents</link>
-      <guid isPermaLink="false">2026-09-22-06-claude-code-custom-subagent-agents-dir</guid>
-      <pubDate>Tue, 22 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>A markdown file in .claude/agents/ defines a named subagent with its own tools, model, and permissionMode — the description field is what the orchestrator reads to decide when to call it.</description>
-      <content:encoded><![CDATA[**Define a named subagent in `.claude/agents/<name>.md` — its description field is how the orchestrator knows when to call it instead of handling the task itself.**
-
-When you run Claude Code in an orchestrator session, it decides what to handle directly and what to delegate. Without a named agent definition, it improvises from context. With `.claude/agents/<name>.md`, you supply the decision function: a description that states exactly when to spawn that agent.
-
-```yaml
----
-name: security-reviewer
-description: >
-  Reviews code for injection, SSRF, and auth bugs. Invoke when a PR
-  adds user-input handling, external requests, or auth flows.
-tools:
-  - Read
-  - Glob
-  - Grep
-permissionMode: default
-model: claude-haiku-4-5-20251001
----
-When reviewing for security:
-1. Check user-controlled data flows to SQL, shell, and file ops.
-2. Flag outbound requests with user-supplied URLs (SSRF surface).
-3. Look for auth checks applied after sensitive operations.
-Return findings as a markdown list with file:line references.
-```
-
-Save this to `.claude/agents/security-reviewer.md`. From any orchestrator session you or your team starts, `@security-reviewer` invokes it directly — and Claude Code also calls it automatically when the context matches the description.
-
-**Three things to tune:**
-
-- **`tools`** — drop write tools (`Write`, `Edit`, `Bash`) for agents that should only read. A scoped tool list is the simplest way to enforce "this agent reviews, it doesn't change things."
-- **`model`** — route light tasks (file scanning, search, review) to Haiku; reserve Sonnet/Opus for agents that write or plan. The orchestrator's cost drops when the heavy model only runs for work that needs it.
-- **`permissionMode`** — `"default"` asks for each sensitive action; `"acceptEdits"` auto-approves file writes; `"bypassPermissions"` is for CI-only agents that run unattended.
-
-Both `~/.claude/agents/` (user-level, all sessions) and `.claude/agents/` (project-level, checked into the repo) are scanned recursively. Project-level definitions are the useful ones — they travel with the repo and are automatically available to everyone working on it.
-
-**Limits:** The description field is natural-language routing — there's no strict pattern-matching or guaranteed trigger. If your orchestrator misses calls that should go to a named agent, make the description more specific about the inputs or outputs that distinguish it.
-
-**Sources:** [Create custom sub-agents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Claude Code Subagents orchestration guide — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_subagents_and_orchestration_guide.html) · [Claude Code Subagents reference 2026 — The Prompt Shelf](https://thepromptshelf.dev/blog/claude-code-subagents-official-documentation-reference-2026/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>pgvector Needs Postgres Running, FAISS Has No Delete — Chroma Fills the Dev Gap With upsert(), delete(), and Zero Server Setup</title>
-      <link>https://realpython.com/chromadb-vector-database/</link>
-      <guid isPermaLink="false">2026-09-22-05-chromadb-persistent-knowledge-base-upsert-delete</guid>
-      <pubDate>Tue, 22 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>ChromaDB runs inside your Python process, persists to disk, and handles upsert and delete — the three methods that let you update a local RAG knowledge base without rebuilding it.</description>
-      <media:content url="https://img.youtube.com/vi/god8Pox1laE/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/god8Pox1laE/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**ChromaDB runs in-process with no server setup, persists to disk, and supports `upsert` and `delete` — the three methods that let you keep a local RAG knowledge base current without a full re-embed.**
-
-**What you'll be able to do after this:** build a persistent local vector store that you can incrementally update as source documents change — add new ones, replace stale ones by id, and delete removed ones — without re-embedding the entire corpus.
-
-- Chroma's `PersistentClient` writes embeddings and metadata to a local directory on first run and reloads on restart — no server process, works in any Python environment, survives process restarts.
-- `collection.upsert()` is the one-call interface for keeping a document set in sync: it adds by id if new, replaces if the id already exists. Store a content hash in metadata to skip re-embedding unchanged docs.
-- `collection.delete(ids=[...])` removes by id; `collection.query(where={"source": "handbook"})` limits retrieval to a metadata scope. Together, these turn knowledge base updates into a targeted batch operation rather than a full reindex.
-
-**Walk-through:**
-
-```python
-import chromadb
-
-# PersistentClient writes to ./chroma_db; reloads on restart
-client = chromadb.PersistentClient(path="./chroma_db")
-collection = client.get_or_create_collection("docs")
-
-# Upsert: adds if id is new, replaces if it already exists
-collection.upsert(
-    documents=["PTO policy: 15 days per year, accrued monthly."],
-    metadatas=[{"source": "handbook", "version": "2026-09", "hash": "abc123"}],
-    ids=["policy-pto"]
-)
-
-# Metadata-scoped retrieval
-results = collection.query(
-    query_texts=["how many vacation days do I get?"],
-    n_results=3,
-    where={"source": "handbook"}
-)
-
-# Remove a document that no longer exists in the source
-collection.delete(ids=["policy-pto-v1"])
-```
-
-Chroma uses its bundled `all-MiniLM-L6-v2` embedding model by default. Pass `embedding_function=` to swap in sentence-transformers, the OpenAI API, or anything that implements the `EmbeddingFunction` interface.
-
-**Limits:** Chroma's embedded mode serializes writes through a single process — running parallel indexing workers against the same `./chroma_db` directory causes corruption. For that, start `chroma run --path ./chroma_db` and connect via `chromadb.HttpClient`. Query throughput degrades past ~100k embeddings in the default HNSW config; at that scale pgvector or Qdrant with tuned index parameters is the better fit.
-
-**Anchor resource:** [Embeddings and Vector Databases With ChromaDB](https://realpython.com/chromadb-vector-database/) (Real Python, April 2026) — walks through collections, metadata, cosine similarity, and a full RAG pipeline. The most complete hands-on reference for the full Chroma API.
-
-**Sources:** [Real Python — ChromaDB guide](https://realpython.com/chromadb-vector-database/) · [Chroma Cookbook](https://cookbook.chromadb.dev/) · [Chroma docs — trychroma.com](https://docs.trychroma.com/)]]></content:encoded>
-    </item>
-
+    
+    
     
 
 
