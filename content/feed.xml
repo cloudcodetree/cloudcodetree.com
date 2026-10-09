@@ -10,7 +10,166 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 09 Oct 2026 04:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Oct 2026 12:15:00 +0000</lastBuildDate>
+
+
+    <item>
+      <title>Your Data Extraction Retries on Schema Violations — `output_config.format` in the Claude API Uses Constrained Decoding to Make Invalid JSON Structurally Impossible</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-06-claude-api-output-config-format-constrained-json</link>
+      <guid isPermaLink="false">2026-10-09-06-claude-api-output-config-format-constrained-json</guid>
+      <pubDate>Fri, 09 Oct 2026 12:15:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Best Practices</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>output_config.format uses constrained decoding: schema violations are structurally impossible before sampling, not caught by retry logic after. No more JSON parse errors from extraction pipelines.</description>
+      <content:encoded><![CDATA[**Set `output_config={"format": {"type": "json", "json_schema": {...}}}` and Claude's constrained decoding prevents any non-schema response at the sampling level — no retry loop needed.**
+
+The traditional approach — "respond in JSON like this:" prompting — retries when Claude wraps the JSON in prose or produces a schema violation. The `tool_choice` force pattern guarantees a tool call but changes how Claude reasons about ambiguous input. `output_config.format` is a third path: **constrained decoding during generation**. Only tokens that keep the response valid against your schema can be sampled.
+
+```python
+import anthropic, json
+
+client = anthropic.Anthropic()
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=1024,
+    output_config={
+        "format": {
+            "type": "json",
+            "json_schema": {
+                "name": "EntityExtraction",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {"type": "array", "items": {"type": "string"}},
+                        "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]},
+                        "summary": {"type": "string"}
+                    },
+                    "required": ["entities", "sentiment", "summary"],
+                    "additionalProperties": False
+                }
+            }
+        }
+    },
+    messages=[{"role": "user", "content": "Analyze: 'Anthropic released a new prompting guide today.'"}]
+)
+# response.content[0].text is always valid JSON — parse directly, no try/except needed
+data = json.loads(response.content[0].text)
+```
+
+**Schema rule:** every object in the schema must set `"additionalProperties": False` (Python) / `false` (JSON Schema), or the API returns a 400.
+
+**SDK shortcut:** the Python SDK's `client.messages.parse()` accepts a Pydantic model directly — the SDK generates the schema and deserializes the response into a model instance.
+
+**What this doesn't fix:** constrained decoding guarantees the *shape* is right, not the *content*. It prevents `{"sentiment": "unknown"}` (not in the enum), but not `{"sentiment": "positive"}` on a text that's actually negative. Validate semantic correctness in your application.
+
+**Limits to know:**
+- Available on Claude Opus 4.8, Mythos Preview, Opus 4.7, 4.6, Sonnet 4.6, 4.5, Opus 4.5, Haiku 4.5 — not every Claude model
+- On AWS Bedrock: `output_config` cannot be combined with the citations feature (returns 400)
+- The old `output_format` parameter still works during transition, then deprecated — migrate now
+- Assistant-turn prefill is no longer supported on Opus 4.6+ models; use structured outputs instead
+
+**Sources:** [Structured outputs — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/structured-outputs) · [Structured outputs vs tool use vs prefills in 2026 — DEV community](https://dev.to/pavelespitia/structured-outputs-vs-tool-use-vs-prefills-getting-json-out-of-claude-in-2026-5fi0) · [Anthropic structured output example — Deno](https://docs.deno.com/examples/anthropic_structured_output/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>LiteLLM and OpenAI Codex Were Compromised at Pwn2Own Ireland — AI Infrastructure Proxies Are Now a Pwn2Own Target Class</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-05-pwn2own-ireland-litelm-codex-zero-day-ai-infra</link>
+      <guid isPermaLink="false">2026-10-09-05-pwn2own-ireland-litelm-codex-zero-day-ai-infra</guid>
+      <pubDate>Fri, 09 Oct 2026 12:14:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Developer Tools</category>
+      <description>Researchers compromised LiteLLM and Codex at Pwn2Own Ireland (Oct 6), collecting $388K in day-one prizes. Exploit details under 90-day embargo — watch vendor security advisories.</description>
+      <content:encoded><![CDATA[**Researchers compromised LiteLLM and OpenAI Codex among 32 zero-day targets at Pwn2Own Ireland on October 6. Exploit details are under a 90-day embargo; watch vendor advisories closely.**
+
+At Pwn2Own Ireland in Cork, security teams targeted AI developer tools alongside smartphones, printers, and enterprise software on day one — collecting $388,500 in prizes for 32 unique zero-days. LiteLLM, the OpenAI-compatible routing proxy that many teams run in front of their model stack, was among the confirmed targets, as was OpenAI Codex. Specific vulnerability classes won't be public until early January 2027, when the 90-day responsible-disclosure window closes.
+
+LiteLLM has been a Pwn2Own target before — Star Labs published a write-up of four exploit chains from an earlier Pwn2Own event, including server-side request forgery and code execution paths in its proxy layer. Whether the Ireland exploits hit the same surfaces or new ones isn't yet known.
+
+**What this signals:** AI infrastructure — routing proxies, model gateways, agent orchestration layers — is now a recognized attack category at the world's most competitive security competition. These components typically hold model API keys, full prompt histories, and sometimes system prompts containing proprietary business logic. A proxy-layer compromise can be wider than a conventional web app breach.
+
+**For teams running LiteLLM:** subscribe to its GitHub releases and security advisories now. Don't expose the admin API to the internet; put authentication in front of every endpoint regardless of your network zone. Pin to a known-good version and plan to update when patches ship in January.
+
+**Why it matters:** Adversaries follow the money. Pwn2Own targeting is a leading indicator of where real-world attackers will focus next — and AI routing layers now share the stage with NAS devices and routers.
+
+**Sources:** [Pwn2Own Ireland 2026 Day One — Daily Security Review](https://dailysecurityreview.com/?p=44293) · [Pwn2Own Hackers Find 32 Zero-Days — Infosecurity Magazine](https://www.infosecurity-magazine.com/news/pwn2own-hackers-32-zeroday/) · [LiteLLM exploit chain research — Star Labs](https://starlabs.sg/blog/2026/05-race-against-the-patch-the-evolution-of-four-exploit-chains-in-litellm/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your RAG App Re-Embeds Everything on Each Update — LangChain's Record Manager Hashes Each Chunk, Skips What's Unchanged, and Deletes What's Gone</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-04-langchain-record-manager-incremental-knowledge-base-sync</link>
+      <guid isPermaLink="false">2026-10-09-04-langchain-record-manager-incremental-knowledge-base-sync</guid>
+      <pubDate>Fri, 09 Oct 2026 12:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>SQLRecordManager + LangChain's indexing API tracks each chunk by hash: skip unchanged, patch updated, delete stale. Three lines of setup, no full re-embed on every run.</description>
+      <content:encoded><![CDATA[**A `SQLRecordManager` with `cleanup="incremental"` skips already-indexed chunks, patches updated ones, and removes stale entries — three lines of setup, no full re-embed on every run.**
+
+**What you'll be able to do after this:** keep a production knowledge base in sync with a changing document set without paying embedding costs for content that hasn't changed.
+
+- Hash each chunk on ingest; skip it entirely if the hash matches what's already indexed
+- Automatically delete stale chunks when a source document is removed or reorganized
+- Get a per-run report: `{'num_added': 2, 'num_updated': 1, 'num_skipped': 47, 'num_deleted': 3}`
+
+**Setup (one-time):**
+
+```python
+from langchain.indexes import SQLRecordManager, index
+from langchain_community.vectorstores import Chroma  # see note on FAISS below
+from langchain_openai import OpenAIEmbeddings
+
+embedding = OpenAIEmbeddings()
+vectorstore = Chroma(embedding_function=embedding)
+
+record_manager = SQLRecordManager(
+    "my_kb",                                 # namespace — use one per knowledge base
+    db_url="sqlite:///record_manager.db"     # swap for postgresql:// in production
+)
+record_manager.create_schema()               # creates the tracking table if absent
+```
+
+**Ingest loop (run on every update):**
+
+```python
+from langchain_community.document_loaders import DirectoryLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+loader = DirectoryLoader("./docs", glob="**/*.md")
+splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+chunks = splitter.split_documents(loader.load())
+
+result = index(
+    chunks,
+    record_manager,
+    vectorstore,
+    cleanup="incremental",
+    source_id_key="source"    # must match metadata key that identifies the source file
+)
+print(result)
+```
+
+**Cleanup mode trade-offs:**
+- `incremental` — deletes stale chunks continuously during the run. Use this when you process one source at a time or can't guarantee the loader returns every document.
+- `full` — waits until all batches complete, then deletes everything from the same `source_id_key` not seen this run. **Only use this when your loader returns the complete dataset every time**; if it returns a subset, `full` will delete documents it should keep.
+- `scoped_full` — full cleanup within a namespace. Available in langchain-core ≥ 0.3.25.
+
+**Gotchas:**
+- **FAISS:** delete-by-ID is incomplete in some builds — `incremental` cleanup may fail to purge stale chunks. Use Chroma, PGVector, Pinecone, or Weaviate for reliable deletion.
+- **Mixed indexing:** don't pre-populate the vector store outside of the indexing API. The record manager won't know those records exist and will treat them as untracked — cleanup can leave them permanently.
+- **Embedding model:** use the same model for every subsequent run. Mixing models makes old and new vectors incompatible; there's no migration path short of a full re-index.
+
+**Sources:** [How to reindex data — LangChain official docs](https://python.langchain.com/docs/how_to/indexing) · [Syncing data sources to vector stores — LangChain blog](https://blog.langchain.dev/syncing-data-sources-to-vector-stores) · [Production RAG with incremental indexing — Towards AI](https://pub.towardsai.net/building-a-production-ready-rag-system-with-incremental-indexing-ee42cfbfef7f)]]></content:encoded>
+    </item>
 
     <item>
       <title>Your Claude Code Session Works in GitHub Actions Too — `--print`, `--allowedTools`, and the Official Action Cover Every Pattern</title>
@@ -5769,167 +5928,12 @@ Chroma uses its bundled `all-MiniLM-L6-v2` embedding model by default. Pass `emb
 **Sources:** [Real Python — ChromaDB guide](https://realpython.com/chromadb-vector-database/) · [Chroma Cookbook](https://cookbook.chromadb.dev/) · [Chroma docs — trychroma.com](https://docs.trychroma.com/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>xAI Shipped Grok 4.7 Yesterday — Live on OpenRouter Now With a 500k Context Window and the Same Base Pricing as Grok 4.6</title>
-      <link>https://docs.x.ai/developers/grok-4-7</link>
-      <guid isPermaLink="false">2026-09-22-04-grok-4-7-openrouter-api</guid>
-      <pubDate>Tue, 22 Sep 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>xAI released Grok 4.7 on September 21 with a 500k context window. It is live on OpenRouter as x-ai/grok-4.7 at $1.60/$4.80 per million tokens — one string change from Grok 4.6.</description>
-      <content:encoded><![CDATA[**xAI released Grok 4.7 on September 21. It is on OpenRouter as `x-ai/grok-4.7` at $1.60/$4.80 per million tokens, with a 500k context window — one string change from Grok 4.6 in any existing routing config.**
-
-[Per xAI's release notes](https://docs.x.ai/developers/grok-4-7), Grok 4.7 uses a larger base model and a longer reinforcement learning run focused on difficult tasks involving self-verification and long-context management. xAI reports improvements on software engineering benchmarks where the task runs for minutes — long agentic loops, not single-turn completions.
-
-Grok 4.7 routes through the same platforms as Grok 4.6: OpenRouter (at the prices above), Cloudflare Workers AI, and Vercel. If you use OpenRouter for dynamic model selection in a coding agent or long-context task, `x-ai/grok-4.7` is now a valid option to add to your routing config.
-
-**One limit:** xAI's benchmark improvements are measured on multi-step software engineering tasks. For quick, single-turn completions, the performance delta over Grok 4.6 is likely small relative to any routing overhead. No independent benchmark replication is available yet.
-
-**Why it matters:** Another 500k-context model at sub-$2 input pricing gives model routers one more competitive option for the "need long context, budget-sensitive" slot.
-
-**Sources:** [Grok 4.7 docs — xAI](https://docs.x.ai/developers/grok-4-7) · [Grok 4.7 on OpenRouter](https://openrouter.ai/x-ai/grok-4.7) · [xAI releases Grok 4.7 — MarkTechPost](https://www.marktechpost.com/2026/09/21/spacexai-releases-grok-4-7/)]]></content:encoded>
-    </item>
+    
 
 
 
-
-    <item>
-      <title>Add @claude to Your Repo and It Reviews PRs, Fixes Test Failures, and Takes Issue Assignments — From a 30-Line YAML</title>
-      <link>https://code.claude.com/docs/en/github-actions</link>
-      <guid isPermaLink="false">2026-09-22-03-claude-code-github-actions-pr-automation</guid>
-      <pubDate>Tue, 22 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Anthropic's claude-code-action@v1 runs full Claude Code sessions inside GitHub Actions — interactive on @claude mentions, or automated on any workflow trigger.</description>
-      <content:encoded><![CDATA[**`anthropics/claude-code-action@v1` runs a full Claude Code session inside your GitHub Actions runner — triggered by `@claude` in a comment, or automatically on any workflow event.**
-
-The action has two modes. Both install in minutes.
-
-**Interactive mode** — Claude enters a session whenever anyone comments `@claude` on a PR or issue. It reads the full diff, the thread, and linked code, then pushes commits, leaves inline review comments, and handles follow-up replies in the same thread. Set it up by running `/install-github-app` inside a Claude Code session; it creates the workflow file and installs the GitHub app for you.
-
-**Automation mode** — runs on any workflow trigger: PR opened, push to main, scheduled cron, failed CI run. You write a prompt in the YAML; Claude executes it without a human trigger.
-
-```yaml
-# .github/workflows/claude-review.yml
-name: Claude PR Review
-on:
-  pull_request:
-    types: [opened, synchronize]
-
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - uses: anthropics/claude-code-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Review this PR for correctness bugs and security issues.
-            If you find anything, leave inline review comments.
-```
-
-For `@claude` interactive mode, add a second workflow that triggers on `issue_comment` events — the [action's setup doc](https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md) includes a copy-paste template and the required `permissions` block.
-
-**Practical patterns that work well:** automated changelog generation on merge to main; test-failure triage when CI goes red (pass the failing log as context); `@claude /fix` for quick one-shot patches without switching to the terminal.
-
-**Where it differs from GitHub Agentic Workflows** (covered earlier): this is Anthropic's Action running the full Claude Code runtime; GitHub Agentic Workflows compiles plain-English Markdown into standard Actions YAML. They're complementary — one is a direct Claude Code session in CI; the other is GitHub's agent orchestration layer.
-
-**Limits:** Every trigger consumes real API tokens — this runs against the Anthropic API rate limit, not your Claude Code subscription. Use `if:` conditions to avoid runaway usage (e.g. only trigger on labels, not every push). Interactive mode can be invoked by any commenter with write access; restrict with branch protection rules. The action needs `contents: write` and `pull-requests: write` permissions — scope carefully.
-
-**Sources:** [Claude Code GitHub Actions — code.claude.com](https://code.claude.com/docs/en/github-actions) · [anthropics/claude-code-action — GitHub](https://github.com/anthropics/claude-code-action) · [Set Up Claude Code GitHub Actions for PR Review — systemprompt.io](https://systemprompt.io/guides/claude-code-github-actions) · [Claude Code + GitHub Actions Complete Guide — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-github-actions-cicd-complete-guide-2026/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your SFT Run Is Only as Good as Your Data — Generate 5,000 Training Examples From 50 Seeds With distilabel</title>
-      <link>https://huggingface.co/blog/dvilasuero/synthetic-data-with-llama3-distilabel</link>
-      <guid isPermaLink="false">2026-09-22-02-distilabel-synthetic-instruction-dataset-fine-tuning</guid>
-      <pubDate>Tue, 22 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>Write 50 domain-specific seed examples, run a distilabel pipeline with a teacher LLM, filter by quality score, and export to HuggingFace Hub — ready for TRL SFTTrainer.</description>
-      <content:encoded><![CDATA[**Write 50 domain-specific examples, run a distilabel pipeline with a teacher model, score and filter the outputs, and export a fine-tuning dataset to HuggingFace Hub — ready for SFTTrainer.**
-
-**What you'll be able to do after this:**
-- Build a domain-specific instruction-tuning dataset at scale without hand-labeling thousands of rows
-- Filter synthetic outputs using an LLM-as-judge quality score before fine-tuning
-- Export directly to HuggingFace Hub in a format `SFTTrainer` reads without transformation
-
----
-
-Every SFT run relies on training data, and for domain-specific tasks, generic instruction datasets rarely fit. The pattern that scales: write 50 gold examples yourself, then use a stronger teacher model to generate variations.
-
-**The distilabel pipeline:**
-
-```bash
-pip install "distilabel[hf-inference-endpoints]"
-```
-
-```python
-from distilabel.steps.tasks import TextGeneration, UltraFeedback
-from distilabel.models import InferenceEndpointsLLM
-from distilabel.pipeline import Pipeline
-from datasets import load_dataset
-
-# Your 50 seed examples as a HuggingFace Dataset with "instruction" column
-seeds = load_dataset("json", data_files="seeds.jsonl")["train"]
-
-with Pipeline(name="instruction-dataset") as pipeline:
-    generate = TextGeneration(
-        llm=InferenceEndpointsLLM(
-            model_id="meta-llama/Meta-Llama-3.1-8B-Instruct",
-        ),
-        num_generations=100,     # 50 seeds × 100 variations = 5,000 candidates
-        system_prompt="You are an expert assistant. Answer clearly and concisely.",
-    )
-    rate = UltraFeedback(
-        llm=InferenceEndpointsLLM(
-            model_id="meta-llama/Meta-Llama-3.1-70B-Instruct",
-        ),
-    )
-    generate >> rate
-
-distiset = pipeline.run(dataset=seeds)
-```
-
-**Quality filtering before fine-tuning:**
-
-`UltraFeedback` scores each generation on helpfulness, honesty, and instruction-following (0–5). Filter to score ≥ 3.5 — this typically removes 20–40% of outputs but measurably improves downstream SFT quality:
-
-```python
-filtered = distiset["train"].filter(lambda x: x["rating"] >= 3.5)
-filtered.push_to_hub("your-org/my-domain-dataset")
-```
-
-**Hand off to TRL:**
-
-```python
-from trl import SFTTrainer, SFTConfig
-
-trainer = SFTTrainer(
-    model=model,
-    train_dataset=filtered,
-    args=SFTConfig(output_dir="./ft-output", max_seq_length=2048),
-)
-trainer.train()
-```
-
-**Limits:** Synthetic data amplifies flaws in your seed examples — bad seeds produce bad scale. Llama 3.1 8B works for many narrow tasks; complex reasoning benefits from 70B+ as the teacher. Generating 5K candidates on a free Colab T4 takes 4–8 hours; use HuggingFace Inference Endpoints for speed ($0.0006–$0.002/call depending on model). The UltraFeedback scoring step adds significant latency — budget accordingly or rate with a faster judge.
-
-**Sources:** [Using Llama3 and distilabel to build fine-tuning datasets — HuggingFace Blog](https://huggingface.co/blog/dvilasuero/synthetic-data-with-llama3-distilabel) · [argilla-io/distilabel — GitHub](https://github.com/argilla-io/distilabel) · [Synthetic Data for LLM Fine-Tuning 2026 — FutureAGI](https://futureagi.com/blog/synthetic-data-fine-tuning-llms/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
