@@ -10,7 +10,150 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 08 Oct 2026 20:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Oct 2026 04:12:00 +0000</lastBuildDate>
+
+    <item>
+      <title>Your Claude Code Session Works in GitHub Actions Too — `--print`, `--allowedTools`, and the Official Action Cover Every Pattern</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-01-claude-code-print-mode-ci-github-actions</link>
+      <guid isPermaLink="false">2026-10-09-01-claude-code-print-mode-ci-github-actions</guid>
+      <pubDate>Fri, 09 Oct 2026 04:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>claude -p "prompt" --allowedTools "Read,Grep" --output-format json runs non-interactively, exits 0/1, and emits structured results — all a CI step needs to run Claude Code headlessly.</description>
+      <content:encoded><![CDATA[**`claude -p "prompt" --allowedTools "Read,Grep" --output-format json` runs Claude Code headlessly, exits 0 on success, and prints structured results — a CI step needs nothing else.**
+
+The `-p` (or `--print`) flag runs a single prompt, prints to stdout, and exits with code 0 on success or 1 on error. Combined with `--output-format json`, it returns a structured envelope with `result`, `cost_usd`, and `num_turns` fields that downstream steps can parse.
+
+```bash
+claude -p "Review the staged diff for security issues. Be terse." \
+  --allowedTools "Read,Grep,Glob" \
+  --output-format json \
+  --max-turns 5
+```
+
+**Scoping permissions in CI**: without a human to approve tool calls, permissions must be set ahead of time. `--allowedTools` takes a comma-separated list; `Bash(git diff:*)` permits only that specific command while blocking general shell access. A read-only review step needs nothing but `Read,Grep,Glob` — no Bash at all.
+
+**`--bare` for reproducible runs**: this flag skips auto-discovery of hooks, plugins, MCP servers, and `CLAUDE.md`, so the run behaves like a clean environment regardless of what is installed locally. Anthropic says `--bare` will become the default for `-p` in a future release.
+
+**Official GitHub Action**: Anthropic publishes `anthropics/claude-code-action` on the GitHub Marketplace. It handles trigger wiring (PR review, issue comment, failing check), scopes a read-focused permission set by default, and can post findings directly as PR comments without extra scripting.
+
+```yaml
+- uses: anthropics/claude-code-action@v1
+  with:
+    prompt: "Review this PR for correctness and security issues."
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+**Limits**: each CI invocation draws from the same usage quota as interactive sessions — aggressive automation on a lower-tier plan will hit rate limits quickly. The `--dangerously-skip-permissions` flag is common in tutorials but bypasses the entire permission model; avoid it in shared pipelines where the run has write access to your repo or cluster.
+
+**Sources:** [CI/CD and Headless Mode — angelo-lima.fr](https://angelo-lima.fr/en/claude-code-cicd-headless-en/) · [Claude Code headless mode and CI/CD — Sfeir Institute](https://institute.sfeir.com/en/claude-code/claude-code-headless-mode-and-ci-cd/) · [claude-code-action — GitHub Marketplace](https://github.com/marketplace/actions/claude-code-action) · [Claude Code CLI reference — Anthropic](https://code.claude.com/docs)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Claude Security Is in Public Beta — AI Scans Your Codebase, Traces Data Flows, and Proposes Patches; Enterprise Only for Now</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-02-claude-security-codebase-scanner-enterprise-beta</link>
+      <guid isPermaLink="false">2026-10-09-02-claude-security-codebase-scanner-enterprise-beta</guid>
+      <pubDate>Fri, 09 Oct 2026 04:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Developer Tools</category>
+      <description>Claude Security (powered by Opus 4.7) entered public beta for Enterprise this week — scans repos for vulnerabilities, traces data flows, and generates targeted patches. Team/Max access coming.</description>
+      <content:encoded><![CDATA[**Claude Security entered public beta for Enterprise users this week — AI-powered codebase scanning that proposes patches, without wiring in a separate SAST tool.**
+
+Anthropic's Claude Security product (powered by Claude Opus 4.7) entered public beta for Enterprise accounts. It can scan a full repository or a targeted directory, trace data flows, analyze interdependencies, and generate targeted remediation code alongside each finding. Findings are triaged by severity, dismissable with documented reasons, and exportable as CSV or Markdown. Broader access for Team and Max plans is planned but not yet dated.
+
+The product grew out of a Claude Code Security research preview from earlier in 2026. During that preview, Anthropic reported identifying over 500 vulnerabilities in open-source code using Claude Opus 4.6 — a self-reported figure; no independent comparison against Semgrep, CodeQL, or other SAST tools has been published.
+
+**For Enterprise teams:** the immediate case is a scheduled scan that runs alongside CI without a separate license. Patch suggestions appear inline with findings and are meant to reduce remediation time, not replace review.
+
+**Key limits:**
+- **Enterprise-only** in the current beta; Team and Max expansion is planned but no date announced.
+- Usage terms restrict scanning to code **your organization owns and has rights to scan** — you cannot point it at arbitrary open-source dependencies or third-party repos.
+- Patches are language-model output: they can introduce new issues. Treat every patch as a starting point requiring human review before merging.
+- No independent benchmark comparison against established SAST tools has been published.
+
+**Why it matters:** if your stack is already on Enterprise Claude, adding automated security scanning through the same platform reduces the integration surface. Whether the finding quality justifies replacing or supplementing an existing tool is an open question until independent benchmarks exist.
+
+**Sources:** [Anthropic adds AI vulnerability scanning to Claude Code — TechInformed](https://techinformed.com/anthropic-adds-ai-vulnerability-scanning-to-claude-code/) · [Anthropic expands open source protection — OpenSourceForu](https://www.opensourceforu.com/?p=98066) · [Getting started with Claude Security — Classmethod](https://dev.classmethod.jp/en/articles/claude-security-getting-started/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title>Your Agent Re-Encodes Its System Prompt on Every Request — One `cache_control` Marker Caches the Prefix, Dropping Those Tokens to ~10% of Input Cost</title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-03-anthropic-prompt-caching-cache-control-agent-cost</link>
+      <guid isPermaLink="false">2026-10-09-03-anthropic-prompt-caching-cache-control-agent-cost</guid>
+      <pubDate>Fri, 09 Oct 2026 04:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Add cache_control: {type: ephemeral} to the last stable content block — everything before it is cached; subsequent requests pay ~10% of input cost for those tokens per Anthropic.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** add a single `cache_control` marker to your agent's system prompt, verify cache hits in the response's `usage` object, and cut the per-call input cost of a large prompt from full price to ~10% on re-use — per Anthropic's published pricing.
+
+## Why agents pay this cost without caching
+
+Every API call re-encodes the full prompt from scratch. An agent with a 10,000-token system prompt — tool definitions, instructions, a documentation corpus — bills those tokens at full input price on every turn, even when nothing changed.
+
+## The fix: one field on the content block
+
+Add `cache_control: {"type": "ephemeral"}` to the last content block you want cached. Everything before that marker becomes the cacheable prefix.
+
+```python
+client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    system=[
+        {
+            "type": "text",
+            "text": TOOL_DEFS + "\n\n" + LARGE_DOCS_CORPUS,
+            "cache_control": {"type": "ephemeral"}
+        }
+    ],
+    messages=[{"role": "user", "content": user_message}]
+)
+```
+
+On a cache **miss**, the response's `usage` field shows `cache_creation_input_tokens` (billed at 1.25x input price — the write premium). On a cache **hit**, `cache_read_input_tokens` appears instead, billed at ~10% of base input price. Verify it:
+
+```python
+print(response.usage.cache_creation_input_tokens)  # miss
+print(response.usage.cache_read_input_tokens)        # hit
+```
+
+If neither appears, the prefix was too short (minimum ~1,024 tokens, model-dependent) or something in the cached span changed.
+
+## The ordering rule
+
+Content that changes between requests must come **after** the cache breakpoint, or it invalidates the prefix and forces a full cache write. Order from most to least stable:
+
+1. System instructions
+2. Tool definitions
+3. Large, static document corpora
+4. Few-shot examples
+5. Conversation history
+6. Current user message
+
+Put the `cache_control` marker at the end of whichever step is the last stable one.
+
+## Limits
+
+- **4 breakpoints max** per request.
+- **~1,024 token minimum** for a prefix to cache at all (varies by model; shorter prefixes silently skip caching even if marked).
+- **5-minute TTL** from last use; configurable to 1 hour. Agents with longer gaps between turns take cold misses.
+- **One byte changes everything.** Timestamps, per-request IDs, and variable tool sets in the cached span all cause cold misses.
+- **Write premium break-even: ~9 requests.** At 1.25x write cost and 0.1x read cost, caching pays off only if the same prefix is re-used at least nine times.
+- **Long-horizon agents fare worse than single-turn estimates.** A 2026 research study (arXiv 2601.06007) evaluated prompt caching in multi-step agentic tasks and found that compaction, context resets, and mid-session tool-set changes regularly invalidate cached prefixes — actual savings in complex agents are lower than single-turn projections suggest.
+
+**Sources:** [Prompt Caching — Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) · [Don't Break the Cache: Evaluation for Long-Horizon Agentic Tasks — arXiv 2601.06007](https://arxiv.org/abs/2601.06007) · [Context Engineering for Production AI Agents — Spheron](https://www.spheron.network/blog/context-engineering-production-ai-agents-kv-cache-long-context/)]]></content:encoded>
+    </item>
 
     <item>
       <title>Claude Code Has Been Writing Notes About Your Repo — Here's What's in Them and How to Keep Them Accurate</title>
@@ -5787,136 +5930,9 @@ trainer.train()
 **Sources:** [Using Llama3 and distilabel to build fine-tuning datasets — HuggingFace Blog](https://huggingface.co/blog/dvilasuero/synthetic-data-with-llama3-distilabel) · [argilla-io/distilabel — GitHub](https://github.com/argilla-io/distilabel) · [Synthetic Data for LLM Fine-Tuning 2026 — FutureAGI](https://futureagi.com/blog/synthetic-data-fine-tuning-llms/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>OpenAI's Sora API Ends September 24 — Two Days to Redirect Your Video Generation Calls</title>
-      <link>https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation</link>
-      <guid isPermaLink="false">2026-09-22-01-sora-api-shutdown-sept-24</guid>
-      <pubDate>Tue, 22 Sep 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Video AI</category>
-      <category>Video Generation</category>
-      <description>The Sora-2 API endpoint terminates September 24; the consumer app was already removed in April. Any pipeline or agent calling it will start returning errors on Wednesday.</description>
-      <content:encoded><![CDATA[**The Sora-2 API endpoint terminates September 24. Any pipeline, agent, or background job calling it will start returning errors on Wednesday.**
-
-OpenAI is completing a full discontinuation of Sora: the consumer app went offline in April 2026, and the API follows on September 24. No direct OpenAI replacement has been announced. Programmatic video generation alternatives currently with API access: Runway Gen-3 Alpha (REST endpoint, mp4/webm), Kling 2.0 (cloud API), and Google Veo 2 via Vertex AI. Export any stored assets from the Sora dashboard now — access ends with the API.
-
-**Why it matters:** A two-day window before a hard failure. Scope your codebase for `sora`, `video.generations.create`, or any `openai` call that routes to a video model and redirect or stub before Wednesday.
-
-**Limit:** This is a migration notice, not a capability comparison — test alternatives against your quality and latency requirements before switching.
-
-**Sources:** [What to know about the Sora discontinuation — OpenAI Help Center](https://help.openai.com/en/articles/20001152-what-to-know-about-the-sora-discontinuation) · [Sora's App Is Dead, But the API Still Works Until September — Pixo](https://pixo.video/blog/sora-api-still-available) · [OpenAI Is Shutting Down Sora — CodeToDeploy/Medium](https://medium.com/codetodeploy/openai-is-shutting-down-sora-that-says-more-than-most-product-launches-05db8b07c136)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Agent Uses a Full LLM to Pick Between Options — Jev Returns a Typed Decision in Under 500ms</title>
-      <link>https://www.langchain.com/blog/building-a-harness-with-jev</link>
-      <guid isPermaLink="false">2026-09-21-08-jev-typesafe-decision-model-agent-routing</guid>
-      <pubDate>Mon, 21 Sep 2026 20:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>TypeSafe's Jev takes a schema of possible answers and returns a ranked choice with confidence — suited for routing and classification inside agent pipelines where text generation is overkill.</description>
-      <content:encoded><![CDATA[**TypeSafe's Jev is a schema-first decision model: give it a typed set of possible answers upfront, and it scores them all in a single pass — returning a choice with confidence rather than generating text.**
-
-Every multi-agent pipeline has decision points — "which specialist handles this?", "is this query in scope?", "escalate or resolve?" — where a generative LLM does far more work than the task requires. Jev (launched September 15, 2026) is a different category: define the answer space upfront, and it returns a probability-ranked result in 70–500ms (per TypeSafe's benchmarks on their classification tasks). Input costs $0.042 per million tokens; output is free because there is no generated output.
-
-**Where this fits in an agent pipeline:**
-- **Routing decisions** between sub-agents or service paths, where the set of routes is fixed
-- **Intent classification** at the API boundary before dispatching to a slower reasoning step
-- **Fast triage** — is this in-scope, off-topic, or needs escalation — before any expensive LLM call
-
-**Integrating Jev:**
-
-Jev is available at `typesafe/jev` on OpenRouter. The model expects a structured input describing the state and the available options, and returns a typed choice with confidence. See the [LangChain integration guide](https://www.langchain.com/blog/building-a-harness-with-jev) for the exact request schema and how to wire it as a router node in a LangChain agent. Vercel, Cloudflare, and Langfuse each published integrations within the first three days of release.
-
-**When to reach for Jev vs. a full LLM:**
-- **Use Jev:** the set of valid answers is fixed and known upfront; you need fast triage; you want a probability rather than a string to parse.
-- **Keep the LLM:** the answer space is open-ended; you need the reasoning, not just the label; the decision involves nuance you cannot enumerate ahead of time.
-
-**Where it breaks:**
-- Only works for fixed-schema decisions — cannot handle open-ended queries where the answer space is unknown
-- Proprietary; no self-hosted option exists
-- Speed and cost claims are TypeSafe's vendor-reported benchmarks for their classification tasks; results on your actual decision distributions will vary
-- The model launched 6 days ago — treat the API surface as potentially unstable
-
-**Sources:** [LangChain — building a harness with Jev](https://www.langchain.com/blog/building-a-harness-with-jev) · [Tom's Hardware — Jev analysis](https://www.tomshardware.com/tech-industry/artificial-intelligence/typesafe-ais-jev-offers-an-alternative-to-llms-that-claims-to-be-193x-faster-and-445x-cheaper-system-one-type-model-is-bespoke-for-probabilistic-decision-making) · [beam.ai — Jev overview](https://beam.ai/agentic-insights/jev-typesafe-ai-agents) · [OpenRouter typesafe models](https://openrouter.ai/typesafe)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your SFT Fine-Tune Follows Instructions — DPO Adds the Preference Layer That Chooses Between Good and Better</title>
-      <link>https://huggingface.co/learn/smol-course/unit2/2</link>
-      <guid isPermaLink="false">2026-09-21-07-dpo-trl-dpotrainer-preference-alignment</guid>
-      <pubDate>Mon, 21 Sep 2026 20:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>SFT teaches format and domain; DPO trains the model which of two responses to prefer, using a (prompt, chosen, rejected) dataset and TRL's DPOTrainer — no reward model required.</description>
-      <content:encoded><![CDATA[**SFT trains a model to produce a format or domain. DPO trains it which of two responses to prefer — using (prompt, chosen, rejected) pairs and TRL's DPOTrainer, with no reward model or RL complexity.**
-
-**What you'll be able to do after this:** Run a preference alignment pass on top of your SFT checkpoint — so the model not only follows your format, but consistently chooses the better answer when it could produce either.
-
-**Three takeaways:**
-1. SFT and DPO are sequential, not alternatives. SFT first (teach domain and format), DPO second (teach which responses are preferred).
-2. The dataset is three columns: `prompt`, `chosen`, `rejected`. Collect pairs by running your SFT model twice and having a stronger model (or human raters) label which output is better.
-3. The `beta` hyperparameter controls how far the trained model can drift from the frozen SFT reference. Start at 0.1; higher values constrain it closer to the baseline.
-
-**Walk-through:**
-
-TRL's `DPOTrainer` follows the same HuggingFace pattern as `SFTTrainer`. The key addition is loading your SFT checkpoint as both the trainable model and a frozen reference:
-
-```python
-from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from trl import DPOConfig, DPOTrainer
-
-model_name = "your-sft-checkpoint"
-model     = AutoModelForCausalLM.from_pretrained(model_name)
-ref_model = AutoModelForCausalLM.from_pretrained(model_name)  # frozen — never updated
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-# Dataset columns: "prompt", "chosen", "rejected"
-dataset = load_dataset("json", data_files="preferences.jsonl")["train"]
-
-training_args = DPOConfig(
-    output_dir="./dpo-output",
-    beta=0.1,            # divergence penalty vs. SFT reference
-    num_train_epochs=3,
-    per_device_train_batch_size=2,
-    gradient_accumulation_steps=4,
-    learning_rate=5e-7,  # lower than SFT — DPO is sensitive to this
-)
-
-trainer = DPOTrainer(
-    model=model,
-    ref_model=ref_model,
-    args=training_args,
-    tokenizer=tokenizer,
-    train_dataset=dataset,
-)
-trainer.train()
-```
-
-**Building your preference dataset:**
-
-The simplest path: run your SFT model on 1,000–2,000 prompts with temperature > 0 to get two different completions per prompt, then have a stronger model (GPT-4 class or Claude Sonnet 5) label which is better. Even noisy preferences produce meaningful alignment improvement on targeted tasks.
-
-```json
-{"prompt": "Explain a TCP handshake to a junior dev",
- "chosen": "TCP uses three messages — SYN, SYN-ACK, ACK — to confirm both sides can send and receive before data flows.",
- "rejected": "It's a network thing where your computer and the server agree to talk to each other."}
-```
-
-**Limits:** DPO requires a preference dataset — harder to collect than plain instruction-following data. `beta` set too high, or low-quality preferences, can degrade general capability. DPO alone does not reliably produce refusal behavior; that requires RLHF or RLVR on top. Online DPO (also in TRL) can be more sample-efficient but needs a reward model running at training time.
-
-**Sources:** [HuggingFace SMOL Course Unit 2.2 — DPO](https://huggingface.co/learn/smol-course/unit2/2) · [TRL DPOTrainer docs](https://huggingface.co/docs/trl/dpo_trainer) · [ADHDecode — DPO and RLHF with TRL 2026](https://adhdecode.com/articles/huggingface/huggingface-dpo-rlhf-alignment-fine-tuning/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
