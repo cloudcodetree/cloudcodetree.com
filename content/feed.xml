@@ -10,8 +10,65 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 09 Oct 2026 12:24:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 09 Oct 2026 20:03:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title><![CDATA[One `models` List Gives Your Agent Provider-Level Fallback — OpenRouter Routes to the Next Entry When the Primary Rate-Limits or Goes Down]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-09-09-openrouter-models-fallback-provider-routing</link>
+      <guid isPermaLink="false">2026-10-09-09-openrouter-models-fallback-provider-routing</guid>
+      <pubDate>Fri, 09 Oct 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <description>OpenRouter's models list falls back to the next provider automatically on rate limits, downtime, or context errors — one base_url change, two lines of config, no retry code.</description>
+      <content:encoded><![CDATA[**One `models` list in the request body turns your agent's "provider is down" into an automatic retry on the next provider — no error-handling code required.**
+
+Your agent calls one provider and either gets a response or throws. When the primary hits a rate limit or returns a 529, the call fails and it's your code's problem. OpenRouter puts a routing layer in front of models from Anthropic, OpenAI, Google, Mistral, Meta, and others behind a single OpenAI-compatible endpoint. Point your existing SDK at it, add a priority-ordered `models` list, and provider failover becomes a config change instead of error-handling logic.
+
+**Setup**
+
+Replace your `base_url` and API key:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key="<your-openrouter-key>",
+)
+```
+
+Model IDs follow a `provider/model-name` convention — the full catalog is at [openrouter.ai/models](https://openrouter.ai/models).
+
+**Adding a fallback chain**
+
+Pass `models` as an ordered list via `extra_body` (the standard way to send OpenRouter-specific fields through the OpenAI SDK):
+
+```python
+response = client.chat.completions.create(
+    model="anthropic/claude-sonnet-4-6",
+    messages=[{"role": "user", "content": "..."}],
+    extra_body={
+        "models": [
+            "anthropic/claude-sonnet-4-6",   # primary
+            "openai/gpt-4o",                  # first fallback
+            "google/gemini-flash-2.5",        # second fallback
+        ]
+    },
+)
+print(response.model)   # reports which provider actually served
+```
+
+Fallback fires automatically on: rate limits, provider downtime, context-length validation errors, and moderation flags. The `response.model` field tells you which entry responded. The `x-openrouter-cost` response header gives you the per-request cost, which matters because billing goes to whichever model served the call.
+
+**Limits worth knowing:** The same model string does not guarantee identical outputs across providers — system prompt handling, tool-call quirks, and context limits vary between Anthropic-native and providers serving the same model via Bedrock or other intermediaries. Test your fallback targets explicitly before relying on them in production. If fallbacks fire frequently to more expensive models, costs can drift without warning; OpenRouter itself does not cap spend. The Anthropic Messages API path (`/api/v1/messages`) uses a separate `fallbacks` array capped at three entries, incompatible with the `models` list above.
+
+**Sources:** [OpenRouter routing docs](https://openrouter.ai/docs/guides/routing) · [OpenRouter model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks) · [DataCamp OpenRouter tutorial](https://www.datacamp.com/tutorial/openrouter) · [Agno: increase reliability with OpenRouter failover](https://www.agno.com/changelog/increase-reliability-with-openrouter-failover-and-dynamic-model-routing)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Claude Code Subagents Don't Have to Be General-Purpose — Write a .claude/agents/ Markdown File, Restrict Its Tools, and Contain What Prompt Injection Can Reach]]></title>
@@ -5872,69 +5929,7 @@ To test: swap `"claude-opus-5"` → `"claude-opus-5-5"` in your model string.
 **Sources:** [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing), [Benzinga](https://www.benzinga.com/markets/private-markets/26/09/61933271/anthropic-launches-claude-opus-5-5-cuts-costs-40-and-scraps-5-hour-usage-caps), [OpenRouter Opus 5.5](https://openrouter.ai/anthropic/claude-opus-5.5), [LLM stats analysis](https://llm-stats.com/blog/research/claude-opus-5-5-launch)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Dense Retriever Compares Questions to Documents — HyDE Generates a Hypothetical Answer First and Closes the Vocabulary Gap</title>
-      <link>https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html</link>
-      <guid isPermaLink="false">2026-09-22-08-hyde-hypothetical-document-embeddings-query-expansion-rag</guid>
-      <pubDate>Tue, 22 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <description>HyDE improves retrieval by embedding a hypothetical answer instead of the raw query. LangChain's HypotheticalDocumentEmbedder wraps any existing embedder in a few lines of code.</description>
-      <content:encoded><![CDATA[**HyDE asks an LLM to draft a hypothetical answer, embeds that instead of your raw query, and retrieves against the right semantic space — a two-line wrapper around any existing LangChain embedder.**
-
-**What you'll be able to do after this:** Wrap your existing vector retriever with LangChain's `HypotheticalDocumentEmbedder` so queries that miss because the question vocabulary doesn't match the document vocabulary start hitting the right chunks.
-
-## Why your retriever misses
-
-When you embed a bare question like "cost effective inference routing", the resulting vector sits in question-space. Your corpus contains passages with phrases like "latency vs cost tradeoff" or "model multiplexing" — semantically related, but distant from the raw question embedding. Document-to-document similarity is consistently easier than question-to-document.
-
-## What HyDE does
-
-Instead of embedding the question, ask an LLM to draft a one-paragraph answer first, then embed *that*. The hypothetical document uses the vocabulary of actual answers, which lands it near your real corpus chunks even if the generated facts are wrong — the encoder's bottleneck filters for semantic shape and discards factual specifics.
-
-**Three takeaways:**
-1. Most useful when queries are short and sparse, or when the corpus uses jargon the query doesn't contain — specialist domains, code documentation, internal knowledge bases.
-2. The LLM generates the hypothetical in a single call; hallucinated facts are largely washed out during embedding because only semantic patterns survive the dense bottleneck.
-3. Trade-off: one extra LLM call per query (roughly 400 input + 200 output tokens with `claude-haiku-4-5-20251001` at ~$0.001) plus 50–100ms latency.
-
-## Implementation with LangChain
-
-```python
-from langchain.chains import HypotheticalDocumentEmbedder
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import OpenAIEmbeddings  # swap for your embedder
-
-# Your existing embedder — nothing changes here
-base_embeddings = OpenAIEmbeddings()
-
-# The LLM that drafts the hypothetical answer
-llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
-
-# Wrap: now embed_query generates a hypothesis first
-hyde = HypotheticalDocumentEmbedder.from_llm(
-    llm=llm,
-    base_embeddings=base_embeddings,
-    custom_prompt=None,  # uses built-in instruction-following prompt
-)
-
-# Drop-in replacement — same embed_query / embed_documents API
-query_vector = hyde.embed_query("cost effective inference routing")
-# LLM drafts: "Efficient inference routing balances model cost and latency..."
-# Encoder embeds that paragraph → closer to corpus than the raw question
-```
-
-Connect `hyde` to any `VectorStoreRetriever` the same way you'd connect `base_embeddings` — it's a drop-in swap.
-
-## When to skip it
-
-For well-formed queries that already use your corpus vocabulary, standard dense retrieval is good enough — HyDE adds cost and latency without benefit. Measure recall on a sample of your actual queries before and after; if your baseline already retrieves the right chunk in the top 3, skip it.
-
-**Sources:** [LangChain HypotheticalDocumentEmbedder (Python)](https://api.python.langchain.com/en/latest/chains/langchain.chains.hyde.base.HypotheticalDocumentEmbedder.html), [NirDiamant RAG Techniques notebook](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/HyDe_Hypothetical_Document_Embedding.ipynb), [Haystack HyDE documentation](https://docs.haystack.deepset.ai/docs/hypothetical-document-embeddings-hyde)]]></content:encoded>
-    </item>
-
+    
     
     
     
