@@ -10,8 +10,97 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 09 Oct 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 10 Oct 2026 04:05:00 +0000</lastBuildDate>
 
+
+    <item>
+      <title><![CDATA[Your Subdirectory Has Different Rules — Put a CLAUDE.md There and Claude Code Loads It Only When It Works in That Folder]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-02-claude-md-hierarchy-subdirectory-monorepo-context</link>
+      <guid isPermaLink="false">2026-10-10-02-claude-md-hierarchy-subdirectory-monorepo-context</guid>
+      <pubDate>Sat, 10 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Subdirectory CLAUDE.md files load on demand — only when Claude reads files in that folder. Split a bloated root file into per-service files to give each part of your monorepo its own rules.</description>
+      <content:encoded><![CDATA[**Put database rules in `packages/db/CLAUDE.md` and React conventions in `apps/web/CLAUDE.md` — Claude Code loads each only when it works in that directory, so a session touching only the API never loads the UI rules.**
+
+In a monorepo with an API service, a web app, and a shared database package, every session currently loads your entire root CLAUDE.md — the SQL migration conventions, the React component rules, the API auth patterns — even if you're only touching a single service. Subdirectory CLAUDE.md files fix this by loading lazily.
+
+Claude Code loads CLAUDE.md files in this order:
+
+1. **`~/.claude/CLAUDE.md`** (global) — applies across all your projects.
+2. **Project root `CLAUDE.md` or `.claude/CLAUDE.md`** — applies for this repo.
+3. **Subdirectory `CLAUDE.md`** — loaded on demand when Claude reads a file in that folder.
+
+The subdirectory file is not loaded at startup. It fills context when Claude actually opens a file in that directory. A session that stays in `apps/api/` never loads `apps/web/CLAUDE.md`.
+
+**What to put where:**
+
+- **Root (keep to ~100–200 lines):** project-wide rules — git commit conventions, the security model, which paths to never modify, the single build command, the team's code review bar.
+- **`apps/api/CLAUDE.md`:** the API's stack specifics — schema validation library, auth patterns, migration tooling, error-shape conventions.
+- **`apps/web/CLAUDE.md`:** frontend framework rules, component library conventions, file naming, the design token source of truth.
+- **`packages/db/CLAUDE.md`:** migration tooling, table/column naming conventions, which tables are write-protected by RLS and must not be modified directly.
+
+**One limit to know:** subdirectory files are additive, not replacements. Claude loads the root AND the subdirectory file when both apply. If they give conflicting rules on the same topic, the subdirectory file wins — but the conflict is silent. Keep the root file focused on cross-cutting concerns to avoid contradiction.
+
+Claude Code also applies prompt caching to CLAUDE.md files. After the first tool call in a directory, that subdirectory file is cached for the session — the context cost of adding a subdirectory file is paid once, not on every tool call.
+
+**Sources:** [Give Claude context: CLAUDE.md — Anthropic Support](https://support.claude.com/en/articles/14553240-give-claude-context-claude-md-and-better-prompts) · [Steering Claude Code: when to use CLAUDE.md, skills, hooks, and subagents — Anthropic](https://www.claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more) · [Subdirectory CLAUDE.md mechanics — ClaudeFa.st](https://claudefa.st/blog/guide/mechanics/subdirectory-claude-md)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Vector Retriever Scores Documents Independently of the Query — A Cross-Encoder Reranks the Pool by Attending to Both at Once]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-01-cross-encoder-reranking-two-stage-rag-retrieval</link>
+      <guid isPermaLink="false">2026-10-10-01-cross-encoder-reranking-two-stage-rag-retrieval</guid>
+      <pubDate>Sat, 10 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <description>A cross-encoder scores query-document pairs together, not separately — retrieve 20-50 candidates with your vector index, then rerank them to put the genuinely most relevant chunks first.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** Add a reranking step to your RAG pipeline so the context window gets the most-relevant chunks — not just the ones with the best cosine similarity.
+
+**Why vector retrieval alone misses things**
+
+Bi-encoders (sentence-transformers, OpenAI embeddings) compress each document into a fixed vector at index time and score it against a query vector at search time. That single dot product captures broad semantic similarity but misses nuanced query–document interaction. A chunk that uses different phrasing from the query often scores lower than one that repeats the query's exact words without actually answering it.
+
+**Three things to understand**
+
+1. **Cross-encoders process query and document together.** A model like `cross-encoder/ms-marco-MiniLM-L6-v2` takes `[query, document]` concatenated as one input, runs full self-attention across both texts, and outputs a relevance score. Because each query changes the score, documents cannot be pre-encoded — cross-encoders are only used for reranking, never for first-stage retrieval.
+
+2. **Retrieve wide, rerank narrow.** A typical two-stage setup: retrieve the top 20–50 results with your vector index (fast), then rerank with the cross-encoder and pass the top 3–5 to the LLM. The cross-encoder sees a small pool, so latency stays manageable.
+
+3. **Two practical model families.** `cross-encoder/ms-marco-MiniLM-L6-v2` (sentence-transformers) is lightweight and fast — the default for most pipelines. `BAAI/bge-reranker-large` is slower and more accurate; worth the cost when retrieval quality is the bottleneck. Cohere Rerank is the hosted API option if you'd rather not run a model locally.
+
+**Steps (sentence-transformers)**
+
+```python
+from sentence_transformers import SentenceTransformer, CrossEncoder
+
+# First stage: vector retrieval (replace with your actual retriever)
+bi_encoder = SentenceTransformer('BAAI/bge-base-en-v1.5')
+# ... retrieve top 25 candidate chunks from your index into `candidates`
+
+# Second stage: cross-encoder reranker
+reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L6-v2')
+pairs = [(query, chunk['text']) for chunk in candidates]
+scores = reranker.predict(pairs)
+
+# Sort descending; take the top 5 for context
+reranked = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
+top_5 = [chunk for _, chunk in reranked[:5]]
+```
+
+**Limits:** Cross-encoders add latency proportional to pool size. Scoring 50 candidates with `bge-reranker-large` on a CPU can add 300–800 ms per request. Keep the reranker pool to 50 or fewer candidates and measure before deploying. If you need a hosted option with no local model, Cohere Rerank charges per query on a separate billing line, so factor that into cost projections.
+
+The DeepLearning.AI "Advanced Retrieval for AI with Chroma" course (free, ~1 hr) works through this exact pattern against a live Chroma database — it is the fastest hands-on starting point for seeing the before-and-after improvement.
+
+**Sources:** [Advanced Retrieval for AI — DeepLearning.AI](https://learn.deeplearning.ai/courses/advanced-retrieval-for-ai) · [Reranking in RAG Pipelines — Renumics / Towards Data Science](https://renumics.com/blog/reranking-in-rag-pipelines/) · [BGE Reranker Tutorial — bge-model.com](https://bge-model.com/tutorial/5_Reranking/5.1.html) · [Mastering RAG: How to Select a Reranking Model — Galileo](https://rungalileo.io/blog/mastering-rag-how-to-select-a-reranking-model)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[One `models` List Gives Your Agent Provider-Level Fallback — OpenRouter Routes to the Next Entry When the Primary Rate-Limits or Goes Down]]></title>
@@ -5807,128 +5896,7 @@ For large corpora, split into chunks of 50K–100K rows and submit parallel batc
     </item>
 
 
-    <item>
-      <title>Your vLLM Server Runs 24/7 and You Pay for Idle Capacity — Modal Scales It to Zero with Three Decorators</title>
-      <link>https://modal.com/blog/how-to-deploy-vllm</link>
-      <guid isPermaLink="false">2026-09-23-03-modal-vllm-serverless-gpu-zero-scale-python</guid>
-      <pubDate>Wed, 23 Sep 2026 04:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <description>Three Python decorators — @app.server(), modal.Volume for weights, @modal.enter() for startup — deploy a vLLM inference server that scales to zero when idle. modal deploy is the only command you run.</description>
-      <content:encoded><![CDATA[**Three Python decorators deploy a vLLM inference server on Modal that scales to zero when idle — pay only when you serve, no GPU to provision or manage, with an OpenAI-compatible endpoint at the end.**
-
-**What you'll be able to do after this:** deploy any HuggingFace model as a serverless vLLM endpoint that cold-starts on demand, serves at full GPU throughput, and scales back to zero — without managing a VM or container registry.
-
-- A `modal.Volume` persists model weights across container restarts so the first inference call after a cold start skips the model download
-- `@modal.enter()` runs vLLM's subprocess once when a container starts, not on every request
-- Memory snapshots (`FAST_BOOT=true`) cut cold-start time from ~90s to ~15s, but must be rebuilt whenever the model or server config changes
-
-## Walk-through
-
-```python
-import modal, subprocess, httpx
-
-app = modal.App("vllm-server")
-
-image = (
-    modal.Image.from_registry("nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
-    .uv_pip_install(
-        "vllm==0.7.2",
-        "flashinfer-python",
-        extra_index_url="https://flashinfer.ai/whl/cu124/torch2.4",
-    )
-    .env({"FAST_BOOT": "true"})
-)
-
-vol = modal.Volume.from_name("vllm-weights", create_if_missing=True)
-
-@app.server(
-    image=image,
-    gpu="A100",
-    volumes={"/cache": vol},
-    allow_concurrent_inputs=64,
-    scaledown_window=300,   # container shuts down 5 min after last request
-)
-class VllmServer:
-    @modal.enter()
-    def start(self):
-        self.proc = subprocess.Popen([
-            "python", "-m", "vllm.entrypoints.openai.api_server",
-            "--model", "Qwen/Qwen3-8B-FP8",
-            "--download-dir", "/cache",
-            "--max-model-len", "8192",
-        ])
-        # wait for vLLM to be ready
-        import time
-        time.sleep(30)
-
-    @modal.fastapi_endpoint(path="/v1/chat/completions", method="POST")
-    def chat(self, request: dict):
-        return httpx.post(
-            "http://localhost:8000/v1/chat/completions", json=request
-        ).json()
-```
-
-```bash
-modal deploy vllm_server.py
-# → https://your-workspace--vllm-server.modal.run/v1/chat/completions
-```
-
-The endpoint is OpenAI-compatible — swap `base_url` in any existing client and it works.
-
-## The limit that shapes your architecture
-
-Cold starts. With `scaledown_window=300`, Modal shuts the container after 5 minutes idle. The next request after that waits for GPU allocation plus vLLM startup: ~90 seconds for an 8B FP8 model without `FAST_BOOT`, ~15 seconds with it. The snapshot locks the startup state, so changing the model or vLLM flags requires a `modal deploy` to rebuild it.
-
-Per Modal's pricing, an A100 runs approximately $5.50/hr after the $30/month free credit. Scale-to-zero is cheaper than a dedicated endpoint when your traffic is below roughly 3–5 requests per hour; sustained high-throughput workloads are better served by a kept-warm container or a dedicated inference provider.
-
-**Sources:** [Deploy vLLM on Modal — Modal Blog](https://modal.com/blog/how-to-deploy-vllm) · [Modal LLM Deployment Tutorial: vLLM and LoRA — YouTube](https://www.youtube.com/watch?v=ABF5WRPeaEE) · [Best practices for serverless inference — Modal Blog](https://modal.com/blog/serverless-inference-article)
-]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/ABF5WRPeaEE/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/ABF5WRPeaEE/maxresdefault.jpg" />
-    </item>
-    <item>
-      <title>Opus 5.5 Launches Today as claude-opus-5-5 — Cache Reads Drop 60%, Input Tokens 20% Cheaper, 5-Hour Caps Removed</title>
-      <link>https://platform.claude.com/docs/en/about-claude/pricing</link>
-      <guid isPermaLink="false">2026-09-22-07-claude-opus-5-5-api-cost-cut</guid>
-      <pubDate>Tue, 22 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Claude Opus 5.5 launched today as claude-opus-5-5. Cache reads drop 60% to $0.20/MTok, input 20% cheaper at $4/MTok. Anthropic claims Fable 5.1 performance on most workloads and 40% lower run cost vs Opus 5.</description>
-      <content:encoded><![CDATA[**claude-opus-5-5 is in the API now. Cache reads are 60% cheaper, input tokens 20% cheaper — Anthropic claims Fable 5.1 performance on most workloads.**
-
-Anthropic shipped Claude Opus 5.5 today under the model ID `claude-opus-5-5`. Key pricing changes vs Opus 5 per Anthropic's pricing page:
-
-| | Opus 5 | Opus 5.5 | Change |
-|---|---|---|---|
-| Input | $5/MTok | $4/MTok | −20% |
-| Output | $25/MTok | $20/MTok | −20% |
-| Cache read | $0.50/MTok | $0.20/MTok | −60% |
-| 5m cache write | $6.25/MTok | $5/MTok | −20% |
-| Fast mode in/out | $10/$50/MTok | $8/$40/MTok | −20% |
-| Batch in/out | $2.50/$12.50/MTok | $2/$10/MTok | −20% |
-
-The cache-read cut matters most for agent workflows: a Claude Code session or multi-step chain that reuses a large system prompt every turn is paying 60% less per cache hit.
-
-Anthropic says Opus 5.5 "performs at the level of Claude Fable 5.1 on most work" and claims 40% lower total run cost versus Opus 5 on typical workloads — the reported savings combine the rate cut with the model reportedly generating more concise outputs and running 30%+ faster. These are Anthropic's own figures; independent benchmarks are not yet published.
-
-Alongside the model launch, Anthropic removed 5-hour usage caps for Pro, Max, Team, and Enterprise subscribers and added a rate-limit reset feature.
-
-**Limits to know:** No new capabilities versus Opus 5 — this is a cost and speed refresh, not a capability expansion. Opus 5.5 uses the same tokenizer as Opus 5 and later models (~30% more tokens per task than pre-4.7 builds), so if you're migrating from Claude Opus 4.x code, the rate cut won't translate directly to equal savings. Sonnet 5.5 and Haiku 5.5 are "coming in the coming weeks" — the full 5.5 family isn't yet available.
-
-To test: swap `"claude-opus-5"` → `"claude-opus-5-5"` in your model string.
-
-**Why it matters:** Cache reads powering system-prompt prefills in agent workflows just got 60% cheaper per Anthropic's official pricing page — the largest per-unit saving in this launch for Claude Code sessions and multi-step chains that reuse large contexts.
-
-**Sources:** [Anthropic API pricing](https://platform.claude.com/docs/en/about-claude/pricing), [Benzinga](https://www.benzinga.com/markets/private-markets/26/09/61933271/anthropic-launches-claude-opus-5-5-cuts-costs-40-and-scraps-5-hour-usage-caps), [OpenRouter Opus 5.5](https://openrouter.ai/anthropic/claude-opus-5.5), [LLM stats analysis](https://llm-stats.com/blog/research/claude-opus-5-5-launch)]]></content:encoded>
-    </item>
-
+        
     
     
     
