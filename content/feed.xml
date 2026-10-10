@@ -10,8 +10,72 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 10 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 10 Oct 2026 12:05:00 +0000</lastBuildDate>
 
+
+
+    <item>
+      <title><![CDATA[Your .claude/settings.json Can Intercept Every Tool Call — Exit Code 2 Blocks the Action and Sends Claude the Rejection Reason]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-04-claude-code-hooks-pretooluse-posttooluse-block-autoformat</link>
+      <guid isPermaLink="false">2026-10-10-04-claude-code-hooks-pretooluse-posttooluse-block-autoformat</guid>
+      <pubDate>Sat, 10 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description>Claude Code hooks intercept every tool call: PreToolUse blocks dangerous commands (exit code 2 sends the reason back to Claude), PostToolUse runs side effects like auto-formatting or tests after a successful call.</description>
+      <content:encoded><![CDATA[**Claude Code hooks intercept every tool call in the agentic loop — before or after execution. Exit code 2 blocks the action and feeds your rejection message back to Claude as context.**
+
+Hooks live in `.claude/settings.json` at the project or user level. Each entry names an event, optional tool matchers, and a command to run. Two events cover most automation needs:
+
+- **`PreToolUse`** — runs before the tool executes. Exit code `2` blocks the call and sends your script's stderr to Claude; Claude sees the message and can reconsider or try something else. Any other non-zero exit logs an error without blocking.
+- **`PostToolUse`** — runs after a successful call. Use it for side effects: auto-format on file writes, run tests after a Bash command, update a changelog entry.
+
+**Matchers** limit which tools trigger a hook (case-sensitive). `Edit|Write` fires only on file writes. Without a matcher, the hook fires on every tool call of that event type.
+
+**Three patterns worth setting up:**
+
+1. **Block `.env` edits.** Wire a PreToolUse hook with matcher `Write` that exits 2 if the path contains `.env`. Claude gets a message explaining why and can find another approach — no more accidental key rewrites.
+
+2. **Auto-format on save.** A PostToolUse hook matching `Edit|Write` runs your formatter against the file path (available in the env vars the hook receives). No more "Claude forgot to format" reruns.
+
+3. **Secret scan before commit.** A PreToolUse hook on `Bash` matching `git commit` runs your secret-detection script and exits 2 on a hit — Claude sees the flagged diff and won't proceed with the key in the tree.
+
+**Limit:** hooks run synchronously in the agentic loop. A slow script (a network call, a large file scan) stalls every matching tool call. Keep PreToolUse hooks fast; move expensive checks to PostToolUse where they don't block forward progress.
+
+**Sources:** [Claude Code hooks reference — official docs](https://code.claude.com/docs/en/hooks) · [10 Claude Code Hooks to Automate Your Workflow](https://ssojet.com/blog/claude-code-hooks) · [The complete guide to Claude Code hooks — MLOps Community](https://mlops.community/blog/the-complete-guide-to-claude-code-hooks-automating-your-ai-coding-workflow)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic's Oct 8 Usage Policy Update Bans Fake-Account Pipelines and Adds the First Explicit Rules for Physical-World Autonomous Agents]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-03-anthropic-2026-usage-policy-deceptive-campaigns-autonomous-agents</link>
+      <guid isPermaLink="false">2026-10-10-03-anthropic-2026-usage-policy-deceptive-campaigns-autonomous-agents</guid>
+      <pubDate>Sat, 10 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Policy</category>
+      <category>Agents</category>
+      <description>Anthropic's 2026 Usage Policy update (effective Nov 12) bans orchestrated fake-account networks and adds the first explicit safety rules for physical-world autonomous agents.</description>
+      <content:encoded><![CDATA[**Anthropic's Oct 8 usage policy update bans fake-account pipelines and adds the first explicit rules for physical-world autonomous agents — effective November 12.**
+
+Three changes that matter for developers working with the Claude API:
+
+**Deceptive campaigns** — orchestrated networks of fake accounts, fabricated news sites, and influence operations are now explicitly prohibited. Any pipeline that generates fictitious coordinated content — automated persona posting, synthetic comment farms — falls under this clause.
+
+**Physical autonomy** — a new section requires hardware agents (robots, drones, OT systems) to include specified safety controls before taking autonomous physical action. First time Anthropic has written policy specifically for physical-world agents.
+
+**Surveillance limits** — Claude cannot recommend who law enforcement should investigate, and tracking individuals without their consent is now banned.
+
+On the same day, Anthropic also launched the [Cyber Mission](https://anthropic.com/news/anthropic-cyber-mission) — a Critical Infrastructure Defense Program giving vetted security researchers access to pre-release models for OT/ICS threat research — and committed [$150M to federal AI-for-science work](https://anthropic.com/news/genesis-mission-commitment) at NASA, NIH, and NSF. Neither program has opened broad access yet.
+
+Limit: the policy describes enforcement only as Claude ending conversations; no other consequences are specified.
+
+**Why it matters:** the fake-account pipeline ban draws a clear API boundary for content automation; the physical-autonomy rules preview where compliance requirements for agentic hardware will land.
+
+**Sources:** [Anthropic 2026 Usage Policy update](https://anthropic.com/news/2026-usage-policy-update) · [CryptoBriefing coverage](https://cryptobriefing.com/anthropic-usage-policy-abusive-behavior-claude/) · [Anthropic Cyber Mission](https://anthropic.com/news/anthropic-cyber-mission)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Subdirectory Has Different Rules — Put a CLAUDE.md There and Claude Code Loads It Only When It Works in That Folder]]></title>
@@ -5815,86 +5879,8 @@ print(result)  # DataFrame with per-row scores
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Evaluation Loop Runs Synchronously — Batching 100K Claude Calls Costs Half and Usually Finishes in Under an Hour</title>
-      <link>https://docs.anthropic.com/en/api/creating-message-batches</link>
-      <guid isPermaLink="false">2026-09-23-02-anthropic-message-batches-api-eval-cost-half</guid>
-      <pubDate>Wed, 23 Sep 2026 04:13:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>LLM</category>
-      <description>The Anthropic Message Batches API submits up to 100K Claude requests at half the per-token price; results come back async within a 24-hour window. The pattern is: custom_id on each request, poll for status, stream results back.</description>
-      <content:encoded><![CDATA[**The Anthropic Message Batches API sends up to 100,000 Claude requests in a single call at half the per-token price — the practical path for evaluation suites, document labeling, and content generation at scale.**
-
-**When to reach for it.** Evaluations, data labeling, document classification, and content generation pipelines are the three places where teams burn most of their token budget. If the work doesn't need an answer right now — you can wait 30–90 minutes for a batch to finish — Anthropic reports a 50% discount on all input and output tokens.
-
-**The pattern.** Each request in a batch carries a `custom_id` you set; results come back unordered, and `custom_id` is the only join key between your source data and the response.
-
-```python
-import anthropic, time
-
-client = anthropic.Anthropic()
-
-# 1. Submit (up to 100,000 requests per batch)
-batch = client.messages.batches.create(requests=[
-    {
-        "custom_id": f"doc-{i}",
-        "params": {
-            "model": "claude-sonnet-5",
-            "max_tokens": 256,
-            "messages": [{"role": "user", "content": f"Classify sentiment: {text}"}],
-        },
-    }
-    for i, text in enumerate(corpus)
-])
-
-# 2. Poll for completion
-while batch.processing_status == "in_progress":
-    time.sleep(60)
-    batch = client.messages.batches.retrieve(batch.id)
-
-# 3. Collect — results are unordered; custom_id is the join key
-results = {}
-for result in client.messages.batches.results(batch.id):
-    if result.result.type == "succeeded":
-        results[result.custom_id] = result.result.message.content[0].text
-```
-
-For large corpora, split into chunks of 50K–100K rows and submit parallel batches; chain them when the output of one job feeds the next.
-
-**The limit that matters.** The processing window is 24 hours — a ceiling, not a target. Most batches finish in under an hour, but the API makes no tighter guarantee. Don't schedule a batch that a downstream step needs within the hour. Also: no streaming. If your evaluation requires partial results as they arrive, or you need the request-response chain for tracing, keep synchronous calls. The Batch API trades latency control for cost.
-
-**Why it matters:** Swapping your synchronous eval loop for a batch call is a one-function change that immediately halves the token cost on every eval run — the most reliable cost optimization available at the API level.
-
-**Sources:** [Message Batches API — Anthropic Docs](https://docs.anthropic.com/en/api/creating-message-batches) · [LLM Batch Processing with Anthropic SDK in production — DevOpsBoys](https://devopsboys.com/blog/llm-batch-processing-anthropic-sdk-production-2026) · [Batch inference cost tradeoffs — Chirag Hasija](https://chiraghasija.cc/posts/llm-batch-inference-cost-optimization-2026/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Two New GPT-6 Tiers and Google's Antigravity Coding Agent Hit the API on the Same Day</title>
-      <link>https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/</link>
-      <guid isPermaLink="false">2026-09-23-01-openai-gpt6-sol-luna-google-antigravity-api</guid>
-      <pubDate>Wed, 23 Sep 2026 04:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>OpenAI released GPT-6 Sol ($2/$10 per MTok) and Luna ($0.10/$0.50) on Sep 22; Google opened its Antigravity coding agent via the Gemini Interactions API on the same day.</description>
-      <content:encoded><![CDATA[**OpenAI expanded GPT-6 with two tiered models yesterday; Google opened its Antigravity sandboxed coding agent through the Gemini Interactions API — both on September 22.**
-
-**OpenAI GPT-6 Sol and Luna.** GPT-6 Sol lands at $2/$10 per MTok (in/out) and GPT-6 Luna at $0.10/$0.50 per MTok. Both are rolling out to ChatGPT Plus, Pro, Business, and Enterprise, and to the API. OpenAI claims Sol makes "about half as many mistakes" as its GPT-5.6 predecessor and reaches Astra-level reliability at lower cost — independent benchmarks are not yet published. Luna is positioned for high-volume or latency-sensitive tasks where Astra's price ceiling is prohibitive.
-
-**Google Antigravity in the Gemini API.** The `antigravity-preview-09-2026` build brings Antigravity's autonomous coding agent to the Gemini Interactions API and AI Studio, running on Gemini 3.8 Flash (model is configurable). A single API call gives you an agent that can plan, reason, write and execute code, manage files, and browse the web inside an isolated Linux sandbox — no container to provision yourself. Developers with existing Antigravity integrations should update before deploying: local tool call parameters shifted to PascalCase and file edits now arrive as line-range replacements rather than full-file rewrites — both are breaking changes.
-
-**Why it matters:** Two separately-controlled agent tiers are now available through the OpenAI API with pricing that extends the range downward. The Antigravity API trades execution control for setup simplicity — you don't manage the sandbox, but you can't restrict what the agent runs inside it. Both are worth evaluating against your current provider choices.
-
-**Sources:** [OpenAI launches GPT-6 Sol and Luna — TechCrunch](https://techcrunch.com/2026/09/22/openai-launches-gpt-6-sol-and-luna/) · [Gemini API Managed Agents Update — Google AI Studio](https://aistudio.google.com/learn/managed-agents-updated-harness-files-credentials?e=0) · [Antigravity coding agent hits Gemini API — Startup Fortune](https://startupfortune.com/google-turns-its-antigravity-coding-agent-into-a-free-gemini-api-tool/)
-]]></content:encoded>
-    </item>
-
+    
+    
 
         
     
