@@ -10,9 +10,87 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 10 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 10 Oct 2026 20:08:00 +0000</lastBuildDate>
 
 
+
+    <item>
+      <title><![CDATA[Your Agent Is a Black Box Until You Add Tracing — LangSmith Shows Every LLM Call, Tool Invocation, and Latency in One Timeline]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-06-langsmith-tracing-llm-agent-observability-debugging</link>
+      <guid isPermaLink="false">2026-10-10-06-langsmith-tracing-llm-agent-observability-debugging</guid>
+      <pubDate>Sat, 10 Oct 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>Two env vars turn your agent into a traceable timeline of LLM calls, tool uses, and latencies — inspect, compare, and debug any run. Free tier: 5,000 traces/month.</description>
+      <content:encoded><![CDATA[**Two env vars turn your agent into a traceable timeline of LLM calls, tool uses, and latencies — inspect, compare, and debug any run.**
+
+**What you'll be able to do after this:** See exactly what your agent sent to the model, what tools it called, in what order, how long each step took, and where the chain broke — without adding debug prints or re-running manually.
+
+- **What tracing captures:** every model call (prompt + completion), every tool invocation and its return value, token counts per step, and wall-clock latency. Runs are stored as a tree: one root trace, child spans for each agent step.
+- **Framework-agnostic setup:** LangSmith works with LangChain, LangGraph, or plain Python. For LangChain/LangGraph agents, tracing is automatic once the env vars are set — no decorator needed. For custom code, wrap your OpenAI/Anthropic client or decorate functions with `@traceable`.
+- **Offline evaluation loop:** Once traces exist, you can build an evaluation dataset from real runs, apply scorers, and compare before vs. after a prompt change — the same UI covers dev debugging and production regression checks.
+
+**Setup (three lines, any framework):**
+
+```bash
+export LANGSMITH_API_KEY=lsv2_...   # from smith.langchain.com
+export LANGSMITH_TRACING=true
+```
+
+For LangChain/LangGraph agents, that's it — all LLM calls and tool invocations are captured automatically. For custom Python code using any SDK:
+
+```python
+from langsmith.wrappers import wrap_openai
+from openai import OpenAI
+
+client = wrap_openai(OpenAI())   # all calls now traced automatically
+```
+
+For a standalone function you want to appear as a named span:
+
+```python
+from langsmith import traceable
+
+@traceable
+def run_agent_step(query: str) -> str:
+    # LLM or tool calls here; LangSmith captures input and output
+    ...
+```
+
+After the first run, open `smith.langchain.com` and navigate to your project. You'll see a tree: the root span shows total tokens and latency; child spans show each tool call and model call individually.
+
+**Where this breaks:** LangSmith's free Personal plan covers 5,000 traces/month with 14-day retention — a busy agent in CI hits the limit quickly. Trace data is sent to LangChain's hosted servers, which matters if your agent processes sensitive content (a self-hosted option is available on paid plans). The `@traceable` decorator and `wrap_openai` import paths are confirmed in the official docs, but verify the version you're installing matches, as the SDK naming changed in late 2024.
+
+**Sources:** [How to Trace and Monitor AI Agents with LangSmith — freeCodeCamp](https://www.freecodecamp.org/news/how-to-trace-and-monitor-ai-agents-with-langsmith/) · [LangSmith Explained: Debugging and Evaluating LLM Agents — DigitalOcean](https://www.digitalocean.com/community/tutorials/langsmith-debudding-evaluating-llm-agents) · [LangSmith Observability how-to guides — LangChain docs](https://docs.smith.langchain.com/how_to_guides/tracing) · [LangSmith Essentials course — LangChain Academy (via i-programmer)](https://www.i-programmer.info/news/105-artificial-intelligence/18638-langchain-academys-langsmith-essentials-course.html)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic's Oct 8 Product Drop Also Shipped Live Dashboards and AI-Generated MP4s — Both in Beta, Both Admin-Gated]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-10-05-anthropic-claude-dashboards-motion-beta-admin-gated</link>
+      <guid isPermaLink="false">2026-10-10-05-anthropic-claude-dashboards-motion-beta-admin-gated</guid>
+      <pubDate>Sat, 10 Oct 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <description>Anthropic also shipped Claude Dashboards (live charts from plain-language data questions, all paid plans) and Claude Motion (text-to-MP4, Team and Enterprise only) in beta on Oct 8.</description>
+      <content:encoded><![CDATA[**Anthropic's Oct 8 announcement week included two new beta features that didn't surface in most coverage: live data dashboards and text-to-MP4 video generation, both admin-gated.**
+
+**Claude Dashboards** (beta, all paid plans) lets users ask a natural-language question about a connected data source and get a live chart in response — aimed at reducing "write a quick chart for X" requests that end up as one-off tickets. **Claude Motion** (beta, Team and Enterprise only) takes a text description plus optional chart data and exports an MP4, useful for async status updates or presentations.
+
+Both are opt-in at the organization level: Enterprise administrators enable them under Organization settings before any team member can access them. Anthropic has not published accuracy or reliability benchmarks for either feature as of launch.
+
+**What it doesn't cover:** Neither Dashboards nor Motion is accessible via API — they're Claude UI features only, so they can't be embedded in an application or pipeline. Motion is unavailable on Pro and Max plans. If your team isn't on a paid plan, neither feature is accessible.
+
+**Why it matters:** If you manage a team deployment, you now control whether these features appear for your team — which means you also get to decide whether they're a useful layer or something that changes your team's expectations of what Claude is for.
+
+**Sources:** [Anthropic adds live dashboards and editable animations to Claude — Runtime Wire](https://runtimewire.com/article/anthropic-claude-dashboards-motion-beta) · [Claude Dashboards and Motion — The New Stack](https://thenewstack.io/claude-dashboards-data-motion/)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your .claude/settings.json Can Intercept Every Tool Call — Exit Code 2 Blocks the Action and Sends Claude the Rejection Reason]]></title>
@@ -5777,108 +5855,8 @@ Add it to your shell profile or `.env` to make it permanent. A value of 4,096 co
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>OpenAI Adds Cache Miss Diagnostics and Explicit Prefix Breakpoints to GPT-6 Caching</title>
-      <link>https://openai.com/index/better-prompt-caching-for-gpt-6/</link>
-      <guid isPermaLink="false">2026-09-23-05-openai-gpt6-prompt-caching-dashboard</guid>
-      <pubDate>Wed, 23 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>OpenAI shipped a Prompt Caching Dashboard (hit rate, token breakdowns), a diagnostics tool explaining individual cache misses, and explicit breakpoints to mark where the cached prefix ends.</description>
-      <content:encoded><![CDATA[**OpenAI added a cache miss debugger, a hit-rate dashboard, and explicit breakpoints to GPT-6 prompt caching — shipped Sep 22 alongside Sol/Luna but separate from the model tier news.**
-
-Four things landed in the GPT-6 caching API:
-
-- **Prompt Caching Dashboard**: tracks cache hit rate over time, reads-per-write, and the breakdown between cache-read, cache-write, and uncached tokens, filterable by model and service tier.
-- **Cache miss diagnostics**: explains why an individual request missed — prefix structure changed, TTL expired, tool call invalidated it — so you can fix the structure rather than guess.
-- **Explicit breakpoints**: a new API parameter marks exactly where the cached prefix should end. Previously, OpenAI determined the split automatically; now you control it, which matters when your prompt has a stable preamble followed by a dynamic section.
-- **Reasoning effort changes without cache invalidation**: changing the reasoning budget mid-conversation no longer flushes the cache prefix.
-
-Prior to this, developers structured prompts to maximize cache hits but had no visibility into whether it was working or why misses happened.
-
-Cache windows are 30 minutes for eligible shared prefixes. The diagnostics tool and explicit breakpoints require GPT-6 API v2 headers; the dashboard is in the OpenAI platform portal today.
-
-**Why it matters:** Invisible cache misses were the biggest impediment to treating prompt caching as an engineering discipline. Explicit breakpoints and miss diagnostics let you verify your caching structure actually holds — the same discipline Anthropic brought to Claude caching but now with tools to measure it on OpenAI's side too.
-
-**Limits:** The 30-minute TTL is unchanged — long-lived sessions that idle between requests will still miss frequently. Explicit breakpoints require restructuring prompts written before this API existed; not a one-line change for codebases with deeply embedded prompt templates.
-
-**Sources:** [Better prompt caching for GPT-6 — OpenAI](https://openai.com/index/better-prompt-caching-for-gpt-6/) · [OpenAI improves prompt caching in GPT-6 Sol and Luna — CryptoBriefing](https://cryptobriefing.com/openai-gpt6-prompt-caching-efficiency/) · [OpenAI API Changelog](https://developers.openai.com/api/docs/changelog)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your RAG Evaluation Is "The Answer Looks Right" — RAGAS Gives You Four Hard Numbers Instead</title>
-      <link>https://docs.ragas.io/en/stable/getstarted/rag_eval/</link>
-      <guid isPermaLink="false">2026-09-23-06-ragas-rag-evaluation-four-metrics</guid>
-      <pubDate>Wed, 23 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>RAGAS computes faithfulness, answer relevancy, context precision, and context recall in one evaluate() call — separating retriever from generator failures with hard numbers.</description>
-      <media:content url="https://img.youtube.com/vi/SjwTae-dLrw/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/SjwTae-dLrw/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**RAGAS runs four RAG quality metrics in one `evaluate()` call, separating retriever failures from generator failures so you can measure whether a change made things better, worse, or just different.**
-
-**What you'll be able to do after this:** run a short test set through your RAG pipeline and get four interpretable scores that separately measure the retriever and the generator — so a retrieval change and a prompt change don't look the same in the output.
-
----
-
-**The four metrics and what they catch:**
-
-| Metric | What it measures | What a low score means |
-|---|---|---|
-| **Faithfulness** | Answer claims supported by retrieved context | Hallucination — the LLM invented content not in the docs |
-| **Answer relevancy** | Answer actually addresses the question | Generic or off-topic generation |
-| **Context precision** | Relevant chunks ranked near the top | Right content found but ranked poorly — a reranker helps |
-| **Context recall** | Retrieved context covers everything needed | Missing chunks — retriever left something out |
-
-TruLens (covered [Sep 13](/ai-news/2026-09-13-01-trulens-rag-triad-evaluation)) evaluates with a proprietary RAG Triad. RAGAS is reference-free and open-source — you can embed it in CI without an external API key.
-
----
-
-**Quick setup:**
-
-```bash
-pip install ragas langchain-openai
-```
-
-```python
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness, answer_relevancy, context_precision, context_recall
-)
-from datasets import Dataset
-
-data = {
-    "question":    ["What is pgvector?"],
-    "answer":      ["pgvector is a PostgreSQL extension for vector similarity search."],
-    "contexts":    [["pgvector adds vector types and index methods to Postgres..."]],
-    "ground_truth":["pgvector is a Postgres extension for vector operations."]
-}
-
-result = evaluate(Dataset.from_dict(data),
-                  metrics=[faithfulness, answer_relevancy,
-                           context_precision, context_recall])
-print(result)  # DataFrame with per-row scores
-```
-
-**What to watch for:** faithfulness below 0.7 typically means your context window is too small or you're over-stuffing chunks. Context precision below 0.6 means your retriever found the right content but ranked it poorly — a cross-encoder reranker (covered [Sep 17](/ai-news/2026-09-17-01-cross-encoder-reranking-sentence-transformers-rag)) often fixes this without rebuilding the index.
-
----
-
-**Limits:** RAGAS uses an LLM to judge each output, which adds 1–3 inference calls per test row. At scale, an eval run can cost as much as the pipeline being tested. Most teams gate CI evals to a stable gold set of 50–200 rows and run full evals manually before releases. Context recall requires ground-truth answers — if your test set has none, run the other three metrics alone.
-
-**Resource:** [How to Evaluate Your RAG Pipeline with RAGAS — Full End-to-End Project (YouTube, Apr 2026)](https://www.youtube.com/watch?v=SjwTae-dLrw) · [Official RAGAS tutorial — docs.ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/)
-
-**Sources:** [RAGAS documentation — ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/) · [Evaluating RAG Applications with RAGAs — Leonie Monigatti](https://www.leoniemonigatti.com/blog/rag-evaluation-with-ragas.html) · [Complete RAG Evaluation Tutorial for AI Engineers — YouTube](https://www.youtube.com/watch?v=RD73XAjaT9M)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
 
