@@ -10,8 +10,150 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 11 Oct 2026 12:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 11 Oct 2026 20:06:00 +0000</lastBuildDate>
 
+
+
+    <item>
+      <title><![CDATA[Your GPU Server Runs a Model — vLLM Makes It an OpenAI-Compatible Endpoint Your Existing Client Code Can Already Call]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-11-06-vllm-openai-compatible-server-base-url-swap</link>
+      <guid isPermaLink="false">2026-10-11-06-vllm-openai-compatible-server-base-url-swap</guid>
+      <pubDate>Sun, 11 Oct 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <description>python -m vllm.entrypoints.openai.api_server --model serves any HuggingFace model as an OpenAI-compatible endpoint — change base_url and your existing client code routes to your self-hosted model unchanged.</description>
+      <content:encoded><![CDATA[**Serve any HuggingFace model as an OpenAI-compatible API with three commands — then route your existing `openai.chat.completions.create()` calls to it by changing one line.**
+
+**What you'll be able to do after this:** host an open model on your own GPU, call it from any existing OpenAI-client code unchanged, and handle concurrent team requests through a single shared inference endpoint.
+
+**Three-command quickstart** (requires a CUDA GPU; check the vLLM install docs for ROCm or CPU builds):
+
+```bash
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+  --model mistralai/Mistral-7B-Instruct-v0.3 \
+  --port 8000
+```
+
+Then in your application, change one line:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="not-used")
+response = client.chat.completions.create(
+    model="mistralai/Mistral-7B-Instruct-v0.3",
+    messages=[{"role": "user", "content": "Summarize this PR diff: ..."}]
+)
+```
+
+Every other call in your codebase stays the same. vLLM implements `/v1/chat/completions`, `/v1/completions`, and `/v1/embeddings` to spec.
+
+**Three takeaways:**
+- **`base_url` is the only change.** Your application, tests, and tooling all route to the self-hosted model without further edits.
+- **Continuous batching vs. Ollama.** vLLM's PagedAttention and continuous batching handle multiple concurrent callers in a single GPU forward pass — Ollama serializes them. For a shared team endpoint or high-throughput batch jobs, the difference is significant.
+- **Multi-GPU tensor parallelism is a flag.** Add `--tensor-parallel-size 2` to split a model across two GPUs; the serving API is unchanged.
+
+**Where vLLM does not replace Ollama:** local dev workstations, macOS (Metal), and situations where automatic quantization and model management matter more than throughput. Ollama bundles everything; vLLM requires a separate install, a CUDA GPU, and explicit model management.
+
+**Limits:** the Assistants API, Batch API, and fine-tuning endpoints are not implemented — vLLM exposes only the three inference endpoints listed above. The model must fit in available VRAM; use tensor parallelism to split across multiple GPUs rather than spilling to system RAM.
+
+**Sources:** [vLLM OpenAI-Compatible Server docs](https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html) · [Designveloper vLLM tutorial (Sep 2026)](https://www.designveloper.com/blog/vllm-tutorial/) · [SitePoint vLLM production deployment guide 2026](https://www.sitepoint.com/vllm-production-deployment-guide-2026/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[GitHub Copilot Adds Local Agent Sandboxing at No Extra Cost and a Purpose-Built Secret Detection Model]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-11-07-github-copilot-local-sandbox-ga-secret-detection-model</link>
+      <guid isPermaLink="false">2026-10-11-07-github-copilot-local-sandbox-ga-secret-detection-model</guid>
+      <pubDate>Sun, 11 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Security</category>
+      <category>Building AI Products</category>
+      <description>GitHub Copilot local agent sandboxing hit GA (Oct 9, no added fee for Pro/Business/Enterprise); a purpose-built model now scans for leaked secrets; Claude Haiku 5.5 is now a Copilot model choice.</description>
+      <content:encoded><![CDATA[**Three GitHub Copilot updates this week: local agent sandboxing reached GA at no extra charge, a purpose-built secret detection model is live, and Claude Haiku 5.5 joined the model picker.**
+
+**Local agent sandboxing GA (Oct 9).** Agent actions that previously ran directly on your filesystem now execute inside a sandbox by default — available in Copilot CLI, VS Code, and the Copilot app for Pro/Pro+/Business/Enterprise plans with no added cost. The Copilot CLI `/model` command can now list and select models from a local Ollama instance, routing completions to on-prem models without leaving the terminal.
+
+**Purpose-built secret detection model (Oct 7).** GitHub shipped a dedicated model for detecting leaked secrets in code. AI-flagged alerts are integrated into GitHub Advanced Security and remain free. Two opt-in features coming later — push protection triggered by the new model and a `/security-review` Copilot command — will consume AI Credits; both are off by default.
+
+**Claude Haiku 5.5 in Copilot.** Haiku 5.5 is now selectable in GitHub Copilot for Pro/Pro+/Business/Enterprise users.
+
+**Why it matters:** The local sandbox GA is the most immediately actionable change: Copilot agent mode now runs tool calls in a sandbox by default, reducing blast radius from a mistaken file deletion or command without any configuration required. For teams using GitHub Advanced Security, the secret detection model adds a model-based scan pass on top of the existing pattern-based scanner at no extra cost.
+
+**Sources:** [GitHub Copilot weekly releases Oct 5](https://github.blog/changelog/2026-10-09-github-copilot-weekly-releases-october-5/) · [GitHub purpose-built model for leaked secret detection](https://github.blog/changelog/2026-10-07-purpose-built-model-for-leaked-secret-detection/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your LLM Eval Run Costs Twice as Much as It Should — The Anthropic Message Batches API Cuts Per-Token Cost 50% for Async Workloads]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-11-08-anthropic-message-batches-api-eval-async-50-percent</link>
+      <guid isPermaLink="false">2026-10-11-08-anthropic-message-batches-api-eval-async-50-percent</guid>
+      <pubDate>Sun, 11 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Best Practices</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>client.beta.messages.batches.create() submits up to 10,000 requests at half the real-time per-token cost — right for eval suites, bulk document processing, and CI test data generation.</description>
+      <content:encoded><![CDATA[**`client.beta.messages.batches.create()` submits up to 10,000 requests at half the real-time per-token cost — the right tool for eval suites, bulk document processing, and CI test data generation that can wait minutes to hours for results.**
+
+Any workload that is large, doesn't need an immediate response, and runs off the critical path qualifies: eval runs, bulk summarization, test-case generation, embedding preprocessing. Anthropic quotes a 50% reduction vs. standard input/output rates — verify it holds for your specific model and token mix before rearchitecting around it.
+
+**The pattern in three steps:**
+
+**1. Create the batch:**
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+batch = client.beta.messages.batches.create(requests=[
+    {
+        "custom_id": f"eval-{i}",
+        "params": {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+    }
+    for i, prompt in enumerate(eval_prompts)
+])
+print(batch.id)  # msgbatch_...
+```
+
+**2. Poll until complete:**
+```python
+import time
+while True:
+    batch = client.beta.messages.batches.retrieve(batch.id)
+    if batch.processing_status == "ended":
+        break
+    time.sleep(60)  # batches take minutes to hours; don't poll faster
+```
+
+**3. Stream results:**
+```python
+for result in client.beta.messages.batches.results(batch.id):
+    if result.result.type == "succeeded":
+        print(result.custom_id, result.result.message.content[0].text)
+    else:
+        print(result.custom_id, "failed:", result.result.error)
+```
+
+**Takeaways:**
+- Up to 10,000 requests per batch; results stream by `custom_id` when processing ends
+- Batches time out after 24 hours; any requests still processing at that point expire
+- No streaming within a batch request — each request returns a full response object
+
+**Limits:** batches are not for latency-sensitive paths — processing takes minutes to hours, not seconds. Not all models support the Batches endpoint; check the model's feature page before assuming support. Error handling is per-request: a single malformed request fails silently in the results stream unless you explicitly check every result's `.result.type`. The 50% rate reduction is Anthropic's own figure; run a comparison on your actual workload before assuming it.
+
+**Sources:** [Message Batches — Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/message-batches) · [Anthropic Python SDK — message_batches](https://github.com/anthropics/anthropic-sdk-python) · [Structured output, validation and batch — wasilzafar.com](https://www.wasilzafar.com/pages/series/ai-app-dev-xtreme/ai-app-dev-sdk-anthropic-part11-structured-output.html)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Anthropic OSS Scanner Lets Open-Source Maintainers Opt In to Free AI Vulnerability Scanning — With No Human Triage on Reports]]></title>
@@ -5628,177 +5770,9 @@ Connectors are lightweight MCP data bridges (read-focused); plugins bundle MCP s
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>You Already Run Postgres — pgvector Gives It Cosine Similarity and an HNSW Index Without a Separate Vector Database</title>
-      <link>https://github.com/pgvectors/pgvector</link>
-      <guid isPermaLink="false">2026-09-24-05-pgvector-postgres-rag-no-vector-db</guid>
-      <pubDate>Thu, 24 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>pgvector adds a VECTOR column type, the cosine distance operator, and an HNSW index to Postgres — semantic search on your existing database with no separate vector DB required for most RAG workloads.</description>
-      <media:content url="https://opengraph.githubassets.com/1/pgvectors/pgvector" medium="image" />
-      <media:thumbnail url="https://opengraph.githubassets.com/1/pgvectors/pgvector" />
-      <content:encoded><![CDATA[**What you'll be able to do after this:** add semantic similarity search to an existing Postgres database using one extension — no Chroma, no Qdrant, no separate service to run — and wire it into a LangChain RAG pipeline in under 30 lines.
-
-**Three takeaways:**
-- `pgvector` adds a `vector` column type, the `<=>` cosine-distance operator, and an HNSW index to Postgres; the entire install is `CREATE EXTENSION vector`
-- An HNSW index returns top-10 results in under 10ms for up to ~5M 1536-dimensional vectors on typical hardware (16 GB RAM, SSD); below ~50M vectors you probably don't need a dedicated vector DB
-- LangChain's `PGVector` store wraps everything automatically; raw `psycopg2` gives you full SQL joins for metadata filtering
-
-**Walk-through:**
-
-```bash
-# Install the extension once (Postgres 14+)
-# On Homebrew: brew install pgvector
-# On Ubuntu: sudo apt install postgresql-16-pgvector
-
-# In psql or a migration:
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-```python
-# pip install pgvector psycopg2-binary langchain-postgres sentence-transformers
-import psycopg2
-import psycopg2.extras
-from pgvector.psycopg2 import register_vector
-from sentence_transformers import SentenceTransformer
-
-conn = psycopg2.connect("postgresql://user:pass@localhost/mydb")
-register_vector(conn)  # teach psycopg2 about the vector type
-
-with conn.cursor() as cur:
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS docs (
-            id      SERIAL PRIMARY KEY,
-            content TEXT,
-            meta    JSONB,
-            emb     VECTOR(384)
-        )
-    """)
-    # HNSW: fast approximate search; m=16, ef_construction=64 is a good default
-    cur.execute("""
-        CREATE INDEX IF NOT EXISTS docs_emb_hnsw
-        ON docs USING hnsw (emb vector_cosine_ops)
-        WITH (m = 16, ef_construction = 64)
-    """)
-    conn.commit()
-
-encoder = SentenceTransformer("all-MiniLM-L6-v2")  # 384-dim, ~80 MB
-
-def upsert(text: str, meta: dict = {}):
-    emb = encoder.encode(text).tolist()
-    with conn.cursor() as cur:
-        cur.execute(
-            "INSERT INTO docs (content, meta, emb) VALUES (%s, %s, %s)",
-            (text, psycopg2.extras.Json(meta), emb)
-        )
-    conn.commit()
-
-def search(query: str, k: int = 5):
-    emb = encoder.encode(query).tolist()
-    with conn.cursor() as cur:
-        cur.execute(
-            """SELECT content, meta,
-                      1 - (emb <=> %s::vector) AS similarity
-               FROM docs
-               ORDER BY emb <=> %s::vector
-               LIMIT %s""",
-            (emb, emb, k)
-        )
-        return cur.fetchall()
-```
-
-`<=>` is cosine distance (0 = identical vectors); `1 - distance` converts it to similarity. Switch to `vector_l2_ops` and `<->` if your embedding model does not produce normalized vectors.
-
-**LangChain users:** `PGVector` from `langchain-postgres` wraps schema creation, upsert, and search automatically. Use raw `psycopg2` when you need metadata filtering that joins other Postgres tables — that's the main reason to reach for this over a managed vector DB.
-
-**When to reach for something else:**
-- Above ~50M vectors, or when approximate recall isn't tight enough, Pinecone, Qdrant, or Weaviate offer tuning surfaces pgvector lacks (per Encore and pgvectorscale's benchmarks)
-- Bulk inserts: the HNSW index serializes writes; load large corpora through `COPY` or a single insert loop rather than parallel workers
-
-The [pgvector GitHub README](https://github.com/pgvectors/pgvector) walks through every index type (HNSW vs. IVFFlat), distance operators, and the full set of configuration knobs.
-
-**Sources:** [pgvector — GitHub](https://github.com/pgvectors/pgvector) · [pgvector in Postgres: RAG Without a Separate Vector DB — TeachMeIDEA](https://teachmeidea.com/pgvector-postgres-rag/) · [Build a Self-Hosted RAG with Postgres pgvector — Digital Applied](https://www.digitalapplied.com/blog/build-self-hosted-rag-postgres-pgvector-tutorial-2026) · [Building Vector Similarity Search in PostgreSQL with pgvector — Machine Learning Mastery](https://machinelearningmastery.com/building-vector-similarity-search-in-postgresql-with-pgvector/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your LLM API Calls Pay Per Token for Questions You've Already Answered — A Semantic Cache Serves the Similar Ones From Memory</title>
-      <link>https://gptcache.readthedocs.io/</link>
-      <guid isPermaLink="false">2026-09-24-04-semantic-caching-gptcache-llm-api-cost</guid>
-      <pubDate>Thu, 24 Sep 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>Agents</category>
-      <description>GPTCache embeds each incoming query and checks it against cached query embeddings by cosine similarity; a match above threshold returns the cached response without an API call. 30-70% hit rates on template-heavy workloads.</description>
-      <content:encoded><![CDATA[**Semantic caching wraps your LLM API client: incoming queries are embedded into vectors, matched against a cache of previous query embeddings by cosine similarity, and if the score crosses a threshold, the cached response is returned — no API call, no tokens billed.**
-
-Exact-match caching almost never fires on natural language. Real users phrase the same question dozens of ways. Semantic caching closes that gap: "what does RAG stand for?" and "explain retrieval-augmented generation in one sentence" embed close enough that the cache serves the same answer for both.
-
-**GPTCache setup (Python):**
-
-```python
-from gptcache import cache
-from gptcache.manager import get_data_manager, CacheBase, VectorBase
-from gptcache.embedding import Onnx
-from gptcache.similarity_evaluation.distance import SearchDistanceEvaluation
-
-onnx = Onnx()
-data_manager = get_data_manager(
-    CacheBase("sqlite"),
-    VectorBase("faiss", dimension=onnx.dimension),
-)
-
-cache.init(
-    embedding_func=onnx.to_embeddings,
-    data_manager=data_manager,
-    similarity_evaluation=SearchDistanceEvaluation(),
-)
-cache.set_openai_key()   # swap for your Anthropic client if needed
-```
-
-With the cache initialized, `chatgpt(["how does RAG work?"])` checks the FAISS index first. The default similarity threshold is 0.95; lower it to increase recall, raise it to increase precision.
-
-**Where it pays off most:** template-heavy agent inner loops (Spheron reports 40–70% hit rates on similar workloads), repeated FAQ-style queries, and evaluation pipelines running the same prompts across dataset rows.
-
-**Real limits to keep in mind:**
-
-- **High similarity ≠ correct cached answer.** Two phrasings can embed close and mean very different things in context ("drop the database" from a DBA vs. in an agent acting on a user repo). Cache everything only when the query domain is genuinely narrow.
-- **Stale responses for time-sensitive topics.** Set a TTL. GPTCache supports per-entry expiry — 24 hours for current-events content, 7 days for stable facts.
-- **FAISS is in-memory.** The index grows with every new query that misses. For production at scale, swap the vector backend to Redis or Qdrant via GPTCache's modular backend config.
-- **Semantic caching is orthogonal to prompt caching.** Prompt caching (the `cache_control` API header) reduces cost on repeated long context windows; semantic caching reduces cost by skipping the API call entirely on semantically similar queries. Use both.
-
-**Sources:** [GPTCache — GitHub (Zilliz)](https://github.com/zilliztech/GPTCache) · [GPTCache documentation](https://gptcache.readthedocs.io/) · [Semantic Caching for LLM Inference — Spheron](https://www.spheron.network/blog/semantic-cache-llm-inference-gpu-cloud/) · [Top Semantic Caching Solutions 2026 — Maxim](https://www.getmaxim.ai/articles/top-semantic-caching-solutions-for-ai-applications-in-2026/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic's Biology Lab Ran 950 Parallel Agents for 21 Hours and Found a CRISPR-Like Enzyme System; Cloud Sessions Left Research Preview</title>
-      <link>https://www.anthropic.com/news/claude-discovers-novel-enzyme-system</link>
-      <guid isPermaLink="false">2026-09-24-03-anthropic-biology-lab-enzyme-cloud-sessions-ga</guid>
-      <pubDate>Thu, 24 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Agents</category>
-      <category>Claude Code</category>
-      <description>950 Claude agents searched 210 million tokens of DNA sequence data in 21 hours and found a novel CRISPR-like enzyme system. Also: cloud sessions are now out of research preview for all Pro, Max, Team, and Enterprise subscribers.</description>
-      <content:encoded><![CDATA[**Anthropic's biology lab ran 950 parallel Claude agents across bacteriophage DNA databases for 21 hours and identified a novel enzyme system with a repeat structure only seen in programmable gene-editing tools like CRISPR.**
-
-First public result from the group (announced September 23): agents searched 210M tokens of sequence data (Anthropic's figure), identified 200,000+ candidate genes, and surfaced 20 for wet-lab follow-up. The system found a novel reverse transcriptase with flanking repeats — classified as array-associated reverse transcriptase (ART). Human scientists ran the experiments; agents handled the database pass. Anthropic notes it is too early to know whether ART is programmable; the CRISPR resemblance is structural, not yet functional.
-
-**Why it matters:** A coordinated fleet reading a large dataset in parallel, surfacing candidates for human follow-up — that is the same multi-agent pattern available in Claude Code today via `--cloud` and subagents. The biology result is evidence of what the pattern produces when given a real compute budget and a clear goal.
-
-**Also (Sep 23):** Claude Code cloud sessions are now out of research preview. All Pro, Max, Team, and Enterprise subscribers can start one via `--cloud` without a waitlist; usage counts against your existing plan limit.
-
-**Sources:** [Claude discovers a novel enzyme system — Anthropic](https://www.anthropic.com/news/claude-discovers-novel-enzyme-system) · [Anthropic says its biology lab has already found something big — TechCrunch](https://techcrunch.com/2026/09/23/anthropic-says-its-biology-lab-has-already-found-something-big/) · [Cloud sessions now GA — ClaudeDevs on X](https://x.com/ClaudeDevs/status/2102871550974427462)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
