@@ -10,10 +10,171 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 12 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 12:11:00 +0000</lastBuildDate>
 
 
+    <item>
+      <title><![CDATA[Your MCP Server Only Has Tools — Resources and Prompts Are the Other Half of the Protocol]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-12-05-mcp-resources-prompts-context-templates-sdk</link>
+      <guid isPermaLink="false">2026-10-12-05-mcp-resources-prompts-context-templates-sdk</guid>
+      <pubDate>Mon, 12 Oct 2026 12:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>MCP has three server primitives: Tools (actions), Resources (context data via URI), and Prompts (reusable message templates). Resources and Prompts take about 20 lines to add alongside existing tools.</description>
+      <content:encoded><![CDATA[**MCP has three server primitives — Tools, Resources, and Prompts. Building only Tools is like building a REST API with only POST routes.**
 
+The [earlier post on MCP Tools](https://cloudcodetree.com/ai-news/2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio) showed how to expose functions the model can call. Two more primitives handle different responsibilities:
+
+- **Resources** — context data the host app injects into the model's context: files, database records, config payloads. Modeled as URIs, equivalent to a REST GET. Designed to be read-only with no side effects.
+- **Prompts** — named, parameterized message templates the user (or the host app) selects before a conversation. Pre-fill a system instruction, set a workflow role, or wrap a multi-step task in a reusable invocation.
+
+**Adding a Resource** (TypeScript SDK)
+
+```typescript
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+
+const server = new McpServer({ name: "docs-server", version: "1.0.0" });
+
+// Static resource — same content every request
+server.resource("app-config", "config://app/current", async (uri) => ({
+  contents: [{ uri: uri.href, mimeType: "application/json",
+    text: JSON.stringify({ maxRetries: 3, timeout: 30 }) }]
+}));
+
+// Templated resource — URI parameter resolved at read time
+server.resource(
+  "user-profile",
+  new ResourceTemplate("users://{userId}/profile", { list: undefined }),
+  async (uri, { userId }) => ({
+    contents: [{ uri: uri.href, mimeType: "application/json",
+      text: await fetchUserProfile(userId) }]
+  })
+);
+```
+
+Claude resolves `users://42/profile` when `resources/read` is called with that URI. The host app calls `resources/list` first to enumerate what's available.
+
+**Adding a Prompt**
+
+```typescript
+server.prompt(
+  "code-review",
+  { language: z.string() },
+  ({ language }) => ({
+    messages: [{
+      role: "user",
+      content: {
+        type: "text",
+        text: `Review the following ${language} code for correctness, security, and style.
+Flag anything that would fail a production review.`
+      }
+    }]
+  })
+);
+```
+
+The host surfaces `code-review` to the user. On selection, it pre-fills context before the conversation starts. Arguments validate through Zod the same as Tool inputs.
+
+**When to reach for each primitive**
+
+| Use case | Primitive |
+|---|---|
+| Call an external API, run a query, execute an action | Tool |
+| Inject a file, config doc, or DB record as context | Resource |
+| Pre-fill a multi-turn workflow with a reusable template | Prompt |
+
+**One real limit**: Resources are polled, not pushed. A resource that changes frequently — live logs, real-time prices — won't push updates between model turns. The app re-reads it on each turn. If you need live data streaming into the conversation, use a Tool with a streaming or websocket response instead.
+
+**Sources:** [MCP TypeScript SDK v2 docs](https://ts.sdk.modelcontextprotocol.io/v2/) · [MCP spec — Resources](https://spec.modelcontextprotocol.io/specification/basic/resources/) · [MCP spec — Prompts](https://spec.modelcontextprotocol.io/specification/basic/prompts/) · [SDK runnable examples — simpleStreamableHttp server](https://github.com/modelcontextprotocol/typescript-sdk/tree/main/src/examples/server)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Postgres Database Is Already a Vector Store — Enable pgvector and You Are One CREATE INDEX Away from Semantic Search]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-12-04-pgvector-supabase-vecs-python-vector-store</link>
+      <guid isPermaLink="false">2026-10-12-04-pgvector-supabase-vecs-python-vector-store</guid>
+      <pubDate>Mon, 12 Oct 2026 12:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Vectors</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <description>pgvector adds a vector column type and cosine similarity operators to Postgres. Supabase's vecs Python client manages collections, upserts embeddings, and queries them in four lines — with a free Colab to run live.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** Add durable, queryable vector storage to any Postgres database — including your existing Supabase project — without a separate vector database service.
+
+**Three things to understand**
+
+1. **pgvector extends Postgres with a `vector` column type and similarity operators.** `<=>` is cosine distance; `<->` is Euclidean. Add a `CREATE INDEX … USING hnsw` to turn brute-force scans into approximate nearest-neighbor queries that stay fast past a million rows.
+
+2. **Supabase enables it with one dashboard click.** Database → Extensions → search "vector" → enable. From there, `CREATE TABLE docs (id bigserial primary key, embedding vector(384));` is all the schema you need.
+
+3. **The `vecs` Python client wraps collections, upsert, and query.** It manages the table schema behind a simple API, auto-creates an HNSW index on first `create_index()` call, and returns matched records with metadata filters.
+
+**Steps (Supabase + vecs)**
+
+Install:
+```bash
+pip install vecs sentence-transformers
+```
+
+Connect and create a collection:
+```python
+import vecs, os
+
+# get the connection URI from Supabase → Settings → Database → Connection string
+# use the POOLER string (port 6543) if running from Colab — Colab blocks IPv6
+vx = vecs.create_client(os.environ["SUPABASE_DB_URL"])
+docs = vx.get_or_create_collection(name="docs", dimension=384)
+```
+
+Upsert embeddings:
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")  # 384-dim, runs on CPU
+
+records = [
+    ("doc-1", model.encode("pgvector adds cosine similarity to Postgres").tolist(),
+     {"source": "intro"}),
+    ("doc-2", model.encode("HNSW index: built incrementally, 2-5x more RAM than IVFFlat").tolist(),
+     {"source": "docs"}),
+]
+docs.upsert(records=records)
+docs.create_index()  # builds HNSW; idempotent if called twice
+```
+
+Query:
+```python
+query_vec = model.encode("How does Postgres handle vector search?").tolist()
+
+results = docs.query(
+    data=query_vec,
+    limit=3,
+    filters={"source": {"$eq": "docs"}},  # metadata filter applied pre-scan
+    include_metadata=True,
+)
+# → [("doc-2", 0.08, {"source": "docs"}), ...]
+```
+
+**Run this in 15 minutes:** Supabase's [Hello World Colab notebook](https://supabase.com/docs/guides/ai/quickstarts/hello-world) walks through the full workflow against a free Supabase project — no local setup required.
+
+**Why pgvector over an in-process store**
+
+FAISS (covered [earlier in this series](https://cloudcodetree.com/ai-news/2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process)) disappears on process exit and rebuilds on restart. pgvector lives in Postgres: vectors survive reboots, share a connection pool with your application data, and sit behind your existing row-level security and backups. The tradeoff is that managed Postgres adds network overhead — for a batch job that only ever runs locally, an in-process store is faster.
+
+**Limits worth knowing**
+
+- **Filtered queries can return fewer rows than `limit`.** The HNSW index scans a neighborhood and stops when it has enough candidates; a tight metadata filter may leave fewer qualifying rows than requested. Increase `hnsw.ef_search` (default 40) when high recall matters more than latency.
+- **2,000-dimension cap.** Postgres/pgvector supports up to 2,000 dimensions per vector. Models that produce ≥ 3,072-dim vectors (OpenAI's text-embedding-3-large at full resolution, for example) need PCA or MRL reduction before storage.
+- **IVFFlat requires data first.** Unlike HNSW, IVFFlat needs rows present at index-creation time to find cluster centers. Build it after you've loaded a representative sample, not on an empty table.
+
+**Sources:** [pgvector: Embeddings and vector similarity — Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector) · [Vecs Python client — Supabase Docs](https://supabase.com/docs/guides/ai/vecs-python-client) · [Hello World Colab — Supabase AI Quickstarts](https://supabase.com/docs/guides/ai/quickstarts/hello-world) · [HNSW vs IVFFlat: index types in PostgresML](https://postgresml.org/blog/hnsw-vs-ivfflat-vector-indexes-in-postgresml)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Parallel Subagents Don't All Need the Same Reasoning Budget — The Agent Tool's `effort` Field Right-Sizes Thinking Intensity Across a Workflow]]></title>
@@ -5713,102 +5874,8 @@ diff baseline.txt candidate.txt
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Type `/design` in the Claude Code Terminal to Get Three Artboard Directions Without Opening the Web App</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
-      <guid isPermaLink="false">2026-09-25-04-slash-design-reverse-roundtrip</guid>
-      <pubDate>Fri, 25 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>The /design command in Claude Code Desktop drafts artboard directions from your existing component code — explore three visual options without a browser tab or losing your editor context.</description>
-      <content:encoded><![CDATA[**When you already have a component and want to explore visual directions before committing to code, `/design` in Claude Code Desktop generates artboard options grounded in your actual structure — no context switch, no blank canvas.**
-
-The typical Claude Design workflow starts from zero. The [`/design` command](https://code.claude.com/docs/en/whats-new/2026-w34) (added in Week 34, Aug 17–21) reverses that: you're in the terminal with working code, you want to see three layout directions before deciding which to build, and you don't want to lose your session context switching to a browser.
-
-**When to use it:**
-- You have a working component and want to explore a reskin before committing
-- You're about to A/B test a layout change and want to see both before building either
-- You're iterating on a specific section (a card, a nav, a data table) and want variations
-
-**What to pass it:**
-
-1. Your component's current JSX/TSX — the artboard is grounded in your actual structure, not a generic placeholder
-2. Your design tokens (hex values or token names from your system) — otherwise artboards use Claude Design defaults that won't match your system
-3. A one-sentence constraint: "keep the information density, explore different hierarchy treatments"
-
-The result is an editable artifact artboard with Claude's generated directions. Pick one and type "implement this" — Claude drafts the code change against your existing file.
-
-**What doesn't automatically carry over:** `/design` runs in artifact mode, not in your live file context. Artboards won't inherit your local component library or MUI theme config unless you explicitly paste those values in the prompt. This makes it the right tool when the decision is the hard part, not the implementation — for a small focused change you already know the shape of, a direct edit is faster.
-
-**Limits:** Still a research preview as of Claude Code Week 34; the artboard → implementation loop works but requires explicit prompting. `/design` produces artboards, not ready-to-merge code — plan for a round of iteration between the artboard pick and the final file.
-
-**Sources:** [Claude Code Week 34 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w34) · [From Prompt to Pull Request: Claude Design + Claude Code — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design reverse workflow — The Human Co.](https://thehumanco.org/ai-resources/claude-design-update-brand-consistency)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Claude API Cache Miss Is Now Diagnosable — Pass previous_message_id and Get the Exact Divergence Point</title>
-      <link>https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics</link>
-      <guid isPermaLink="false">2026-09-25-03-anthropic-cache-diagnostics-api</guid>
-      <pubDate>Fri, 25 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Pass diagnostics.previous_message_id on beta messages calls and the API returns the exact reason your cache missed: system_changed, tools_changed, messages_changed, or model_changed.</description>
-      <content:encoded><![CDATA[**Add `diagnostics: {"previous_message_id": prev_id}` to your Anthropic beta messages call and the API tells you exactly which part of your prompt invalidated the cache — so you fix the root cause instead of guessing.**
-
-Prompt caching saves real money on agentic loops, but a silent miss eats the savings without warning: your only signal was `cache_read_input_tokens` dropping to zero. [Anthropic's cache diagnostics API](https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics) closes that gap.
-
-**How it works:**
-
-```python
-client = anthropic.Anthropic()
-SYSTEM = "You are an agent... <large doc>...</large doc>"
-
-# Turn 1: opt in with previous_message_id=None
-r1 = client.beta.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=1024,
-    cache_control={"type": "ephemeral"},
-    system=SYSTEM,
-    messages=[{"role": "user", "content": "Q1"}],
-    diagnostics={"previous_message_id": None},
-)
-
-# Turn 2: pass the previous response id
-r2 = client.beta.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=1024,
-    cache_control={"type": "ephemeral"},
-    system=SYSTEM,
-    messages=[..., {"role": "user", "content": "Q2"}],
-    diagnostics={"previous_message_id": r1.id},
-)
-
-if r2.diagnostics and r2.diagnostics.cache_miss_reason:
-    print(r2.diagnostics.cache_miss_reason.type)
-    # → "system_changed" | "tools_changed" | "messages_changed" | "model_changed"
-```
-
-The four miss types map directly to fixes:
-- **`system_changed`** — you interpolated a timestamp or request ID into your system prompt; move it to the first user message after your cache breakpoint
-- **`tools_changed`** — tools array was reordered or serialized non-deterministically between turns; fix the order and sort JSON schema keys
-- **`messages_changed`** — history was truncated or an assistant turn re-serialized; treat history as append-only
-- **`model_changed`** — a router or fallback switched models mid-session; hold the model constant within a cached conversation
-
-The `cache_missed_input_tokens` field gives a magnitude estimate of how many tokens fell outside the cache — useful for triaging whether the miss is worth fixing.
-
-**Real limits:** Only available on the direct Anthropic API — not on Amazon Bedrock or Google Cloud Vertex. Fingerprints expire after a short window, so the two compared requests must be close in time. Cross-workspace handoffs return `previous_message_not_found`, not a diagnostic. On streaming, `diagnostics` arrives on the `message_start` event.
-
-**Sources:** [Cache diagnostics — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/cache-diagnostics) · [Prompt caching troubleshooting — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/prompt-caching#troubleshooting-common-issues) · [Claude Code prompt cache expired guide — jdhodges.com](https://www.jdhodges.com/blog/claude-code-prompt-cache-has-likely-expired/)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
