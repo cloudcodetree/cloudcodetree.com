@@ -10,9 +10,159 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 11 Oct 2026 20:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 12 Oct 2026 04:05:00 +0000</lastBuildDate>
 
 
+
+
+    <item>
+      <title><![CDATA[Your Parallel Subagents Don't All Need the Same Reasoning Budget — The Agent Tool's `effort` Field Right-Sizes Thinking Intensity Across a Workflow]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-12-03-claude-code-agent-effort-field-subagent-right-size</link>
+      <guid isPermaLink="false">2026-10-12-03-claude-code-agent-effort-field-subagent-right-size</guid>
+      <pubDate>Mon, 12 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Claude Code's new Agent tool effort field lets you set reasoning intensity per subagent — low for parallel searches, high for synthesis — without changing the main session.</description>
+      <content:encoded><![CDATA[**Pass `effort: "low"` to parallel searchers and `effort: "high"` to the synthesis step — each subagent runs at its natural reasoning depth without changing the main session's settings.**
+
+A subagent launched with the Agent tool runs at the session's default effort level, which is right for hard analysis but wasteful for well-defined tasks like scanning files, summarizing a doc, or fetching known facts. Claude Code added an `effort` field to the Agent tool in v2.1.292 (October 6, 2026), so you can set reasoning intensity per launch.
+
+**Fan-out with tiered effort** (in a Workflow script):
+
+```javascript
+// Three parallel searches at low effort
+const findings = await parallel([
+  () => agent("Find all TODOs in src/", { effort: "low", label: "search-todos" }),
+  () => agent("List uses of deprecated APIs", { effort: "low", label: "search-deprecated" }),
+  () => agent("Check package.json for outdated deps", { effort: "low", label: "check-deps" }),
+])
+
+// One synthesis agent at high effort
+const report = await agent(
+  "Synthesize these into a prioritized action plan:
+" + JSON.stringify(findings),
+  { effort: "high", label: "synthesize" }
+)
+```
+
+The same field works in a custom subagent definition's YAML frontmatter:
+
+```yaml
+---
+model: inherit
+effort: low
+---
+```
+
+**Resolution order:** per-call `effort` overrides the definition's frontmatter, which overrides the session's effort level. Neither can override the `CLAUDE_CODE_EFFORT_LEVEL` environment variable — if your CI sets that env var, per-call overrides won't pierce it. Run `/tasks` to see the effort level applied to each active subagent alongside its model, which is the fastest way to confirm settings are working as expected.
+
+**Limits:**
+- `effort` controls thinking intensity only; it does not change the model (use `model: "haiku"` for that)
+- "low" effort may skip subtle edge cases or require more precise task wording — best for well-defined, verifiable queries
+- Available effort levels may be constrained by your organization's model allowlist; check before writing effort levels into CI automation
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [Claude Code subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents), [HumanLayer — sub-agent models and effort](https://docs.humanlayer.com/reference/subagent-models)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Claude Code Gains Plugin-Modifiable Core Behavior, a Watchdog Side Agent, and Haiku 5.5 as Its Default Model]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-12-02-claude-code-mods-you-should-know-haiku-5-5-default</link>
+      <guid isPermaLink="false">2026-10-12-02-claude-code-mods-you-should-know-haiku-5-5-default</guid>
+      <pubDate>Mon, 12 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>Claude Code v2.1.287-293: Mods let plugins intercept and rewrite tool calls; You Should Know adds an opt-in watchdog agent; Haiku 5.5 with 1M context is now the default model.</description>
+      <content:encoded><![CDATA[**Mods let plugins intercept and rewrite tool calls; You Should Know adds an opt-in watchdog side agent; Haiku 5.5 (1M context) is the new default — three Claude Code updates from October 1–7.**
+
+**Claude Mods (v2.1.287, October 1)** extends the plugin system beyond tool-adding: a mod can draw a pane above the prompt, install a slash command that runs immediately, and intercept or rewrite a tool call before Claude executes it. Mods are JavaScript or TypeScript functions that run inside Claude Code with your local permissions. They are not sandboxed.
+
+The built-in **"You Should Know" mod** (`cc-plugin-you-should-know@builtin`) is the first example of the pattern: a side agent watches your session and surfaces things you or Claude might miss, displayed above the prompt. Disabled by default; requires telemetry on:
+
+```
+/plugin enable cc-plugin-you-should-know@builtin
+```
+
+**Haiku 5.5 as default (v2.1.293, October 7):** Claude Code now uses Haiku 5.5 as its default model, which carries a 1M-token context window. Coding tasks that previously required splitting across sessions can now run in a single context window. Check which model your session uses with `/model`.
+
+**Why it matters:** Mods open a new class of Claude Code tooling — plugins that sit between Claude and the tools it calls, not just alongside them. The 1M default context is a practical improvement for any multi-file or large-codebase task.
+
+**Limits:** Mods run unsandboxed — review what a mod does before installing from a marketplace. You Should Know adds latency (a side agent runs on every turn). Your organization's model allowlist may not include Haiku 5.5; verify with `/model` before relying on it.
+
+**Why it matters for this reader:** the Mods architecture makes pre-tool-call hooks first-class — you can now build a mod that checks a destructive operation against your policy before Claude runs it.
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [Claude Code Mods overview — havoptic.com](https://www.havoptic.com/releases/claude-code/2026/10)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Agent Executes Irreversible Steps Without Asking — LangGraph's `interrupt()` Freezes the Graph, Persists State, and Resumes on Your Signal]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-12-01-langgraph-interrupt-human-in-the-loop-approval-gate</link>
+      <guid isPermaLink="false">2026-10-12-01-langgraph-interrupt-human-in-the-loop-approval-gate</guid>
+      <pubDate>Mon, 12 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>LangGraph's interrupt() pauses a graph mid-node, checkpoints all state, and returns a payload to your caller. Command(resume=...) picks up exactly where it stopped — no restart needed.</description>
+      <content:encoded><![CDATA[**`interrupt()` freezes a LangGraph node mid-run, persists the graph state automatically, and resumes via `Command(resume=...)` exactly where it stopped — no restart, no lost context.**
+
+**What you'll be able to do after this:** add an approval gate to any node in a LangGraph agent so risky operations — file writes, external API calls, emails — pause and wait for explicit confirmation before executing.
+
+**Three things to know first:**
+
+1. `interrupt(payload)` raises inside a node, checkpointing the full graph state; your caller receives `payload` and can show it to a human
+2. `Command(resume=response)` restarts from the interrupted node — `interrupt()` returns `response`, so the node can branch on it
+3. A checkpointer is required; without one, `interrupt()` raises a `ValueError`. Use `MemorySaver` for dev, `PostgresSaver` for production
+
+**Working example:**
+
+```python
+from langgraph.graph import StateGraph, MessagesState
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import interrupt, Command
+
+def review_before_send(state: MessagesState) -> MessagesState:
+    draft = state["messages"][-1].content
+    # Pause and hand the draft to a human
+    decision = interrupt({"draft": draft, "action": "approve_or_edit"})
+    if decision.get("action") == "edit":
+        return {"messages": [{"role": "assistant", "content": decision["text"]}]}
+    return state  # approved, continue as-is
+
+builder = StateGraph(MessagesState)
+builder.add_node("review", review_before_send)
+# ... wire the rest of your graph
+graph = builder.compile(checkpointer=MemorySaver())
+
+config = {"configurable": {"thread_id": "draft-42"}}
+
+# First invoke — runs until interrupt, returns the payload
+result = graph.invoke({"messages": [...]}, config)
+# result["__interrupt__"][0].value == {"draft": "...", "action": "approve_or_edit"}
+
+# Human reviews; resume the graph
+final = graph.invoke(Command(resume={"action": "approve"}), config)
+```
+
+**In production:** replace `MemorySaver` with `AsyncPostgresSaver` — the in-process saver loses state on server restart or across instances.
+
+**Limits:**
+- LangGraph does not expire interrupted threads automatically; implement a TTL or cleanup job yourself
+- Any code before `interrupt()` in the same node re-runs on resume — make it idempotent or move side effects after the call
+- `MemorySaver` is per-process and per-session; use `AsyncPostgresSaver` for concurrent production workloads
+- The interrupt payload must be JSON-serializable
+
+**Sources:** [LangGraph interrupts — official docs](https://docs.langchain.com/oss/python/langgraph/interrupts), [Making it easier to build human-in-the-loop agents (LangChain blog)](https://blog.langchain.com/making-it-easier-to-build-human-in-the-loop-agents-with-interrupt), [Human-in-the-loop with LangGraph walkthrough](https://rentierdigital.xyz/blog/human-in-the-loop-langgraph)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your GPU Server Runs a Model — vLLM Makes It an OpenAI-Compatible Endpoint Your Existing Client Code Can Already Call]]></title>
@@ -5659,117 +5809,9 @@ The `cache_missed_input_tokens` field gives a magnitude estimate of how many tok
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Gemini 4 Enters Post-Training — Google Says It Will Ship "Much Earlier" Than Year-End</title>
-      <link>https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/</link>
-      <guid isPermaLink="false">2026-09-25-02-gemini-4-post-training-frontier-race</guid>
-      <pubDate>Fri, 25 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <description>Google DeepMind head Koray Kavukcuoglu confirmed at The Information's AI Agenda summit (Sept 23-24) that Gemini 4 is in early post-training and will ship before end of year — likely Q4.</description>
-      <content:encoded><![CDATA[**Gemini 4 is in early post-training (safety testing + RLHF) and Google's DeepMind head says it will ship "much earlier" than year-end — the next slot to fill in your model-routing config is coming.**
-
-Google DeepMind SVP Koray Kavukcuoglu confirmed at [The Information's AI Agenda Live Summit](https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/) on Sept 23–24 that Gemini 4 is in its early post-training phase and he expects to release it well before the end of the year. Gemini 4 is reported to be powering Antigravity, Google's internal coding agent, in early testing.
-
-Context for engineers routing across models: Gemini 3.6 Flash currently sits roughly 24 Elo points below Opus 5.5 on independent WebDev Arena benchmarks — that's the gap Google is trying to close. Anthropic is also shipping the rest of the 5.5 family (Sonnet 5.5, Haiku 5.5 listed as "coming in the coming weeks"). The Q4 window may see three or four significant frontier releases land within weeks of each other.
-
-**Why it matters:** Routing decisions made today could be outdated before Q4 is out. Keep model IDs in config rather than hardcoded, and build your evaluation harness now so you can run a new model against your actual workloads in an hour, not a sprint.
-
-**Sources:** [Google says Gemini 4 release is coming soon — 9to5Google](https://9to5google.com/2026/09/24/google-says-gemini-4-release-is-coming-as-soon-as-possible/) · [Gemini 4 enters post-training — Yahoo Finance](https://finance.yahoo.com/technology/ai/articles/google-gemini-4-enters-post-122454510.html) · [AI model rankings Sept 2026 — LogRocket](https://blog.logrocket.com/ai-dev-tool-power-rankings/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your OpenAI SDK Calls Llama, DeepSeek, and Qwen Unmodified With One base_url Swap — Here's What Actually Diverges</title>
-      <link>https://docs.fireworks.ai/getting-started/quickstart</link>
-      <guid isPermaLink="false">2026-09-25-01-fireworks-ai-serverless-inference</guid>
-      <pubDate>Fri, 25 Sep 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <description>Fireworks AI hosts 50+ open-source models on an OpenAI-compatible API. Change base_url and your API key, keep your existing SDK code, and run Llama 3, Qwen, or DeepSeek on serverless pay-per-token infra.</description>
-      <media:content url="https://fireworks.ai/images/og-image.png" medium="image" />
-      <media:thumbnail url="https://fireworks.ai/images/og-image.png" />
-      <content:encoded><![CDATA[**What you'll be able to do after this:** run Llama 3.1, Qwen 2.5, DeepSeek, and 50+ other open-source models from your existing OpenAI-SDK code by changing one URL and one API key — no GPU servers, no cold starts on popular models, pay per token.
-
-**Three things to take away:**
-- Fireworks implements the OpenAI chat completions spec — `base_url`, API key, and model name are the only changes
-- Model IDs use `accounts/fireworks/models/<name>` format, not OpenAI's names — this is the part that catches people
-- Rate limits, context windows, and retry behavior differ from OpenAI — check the Fireworks model card, not OpenAI's docs
-
-**Walk-through:**
-
-```python
-# Before: your existing OpenAI code
-from openai import OpenAI
-client = OpenAI()  # OPENAI_API_KEY
-
-# After: Fireworks AI (same SDK, different target)
-import os
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["FIREWORKS_API_KEY"],
-    base_url="https://api.fireworks.ai/inference/v1"
-)
-response = client.chat.completions.create(
-    model="accounts/fireworks/models/deepseek-v3p1",   # not "deepseek-v3"
-    messages=[{"role": "user", "content": "Hello"}]
-)
-print(response.choices[0].message.content)
-```
-
-Or use the native Fireworks SDK (`pip install fireworks-ai`, `from fireworks import Fireworks`) for the same interface without the base_url wiring.
-
-**Serverless tiers** ([Fireworks' Serverless 2.0](https://fireworks.ai/blog/serverless-2)): Standard (default, shared, first to queue under congestion), Priority (`service_tier="priority"` — Fireworks claims last to be shed; approximately 1.5× Standard pricing per their docs), and Fast (dedicated high-throughput path via distinct model IDs like `kimi-k2p6-turbo`, optimized for agent loops).
-
-**Limits to know:**
-- Model IDs are not interchangeable with OpenAI's — `gpt-4o` doesn't route to anything; use the `accounts/fireworks/models/` prefix
-- Standard serverless can queue requests under congestion; for SLA-backed production use, move to provisioned throughput (billed per GPU-minute, not per token)
-- Fine-tuned model IDs prepend your account name: `accounts/<ACCOUNT_NAME>/models/<fine-tune>`
-- The "20–40% faster than comparable platforms" speed claim is from Fireworks' own benchmarks; independent head-to-head data is limited — run your own latency test before routing production traffic
-
-**Sources:** [Fireworks AI quickstart — docs.fireworks.ai](https://docs.fireworks.ai/getting-started/quickstart) · [Serverless 2.0: Three Ways to Run Inference — Fireworks blog](https://fireworks.ai/blog/serverless-2) · [Fireworks vs Together AI comparison — openbenchmarks.com](https://openbenchmarks.com/inference/fireworks-ai-vs-together-ai)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic's Claude Marketplace Has 2000+ Listings — Most Aren't Meant for Claude Code Engineers, but the MCP Connector Directory Is</title>
-      <link>https://claude.com/blog/claude-marketplace</link>
-      <guid isPermaLink="false">2026-09-24-06-claude-marketplace-mcp-connectors-plugins</guid>
-      <pubDate>Thu, 24 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>MCP</category>
-      <description>Anthropic launched Claude Marketplace on September 23 with 2000+ MCP connectors and Claude Code plugins, plus enterprise-tier agents and service partners. For Claude Code engineers the signal is the connector and plugin catalog.</description>
-      <content:encoded><![CDATA[**TL;DR: Anthropic's Claude Marketplace (Sept 23) centralizes 2000+ MCP connectors and Claude Code plugins — useful for discovery and install; skip the enterprise agent and SaaS-partner sections unless that's your job.**
-
-Anthropic launched [Claude Marketplace](https://claude.com/blog/claude-marketplace) as a single place to discover and install connectors, plugins, and services. For Claude Code engineers the interesting part is the connector and plugin catalog, which ships at launch with integrations for GitHub, Notion, Slack, Sentry, Linear, Jira, Google Drive, and hundreds more MCP-compatible tools.
-
-**Install pattern from inside Claude Code:**
-
-```bash
-/plugin install <plugin-name>@claude-plugins-official
-```
-
-Connectors are lightweight MCP data bridges (read-focused); plugins bundle MCP servers, slash commands, and skills into a single installable package. Both land in your session like any other plugin install — no separate signup step.
-
-**What to skip:** The marketplace also lists "agents and products" (enterprise SaaS built on Claude, such as Lovable, Harvey, CrowdStrike) and "service partners" (Accenture, Deloitte, BCG) that exist to serve procurement teams, not individual Claude Code sessions. These categories aren't relevant for most engineers building their own services.
-
-**Limit that matters:** The official marketplace indexes Anthropic's partner catalog only — it does not discover private team marketplaces you've already set up on a Git repo. Your team's internal plugin repo continues to work exactly as before; the Marketplace adds a public-catalog layer on top.
-
-**Why it matters:** Finding an MCP connector previously meant searching GitHub or a community list. The official catalog gives you one searchable index with Anthropic's verification pass.
-
-**Sources:** [Claude Marketplace — Anthropic blog](https://claude.com/blog/claude-marketplace) · [Get started with custom connectors via remote MCP — support.claude.com](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) · [20 Best Claude Connectors for day-to-day use — Composio](https://composio.dev/content/best-claude-connectors)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
