@@ -10,10 +10,158 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 13 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 13 Oct 2026 20:08:00 +0000</lastBuildDate>
 
 
 
+
+
+    <item>
+      <title><![CDATA[One Committed .mcp.json Gives Your Whole Team the Same MCP Servers — No Manual Setup Per Machine]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-08-mcp-json-project-scope-team-shared-servers</link>
+      <guid isPermaLink="false">2026-10-13-08-mcp-json-project-scope-team-shared-servers</guid>
+      <pubDate>Tue, 13 Oct 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Commit .mcp.json to your project root and every teammate's Claude Code session loads the same MCP servers automatically — use ${VAR} expansion for secrets, never literal tokens.</description>
+      <content:encoded><![CDATA[**Commit `.mcp.json` to your project root and every Claude Code session your team opens gets the same MCP servers — no per-machine `claude mcp add` required.**
+
+Claude Code resolves MCP servers from three scopes: user-level (`~/.claude/mcp.json`), project-level (`.mcp.json` at the repo root), and session-level flags. Project-level is the only scope you can commit to version control and share across the team.
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "type": "stdio"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "type": "stdio",
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Key details:**
+
+- **`${VAR}` syntax for secrets.** Environment variables expand at runtime so a literal API token never lands in git. Document which variables to export in your `.env.example`.
+- **First-use approval gate.** When a teammate opens the repo for the first time, Claude Code prompts them to approve the project-scoped servers before they load. This is an intentional security checkpoint — do not use `--allowedTools` to bypass it.
+- **Scope precedence.** If a user-scoped server has the same name, the project-scoped entry wins. This lets the repo pin a specific MCP server version while individuals keep personal defaults.
+
+**When to commit `.mcp.json`:** do it when the team needs a shared tool — a Playwright server for browser testing, an internal data-access server, a project-specific API wrapper. Avoid committing servers that only make sense for one person, or servers requiring user-specific credentials baked in beyond `${VAR}` expansion.
+
+One limit: each teammate still needs to have the server's runtime available locally (e.g., Node.js installed for `npx` commands). The committed config handles discovery; it does not handle dependencies.
+
+**Sources:** [MCP in Claude Code — Anthropic Docs](https://code.claude.com/docs/en/mcp) · [Claude Code MCP Server Configuration Guide — Glama](https://glama.ai/mcp/servers/@marc-shade/universal-ai-chat/blob/3d65574a888705c4f462b8331a186f0721e0e115/docs/claude-code-mcp-docs.md)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Agent Generates Generic Colors Because It Has No Token Vocabulary — Style Dictionary Compiles Your DTCG JSON Into CSS Custom Properties Claude Code Can Read]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-07-style-dictionary-design-tokens-css-variables-claude-code</link>
+      <guid isPermaLink="false">2026-10-13-07-style-dictionary-design-tokens-css-variables-claude-code</guid>
+      <pubDate>Tue, 13 Oct 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Design-to-Code</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <description>Style Dictionary reads your design tokens in DTCG JSON and emits CSS custom properties your CLAUDE.md points to — so every session uses your color scale, not a generic one.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** Set up a Style Dictionary build step so Claude Code uses your color scale, type scale, and spacing — not generic Tailwind defaults — when generating components.
+
+**Three things to know first:**
+- Style Dictionary reads your tokens in the W3C DTCG JSON format and emits CSS custom properties (or Tailwind config, or both), keeping component generation locked to your system
+- One line in CLAUDE.md tells every session where the compiled token file lives; without it, Claude Code guesses from context and falls back on defaults
+- The DTCG Community Group format is still a draft (not a W3C Recommendation), but Figma, Tokens Studio, and Style Dictionary all speak it, making it the practical interop point today
+
+**Setup (5 steps):**
+
+1. Install: `npm install --save-dev style-dictionary`
+
+2. Create `tokens/brand.tokens.json`:
+```json
+{
+  "color": {
+    "primary":    { "$type": "color",     "$value": "#3B82F6" },
+    "text":       { "$type": "color",     "$value": "#111827" },
+    "surface":    { "$type": "color",     "$value": "#F9FAFB" }
+  },
+  "spacing": {
+    "4":  { "$type": "dimension", "$value": "1rem" },
+    "8":  { "$type": "dimension", "$value": "2rem" }
+  },
+  "fontFamily": {
+    "base": { "$type": "fontFamily", "$value": "Inter, system-ui, sans-serif" }
+  }
+}
+```
+
+3. Create `style-dictionary.config.json`:
+```json
+{
+  "source": ["tokens/**/*.tokens.json"],
+  "platforms": {
+    "css": {
+      "transformGroup": "css",
+      "prefix": "ds",
+      "buildPath": "src/styles/",
+      "files": [{ "destination": "tokens.css", "format": "css/variables" }]
+    }
+  }
+}
+```
+
+4. Run `npx style-dictionary build` → generates `src/styles/tokens.css` with `--ds-color-primary: #3B82F6;`, `--ds-spacing-4: 1rem;`, etc.
+
+5. Add to CLAUDE.md:
+```
+Design tokens: src/styles/tokens.css
+Use these CSS custom properties for all component colors, spacing, and typography.
+Do not use raw hex values or Tailwind's default color palette.
+```
+
+**One real limit:** Style Dictionary adds a build step. Without automation, `tokens.css` drifts from `tokens.json` when designs update. Add a prebuild script: `"prebuild": "style-dictionary build"` so the CSS regenerates before every deploy. If you export tokens from Figma, the loop is: Figma export → `tokens.json` → `npx style-dictionary build` → Claude Code reads `tokens.css`.
+
+**Sources:** [Style Dictionary docs — styledictionary.com](https://styledictionary.com) · [Stop AI from Ignoring Your Design Tokens: DTCG + AGENTS.md Workflow — atomize.tools](https://atomize.tools/blog/figma-design-tokens-vibe-coding/) · [Design Tokens for AI Coding: CLAUDE.md Rules — techarion.com](https://techarion.com/blog/design-tokens-claude-md-rules-stop-generic-ai-ui)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic Reports New Distillation Defenses — If You Generate Synthetic Training Data From Claude, Know the Line]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-06-anthropic-distillation-defenses-synthetic-data-warning</link>
+      <guid isPermaLink="false">2026-10-13-06-anthropic-distillation-defenses-synthetic-data-warning</guid>
+      <pubDate>Tue, 13 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Fine-Tuning</category>
+      <category>Security</category>
+      <category>Building AI Products</category>
+      <description>Anthropic published new distillation defenses Oct 12, reporting 90-99% reduction in extractable reasoning data. The line for engineers: task-specific labeled data generation is not what these defenses target.</description>
+      <content:encoded><![CDATA[**Anthropic published new distillation defenses October 12; if you generate synthetic training data from Claude at scale, know which patterns trigger the classifiers — and which don't.**
+
+[Anthropic's new research post](https://anthropic.com/research/distillation-defenses) reports model- and API-level safeguards that reduce the reasoning data distillation campaigns can extract by roughly 90–99%, per Anthropic's own early measurements. Context: Anthropic's September 2026 threat report ([Betterstack summary](https://betterstack.com/community/guides/ai/anthropic-threat-report-2026/)) described seven AI labs running campaigns totaling 190 million exchanges — Alibaba's lab alone contributing 151 million — characterized as wholesale attempts to reproduce Claude's general-purpose reasoning in a smaller model.
+
+The defenses target coordinated multi-account extraction, chain-of-thought elicitation at volume, and patterns consistent with training a competing general model. They do not target standard API use.
+
+**The engineering line:** generating task-specific labeled data — classification labels, Q&A pairs, structured outputs for your own downstream fine-tune — is not what these defenses are for, as long as you use a single legitimate account and are not trying to replicate Claude's general capabilities. Anthropic's usage policy prohibits training a competing general model from Claude outputs; task-specific fine-tuning for your own application is a different thing.
+
+**Why it matters:** If you scale up a synthetic data pipeline against the Claude API, the new behavioral classifiers will be watching. Keep volume proportionate to the task, stay on one account, and document the purpose.
+
+**Sources:** [Strengthening our defenses against distillation attacks — Anthropic](https://anthropic.com/research/distillation-defenses) · [Anthropic September 2026 Threat Report — Betterstack](https://betterstack.com/community/guides/ai/anthropic-threat-report-2026/)]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5682,128 +5830,9 @@ This fits a tight dev loop: make a change, ask Claude Code to screenshot and fla
 **Sources:** [Safari 27 Adds an MCP Server for AI Coding Agents — iThinkDiff](https://www.ithinkdiff.com/safari-27-adds-an-mcp-server-for-ai-coding-agents-like-claude-code/) · [Safari 27 MCP: Give Your AI Agent a Live Browser — byteiota](https://byteiota.com/safari-27-mcp-server-give-your-ai-agent-a-live-browser/) · [What's New With Safari 27 for Developers — 9to5Mac](https://9to5mac.com/2026/09/17/webkit-blog-breaks-down-whats-new-with-safari-27-for-developers-including-mcp-support/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Fine-Tuned Specialists Can Be Combined Into One Model — mergekit Does It in a YAML File With No Extra Training</title>
-      <link>https://huggingface.co/blog/mlabonne/merge-models</link>
-      <guid isPermaLink="false">2026-09-27-01-mergekit-model-merging-fine-tunes-combine</guid>
-      <pubDate>Sun, 27 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>mergekit combines two or more fine-tuned LLMs into one model using SLERP, TIES, or DARE — a five-line YAML config and a CPU are all you need, no additional training required.</description>
-      <content:encoded><![CDATA[**mergekit merges specialized fine-tuned LLMs into one model using a YAML config — SLERP for a smooth two-model blend, TIES or DARE for combining three or more. CPU-only, no extra training required.**
-
-**What you'll be able to do after this:**
-- Specify a full merge in five lines of YAML and run it on a CPU without a GPU
-- Choose between SLERP (smooth interpolation between two model weight vectors), TIES (trims redundant parameters and resolves sign conflicts across multiple models), and DARE (sparse pruning before the merge, useful for strongly conflicting models)
-- Upload the result to HuggingFace Hub and run it locally with Ollama or llama.cpp
-
-**Walk-through**
-
-```bash
-pip install mergekit
-```
-
-`merge.yaml` — SLERP blend of a base model and a coding fine-tune at 60/40:
-
-```yaml
-models:
-  - model: mistralai/Mistral-7B-v0.1
-    parameters:
-      weight: 0.6
-  - model: my-org/mistral-7b-coding
-    parameters:
-      weight: 0.4
-merge_method: slerp
-base_model: mistralai/Mistral-7B-v0.1
-dtype: bfloat16
-```
-
-```bash
-mergekit-yaml merge.yaml ./merged-model/
-```
-
-The output is a standard HuggingFace checkpoint. For a zero-setup path, the **LazyMergekit Colab notebook** (linked in Maxime Labonne's HuggingFace blog post) handles the entire flow in a browser — pick a method, enter model IDs, run.
-
-For three or more models, switch to `merge_method: ties`. `dare_ties` adds sparse pruning first, which helps when models strongly conflict on the same parameter regions.
-
-**Limits:** merge results are unpredictable — a merged model can underperform both parents on their individual strengths, and benchmarks show this isn't rare. SLERP only accepts exactly two models; TIES and DARE handle more but run slower and are sensitive to weight scaling. The output is always full precision (fp16/bf16) regardless of source quantization — plan for roughly 14 GB on disk for a 7B merge, even if your source adapters were 4-bit.
-
-**Sources:** [Merge Large Language Models with mergekit — Hugging Face Blog](https://huggingface.co/blog/mlabonne/merge-models) · [mergekit GitHub (arcee-ai)](https://github.com/arcee-ai/mergekit) · [What Is Model Merging — mergekit.com](https://www.mergekit.com/blog/what-is-model-merging)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Three Managed Settings Lock Down Claude Code Across Your Whole Team — Cost, Safety, and Audit in One File</title>
-      <link>https://code.claude.com/docs/en/managed-settings</link>
-      <guid isPermaLink="false">2026-09-26-05-claude-code-managed-settings-enterprise-governance</guid>
-      <pubDate>Sat, 26 Sep 2026 20:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>allowManagedPermissionRulesOnly, allowManagedHooksOnly, and maxEffortLevel in managed-settings.json set cost caps, safety rules, and audit trails that developers cannot override in local or project settings.</description>
-      <content:encoded><![CDATA[**`allowManagedPermissionRulesOnly`, `allowManagedHooksOnly`, and `maxEffortLevel` in a `managed-settings.json` deployed via MDM set cost caps, safety rules, and audit trails that developers cannot override in their local settings or project files.**
-
-When you deploy Claude Code to a team, each developer's `~/.claude/settings.json` can re-allow operations your project blocks, and running `--effort max` bypasses any team cost guidance. Managed settings, deployed via MDM or your config management system, sit at the top of the settings stack and override everything below them.
-
-**`allowManagedPermissionRulesOnly: true`**
-
-Drops every `allow` rule that isn't in your managed file — user settings, project `.claude/settings.json`, and `--allowedTools` flags are all ignored for allow entries. Developers can customize themes, prompts, and personal keys, but cannot grant themselves access to `curl`, `rm -rf`, or production credentials.
-
-**`allowManagedHooksOnly: true`**
-
-The only hooks that run are in your managed file. Pair with a `PostToolUse` HTTP hook to stream every tool invocation to your audit system:
-
-```json
-{
-  "allowManagedHooksOnly": true,
-  "hooks": {
-    "PostToolUse": [{
-      "type": "http",
-      "url": "https://audit.yourco.com/claude-code",
-      "headers": {"Authorization": "Bearer $AUDIT_TOKEN"},
-      "allowedEnvVars": ["AUDIT_TOKEN"]
-    }]
-  }
-}
-```
-
-**`maxEffortLevel: "high"`**
-
-Caps every session at `high` effort. The `/effort` picker does not show `xhigh` or `max`, and passing `--effort max` silently runs at `high` instead. Stops the runaway token bill without removing capability from engineers who need it — they request an override through your normal access-request workflow.
-
-Three limits to know: the audit webhook fires best-effort — a network timeout drops the log entry without failing the tool call, so do not treat it as a hard audit trail without additional server-side checks; model controls (`deniedModels`, `availableModelsMatch`) are separate managed settings keys that need their own deployment; and none of this replaces network-level controls — your LLM gateway and VPN policies are still required independently.
-
-**Sources:** [Claude Code managed settings docs](https://code.claude.com/docs/en/managed-settings), [systemprompt.io enterprise managed settings guide](https://systemprompt.io/guides/enterprise-claude-code-managed-settings), [General Analysis enterprise security deployment](https://generalanalysis.com/guides/claude-code-enterprise-security-deployment)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Google, OpenAI, and Anthropic Plan SAFA — A Self-Regulatory Standards Body for Frontier AI, With Independence Questions</title>
-      <link>https://www.govinfosecurity.com/google-openai-anthropic-plan-frontier-ai-standards-body-a-32926</link>
-      <guid isPermaLink="false">2026-09-26-04-safa-frontier-ai-standards-body</guid>
-      <pubDate>Sat, 26 Sep 2026 20:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Policy</category>
-      <category>LLM</category>
-      <description>Google, OpenAI, and Anthropic announced plans to form SAFA, a self-regulatory standards body for frontier AI modeled on FINRA — setting benchmarks, audits, and incident-reporting requirements without government oversight.</description>
-      <content:encoded><![CDATA[**The three largest frontier model labs plan to form SAFA, a self-regulatory standards body for frontier AI — modeled on FINRA, run by the companies it governs.**
-
-On September 25, Google, OpenAI, and Anthropic announced plans to form the Standards Authority for Frontier AI (SAFA), an industry-run body that would define safety benchmarks, pre-deployment testing requirements, and incident-reporting standards for frontier models — without government oversight. The proposal originated with DeepMind CEO Demis Hassabis in July, after a White House executive order on AI standards stalled.
-
-For developers building on these models: cleaner pre-deployment benchmarks could make capability claims more auditable, and incident-reporting standards might speed up disclosure of safety issues that affect production deployments. The structural limit is self-regulation: the same companies competing to ship frontier models are writing the standards those models get measured against. Whether SAFA will commission genuinely independent audits or publish testing methodologies publicly is unanswered; the founding documents propose "auditor qualifications" but do not commit to external methodology review.
-
-Launch timeline: end of 2026 or early 2027. Leadership candidates include former White House AI policy advisor Sriram Krishnan and former OSTP director Arati Prabhakar.
-
-**Why it matters:** If SAFA's benchmarks become the industry baseline, they will shape how model capabilities are documented and what "safe for commercial use" means — which directly affects what developers can rely on in production.
-
-**Sources:** [The Street](https://www.thestreet.com/technology/google-openai-anthropic-launch-ai-safety-safa-regulatory-body), [GovInfoSecurity](https://www.govinfosecurity.com/google-openai-anthropic-plan-frontier-ai-standards-body-a-32926), [Plain English AI](https://plainenglish.io/artificial-intelligence/google-openai-and-anthropic-may-launch-a-frontier-ai-safety-standards-body-by-2027), [Winzheng (independence analysis)](https://www.winzheng.com/en/article/google-openai-anthropic-frontier-ai-standards-authority)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
