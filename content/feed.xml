@@ -10,8 +10,213 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 12 Oct 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 13 Oct 2026 04:12:00 +0000</lastBuildDate>
 
+
+
+
+
+    <item>
+      <title><![CDATA[Three Sketches Before One Commit: Use Claude Design to Explore Multiple UI Directions Before Your Claude Code Session Starts]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-03-claude-design-three-directions-spec-before-commit</link>
+      <guid isPermaLink="false">2026-10-13-03-claude-design-three-directions-spec-before-commit</guid>
+      <pubDate>Tue, 13 Oct 2026 04:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <description>Prompt Claude Design for two or three distinct UI approaches, pick one, export the bundle — your Claude Code session then starts from a real spec instead of a verbal description.</description>
+      <content:encoded><![CDATA[**Prompt Claude Design for alternatives, evaluate them against your codebase constraints, then hand Claude Code the winner as a structured bundle — not a verbal description.**
+
+The default Claude Code flow — "make a dashboard for X" — gives you a spec the model wrote for itself based on your description. It's usually plausible, but the model is deciding what the UI should look like, not you. This workflow reverses that. You use Claude Design to generate the alternatives, you pick the one that fits your existing system, and Claude Code implements to the spec you chose.
+
+**Step 1: ask for directions, not a single design**
+
+Instead of describing the result you want, describe the decision you're trying to make:
+
+```
+Give me three different approaches to a notification panel:
+one that's minimal (inbox-style, no icons, density-first),
+one that's card-based (each notification gets a card with an action button),
+one that's sidebar-persistent (always visible, collapsible).
+Dark background, accent #3b82f6. Keep component shapes simple.
+```
+
+Claude Design produces each approach as a separate artifact. You now have three things to evaluate, not three things to imagine.
+
+**Step 2: evaluate against your actual constraints**
+
+Before you export anything, run three checks on each direction:
+
+- Does it use primitives you already have (Button, Badge, Icon, Card)?
+- Does it work in the contexts where it will actually appear (mobile drawer, embedded panel, desktop sidebar)?
+- Does anything require a token or type scale not in your existing design system?
+
+The direction that passes all three costs the least to implement. Claude Code can close small gaps — a missing variant, a spacing adjustment — but it's poor at inventing missing foundation components mid-session.
+
+**Step 3: export and hand off to Claude Code**
+
+Export the chosen direction. The bundle contains a machine-readable component structure, the design tokens it references, and the layout hierarchy. Open Claude Code:
+
+```
+Implement the notification panel from ./notification-panel-spec.zip.
+Use our existing Button, Badge, and Icon components from app/components/.
+Don't invent new token names — map to our existing spacing and color scale in app/lib/theme.ts.
+```
+
+Claude Code implements to the spec rather than improvising. If the result needs adjustment, make it in the editor — don't round-trip back to the design tool for pixel-level changes, only for direction-level ones.
+
+**Where this breaks down:** Claude Design is research preview. Vague prompts produce generic-looking output. The more specific your Step 1 constraints (named components, explicit contexts, real token values), the less cleanup you need in Step 3. Don't expect a generated spec to be production-ready — expect it to be a better starting point than a blank file or a verbal brief.
+
+**Sources:** [Claude Design — Anthropic support](https://support.claude.com/en/articles/claude-design) · [Claude Design workflow review — flowstep.ai](https://flowstep.ai/blog/claude-design-review/) · [Claude Design review 2026 — eesel.ai](https://www.eesel.ai/blog/claude-design-review)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Claude Code Session Compacts Itself at 80% — Run /compact Early With a Focus Instruction to Keep What Actually Matters]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-02-claude-code-compact-focus-instruction-context-compaction</link>
+      <guid isPermaLink="false">2026-10-13-02-claude-code-compact-focus-instruction-context-compaction</guid>
+      <pubDate>Tue, 13 Oct 2026 04:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Claude Code auto-compacts at ~80% context utilization. Add a focus instruction to /compact so the summary preserves your task state, not whatever a generic summarizer picks.</description>
+      <content:encoded><![CDATA[**Run `/compact` manually before the 80% warning with a focus instruction — the text you add is kept verbatim in the compacted summary, so Claude preserves task state the generic auto-compact would lose.**
+
+Claude Code auto-compacts the conversation at roughly 80% context utilization (around 160,000 tokens in a 200K window). This keeps the session alive across a long task, but the default compaction is generic: it optimizes for overall coverage, not for the twelve specific files you've been editing, the failing test names you were mid-way through fixing, or the reason you decided not to touch `packages/auth/`.
+
+The `/compact` command lets you run compaction on your terms:
+
+```
+/compact keep: the full list of modified files, the names of failing tests in packages/api/__tests__/, and the current plan to refactor SessionManager before AuthMiddleware
+```
+
+Claude includes your instruction text verbatim in the compacted summary. Without a focus instruction, you're relying on the same generic summarizer the auto-compact uses.
+
+**Three useful patterns:**
+
+**1. End-of-phase compaction.** Before shifting from reading/exploring to writing/testing:
+
+```
+/compact keep: I've read the auth module in packages/auth/, the key invariant is X,
+the files I need to edit are token.ts and middleware.ts, and I haven't touched the DB layer yet
+```
+
+**2. Milestone summary.** After a feature is done, before starting the next:
+
+```
+/compact keep: notification panel is done (app/components/NotificationPanel.tsx, tests pass),
+next task is to wire it into the header in app/layout.tsx
+```
+
+This also functions as a session handoff note — the compacted summary is what you'd resume from.
+
+**3. Bug-fix context.** When the reproduce path is the key thing to preserve:
+
+```
+/compact keep: the bug is in auth/token.ts line 147 — JWT refresh silently swallows the
+expiry error when the clock is skewed. Reproduce: set system clock back 5 min, sign in, refresh.
+The test I wrote is in __tests__/token.test.ts.
+```
+
+**When to run it:** at natural pauses — after finishing a sub-task, before switching modes. Running at 90% after auto-compaction may have already fired is too late.
+
+**One real limit:** `/compact` resets the scroll-back history. Earlier messages are replaced by the summary and can't be retrieved. Keep a running `notes.md` in your project for anything you'll want to reference again, because the compacted context is a lossy one-way door.
+
+**Sources:** [morphllm.com — Claude Code /compact guide](https://morphllm.com/claude-code-compact) · [Claude Code auto-compact behavior — morphllm.com](https://www.morphllm.com/claude-code-auto-compact) · [Claude Code context management — sfeir.com](https://institute.sfeir.com/en/claude-code/claude-code-context-management/cheatsheet/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[FAISS Has No Native Persistence and pgvector Needs Postgres — Chroma's PersistentClient Gives You a Local Vector Store in One pip install]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-01-chroma-persistent-client-local-vector-store-rag-prototype</link>
+      <guid isPermaLink="false">2026-10-13-01-chroma-persistent-client-local-vector-store-rag-prototype</guid>
+      <pubDate>Tue, 13 Oct 2026 04:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Vectors</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <description>chromadb.PersistentClient(path="./db") writes an embedded vector store to a directory — no server, no schema migration. Good for local RAG prototypes before committing to hosted infrastructure.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** run a local vector similarity search that survives process restarts — a portable RAG prototype that works without a cloud account or a running server, and migrates to pgvector or Qdrant when you're ready to scale.
+
+The vector store landscape has three natural tiers:
+
+| Tier | Example | Persistence | Server? |
+|---|---|---|---|
+| In-process, no persistence | FAISS | No native disk write | No |
+| Embedded, persistent | **Chroma** | Directory on disk | No |
+| Server-backed | pgvector, Qdrant | Database/cluster | Yes |
+
+Chroma sits in the middle. Use it when you need more than FAISS's rebuild-every-restart but aren't ready to spin up Postgres or a vector DB server for a prototype.
+
+**Setup:**
+
+```python
+pip install chromadb
+```
+
+```python
+import chromadb
+
+# Data persists to ./my_rag_db across process restarts
+client = chromadb.PersistentClient(path="./my_rag_db")
+
+# get_or_create_collection is idempotent — safe to call on every startup
+collection = client.get_or_create_collection(name="docs")
+```
+
+The default embedding function uses `sentence-transformers/all-MiniLM-L6-v2` locally (downloaded on first use). No API key required.
+
+**Adding documents:**
+
+```python
+collection.add(
+    documents=[
+        "Chroma embeds text automatically using the collection's embedding function.",
+        "FAISS requires you to supply pre-computed embeddings as numpy arrays.",
+        "pgvector stores vectors in a Postgres column; you need the pg_vector extension."
+    ],
+    ids=["doc-1", "doc-2", "doc-3"]  # must be unique strings
+)
+```
+
+Duplicate IDs raise an error. Use `collection.upsert(...)` when updating existing documents.
+
+**Querying:**
+
+```python
+results = collection.query(
+    query_texts=["how does Chroma handle embeddings?"],
+    n_results=2
+)
+# results["documents"][0]  — matched doc strings
+# results["distances"][0]  — L2 or cosine distances (lower = closer)
+# results["ids"][0]        — matched ids
+```
+
+**Switching to a better embedding model:**
+
+Pass a custom `embedding_function` at creation time and again every time you call `get_or_create_collection` — Chroma verifies it matches what the collection was created with:
+
+```python
+from chromadb.utils.embedding_functions import HuggingFaceEmbeddingFunction
+
+hf_ef = HuggingFaceEmbeddingFunction(
+    api_key="YOUR_HF_TOKEN",
+    model_name="sentence-transformers/all-mpnet-base-v2"
+)
+collection = client.get_or_create_collection(name="docs", embedding_function=hf_ef)
+```
+
+**One real limit:** Chroma is a single-process embedded database — not designed for concurrent writes from multiple processes or for collections above a few million documents. When you hit either constraint, migrate to Qdrant (local Docker) or pgvector (Postgres + `CREATE EXTENSION vector`). The query API is similar enough that the swap costs one abstraction layer, not a rewrite.
+
+**Sources:** [Chroma docs — PersistentClient](https://docs.trychroma.com/guides) · [Chroma docs — create/get/delete collections](https://docs.trychroma.com/docs/collections/create-get-delete) · [DataCamp Chroma tutorial](https://www.datacamp.com/tutorial/chromadb-tutorial-step-by-step-guide)]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5589,93 +5794,7 @@ async with MCPAdapter("https://docs.example.com/mcp") as adapter:
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>ParentDocumentRetriever: Index Small Chunks, Return Large Context</title>
-      <link>https://www.youtube.com/watch?v=KQSTG_c3b10</link>
-      <guid isPermaLink="false">2026-09-26-01-parent-document-retriever</guid>
-      <pubDate>Sat, 26 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>Small chunks retrieve precisely; large chunks preserve context. LangChain's ParentDocumentRetriever does both — index child chunks for similarity search, return their parent chunks at query time.</description>
-      <content:encoded><![CDATA[**Small chunks give you better retrieval precision. Large chunks give you better answer quality. LangChain's ParentDocumentRetriever does both — and it takes about 15 lines to wire up.**
-
-**What you'll be able to do after this:** Use `ParentDocumentRetriever` to get the retrieval accuracy of small embeddings with the answer context of large document sections, and know when this pattern breaks down.
-
-**Three takeaways:**
-- Index child chunks (~400 tokens) for similarity search; store pointers to their parent chunks (~1500 tokens) in a docstore
-- At query time the retriever fetches matching child vectors, then swaps in their parents before passing to the LLM — the LLM never sees the small chunks
-- `InMemoryStore` works locally but is session-only; replace it with `RedisDocstore` or `MongoDBDocstore` before production
-
-**The problem it solves**
-
-Dense retrieval works by embedding query and document chunks and finding high cosine similarity. Shorter chunks embed more precisely — a 400-token chunk about "compensation for delayed flights" matches the same query better than a 1500-token chunk where that topic shares space with boarding procedure and baggage rules.
-
-But the LLM needs context. A 400-token chunk often starts mid-sentence, drops the setup, and leaves the model reasoning from an incomplete picture.
-
-`ParentDocumentRetriever` separates these two concerns: small chunks for matching, large chunks for answering.
-
-**How to set it up**
-
-```python
-from langchain.retrievers import ParentDocumentRetriever
-from langchain.storage import InMemoryStore
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_chroma import Chroma
-from langchain_openai import OpenAIEmbeddings
-
-child_splitter = RecursiveCharacterTextSplitter(chunk_size=400)
-parent_splitter = RecursiveCharacterTextSplitter(chunk_size=1500)
-
-vectorstore = Chroma(
-    collection_name="child_chunks",
-    embedding_function=OpenAIEmbeddings()
-)
-docstore = InMemoryStore()
-
-retriever = ParentDocumentRetriever(
-    vectorstore=vectorstore,
-    docstore=docstore,
-    child_splitter=child_splitter,
-    parent_splitter=parent_splitter,
-)
-
-retriever.add_documents(docs)  # indexes child vectors + stores parent lookup
-results = retriever.invoke("compensation for delayed flights")
-# → returns parent chunks (~1500 tokens), not the child matches
-```
-
-`add_documents` does two things: it splits each document into parent chunks, stores them in the docstore with generated IDs, then splits each parent into child chunks and embeds them — each child chunk carries a metadata pointer back to its parent ID.
-
-At query time, `invoke` runs similarity search against child vectors, collects the parent IDs from metadata, and fetches those parents from the docstore. The LLM receives the parents.
-
-**Production swap: replace InMemoryStore**
-
-`InMemoryStore` holds everything in a Python dict — it disappears when the process exits. For any deployed RAG pipeline:
-
-```python
-from langchain_community.storage import RedisDocstore
-import redis
-
-docstore = RedisDocstore(redis.Redis(host="localhost", port=6379))
-```
-
-MongoDB is another common swap (`MongoDBDocstore`). The retriever API is unchanged; only the `docstore=` argument changes.
-
-**Where this breaks down**
-
-- **Context window pressure.** You return parent chunks instead of child chunks, so you pass more tokens to the LLM per retrieved document. If you retrieve `k=5` parents at 1500 tokens each, that is 7500 tokens before the question — watch your context budget.
-- **Parent boundary mismatch.** If your source documents have natural sections (chapters, headings), `RecursiveCharacterTextSplitter` may cut across them. For structured documents, a heading-aware splitter produces better parent boundaries than a character-count split.
-- **No parent = no result.** If `add_documents` is interrupted mid-run, some child vectors exist without their parent in the docstore. The retriever silently returns nothing for those queries. Build a reconciliation check if you ingest incrementally.
-
-**Further reading:** [LangChain Retrievers Part 5 — Parent Document Retriever](https://www.youtube.com/watch?v=KQSTG_c3b10) walks through the full implementation; the [LangChain docs on ParentDocumentRetriever](https://python.langchain.com/docs/how_to/parent_document_retriever/) cover the full constructor options including adding documents without a parent split (for when you want child chunks for retrieval but full documents as context).
-]]></content:encoded>
-      <media:thumbnail url="https://img.youtube.com/vi/KQSTG_c3b10/maxresdefault.jpg"/>
-      <media:content url="https://img.youtube.com/vi/KQSTG_c3b10/maxresdefault.jpg" medium="image"/>
-    </item>
-
+    
     <item>
       <title>Claude Returns Multiple tool_use Blocks in One Turn — Run Them in Parallel and Reply in One Message</title>
       <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use</link>
@@ -5789,78 +5908,8 @@ Claude will still call multiple tools across turns, but each assistant message w
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Canvas Edits Are Free, Inline Comments Cost a Turn, and Claude Code Owns the Production Pass</title>
-      <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
-      <guid isPermaLink="false">2026-09-25-08-claude-design-three-edit-modes-decision</guid>
-      <pubDate>Fri, 25 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design has three editing modes with very different costs: canvas edits consume zero tokens, inline annotation triggers one model turn, and Claude Code owns behavior and production alignment.</description>
-      <content:encoded><![CDATA[**Canvas edits consume zero tokens; inline annotation triggers one model turn; Claude Code owns behavior and accessibility. Three modes, one decision rule — use the wrong one and you waste turns or ship broken behavior.**
-
-**What you'll be able to do after this:** Use the right Claude Design editing mode at each stage so you stop burning model turns on text fixes and stop handing Claude Code a design that still needs structural correction.
-
-**Three takeaways:**
-- Canvas direct edits do not call the model — use them for copy, repositioning, and cosmetic adjustments
-- Inline annotation → regeneration calls the model and should be reserved for structural or creative changes where Claude needs to reason about what else adjusts
-- Claude Code owns the production pass: behavior, accessibility, responsive verification, and design system token alignment after a snapshot update
-
-**The three modes in detail**
-
-**1. Canvas direct edit (zero tokens)**
-
-Click any text element and type a replacement. Drag to reposition an element. Use the spacing or color sliders. These do not call the model — no token cost, no regeneration delay, and you see the exact change you made rather than hoping regeneration preserved everything else. Use it for: copy changes, minor repositioning, cosmetic adjustments where you already know what you want.
-
-**2. Inline annotation → regeneration (one model turn)**
-
-Drop a comment on an element and describe what should change. Claude regenerates the targeted component or section with your annotation as context. Use it for: layout restructuring, replacing a component type, changing visual hierarchy, or any request where Claude needs to reason about secondary effects ("make this a three-column grid" requires Claude to figure out how the columns divide and what happens at small viewports).
-
-**3. Export bundle → Claude Code (production pass)**
-
-Export the design bundle and open it in Claude Code for the last mile. This is not "fixing Claude Design's mistakes" — it is the pass the design tool was never meant to own:
-- Wiring hover, focus, and click behavior the canvas cannot express
-- Running `axe-core` against generated HTML
-- Verifying components resolve to your design system tokens rather than hardcoded primitives
-- Checking responsive breakpoints with Playwright at multiple viewport widths
-
-**The decision rule**
-
-If you can describe the change as a command ("change the heading to…", "move this 16px right"), use canvas editing. If you need Claude to figure out what else changes in response, use an inline annotation. If the change touches interaction behavior, accessibility, or token alignment — Claude Code.
-
-**Where canvas editing falls down**
-
-Canvas editing moves pixels; it does not understand behavior. Repositioning a nav item relocates it in the artboard but does not rewire keyboard focus order or active-state logic — those live in code. Any edit that should change how a user interacts with a component needs to happen in Claude Code.
-
-A second limit: Claude Design imports your design system at the moment you run `/design-sync`. Canvas edits cannot make a component reflect tokens you committed after that snapshot. Re-run `/design-sync` to update the design tool, and let Claude Code verify the generated output actually resolves to those new tokens.
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design June 2026 overhaul tested — mejba.me](https://www.mejba.me/blog/claude-design-overhaul-june-2026-tested) · [Canvas editing: multi-tool workflow — n8nlab.io](https://n8nlab.io/news/claude-design-canvas-editing)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Appeals Court Upholds Pentagon's Anthropic Blacklist — The Autonomous-Weapons Line That Triggered It</title>
-      <link>https://www.washingtonpost.com/technology/2026/09/25/federal-appeals-court-rules-pentagon-can-blacklist-anthropic/</link>
-      <guid isPermaLink="false">2026-09-25-07-anthropic-pentagon-blacklist-ruling</guid>
-      <pubDate>Fri, 25 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Policy</category>
-      <description>A federal appeals court ruled 2-1 that the Pentagon can bar Anthropic from military contracts after Anthropic refused unrestricted deployment of Claude for autonomous weapons or mass surveillance.</description>
-      <content:encoded><![CDATA[**A federal appeals court upheld the DoD's March 2026 designation of Anthropic as a supply-chain risk, handing the Pentagon a 2-1 victory in a dispute Anthropic says has cost it billions in lost contracts.**
-
-The underlying conflict: the Defense Department demanded Anthropic make Claude available for any lawful military use, without restrictions. Anthropic refused unless it received written guarantees ruling out two specific deployments — fully autonomous weapons systems and domestic mass surveillance. The court found the Pentagon's supply-chain designation was reasonable given that refusal. Anthropic says it respectfully disagrees and is weighing a petition for full-court review.
-
-**Why it matters:** Direct API access is unaffected — this ruling covers DoD procurement contracts, not the public API. But if your product pipeline includes government or defense-adjacent clients, Claude is currently barred from US DoD systems and that status may persist through further appeals. Separately: Anthropic's principled limits on model deployment (no autonomous kill decisions, no mass surveillance) are now on the record in federal court — they are not marketing language. That is worth understanding when evaluating how Anthropic constrains its models for safety.
-
-**Sources:** [Washington Post](https://www.washingtonpost.com/technology/2026/09/25/federal-appeals-court-rules-pentagon-can-blacklist-anthropic/) · [Defense News](https://www.defensenews.com/news/pentagon-congress/2026/09/25/us-appeals-court-upholds-pentagons-blacklisting-of-anthropic/) · [QZ](https://qz.com/anthropic-pentagon-blacklist-appeals-court-092526)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
