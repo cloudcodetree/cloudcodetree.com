@@ -10,11 +10,87 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 13 Oct 2026 04:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 13 Oct 2026 12:05:00 +0000</lastBuildDate>
 
 
 
 
+
+    <item>
+      <title><![CDATA[Describe Layout to Claude Design, Describe Behavior to Claude Code — The Spec Split That Keeps the Handoff Clean]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-05-claude-design-visual-spec-behavioral-spec-handoff</link>
+      <guid isPermaLink="false">2026-10-13-05-claude-design-visual-spec-behavioral-spec-handoff</guid>
+      <pubDate>Tue, 13 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <description>Mixing visual and behavioral requirements in one prompt drops the behavior silently. Split into a layout spec for Claude Design and a behavior spec for Claude Code.</description>
+      <content:encoded><![CDATA[**Mixing visual and behavioral requirements in a single Claude Design prompt drops the behavior silently — the artboard generates static layout, not interaction logic. Split your spec before you prompt.**
+
+The typical failure: "a settings panel with real-time toggle that saves to the API on change" generates the visual panel accurately. The save-on-change requirement is silently discarded — Claude Design has nowhere to put it. Claude Code then inherits a component that looks right but must work around the visual structure to add the behavior you described.
+
+The fix is two documents, not one.
+
+**What Claude Design responds to**
+
+Visual and structural language: layout type (grid, flex), spacing values, typography scale, color tokens, component slots, and named aesthetic directions. Prompts that work:
+
+- "Two-column section: 200px fixed label column, right column with a toggle switch, 16px row gaps"
+- "Material-like density — small type, no wasted whitespace, controls flush to their labels"
+- "Stacks to single column below 480px; toggle stays right-aligned at all widths"
+
+It also responds to explicit breakpoint behavior and named components ("uses our existing Badge and Icon components"). What it cannot do: generate handlers, API calls, form validation, conditional state, transitions, or animation timing.
+
+**What goes to Claude Code**
+
+Everything that happens over time. Write a separate requirements doc using the class names or slot IDs Claude Design assigned:
+
+> The `toggle-row` component calls `PATCH /api/settings/:key` on change; on success it shows a 200ms green flash on the row's status indicator; on failure it reverts the toggle and sets `aria-invalid` on it.
+
+This spec references the component by name from the design output, so Claude Code knows exactly where to wire the behavior.
+
+**The verification step**
+
+After exporting the bundle, scan the output for hardcoded event listeners or conditional display logic. Delete anything you find — it represents the design tool attempting to satisfy a behavioral prompt it cannot fully execute, and it will conflict with Claude Code's implementation. Move those requirements explicitly into your Claude Code spec.
+
+**Limit**
+
+Splitting the spec takes 15–20 minutes upfront. It pays off on features with five or more components or multiple interaction states. For a two-component prototype you'll iterate and discard, a combined prompt is faster. The split matters at the start of implementation work, not during early exploration.
+
+**Sources:** [Get started with Claude Design — Anthropic Support](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Anthropic overhauled Claude Design — The New Stack](https://thenewstack.io/anthropic-claude-design-overhaul/) · [Claude Design Review — Builder.io](https://www.builder.io/blog/claude-design)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Browser Test Agent Can Now Profile Memory and Check PWA Behavior — Chrome DevTools MCP October Additions]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-13-04-chrome-devtools-mcp-heap-snapshot-pwa-test-agent</link>
+      <guid isPermaLink="false">2026-10-13-04-chrome-devtools-mcp-heap-snapshot-pwa-test-agent</guid>
+      <pubDate>Tue, 13 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>Chrome 153 adds heap-snapshot querying, PWA lifecycle tools, and a JS-eval kill switch to the DevTools MCP server. Wire them into your Claude Code test sessions.</description>
+      <content:encoded><![CDATA[**Chrome 153 adds heap-snapshot querying, PWA lifecycle automation, and a JS-eval kill switch to the DevTools MCP server — your Claude Code test sessions pick them up on a Chrome restart.**
+
+The Chrome DevTools MCP server — which lets Claude Code and other agents drive a browser session via the Model Context Protocol — gained three new tool clusters in the October 2026 Chrome release.
+
+**Heap snapshot querying.** The DevTools memory profiler tools are now exposed through the MCP interface. Use this in a test session to check for listener or closure leaks: ask Claude Code to count object allocations for a specific class before and after a component mount/unmount cycle. Previously this required custom Playwright `evaluate()` calls and a separate profiling harness.
+
+**PWA lifecycle automation.** New tools trigger the browser's install prompt, verify service worker registration, test offline fallback behavior, and confirm manifest parsing — the three steps that validate a PWA works as intended. These are the same operations you run manually in the browser's Application panel, now available to test agents without bespoke Playwright scripts.
+
+**`--no-javascript-evaluation` flag.** Pass this when starting the Chrome session to prevent the MCP server from executing JavaScript in the page context. Use it when the page enforces a strict `script-src` CSP, or when you want to guarantee the test agent only reads DOM state without running code in the page.
+
+**How to connect.** Launch Chrome 153+ with `--remote-debugging-port=9222` and add the DevTools MCP server to your session's `.mcp.json`. The new tools register automatically once Chrome is updated — no additional configuration changes needed.
+
+**Limit.** Chrome 153 is on the Canary/Dev channel in October 2026; stable channel release typically follows 6–8 weeks later. MCP tool schemas may change before stable rollout — pin the Chrome version in CI environments building on these APIs. Independent practitioner write-ups are limited since this just shipped.
+
+**Sources:** [New in Chrome DevTools October 2026 — Chrome Developers](https://developer.chrome.com/blog/new-in-devtools-october-2026)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Three Sketches Before One Commit: Use Claude Design to Explore Multiple UI Directions Before Your Claude Code Session Starts]]></title>
@@ -5728,186 +5804,9 @@ Launch timeline: end of 2026 or early 2027. Leadership candidates include former
 **Sources:** [The Street](https://www.thestreet.com/technology/google-openai-anthropic-launch-ai-safety-safa-regulatory-body), [GovInfoSecurity](https://www.govinfosecurity.com/google-openai-anthropic-plan-frontier-ai-standards-body-a-32926), [Plain English AI](https://plainenglish.io/artificial-intelligence/google-openai-and-anthropic-may-launch-a-frontier-ai-safety-standards-body-by-2027), [Winzheng (independence analysis)](https://www.winzheng.com/en/article/google-openai-anthropic-frontier-ai-standards-authority)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your LangChain Agent Can Call Any MCP Server's Tools in Four Lines — Migrate From langchain-mcp-adapters Before It Breaks</title>
-      <link>https://docs.langchain.com/oss/python/langchain/mcp</link>
-      <guid isPermaLink="false">2026-09-26-03-langchain-mcp-adapter-migrate</guid>
-      <pubDate>Sat, 26 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <description>langchain-mcp-adapters was retired Sep 11. The replacement is langchain[mcp]>=1.4.0 with MCPAdapter — four async lines wire any MCP server's tools into a LangChain agent. Limit: beta API.</description>
-      <content:encoded><![CDATA[**`langchain-mcp-adapters` was retired Sep 11; its replacement `langchain[mcp]` ships `MCPAdapter` in four async lines — infers transport, discovers tools, and passes them straight to `create_agent`.**
-
-The standalone `langchain-mcp-adapters` package has been retired. LangChain 1.4.0 (Sep 3) moved MCP support into core under `langchain.mcp`. If you're still importing from the old package, you'll get deprecation errors now and import failures after the Oct 15 yanking window.
-
-**Migration: two command changes**
-
-```bash
-# Remove the old package
-pip uninstall langchain-mcp-adapters
-
-# Install the built-in MCP extra
-pip install "langchain[mcp]>=1.4.0"
-```
-
-**Before (retired `MultiServerMCPClient`)**
-
-```python
-from langchain_mcp_adapters.client import MultiServerMCPClient
-
-async with MultiServerMCPClient({
-    "docs": {"url": "https://docs.example.com/mcp", "transport": "streamable_http"},
-}) as client:
-    tools = client.get_tools()
-    # ... pass tools to agent
-```
-
-**After (`MCPAdapter` — infers transport from target)**
-
-```python
-from langchain.mcp import MCPAdapter
-from langchain.agents import create_agent
-
-async with MCPAdapter("https://docs.example.com/mcp") as adapter:
-    tools = await adapter.list_tools()
-    agent = create_agent("claude-sonnet-5", tools)
-    result = await agent.ainvoke({"messages": [{"role": "user", "content": "..."}]})
-```
-
-`MCPAdapter` infers `streamable_http` from an `https://` URL. For a local stdio-based server pass the process command directly — `MCPAdapter(["python", "my_server.py"])`.
-
-**What's new in the built-in namespace**
-
-- **Elicitation via LangGraph interrupts.** When an MCP server calls `elicit()` mid-tool to ask the user a question, `MCPAdapter` surfaces it as a `NodeInterrupt`. Your LangGraph workflow catches it, collects the answer, and resumes — no special wiring required.
-- **Client-side tool discovery caching.** `list_tools()` result is cached for the lifetime of the context manager; repeated `ainvoke` calls don't round-trip the server.
-
-**What breaks**
-
-- Requires MCP SDK 2.x (`mcp>=2.0.0`, `fastmcp>=4.0.1`). Servers still on MCP 1.x won't be recognized — check your server's `mcp` dep before migrating.
-- The `langchain.mcp` namespace is in **beta**: `import langchain.mcp` raises `LangChainBetaWarning` once per process. The API shape may change before LangChain 2.0.
-- Multi-server scenarios that previously used `MultiServerMCPClient` with a dict of named servers now need one `MCPAdapter` per server or a wrapper loop — there is no direct multi-server constructor yet.
-
-**Sources:** [LangChain MCP docs](https://docs.langchain.com/oss/python/langchain/mcp) · [Migration guide from langchain-mcp-adapters](https://docs.langchain.com/oss/python/migrate/langchain-mcp-adapters) · [Third-party migration tracking issue — developmentseed/mcp-toolsets-runtime](https://github.com/developmentseed/mcp-toolsets-runtime/issues/163)
-]]></content:encoded>
-    </item>
-
     
-    <item>
-      <title>Claude Returns Multiple tool_use Blocks in One Turn — Run Them in Parallel and Reply in One Message</title>
-      <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use</link>
-      <guid isPermaLink="false">2026-09-26-02-claude-parallel-tool-calls</guid>
-      <pubDate>Sat, 26 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>When Claude's response contains multiple tool_use blocks, the calls are independent — run them with asyncio.gather or Promise.all and return all results in a single user message to unlock real parallelism.</description>
-      <content:encoded><![CDATA[**When Claude returns multiple `tool_use` blocks in one turn, those calls are independent. Run them in parallel with `asyncio.gather` (Python) or `Promise.all` (JS), and return every result in one `user` message. A serial loop leaves speed on the table and can break the protocol.**
-
-**What you'll be able to do after this:** Detect parallel tool calls in a Claude response, dispatch them concurrently, and return all results correctly — and know how to disable the behavior when sequential execution is required.
-
-**Three takeaways:**
-- Claude signals independent calls by including multiple `tool_use` content blocks in a single assistant message; you dispatch them all before the next model turn
-- You must return a `tool_result` for every `tool_use` block in the preceding assistant message — omitting one (even for a call you skipped) violates the protocol
-- Disable with `tool_choice={"type": "auto", "disable_parallel_tool_use": True}` when your tools have side effects that must execute in order
-
-**The default behavior**
-
-When Claude determines that several tool calls are independent — "look up the weather in Paris AND the exchange rate for EUR/USD" — it returns both as separate `tool_use` blocks in the same assistant message:
-
-```json
-{
-  "role": "assistant",
-  "content": [
-    {"type": "tool_use", "id": "tu_01", "name": "get_weather", "input": {"city": "Paris"}},
-    {"type": "tool_use", "id": "tu_02", "name": "get_rate", "input": {"pair": "EUR/USD"}}
-  ]
-}
-```
-
-A loop that processes these one at a time loses the parallelism entirely and blocks the slower call behind the faster one.
-
-**The parallel pattern**
-
-```python
-import asyncio
-
-async def call_tool(tool_use):
-    # dispatch to your actual tool implementation
-    name = tool_use.name
-    args = tool_use.input
-    try:
-        result = await your_tool_registry[name](**args)
-        return {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(result)}
-    except Exception as e:
-        return {"type": "tool_result", "tool_use_id": tool_use.id, "content": str(e), "is_error": True}
-
-# After receiving an assistant message with tool_use blocks:
-tool_uses = [block for block in response.content if block.type == "tool_use"]
-
-# Run all calls concurrently
-results = await asyncio.gather(*[call_tool(tu) for tu in tool_uses])
-
-# Return ALL results in ONE user message
-messages.append({
-    "role": "user",
-    "content": list(results)
-})
-```
-
-In JavaScript with the SDK:
-
-```typescript
-const toolUses = response.content.filter(b => b.type === "tool_use");
-const results = await Promise.all(toolUses.map(async (tu) => {
-  try {
-    const result = await toolRegistry[tu.name](tu.input);
-    return { type: "tool_result", tool_use_id: tu.id, content: String(result) };
-  } catch (e) {
-    return { type: "tool_result", tool_use_id: tu.id, content: String(e), is_error: true };
-  }
-}));
-messages.push({ role: "user", content: results });
-```
-
-**The protocol rule you cannot break**
-
-Every `tool_use` block in the preceding assistant message must have a matching `tool_result` in the next user message. If you skip a call — because you decided not to execute it, because it timed out, because it was for a tool you don't recognize — you still return a result block for it with `is_error: true` and an explanation:
-
-```python
-return {
-    "type": "tool_result",
-    "tool_use_id": tool_use.id,
-    "content": "Tool not executed: unsupported in this context",
-    "is_error": True
-}
-```
-
-Omitting a `tool_result` entirely causes the API to reject the next request with a validation error.
-
-**Disabling parallel calls**
-
-When your tools have ordering constraints — writing a record before reading it back, or making an API call that must complete before a dependent call — disable parallel tool use:
-
-```python
-response = client.messages.create(
-    model="claude-opus-5-5",
-    tools=[...],
-    tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-    messages=messages
-)
-```
-
-Claude will still call multiple tools across turns, but each assistant message will contain at most one `tool_use` block. This is the right default for tools with write side effects or strict ordering requirements.
-
-**Further reading:** [Anthropic parallel tool use docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) covers the full API; the [Tool Runner in the Claude Agent SDK](https://platform.claude.com/docs/en/claude-code/sdk) handles this automatically if you're using the managed agentic loop.
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
