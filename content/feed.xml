@@ -10,10 +10,111 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 13 Oct 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 14 Oct 2026 04:07:00 +0000</lastBuildDate>
 
+    <item>
+      <title><![CDATA[Your CI Pipeline Can Call Claude Code and Exit — `-p` Puts It in Non-Interactive Mode and a Script Gets a Response Without a TTY]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-14-02-claude-code-print-flag-noninteractive-ci-subprocess</link>
+      <guid isPermaLink="false">2026-10-14-02-claude-code-print-flag-noninteractive-ci-subprocess</guid>
+      <pubDate>Wed, 14 Oct 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Add -p (or --print) to any claude command and it reads the prompt, responds, and exits — no TTY, no REPL. Three output formats; json mode includes total_cost_usd for spend tracking.</description>
+      <content:encoded><![CDATA[**Add `-p` to any `claude` command and Claude Code reads the prompt, responds, and exits with code 0 — no TTY, no interactive REPL, no hanging CI job.**
 
+The default `claude` command opens the interactive session. That is the wrong mode for a shell script. The `-p` flag (alias `--print`) switches it:
 
+```bash
+# Summarize the last 10 commits
+git log --oneline -10 | claude -p "Summarize these commits in one sentence each"
+
+# Review a diff for obvious bugs (stdin cap: 10 MB)
+claude -p "Review this diff for obvious bugs" < changes.diff
+```
+
+**Output formats** — pass `--output-format` to control what comes back:
+
+| Format | What you get |
+|---|---|
+| `text` | Plain text (default) |
+| `json` | A JSON object with `result`, `cost_usd`, and per-model breakdown |
+| `stream-json` | Newline-delimited events — useful for streaming integrations |
+
+The `json` mode is worth adding to any CI step that runs Claude: `total_cost_usd` appears alongside the result so you can track spend per job without a separate billing query.
+
+**CI hardening checklist:**
+
+```bash
+# --bare skips local config; ANTHROPIC_API_KEY must be set in the environment
+claude --bare -p "Check CHANGELOG.md for breaking changes" < CHANGELOG.md
+
+# Cap iterations and spend in a single command
+claude --bare -p "Fix the type errors in this file" \
+  --allowedTools "Edit,Read,Bash(tsc:*)" \
+  --max-turns 5 \
+  --max-budget-usd 0.10 \
+  < broken.ts
+```
+
+**Two limits to know:**
+- Stdin is capped at 10 MB. For larger inputs, write to a temp file and pass the path in the prompt instead of piping.
+- `-p` bypasses the workspace trust dialog — only run it in directories your pipeline controls.
+
+**Sources:** [Headless mode — Claude Code Docs](https://code.claude.com/docs/en/headless) · [What is the --print flag in Claude Code — ClaudeLog](https://claudelog.com/faqs/what-is-print-flag-in-claude-code) · [CLI flags reference — mintlify.com/VineeTagarwaL-code](https://www.mintlify.com/VineeTagarwaL-code/claude-code/reference/commands/cli-flags)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your OpenAI Client Is Already a Fireworks AI Client — Set base_url to api.fireworks.ai and 100+ Open Models Are Two Lines Away]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-14-01-fireworks-ai-openai-compatible-hosted-inference</link>
+      <guid isPermaLink="false">2026-10-14-01-fireworks-ai-openai-compatible-hosted-inference</guid>
+      <pubDate>Wed, 14 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <description>Fireworks AI serves 100+ open models through an OpenAI-compatible endpoint. Set base_url and api_key, use the accounts/fireworks/models/ ID format, and know the silent context-truncation default.</description>
+      <content:encoded><![CDATA[**Your existing `openai` Python client calls Fireworks AI with two changes: set `base_url` to `https://api.fireworks.ai/inference/v1` and supply a Fireworks API key — no GPU required.**
+
+**What you'll be able to do after this:**
+- Call Llama 3.1, DeepSeek V3.1, Kimi K2, and Qwen3 through the same client you already use for OpenAI
+- Switch models by changing one string — useful for cost/quality comparisons in evals
+- Use Fireworks' embeddings and function-calling endpoints through the same interface
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.fireworks.ai/inference/v1",
+    api_key="fw-your-api-key",          # from fireworks.ai dashboard
+)
+
+response = client.chat.completions.create(
+    model="accounts/fireworks/models/llama-v3p1-70b-instruct",
+    messages=[{"role": "user", "content": "..."}]
+)
+print(response.choices[0].message.content)
+```
+
+The `accounts/fireworks/models/` prefix is the one unfamiliar piece. Every model ID takes that form — find the exact slug in the Fireworks [Model Library](https://fireworks.ai/models). Common picks: `deepseek-v3p1`, `kimi-k2-instruct`, `qwen3-235b-a22b`.
+
+**Three things that differ from OpenAI:**
+
+1. **Model ID prefix.** The `accounts/fireworks/models/` path is required on every call; the OpenAI SDK does not auto-complete or validate it.
+2. **Silent context truncation.** When a request exceeds the context limit, Fireworks truncates silently by default rather than returning an error. Add `extra_body={"context_length_exceeded_behavior": "error"}` to the call if you want an explicit failure.
+3. **Capability varies by model.** Chat completions, embeddings, and function calling all work, but not on every model — check the model card before assuming structured output or tool use is available.
+
+Fireworks also exposes a [Responses API with MCP support (beta)](https://fireworks.ai/blog/response-api), which layers tool invocation over the same endpoint — a forward pointer for agentic pipelines once it stabilises.
+
+The [Serverless Quickstart](https://docs.fireworks.ai/getting-started/quickstart) has runnable snippets for the Fireworks SDK, the OpenAI SDK, the Anthropic SDK, and curl.
+
+**Sources:** [Serverless Quickstart — Fireworks AI Docs](https://docs.fireworks.ai/getting-started/quickstart) · [OpenAI Compatibility — Fireworks AI Docs](https://docs.fireworks.ai/tools-sdks/openai-compatibility) · [Fireworks AI provider — Mastra AI](https://mastra.ai/models/v1/providers/fireworks-ai)]]></content:encoded>
+    </item>
 
 
     <item>
@@ -5738,98 +5839,8 @@ This is the second training pause in three months — the first came in July fol
 **Sources:** [OpenAI Pauses Training After Agents Probed US Government Sites — Bangor Daily News](https://www.bangordailynews.com/2026/09/26/nation/openai-pauses-training-of-latest-models-after-agents-probed-us-government-sites-in-unexpected-ways/) · [CBC News](https://www.cbc.ca/news/business/openai-pause-training-after-probes-9.7360166) · [US News & World Report](https://www.usnews.com/news/business/articles/2026-09-26/openai-pauses-training-of-latest-models-after-agents-probed-us-government-sites-in-unexpected-ways)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Design Generates the Success State — Ask for the State Map Before You Export or Claude Code Has to Guess</title>
-      <link>https://claudedesign.substack.com/p/the-claude-design-mistake-you-dont</link>
-      <guid isPermaLink="false">2026-09-27-03-claude-design-state-map-component-states</guid>
-      <pubDate>Sun, 27 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Extend your Claude Design prompt with a state map request and the export includes hover, loading, error, empty, and disabled variants — not just the happy path Claude Code has to guess from.</description>
-      <content:encoded><![CDATA[**Add one sentence to your Claude Design prompt requesting a state map panel — hover, loading, error, empty, disabled — and the export includes all states Claude Code needs to implement the component correctly.**
-
-Claude Design reliably generates the primary state: data present, action available, nothing wrong. It doesn't generate the other five unless you ask. When you hand off without a state map, Claude Code reads the export, implements the happy path, and guesses the rest — or leaves the empty state as a blank white box.
-
-**The prompt extension**
-
-Append this to any component prompt:
-
-> After the primary design, add a labeled state map panel showing: hover/focus, loading (skeleton or spinner), error (message and icon), empty (zero-data variant), and disabled. Use annotation labels on each variant.
-
-That's all. Claude Design adds a separate panel with labeled artboards for each state.
-
-**Reviewing the map before export**
-
-Before exporting, check two things in the canvas:
-
-1. The loading state is a real skeleton layout — not the primary state with reduced opacity.
-2. The error state's contrast ratio is above 4.5:1, especially for red-on-dark combinations.
-
-**Passing the spec to Claude Code**
-
-Include the state annotations in your handoff prompt:
-
-> Implement all states per the attached spec: loading → `<Skeleton>` from our design system; error → `<ErrorMessage text="…">`; empty → `<EmptyState>`; disabled → opacity 0.38, `pointer-events: none`.
-
-Claude Code then implements all states in the first pass rather than requiring a second "add the hover styles" round.
-
-**Limits:** the state map shows what each state looks like, not when to trigger it — you still need to specify the state logic (when is `loading` true, what constitutes an error condition). Generated disabled styles often fail interactive tests; verify with keyboard navigation and check that `pointer-events: none` is actually applied, not just opacity.
-
-**Sources:** [Claude Design doesn't fail in the canvas — Claude Design Substack](https://claudedesign.substack.com/p/the-claude-design-mistake-you-dont) · [How to Use Claude Design: 25+ Working Prompts — PromptsRush](https://promptsrush.com/blog/how-to-use-claude-design-prompts) · [Stop Designing, Start Engineering — Medium/Bootcamp](https://medium.com/design-bootcamp/stop-designing-start-engineering-how-to-integrate-claude-code-into-your-ui-workflow-16144ec3f3b2)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Safari 27 Ships a Native MCP Server — `safaridriver --mcp` Gives Claude Code DOM Inspection, Screenshots, and Live JavaScript</title>
-      <link>https://www.ithinkdiff.com/safari-27-adds-an-mcp-server-for-ai-coding-agents-like-claude-code/</link>
-      <guid isPermaLink="false">2026-09-27-02-safari-27-mcp-server-claude-code-browser</guid>
-      <pubDate>Sun, 27 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <description>Safari 27 includes a local MCP server with browser automation tools — enable it in Developer settings, add safaridriver --mcp to your MCP config, and Claude Code gets DOM inspection and screenshots.</description>
-      <content:encoded><![CDATA[**Safari 27 (macOS, September 2026) includes a local MCP server — add `safaridriver --mcp` to your MCP config and Claude Code gets DOM inspection, screenshots, console output, and live JavaScript evaluation in a real browser with no Playwright setup.**
-
-Safari 27 is the first major browser to ship a native MCP server. It's off by default. Enable it in two steps: Safari → Settings → Advanced → "Show features for web developers", then Safari → Settings → Developer → "Allow remote automation and external agents."
-
-**Adding to Claude Code**
-
-In your project or user `settings.json` under `mcpServers`:
-
-```json
-{
-  "mcpServers": {
-    "safari": {
-      "command": "safaridriver",
-      "args": ["--mcp"]
-    }
-  }
-}
-```
-
-Restart Claude Code. Safari prompts for automation permissions on first connect — approve once.
-
-**What you can do from Claude Code**
-
-- Screenshot the current page and ask Claude Code to compare it to a design spec
-- Inspect a specific DOM node's computed styles or ARIA attributes
-- Run JavaScript in the page context: `document.querySelector('.card').getBoundingClientRect()` to verify a measured layout
-- Read the console for errors after a code change
-- Check accessibility issues: missing labels, low-contrast text, incorrect roles — the tools expose computed styles
-
-This fits a tight dev loop: make a change, ask Claude Code to screenshot and flag issues, iterate — without leaving the terminal.
-
-**Security model:** runs entirely locally, uses an isolated automation window with no access to your cookies, passwords, browsing history, or AutoFill, and is off by default. Apple reports no data flows back to Apple.
-
-**Where it breaks:** macOS and Safari only — Chromium and Firefox have no equivalent yet. The isolated window means authenticated pages (anything requiring your login session) need a separate approach — inject test credentials or use a public-facing endpoint. Two-step manual opt-in means CI pipelines are out.
-
-**Sources:** [Safari 27 Adds an MCP Server for AI Coding Agents — iThinkDiff](https://www.ithinkdiff.com/safari-27-adds-an-mcp-server-for-ai-coding-agents-like-claude-code/) · [Safari 27 MCP: Give Your AI Agent a Live Browser — byteiota](https://byteiota.com/safari-27-mcp-server-give-your-ai-agent-a-live-browser/) · [What's New With Safari 27 for Developers — 9to5Mac](https://9to5mac.com/2026/09/17/webkit-blog-breaks-down-whats-new-with-safari-27-for-developers-including-mcp-support/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
