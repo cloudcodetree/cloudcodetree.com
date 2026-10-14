@@ -10,7 +10,89 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 14 Oct 2026 12:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 14 Oct 2026 20:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Workflow Script's `agent()` Calls Inherit the Wrong Model Default — `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` Targets the Workflow Layer Independently]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-14-06-claude-code-workflow-subagent-model-env-var</link>
+      <guid isPermaLink="false">2026-10-14-06-claude-code-workflow-subagent-model-env-var</guid>
+      <pubDate>Wed, 14 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description>Set CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=haiku in your settings env block to route every agent() Workflow script call to a cheaper model without touching your teammates or ad-hoc subagents.</description>
+      <content:encoded><![CDATA[**Set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=<model>` in your settings env block to route every `agent()` call in a Workflow script to a specific model — ad-hoc subagents and teammates are unaffected.**
+
+Claude Code v2.1.296 (October 9, 2026) added this variable to give Workflow script agents their own model tier, separate from `CLAUDE_CODE_SUBAGENT_MODEL` which applies to all subagents.
+
+**The three-variable model hierarchy:**
+
+| Variable | Scope |
+|---|---|
+| `CLAUDE_CODE_SUBAGENT_MODEL` | Fallback for all subagents, teammates, and workflow agents with no explicit model set |
+| `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` | Overrides the above, but only for `agent()` calls made by the Workflow tool |
+| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` | Forces `CLAUDE_CODE_SUBAGENT_MODEL` to override every subagent's frontmatter |
+
+**When this matters:** if your Workflow scripts run batch tasks — parallel audits, search sweeps, test scaffolding — that don't need the main model's reasoning depth, pin them to `haiku` without affecting your interactive teammates:
+
+```json
+// ~/.claude/settings.json
+{
+  "env": {
+    "CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL": "haiku"
+  }
+}
+```
+
+Or export before a session:
+
+```bash
+export CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=haiku
+claude  # teammates and ad-hoc subagents: unaffected
+        # Workflow script agent() calls: use haiku
+```
+
+**Precedence:** a per-`agent()` `model:` parameter or the called subagent's frontmatter model field overrides this variable. It's a fallback for workflow agents with nothing more specific set — which covers most real-world usage.
+
+**Also in v2.1.296:** `autoCompactWindow` was added to subagent frontmatter so individual subagents can compact earlier than the main session's context window. The field is confirmed in the changelog but its exact value syntax is not yet fully documented in the official sub-agents reference — check [`code.claude.com/docs/en/sub-agents`](https://code.claude.com/docs/en/sub-agents) before deploying it; a misspelled frontmatter field fails silently without a warning.
+
+**Limits:** `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` only targets agents launched by the Workflow tool. Teammates and ad-hoc subagents created outside a workflow script still follow `CLAUDE_CODE_SUBAGENT_MODEL` or their own frontmatter. Setting both variables lets you differentiate three tiers: the Workflow layer, the general subagent default, and per-definition overrides.
+
+**Sources:** [Claude Code changelog v2.1.296 — code.claude.com](https://code.claude.com/docs/en/changelog), [Model configuration — Claude Code Docs](https://code.claude.com/docs/en/model-config), [v2.1.296 write-up — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261010-cc-updates-v2-1-296/)
+]]></content:encoded>
+      <media:content url="https://i.ytimg.com/vi/Us8VY8c7ZvI/hqdefault.jpg" medium="image" />
+      <media:thumbnail url="https://i.ytimg.com/vi/Us8VY8c7ZvI/hqdefault.jpg" />
+    </item>
+
+    <item>
+      <title><![CDATA[The Standalone Claude Design Site (claude.ai/design) Closes December 14 — Migrate Your Design Systems via the Artifacts Page Before Then]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-14-05-claude-design-standalone-closing-dec-14</link>
+      <guid isPermaLink="false">2026-10-14-05-claude-design-standalone-closing-dec-14</guid>
+      <pubDate>Wed, 14 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <description>claude.ai/design shuts down December 14, 2026. Migrate your design systems to artifacts via the Artifacts page in Claude before the deadline. Non-private systems become org-visible on Team/Enterprise plans after migration.</description>
+      <content:encoded><![CDATA[**Anthropic's standalone Claude Design site (claude.ai/design) closes December 14, 2026 — migrate your design systems to artifacts before then.**
+
+New designs created in Claude already live as artifacts. The migration path brings existing standalone design systems into that same store.
+
+**To migrate:** open Claude at claude.ai, go to the Artifacts page, and look for the migration banner or the Claude Design menu. Your originals stay accessible in the standalone site until closure, so you can verify the result before the deadline.
+
+**Gotcha on Team and Enterprise plans:** migrated design systems that aren't marked private become visible to every member of your organization. Check the sharing setting before migrating anything that was implicitly private. On Free, Pro, and Max plans nothing is shared automatically.
+
+**If your Claude Code workflow uses `/design-sync` or a committed `designtoken.md`**, the design tokens themselves live in your repo and aren't affected — but any automation step that re-exports from claude.ai/design by URL will need updating after December 14.
+
+**Why it matters:** two months sounds comfortable, but a large shared design system can take hours to verify post-migration, and the Team/Enterprise sharing change is worth catching before the deadline rather than after.
+
+**Sources:** [Migrate from standalone Claude Design to Claude — support.claude.com](https://support.claude.com/en/articles/17440474)
+]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Background Claude Code Sessions Keep Running After You Close the Terminal — `claude agents` Lists Every Session’s State Across All Your Projects]]></title>
@@ -5779,146 +5861,8 @@ All five are accessible via Alibaba Cloud Model Studio with an OpenAI-compatible
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Agent Can Now See a Screen, Click Buttons, and Type — The Computer Use Toolset Gives Claude 17 Actions and You Build the Loop That Executes Them</title>
-      <link>https://docs.anthropic.com/en/docs/agents-and-tools/computer-use</link>
-      <guid isPermaLink="false">2026-09-28-03-claude-computer-use-toolset-agent-loop</guid>
-      <pubDate>Mon, 28 Sep 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>Add {"type": "computer_toolset_20260801"} to give Claude screenshot, click, type, scroll, and zoom. You handle every action execution in your own container; Claude decides what to do next.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** build an agent that interacts with any desktop UI — a browser, a native app, a terminal — by running Claude's action requests in a container you control.
-
-**Three things to know before you start:**
-- Claude requests an action (screenshot, click, type, scroll, zoom) — you execute it in your environment. Nothing runs server-side.
-- All screenshots and input events stay in your container. Anthropic receives only the API payload.
-- The toolset adds approximately 4,500 input tokens to every request. Budget accordingly.
-
-**Adding the toolset**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-response = client.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=4096,
-    tools=[{"type": "computer_toolset_20260801"}],
-    messages=[{
-        "role": "user",
-        "content": "Open Firefox, go to example.com, and take a screenshot of the homepage."
-    }]
-)
-```
-
-No beta header required. The toolset gives Claude 17 member tools: `screenshot`, `left_click`, `right_click`, `double_click`, `type`, `key`, `mouse_move`, `scroll`, `drag`, `zoom`, and more.
-
-**The agent loop**
-
-Claude returns a `tool_use` block with the requested action. Your loop executes it, takes a new screenshot, and feeds it back as the next `user` turn:
-
-```python
-import base64
-from playwright.sync_api import sync_playwright
-
-def run_computer_use_loop(task: str):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page(viewport={"width": 1280, "height": 800})
-        messages = [{"role": "user", "content": task}]
-
-        while True:
-            response = client.messages.create(
-                model="claude-opus-5-5",
-                max_tokens=4096,
-                tools=[{"type": "computer_toolset_20260801"}],
-                messages=messages
-            )
-
-            tool_results = []
-            for block in response.content:
-                if block.type == "tool_use":
-                    action = block.input.get("action")
-                    if action == "screenshot":
-                        img_bytes = page.screenshot()
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": block.id,
-                            "content": [{"type": "image", "source": {
-                                "type": "base64", "media_type": "image/png",
-                                "data": base64.b64encode(img_bytes).decode()
-                            }}]
-                        })
-                    elif action == "left_click":
-                        coord = block.input["coordinate"]
-                        page.mouse.click(coord[0], coord[1])
-                        tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": "clicked"})
-                    elif action == "type":
-                        page.keyboard.type(block.input["text"])
-                        tool_results.append({"type": "tool_result", "tool_use_id": block.id, "content": "typed"})
-
-            if response.stop_reason == "end_turn":
-                break
-
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({"role": "user", "content": tool_results})
-```
-
-The official [anthropic-quickstarts/computer-use-demo](https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo) is a containerized reference with a Linux desktop, VNC, and both Playwright (browser) and pynput (desktop) execution paths — run it in Docker to see the full loop before building your own.
-
-**Limits to know**
-
-- **Security:** Computer use must run in a sandbox with minimal privileges. Claude is susceptible to prompt injection from on-screen content — a malicious page can attempt to redirect agent actions. Never give the container credentials or access to production systems.
-- **Cost:** The 4,500 token overhead compounds. A 20-action task adds ~90,000 tokens to your input bill before page content.
-- **No streaming:** `tool_use` blocks don't stream. The loop pauses at every action for the API round-trip.
-- **Context fills fast:** Repeated base64 screenshots are large. Prune images from the message history after the action completes to keep context under control.
-
-**Sources:** [Computer use tool — Claude Platform Docs](https://docs.anthropic.com/en/docs/agents-and-tools/computer-use) · [claude-quickstarts/computer-use-demo — GitHub](https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo) · [Run Anthropic Computer Use locally — Cloudvyn Blog](https://www.cloudvyn.com/blog/anthropic-computer-use-locally-guide-2026)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Generated UI Consistently Gets These Four Responsive Things Wrong — Fix Them Before You Hand the Component to Claude Code</title>
-      <link>https://claude.com/blog/build-responsive-web-layouts</link>
-      <guid isPermaLink="false">2026-09-27-06-claude-design-responsive-four-failures-playwright</guid>
-      <pubDate>Sun, 27 Sep 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design defaults to desktop-first CSS with four viewport failure modes. Catch all of them with a Playwright sweep before the Claude Code handoff — fixing in the design tool is faster than fixing by hand in the editor.</description>
-      <content:encoded><![CDATA[**Claude Design defaults to desktop-first CSS with four viewport failure modes. Catch all of them with a Playwright sweep before the Claude Code handoff — fixing in the design tool is faster than fixing after Claude Code has iterated.**
-
-**What you'll notice on a first mobile screenshot**
-
-Generated desktop layouts break at narrow viewports in four predictable ways:
-
-1. **Desktop-first media queries** — `max-width` everywhere. Works until you add components; each new one needs another override because nothing starts small.
-
-2. **`text-align: justify` on body copy** — looks typographically tight at 1280px, reads like a layout bug at 375px where the word gaps go wide.
-
-3. **Touch targets under 44px** — buttons that look fine as desktop UI don't register as reliable taps. WCAG 2.5.5 minimum is 44×44px.
-
-4. **No `font-size: 16px` on `<input>` elements** — iOS Safari zooms the page automatically on focus for anything smaller. Generated forms often inherit a smaller base and trigger this on every form interaction.
-
-**How to catch all four before the handoff**
-
-Ask Claude Code to write a Playwright viewport sweep before you start iterating on the component:
-
-> Write a Playwright test that opens this component at iPhone SE (375×667), iPad (768×1024), and desktop (1280×800). For each viewport: screenshot, check that all interactive elements are at least 44×44px, flag `text-align: justify` on body elements, and check that `<input>` elements have `font-size` ≥ 16px.
-
-Run the sweep against the Claude Design export. Failures at 375px are faster to re-prompt in Claude Design than to fix by hand — the design source is still open and the spec hasn't drifted yet. Once Claude Code has iterated on the component, regenerating from the design tool is expensive.
-
-**What the sweep won't catch:** gesture interactions (swipe, pinch-zoom), OS-level font scaling on Android, and overflow-x from nested flex containers — those still need real-device testing before a production release.
-
-**Sources:** [Build responsive web layouts — Anthropic](https://claude.com/blog/build-responsive-web-layouts) · [Claude Code reduce motion & mobile CSS via CLAUDE.md — web-developpeur.com](https://www.web-developpeur.com/en/blog/claude-md-mobile-css-redesign) · [Claude Design for Mobile App Teams — Appthetics](https://www.appthetics.com/blog/claude-design-mobile-app-workflow)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
