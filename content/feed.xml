@@ -10,7 +10,87 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 15 Oct 2026 12:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 15 Oct 2026 20:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Regenerate in Claude Design or Edit in the Editor — Here Is the Decision Rule]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-15-08-claude-design-regenerate-vs-edit-decision-rule</link>
+      <guid isPermaLink="false">2026-10-15-08-claude-design-regenerate-vs-edit-decision-rule</guid>
+      <pubDate>Thu, 15 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <description>Regenerate when the change is structural or the component isn't in your codebase yet. Edit in the editor when it's already imported, your design system tokens are wired, and the change is a value, not a direction.</description>
+      <content:encoded><![CDATA[**Regenerate when the change is structural or the component isn't in your codebase yet. Edit in the editor when it's already imported, your design system tokens are wired, and the change is a value, not a direction.**
+
+After Claude Design hands off a component to Claude Code, you'll hit the same question on every iteration: go back to the canvas, or just fix it in the file? The wrong choice either costs you a regeneration that ignores everything Claude Code has done since import, or a local edit that starts diverging from the intended design without a clear boundary.
+
+**Regenerate in Claude Design when:**
+
+- The layout or interaction model is wrong — "the button placement is off" is a prompt; "change the button color to `#3b82f6`" is a line of code
+- The component isn't imported yet — the only canonical version is on the canvas, and you haven't committed to a direction
+- You need to compare two or three directions before picking one; the canvas generates variants; your editor doesn't
+- You're changing multiple canvas elements at once — regenerating updates the artboard atomically; patching three files by hand re-introduces drift
+
+**Edit in the editor when:**
+
+- The component is in your repo, Claude Code knows your design system tokens (via `designtoken.md` or `/design-sync`), and the change is one or two values — a spacing constant, a border radius, a color token swap
+- Regenerating would produce output that doesn't know your local overrides: production theme variables, your component library's prop API, custom breakpoints baked into your CSS
+- You're fixing a behavior bug, not a visual decision — Claude Design produces structure and appearance; logic and accessibility fixes belong in the editor where Claude Code can run and verify them
+
+**The boundary that keeps the two from fighting:**
+
+Use Claude Design for pre-commit direction and structure; use the editor for post-import values and behavior. A round trip back to the canvas is right for "I want a different layout." It is not a good loop for "fix the focus ring" on a component that's been in the repo for two days — the canvas has no visibility into what Claude Code changed after import, and each regeneration ignores that accumulated drift.
+
+**Limits:** Canvas edits in Claude Design (spacing sliders, inline tweaks, drag handles) look cheap but still route through the model and consume credits. For a single spacing change on a shipped component, editing the CSS token directly is faster and free. Also: the decision rule assumes you ran `/design-sync` or committed a `designtoken.md` — without that, Claude Code has no vocabulary for your tokens and regeneration and editing both produce generic output.
+
+**Sources:** [Claude Design handoff — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design June 2026 overhaul tested — mejba.me](https://www.mejba.me/claude-design-overhaul-june-2026-tested)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Long Session Goes Cold While You Take a Break — Idle Compaction in Claude Code Collapses It Before the Cache Expires]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-15-07-idle-compaction-disable-file-mentions-oct14</link>
+      <guid isPermaLink="false">2026-10-15-07-idle-compaction-disable-file-mentions-oct14</guid>
+      <pubDate>Thu, 15 Oct 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>Claude Code now compacts your terminal session during idle time before your prompt cache expires, so returning from a break doesn't trigger a full re-encode. Also Oct 14: CLAUDE_CODE_DISABLE_FILE_MENTIONS for path-only @ mentions.</description>
+      <content:encoded><![CDATA[**Claude Code now compacts your terminal session automatically during idle time, before your prompt cache expires — so returning from a break doesn't trigger a full re-encode of a long conversation.**
+
+If you've worked a multi-hour session and stepped away for ten minutes, you've probably paid the cold-cache penalty on return: Claude re-encodes the full conversation history because the prompt cache expired while you were away. On a session that's grown to hundreds of thousands of tokens, that's a noticeable cost hit and a round-trip delay before your first response.
+
+**Idle compaction (Claude Code, October 14, 2026)** solves this automatically ([changelog](https://code.claude.com/docs/en/changelog)): when Claude Code detects you've been idle long enough for the cache to be at risk of expiring, it proactively compacts the conversation before you return. You come back to a compact, cache-warm session rather than a cold one.
+
+**What compaction preserves and what it loses:**
+- Keeps: decisions made, files modified, current task state, in-progress context
+- Loses: exact intermediate reasoning steps and detailed history of completed sub-tasks
+
+If you need the full history to debug a past decision, compact manually with `/compact` before stepping away so the summary is intentional. `/resume` lets you pick an earlier snapshot if you need to rewind.
+
+**Limit:** the idle timer threshold is not user-configurable yet. If you want compaction to happen at a specific moment — before a long build, at a deliberate checkpoint — `/compact` on demand is still the right tool. Idle compaction is the safety net, not the replacement.
+
+**Also October 14: `CLAUDE_CODE_DISABLE_FILE_MENTIONS`**
+
+Set this environment variable to `"1"` when your workflow uses @ file mentions in tool calls and you want Claude to receive the *path* rather than have the full file content injected inline. Useful in hooks or automation scripts where the downstream tool does its own file read and content injection would double the token spend:
+
+```json
+"env": {
+  "CLAUDE_CODE_DISABLE_FILE_MENTIONS": "1"
+}
+```
+
+When set, @ mentions pass the file path to Claude's file tools rather than inlining content — Claude can still read the file, it just doesn't get it automatically dumped into context.
+
+**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [How Claude Code manages long sessions — medium.com](https://medium.com/@pbellapu09/how-claude-code-manages-infinite-sessions-without-blowing-the-context-window-8bccb35387fe) · [Context buffer management — claudefa.st](https://claudefa.st/blog/guide/mechanics/context-buffer-management)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Claude Design Component Shows One State — Add 'Show All Four States' to Get Hover, Focus, Active, and Disabled Before You Export]]></title>
@@ -5778,80 +5858,8 @@ Claude reads the artboard state from Claude Design and builds against your actua
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Claude Design Starts From Its Own Visual Language — Run `/design-sync` Once Before Prompting So It Uses Yours</title>
-      <link>https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design</link>
-      <guid isPermaLink="false">2026-09-28-09-design-system-seed-claude-design-sync-tokens</guid>
-      <pubDate>Mon, 28 Sep 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Claude Design defaults to its own tokens and components. Run /design-sync once against your component library repo to seed a project that starts from your design system instead.</description>
-      <content:encoded><![CDATA[**Open Claude Design without setup and you get competent output in Claude's own aesthetic — not your tokens, not your components, not your naming conventions. A one-time import fixes that.**
-
-Open Claude Design without setup and prompt a dashboard. You'll get a competent result in Claude's own visual language: its spacing scale, its color defaults, its interpretation of what a card looks like. None of that is your `Button primary`, your `--color-brand-600`, or your component naming conventions. Your design system is sitting in the repo; the tool just doesn't know about it yet.
-
-The fix is a one-time import before your first real prompt.
-
-**Option A: `/design-sync` (for code-first systems)**
-
-Run from your *component library repo* — not your app repo, but the package that ships the components:
-
-```bash
-/design-sync
-```
-
-Claude Code reads your token files and React components, creates a new Claude Design project, and uploads the system. On a large library this takes time (potentially hours — Claude warns you upfront and asks you to confirm the credit cost). Once done, every new design in that project starts from your `Button`, your `Card`, your spacing scale — not Claude's defaults.
-
-Two things to know: only you can launch it (the skill is not model-invocable, so Claude can't start it on its own). And start in the *design system package repo*, not the consuming application.
-
-**Option B: DESIGN.md upload (lighter, for design-file-first systems)**
-
-Generate a DESIGN.md capturing your token values, component names, and naming conventions. At `claude.ai/design/#org`, create a new design system and upload the file under "Add assets". Faster and cheaper than a full sync, but shallower: Claude Design can follow your token names and values without having the actual component geometry.
-
-**What changes after either:**
-
-Generated screens reference your named tokens (`--color-primary`, `spacing-4`) instead of hardcoded values, use your component names instead of generic ones, and require fewer correction passes when landing in your repo. A `Card` generated after setup looks like *your* Card, not Claude's interpretation of one.
-
-**The real limit:**
-
-Neither option auto-updates. When your design system gets a new token or component, you re-run `/design-sync` or regenerate the DESIGN.md. The June 2026 update tracks per-component diffs rather than regenerating the whole canvas, so a refresh is cheaper than a first import — but it's still a manual step. Treat it like a snapshot you refresh at the start of each design sprint, not a live connection.
-
-**Sources:** [Set up your design system in Claude Design — support.claude.com](https://support.claude.com/en/articles/14604397-set-up-your-design-system-in-claude-design) · [/design-sync in Claude Code — wmedia.es](https://wmedia.es/en/tips/claude-code-design-sync-your-components) · [Design Systems in 2026: Turn Your System into a Claude Skill — Design Systems Collective](https://www.designsystemscollective.com/design-systems-in-2026-turn-your-system-into-a-claude-skill-3dd4d8bf5feb)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Sonnet 5.5 Ships Today as `claude-sonnet-5-5` — Same Price as Sonnet 5, 70.6% Terminal-Bench vs 10.3%, ~1/3 Fewer Tool Calls</title>
-      <link>https://www.anthropic.com/claude-sonnet-5-5</link>
-      <guid isPermaLink="false">2026-09-28-08-claude-sonnet-5-5-launch-agentic-coding</guid>
-      <pubDate>Mon, 28 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Sonnet 5.5 ships today as claude-sonnet-5-5 at the same $2/$10 pricing as Sonnet 5, 30%+ faster, 70.6% Terminal-Bench vs Sonnet 5's 10.3%, and ~1/3 fewer tool calls per agentic coding job.</description>
-      <content:encoded><![CDATA[**Claude Sonnet 5.5 launches today at `claude-sonnet-5-5` — same token price as Sonnet 5, 30%+ faster, and the biggest agentic coding benchmark jump in the 5.x line so far.**
-
-Anthropic's Sonnet 5.5 is available now on the API, Bedrock, Google Cloud, and Azure. Token pricing stays at $2/$10 per million input/output, with cache reads at $0.20/MTok — same as Sonnet 5. No rate increase; faster and more capable for the same spend.
-
-**For agentic workflows the numbers are notable.** Anthropic's Terminal-Bench 4.0 shows 70.6% for Sonnet 5.5 versus Sonnet 5's 10.3% — per Anthropic's testing, that's the biggest jump in agentic coding capability in this model family. Lovable's co-founder and CTO reports that Sonnet 5.5 needed about one-third fewer tool calls and roughly half as many shell executions to complete coding jobs. Anthropic's own 30% per-task cost figure combines the speed increase with fewer required turns. These are Anthropic's numbers; independent benchmarks are not yet published.
-
-GitHub Copilot switched to Sonnet 5.5 today. Anthropic lists it as suited for agentic coding, multi-file refactors, long-document analysis, vision, and computer use.
-
-**Migration note:** If you're using forced tool use (`tool_choice: {"type": "tool", "name": "…"}`), the [migration guide](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) says to switch to `auto` or `auto` with strict tools — the model performs better without hard-forced single-tool calls.
-
-**Limits:** Sonnet 5.5 ships with frontier-style cyber classifiers that block reasoning-extraction prompts. If your prompts probe internal reasoning or expect full transparency on model steps, those will need rework. Independent benchmark results are pending — the per-task efficiency claims are Anthropic's own figures from their testing.
-
-**Why it matters:** If you're running Sonnet 5 for agentic tasks — in Claude Code or directly via API — switching to `claude-sonnet-5-5` is the same token cost with meaningfully fewer turns per job on Anthropic's benchmarks.
-
-**Sources:** [Introducing Claude Sonnet 5.5 — Anthropic](https://www.anthropic.com/claude-sonnet-5-5) · [30%+ faster, 30% less per task — SiliconAngle](https://siliconangle.com/2026/09/28/anthropic-debuts-claude-sonnet-5-5-running-30-faster-than-the-previous-generation-ai-model/) · [1/3 fewer tool calls — VentureBeat](https://venturebeat.com/technology/anthropic-launches-claude-sonnet-5-5-with-30-cost-reduction-per-task-due-to-faster-speeds-and-fewer-tool-calls) · [Sonnet 5.5 in GitHub Copilot](https://github.blog/changelog/2026-09-28-claude-sonnet-5-5-in-github-copilot/) · [Migration guide — Claude Platform](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
