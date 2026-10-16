@@ -10,7 +10,85 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 16 Oct 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 16 Oct 2026 20:02:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Vector Store Doesn't Know What "Recent" Means — LangChain SelfQueryRetriever Parses Metadata Conditions From Natural Language Before the Embedding Search Runs]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-08-self-query-retriever-langchain-llm-metadata-filter</link>
+      <guid isPermaLink="false">2026-10-16-08-self-query-retriever-langchain-llm-metadata-filter</guid>
+      <pubDate>Fri, 16 Oct 2026 20:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[SelfQueryRetriever wraps any vector store and uses an LLM to pull structured metadata filters from natural language queries. Declare your filterable fields, install lark, and date ranges and category conditions become first-class retrieval parameters.]]></description>
+      <content:encoded><![CDATA[**Your vector store treats every query as semantics — SelfQueryRetriever inserts an LLM parsing step that extracts metadata conditions from natural language and applies them as native store filters before the embedding comparison runs.**
+
+When a user asks "find internal docs about authentication from 2026," a standard retriever embeds the full string and returns the top-k semantically similar chunks — ignoring "internal" and "2026" entirely, because those are metadata conditions the embedding has no way to express. [LangChain's `SelfQueryRetriever`](https://python.langchain.com/docs/integrations/retrievers/self_query/qdrant_self_query) closes this gap: an LLM reads the question, extracts structured filter conditions, and passes them to the vector store's native filter mechanism before the ANN search runs.
+
+**What you'll be able to do after this:** route date ranges, category labels, access tiers, or any indexed payload field from natural language into the retrieval step without writing filter syntax by hand.
+
+## Setup (Qdrant + LangChain)
+
+```bash
+pip install langchain langchain-qdrant lark
+```
+
+```python
+from langchain_qdrant import QdrantVectorStore
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain_core.structured_query import AttributeInfo
+from langchain_anthropic import ChatAnthropic
+
+metadata_field_info = [
+    AttributeInfo(
+        name="source",
+        description="Document type: 'api-guide', 'changelog', or 'how-to'",
+        type="string",
+    ),
+    AttributeInfo(
+        name="year",
+        description="Publication year as an integer",
+        type="integer",
+    ),
+    AttributeInfo(
+        name="tier",
+        description="Access tier — 'public' or 'internal'",
+        type="string",
+    ),
+]
+
+llm = ChatAnthropic(model="claude-haiku-5-5")   # cheap model; extraction only
+retriever = SelfQueryRetriever.from_llm(
+    llm=llm,
+    vectorstore=qdrant_store,
+    document_contents="Technical documentation chunks",
+    metadata_field_info=metadata_field_info,
+    verbose=True,       # logs the generated filter during dev
+    enable_limit=True,  # lets the LLM also set top-k from the query
+)
+
+docs = retriever.invoke("internal API guides from 2026")
+# LLM generates: Filter(must=[FieldCondition(tier='internal'),
+#                               FieldCondition(year>=2026)])
+# Qdrant applies this before the ANN scan — no pre-filter chunks reach scoring
+```
+
+## How the extraction works
+
+LangChain sends the query and your field descriptions to the LLM, which returns a structured JSON query object. A `lark`-powered parser converts it to a `StructuredQuery`; a store-specific translator converts that into the vector store's native syntax — Qdrant `Filter`, Chroma `where` dict, Pinecone metadata filter. You write field descriptions once; the translator handles the rest.
+
+## Limits
+
+- **LLM mis-extraction** on ambiguous or multi-condition queries: inspect the generated filter with `verbose=True` during development.
+- **Range filters require indexed payload fields** in Qdrant — call `create_payload_index()` on each field you intend to range-filter; an unindexed range falls back to a full scan and can time out on large collections.
+- **Extra latency:** one additional LLM call per query, roughly 100–300 ms and a small token cost.
+- **`lark` parse errors on malformed LLM output:** wrap the invoke in a try/except and fall back to plain similarity search in production.
+
+**Sources:** [LangChain SelfQueryRetriever with Qdrant — python.langchain.com](https://python.langchain.com/docs/integrations/retrievers/self_query/qdrant_self_query) · [Self-querying retrievers explained — elastic.co/search-labs](https://www.elastic.co/search-labs/blog/self-querying-retrievers) · [Qdrant payload filtering — qdrant.tech](https://qdrant.tech/documentation/search-patterns/vector-search-filtering/)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[A Skill Is Not a Slash Command — It Loads Its Full Body Only When Invoked and Can Be Triggered Automatically When Claude Recognizes the Task]]></title>
@@ -5955,30 +6033,7 @@ Or the alias `/checkup prompt-audit`. The output lists findings by severity. Rea
 **Sources:** [Claude Code changelog — Anthropic](https://code.claude.com/docs/en/changelog) · [Claude Code /doctor: what it checks and what changed — tim-schipper.nl](https://tim-schipper.nl/en/blog/claude-code-doctor) · [Prompt audit PR: dated patterns removed from CLAUDE.md — GitHub](https://github.com/ericluo04/claude-academic-workflow/pull/37)]]></content:encoded>
     </item>
 
-    <item>
-      <title>OpenAI Dots Launches Persistent Agents in ChatGPT; GPT-6.1 Astra Withheld on Safety</title>
-      <link>https://siliconangle.com/2026/09/29/openai-launches-dots-always-on-ai-agents-in-chatgpt-with-their-own-cloud-computers/</link>
-      <guid isPermaLink="false">2026-09-30-01-openai-dots-persistent-agents-astra-safety-hold</guid>
-      <pubDate>Wed, 30 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Agents</category>
-      <description>OpenAI Dots launched Sep 29: always-on agents with their own cloud computer in ChatGPT. Separately, GPT-6.1 Astra was withheld — it didn't adequately meet safety standards.</description>
-      <content:encoded><![CDATA[**Two separate OpenAI announcements from DevDay 2026: always-on persistent agents (Dots) launched in ChatGPT; the most capable model (GPT-6.1 Astra) was held back on safety grounds.**
-
-**Dots** began rolling out September 29 to ChatGPT Pro and Business Premium subscribers (EU/UK/Switzerland excluded in the first wave). Each Dot is a persistent ChatGPT agent that gets its own cloud computer and browser, connects to 4,000+ apps through OpenAI's plugin ecosystem, keeps working between your conversations, and surfaces results across ChatGPT, Slack, Teams, and email. A Dot can delegate to subagents. Users can open the Dot's cloud computer at any time to see what it's doing. Dots are powered by GPT-6 Astra — the prior generation — not the newer 6.1 Astra.
-
-The reason: **GPT-6.1 Astra is not shipping.** OpenAI announced it won't release the model after determining it did not adequately meet its safety standards. The GPT-6.1 Sol upgrade (covered [in yesterday's DevDay post](https://cloudcodetree.com/ai-news/2026-09-29-06-openai-devday-gpt61-sol-decisions-api)) did ship at GPT-6 Sol's pricing.
-
-**Limits:** Dots is a ChatGPT product — the user doesn't control the cloud computer or the infrastructure. EU/UK/CH access is excluded from the first rollout wave. The safety hold on Astra means the most capable OpenAI model is not available via API or embedded in any product for now; API customers calling `gpt-6-astra` should expect a fallback or an error.
-
-**Why it matters:** The persistent-agent pattern — an agent that runs continuously, owns a computer, and picks up where it left off — is now a mainstream consumer product, not just a developer prototype. Developers building comparable workflows with Claude Code cloud sessions or the Agent SDK are shipping the same architecture. The Astra safety hold shows that frontier safety gates can delay flagship models: useful context when planning around external model availability.
-
-**Sources:** [OpenAI Dots launch — SiliconAngle](https://siliconangle.com/2026/09/29/openai-launches-dots-always-on-ai-agents-in-chatgpt-with-their-own-cloud-computers/) · [OpenAI Dots — The Next Web](https://thenextweb.com/news/openai-dots-always-on-ai-agents-cloud-computers-devday) · [OpenAI DevDay live — CNBC](https://www.cnbc.com/2026/09/29/openai-devday-2026-live-updates.html) · [GPT-6.1 Astra safety hold — MacRumors](https://www.macrumors.com/2026/09/29/openai-launches-dots/)]]></content:encoded>
-    </item>
-
+    
     <item>
       <title>Drop designtoken.md in Your Project Root — Claude Code Will Generate Components Using Your Color Scale, Not Its Own Defaults</title>
       <link>https://designtoken.md/</link>
