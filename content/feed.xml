@@ -10,7 +10,149 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 16 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 16 Oct 2026 12:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[A Skill Is Not a Slash Command — It Loads Its Full Body Only When Invoked and Can Be Triggered Automatically When Claude Recognizes the Task]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-07-claude-code-skills-directory-auto-invocation</link>
+      <guid isPermaLink="false">2026-10-16-07-claude-code-skills-directory-auto-invocation</guid>
+      <pubDate>Fri, 16 Oct 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-07-claude-code-skills-directory-auto-invocation.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-07-claude-code-skills-directory-auto-invocation.jpg" />
+      <description><![CDATA[Skills in .claude/skills/ keep their full body out of context until triggered — either by a slash command or automatically when Claude recognizes the task matches the skill's description. Only the one-line description is always loaded.]]></description>
+      <content:encoded><![CDATA[**Skills (`.claude/skills/<name>/SKILL.md`) keep their full body out of context until triggered — by a slash command or automatically when Claude's task matches the description. A deploy skill that never fires today costs zero tokens today.**
+
+You have probably used `.claude/commands/` for slash commands. A Skill is the richer version: it supports frontmatter for tool policies, model preferences, and a one-line description that Claude reads at session start to decide whether the task at hand matches.
+
+## The two-part loading model
+
+1. **Always in context:** the `description:` frontmatter field — one line, loaded at session start
+2. **On trigger only:** the full SKILL.md body — loaded when you run `/<name>` explicitly, or when Claude identifies the current task as matching the description and loads it automatically
+
+A skill that is never triggered today consumes nothing beyond its description line.
+
+## Setup
+
+```
+.claude/skills/deploy/SKILL.md
+---
+description: Deploy the app to staging, run smoke tests, and report pass/fail.
+allowed_tools: Bash, Read
+---
+Run these steps in order:
+1. `pnpm run build:staging`
+2. `pnpm run deploy:staging`
+3. `node scripts/smoke-test.mjs --origin https://beta.yoursite.com`
+Report each step's result and stop on first failure.
+```
+
+`claude /deploy` runs the exact workflow above. If you open a session and say "deploy to staging," Claude may load and run the skill without the slash command.
+
+## When to use Skills vs. Commands
+
+- **`.claude/commands/`** — a small prompt template with `$ARGUMENTS`; nothing fancy, always loads
+- **`.claude/skills/`** — a multi-step procedure with tool restrictions, optional frontmatter; loads only when invoked
+
+Namespace subfolders with a colon: `.claude/skills/testing/generate-tests/SKILL.md` → `/testing:generate-tests`.
+
+**Limit:** The `allowed_tools` / `disallowed_tools` frontmatter fields restrict what the skill can call, but exact syntax and support vary across versions — verify against [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills) before building security-critical guards into skills. For hard security boundaries (blocking a destructive command), use a `PreToolUse` hook instead — those run before any tool call, not just skill-triggered ones.
+
+**Sources:** [Steering Claude Code: skills, hooks, rules, subagents — claude.com/blog](https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more) · [Claude Code Skills vs Slash Commands vs Subagents — Towards AI](https://pub.towardsai.net/claude-code-skills-vs-slash-commands-vs-subagents-where-should-each-one-live-80bf1b846008) · [Stop Bloating CLAUDE.md: Where Workflows Actually Belong — Level Up Coding](https://levelup.gitconnected.com/stop-bloating-claude-md-where-your-claude-code-workflows-actually-belong-047112b85a02)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic and OpenAI Asked Their Independent Safety Evaluators to Accept Publication Review Rights — What That Means for Trusting Safety Ratings]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence</link>
+      <guid isPermaLink="false">2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence</guid>
+      <pubDate>Fri, 16 Oct 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Best Practices</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence.jpg" />
+      <description><![CDATA[A Reuters report (Oct 13) describes contract provisions giving Anthropic and OpenAI review and approval rights over findings their embedded safety evaluators publish — a structural limit on evaluator independence.]]></description>
+      <content:encoded><![CDATA[**A Reuters report (Oct 13) describes contract provisions giving Anthropic and OpenAI review and approval rights over research that independent safety evaluators publish — both companies say the review protects trade secrets, not results, but that distinction has not been independently audited.**
+
+Anthropic's first embedded evaluator, Accenture's Faculty practice, announced September 18, operates under these terms. Both companies say more evaluator partnerships are in progress.
+
+Both Anthropic and OpenAI say the review process is limited to flagging trade secrets, not suppressing unflattering findings. No external audit has yet verified that claim in practice.
+
+**Why it matters for operators:** Third-party safety evaluations of frontier models carry an asterisk while evaluator independence remains structurally limited. If you rely on published safety ratings — from METR, ARC-Evals, or embedded corporate partners — to decide whether to deploy Claude or GPT-4o in a high-stakes use case, the evaluating organization's independence from the lab is a relevant variable. Check whether the evaluator had unilateral publication rights before treating their rating as independent validation. For now, Anthropic's own [responsible scaling policy](https://www.anthropic.com/responsible-scaling-policy) and the METR pre-deployment assessments it references remain the most publicly documented safety claims from the company.
+
+**Sources:** [Anthropic, OpenAI sought control over evaluator publication rights — Reuters/letsdatascience.com](https://letsdatascience.com/blog/anthropic-openai-promised-evaluators-independence-contracts) · [Anthropic picks Accenture as first embedded evaluator — TechCrunch](https://techcrunch.com/2026/09/18/anthropics-first-embedded-evaluator-is-accenture/)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[The Claude Design Export Is Static HTML — Here Is the Four-Step Prompt That Lands It as Working Components in Your Existing Next.js Codebase]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-05-claude-design-handoff-existing-codebase-prompt</link>
+      <guid isPermaLink="false">2026-10-16-05-claude-design-handoff-existing-codebase-prompt</guid>
+      <pubDate>Fri, 16 Oct 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-05-claude-design-handoff-existing-codebase-prompt.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-05-claude-design-handoff-existing-codebase-prompt.jpg" />
+      <description><![CDATA[The Claude Design handoff bundle is static HTML, screenshots, and a spec README — Claude Code reads all of it but defaults to generic React without explicit constraints. Four constraints in your prompt close the gap.]]></description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** Take a Claude Design export and land it as working, idiomatic components in an existing Next.js/React project without overwriting your design system or generating redundant files.
+
+**The three things to know going in:**
+
+1. The handoff bundle contains static HTML, component screenshots, and a machine-readable spec (spec.md) — Claude Code reads all of it, but without explicit constraints it defaults to generic React, not your existing component library.
+2. Four constraints in your Claude Code prompt reliably close the gap: name the bundle path, name your component library, point to your design tokens, and ask for a stub test.
+3. The main failure mode is Claude Code generating new components that shadow your existing ones — a one-line grep before the commit catches it.
+
+## The workflow
+
+After exporting from Claude Design (Export → Handoff to Claude Code), you have a folder — call it `design-export/` — containing `index.html`, `component-screenshots/`, and `spec.md`. Open Claude Code in your project root:
+
+```
+import design-export/ and convert the components to React.
+
+Constraints:
+- Use only components that already exist in src/components/ui/ — do not create new ones
+- Apply colors and spacing using tokens from src/styles/tokens.css only
+- Export each component as a named export from src/components/<ComponentName>.tsx
+- Add a stub test in src/components/__tests__/<ComponentName>.test.tsx
+
+Do NOT create utility files or helper hooks not already in src/lib/.
+```
+
+Then verify before committing:
+
+```bash
+# Catch any new components that shadow existing ones
+grep -r "from './" src/components/ | grep -v "__tests__"
+
+# Run your test suite
+pnpm test
+
+# Check each interactive state against screenshots
+open design-export/component-screenshots/
+```
+
+The most common failure: Claude Code creates a `Button.tsx` that shadows your existing `src/components/ui/Button.tsx`. Prevention is one line in the prompt: "Do not create any file that already exists in src/components/ui/." Catching it after: `ls src/components/ui/` and look for new files.
+
+## What the handoff bundle cannot tell Claude Code
+
+The spec.md describes visual properties well: layout, spacing, colors, and component states. It cannot convey behavioral logic that is not visible in a static design — form validation, API calls, authentication state, or error handling. Add a separate short spec for any logic that goes beyond rendering, or write those parts by hand.
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [From Prompt to Pull Request: Claude Design, Claude Code, GitHub — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design → Claude Code Handoff — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)
+]]></content:encoded>
+    </item>
+
 
     <item>
       <title><![CDATA[Your /design Session and Your Claude Code Session Start From Different Assumptions — A One-Page Component Brief Gives Both the Same Target]]></title>
@@ -5907,104 +6049,9 @@ The parent session can poll the file or read results when the subagent reports b
 **Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [Claude Code September 2026 update summary — StationX](https://app.stationx.net/articles/claude-code-september-2026)]]></content:encoded>
     </item>
 
-    <item>
-      <title>--continue Reopens Your Last Session; --resume Picks Any One — and Four Launch Flags You Must Re-Pass</title>
-      <link>https://code.claude.com/docs/en/sessions</link>
-      <guid isPermaLink="false">2026-09-29-07-claude-code-continue-resume-session-flags</guid>
-      <pubDate>Tue, 29 Sep 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>--continue reopens the latest session; --resume opens the picker. Both restore history, model, and goals — but --mcp-config, --settings, --plugin-dir, and --add-dir must be re-passed.</description>
-      <content:encoded><![CDATA[**Every Claude Code session writes to disk in real time — `--continue` and `--resume` restore full history, the model, permission mode, and active goals. Four flags you passed at launch must be re-passed.**
-
-Every Claude Code session writes to `~/.claude/projects/<dir>/<session-id>.jsonl` continuously, so closing the terminal, rebooting, or Ctrl+C loses nothing. The two main entry points:
-
-```bash
-claude --continue           # most recent session in the current directory
-claude --resume             # interactive picker (↑↓ to navigate, / to search)
-claude --resume auth-fix    # directly by name
-claude --resume <id>        # by session ID, works from any directory
-claude --from-pr 42         # picker filtered to sessions linked to PR #42
-```
-
-Name sessions while you still know what they are:
-
-```bash
-claude -n auth-refactor     # at startup
-/rename auth-refactor       # from inside the session
-```
-
-**What restores automatically:** full conversation history including tool calls and results, the model the session was using, the permission mode it was in, any active `/goal`, and scheduled tasks.
-
-**What you must re-pass:** flags given at the original launch — `--mcp-config`, `--settings`, `--plugin-dir`, `--fallback-model`, and any directories added with `--add-dir`. Settings from `settings.json` and `settings.local.json` re-read at launch automatically; only explicit flags need repeating.
-
-**The 100K-token dialog (Pro/Max):** resuming a session inactive for >1 hour with >100K tokens shows three options: (1) run `/compact` first — cheaper per-request cost, loses detail; (2) resume as-is — re-caches the full history once, higher per-request cost on long sessions; (3) stop asking. If you're not near context limits, resume as-is is the right default.
-
-**One case `--continue` fails silently:** if your most recent session is a background session still running, Claude Code exits with a message rather than attaching. Use `claude agents` to attach, or `--resume` to pick a different session.
-
-**Sources:** [code.claude.com/docs/en/sessions](https://code.claude.com/docs/en/sessions) (official reference) · [mehmetbaykar.com: session resume in practice](https://mehmetbaykar.com/posts/resume-claude-code-sessions-after-restart/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>DevDay: GPT-6.1 Sol Approaches Astra at GPT-6 Sol's Price, Decisions API Returns Typed Routing Answers in 150ms</title>
-      <link>https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/</link>
-      <guid isPermaLink="false">2026-09-29-06-openai-devday-gpt61-sol-decisions-api</guid>
-      <pubDate>Tue, 29 Sep 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>OpenAI DevDay: GPT-6.1 Sol keeps GPT-6 Sol's $2/$10 price but claims near-Astra capabilities; Decisions API returns typed routing answers from Luna in 150ms (limited preview).</description>
-      <content:encoded><![CDATA[**OpenAI DevDay shipped GPT-6.1 Sol (same $2/$10 price as GPT-6 Sol, near-Astra capabilities per OpenAI's own claim) and the Decisions API (typed routing answers in 150ms, limited preview).**
-
-Two DevDay outputs worth tracking for developers building AI apps.
-
-**GPT-6.1 Sol** keeps GPT-6 Sol's $2/$10 per-million input/output pricing, cuts cached input from $0.20 to $0.10, and — per OpenAI's claim — "approaches Astra" on coding, computer use, and professional tasks. No independent benchmark confirmation yet; run your evals before switching pipelines. The cached-input cut is immediately verifiable.
-
-**Decisions API** (limited preview, broad release in coming days): developers define a question and a finite answer set; Luna picks from that set in ~150ms vs. 1.6s for a standard generation call. The output space is finite by construction — no post-generation parsing required. Target use: request routing, content classification, next-action selection in an agent loop.
-
-Also in the release: API-wide time-to-first-token down 45%, tool-call latency down 30% (no model change needed to benefit). The Ultrafast tier (300 tokens/sec) costs 6x standard — relevant for latency-critical paths only.
-
-**Limit:** GPT-6.1 Sol capability claims are from OpenAI; independent benchmarks pending. Decisions API is limited preview for now. Ultrafast's 6x cost makes it narrow in applicability.
-
-**Why it matters:** GPT-6.1 Sol is a concrete reason to re-run Astra-vs-Sol cost/quality evals now. The Decisions API is a new primitive for the "call a model, parse a string" routing pattern — if that's a hot path, 150ms vs. 1.6s is meaningful.
-
-**Sources:** [OpenAI DevDay 2026 developer thread](https://community.openai.com/t/devday-2026-announcements-and-developer-resources/1402006) · [OpenAI expands Codex and API at DevDay — The Decoder](https://the-decoder.com/openai-expands-codex-and-its-api-at-devday-with-security-scans-a-decisions-api-and-ultrafast/) · [GPT-6.1 Sol pricing — The Next Web](https://thenextweb.com/news/openai-gpt-6-1-sol-price-astra-devday)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your OpenAPI Spec Can Generate Its Own MCP Server in CI — Cloudflare Open-Sources Forge</title>
-      <link>https://blog.cloudflare.com/forge-open-source-generation-pipeline/</link>
-      <guid isPermaLink="false">2026-09-29-05-cloudflare-forge-openapi-mcp-server-ci</guid>
-      <pubDate>Tue, 29 Sep 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <description>Cloudflare open-sourced Forge (Sep 28) — a CI pipeline that generates MCP servers, SDKs, CLIs, and docs from an OpenAPI spec. Apache 2.0. Fills the gap left when Anthropic acquired Stainless.</description>
-      <content:encoded><![CDATA[**Cloudflare open-sourced Forge on Sep 28 — a pluggable CI pipeline that generates MCP servers, SDKs, CLIs, and documentation from an OpenAPI spec. Apache 2.0, self-hostable.**
-
-If you maintain a REST API and want Claude Code to call it natively via MCP, the friction has been writing and maintaining the MCP server by hand. Forge treats the MCP server as one output among several in a CI-run code generation pipeline — every pull request that touches your spec generates preview builds of the SDK, CLI, and MCP server alongside it.
-
-Drop your OpenAPI spec in, configure which generators to run (TypeScript, Rust, Python, Go, PHP SDKs; CLI; MCP server; API docs), and Forge runs in CI. Generators can chain — the MCP server generator can consume the TypeScript SDK output rather than the raw spec, so tool signatures stay consistent.
-
-Cloudflare built this to handle 3,500+ API operations across multiple languages after existing commercial generators hit scaling limits. The Stainless-based workflow many teams relied on was shuttered when Anthropic acquired Stainless in September 2026; Forge is the open-source answer, under Apache 2.0.
-
-**Limit:** Only OpenAPI input is supported today — AsyncAPI, GraphQL, and Protobuf generators are on the roadmap but not shipped. You need an OpenAPI spec committed to your repo or available in CI. The generated MCP server writes the plumbing; tool descriptions and complex tool semantics still need human review and customization.
-
-**Why it matters:** if you have been avoiding MCP server maintenance because keeping it in sync with a changing API is a second job, Forge makes the server a build artifact that updates with the spec automatically.
-
-**Sources:** [Introducing Forge — Cloudflare Blog](https://blog.cloudflare.com/forge-open-source-generation-pipeline/) · [Cloudflare Forge and Anthropic's Stainless acquisition — The New Stack](https://thenewstack.io/cloudflare-forge-anthropic-stainless/) · [cloudflare/forge — GitHub](https://github.com/cloudflare/forge)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
