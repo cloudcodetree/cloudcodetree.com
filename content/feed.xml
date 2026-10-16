@@ -10,7 +10,309 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 15 Oct 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 16 Oct 2026 04:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your /design Session and Your Claude Code Session Start From Different Assumptions — A One-Page Component Brief Gives Both the Same Target]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-04-component-brief-design-code-shared-spec</link>
+      <guid isPermaLink="false">2026-10-16-04-component-brief-design-code-shared-spec</guid>
+      <pubDate>Fri, 16 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-04-component-brief-design-code-shared-spec.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-04-component-brief-design-code-shared-spec.jpg" />
+      <description><![CDATA[A component brief is a short markdown file with intent, props, states, design constraints, and acceptance criteria — pass it to both /design and Claude Code so both tools work from the same spec.]]></description>
+      <content:encoded><![CDATA[
+**TL;DR:** A one-page component brief — intent, props with types, visual states, design constraints, and done-when criteria — is the spec that both your `/design` session and your Claude Code session can actually use. Without it, they guess from different starting points and converge slowly.
+
+## The mismatch
+
+When you open a `/design` session, the tool defaults toward visual exploration: colors, spacing, states, hover effects. When you open Claude Code, it defaults toward wiring: props, interfaces, event handlers, integration. These are complementary instincts, but if they start from different assumptions about what the component is supposed to do, you spend the first quarter of each session re-establishing context the other session already has.
+
+A component brief solves this by writing the shared target once, up front, before either session opens.
+
+## What a component brief contains
+
+A brief is a short markdown file — typically 30–60 lines — with five sections:
+
+```markdown
+# ComponentName brief
+
+## Intent
+One sentence on what the component does and for whom.
+Example: A card that lets a logged-in reader save or unsave an article.
+
+## Props
+| Prop | Type | Required | Default | Notes |
+|------|------|----------|---------|-------|
+| articleId | string | yes | — | Stable ID, passed to the /api/engage endpoint |
+| isSaved | boolean | yes | — | Controlled; parent owns state |
+| onToggle | (id: string, saved: boolean) => void | yes | — | Parent handles optimistic update |
+| size | 'sm' \| 'md' | no | 'md' | Icon scales: 16px / 20px |
+
+## States
+- **Default (unsaved):** Bookmark outline icon, neutral fill, no label
+- **Saved:** Bookmark filled icon, accent fill (--color-accent-primary)
+- **Loading:** Icon replaced by 16px spinner, pointer-events: none
+- **Error:** Outline icon, error fill (--color-error), tooltip "Could not save"
+- **Disabled:** 40% opacity, pointer-events: none
+
+## Design constraints
+- Touch target: minimum 44×44px regardless of icon size
+- Color tokens only — no raw hex values
+- Meets WCAG 2.1 AA contrast (4.5:1) in both light and dark themes
+- No labels; icon must be aria-label'd "Save article" / "Unsave article"
+- Animation: 150ms ease-out on fill transition
+
+## Done when
+- [ ] All four states render correctly at both sizes
+- [ ] Keyboard navigable; Enter/Space toggles
+- [ ] Screen reader announces state change after toggle
+- [ ] Loading state prevents double-submission
+- [ ] Snapshot test covers default + saved
+```
+
+## Using the brief with /design
+
+Start the `/design` session by attaching or pasting the brief:
+
+```
+Read component-brief.md, then design the SaveButton component.
+Focus on the four states listed under States. Use the token names
+from Design constraints — do not invent color values.
+```
+
+The brief answers the questions `/design` would otherwise ask through iteration: which states matter, which tokens to use, what the touch target requirement is. The session can spend its time on the actual visual decisions — icon weight, animation easing, spacing — rather than scoping.
+
+## Using the brief with Claude Code
+
+Add the brief to Claude Code's context at session start:
+
+```
+I'm implementing the SaveButton component.
+The spec is in docs/component-briefs/save-button.md — read it first.
+```
+
+The prop table and state list become the component's TypeScript interface and the test matrix. The done-when criteria become the review checklist. The design constraints land directly in the CSS.
+
+## The brief as a review artifact
+
+A component brief doubles as a PR review tool. When the implementation is done, the done-when criteria are the exact items a reviewer checks — no translation needed between the spec and the diff.
+
+Keep briefs in `docs/component-briefs/` alongside the component, not in a separate design tool. The brief is code-adjacent documentation: it ages with the component and stays in the repository where both sessions can find it.
+
+---
+
+*Sources: [Claude Code project docs](https://code.claude.com/docs/en/claude-md) (CLAUDE.md as shared context); [Storybook: Writing Stories](https://storybook.js.org/docs/writing-stories) (component API conventions); [WCAG 2.1 contrast requirements](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html).*
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Claude Code Starts Editing Before You've Agreed on the Approach — Shift+Tab Twice Puts It in Plan Mode: Research and Propose Before Touching a File]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-03-claude-code-plan-mode-propose-review-approve</link>
+      <guid isPermaLink="false">2026-10-16-03-claude-code-plan-mode-propose-review-approve</guid>
+      <pubDate>Fri, 16 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-03-claude-code-plan-mode-propose-review-approve.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-03-claude-code-plan-mode-propose-review-approve.jpg" />
+      <description><![CDATA[Pressing Shift+Tab twice switches Claude Code into plan mode — it reads and researches your codebase, outputs a complete implementation plan, and waits for your approval before making a single edit.]]></description>
+      <content:encoded><![CDATA[
+**TL;DR:** Claude Code's default behavior is to start editing as soon as it has enough to go on. Plan mode changes that: it reads, researches, and proposes before touching a file. Useful for refactors where the order of changes matters, or any task where you want to understand the full approach before files start changing.
+
+## What you'll be able to do
+
+Use plan mode to get a complete implementation plan — what will change, why, and in what order — before Claude Code writes a single byte. Review and adjust the plan, then approve to execute.
+
+## Three ways to enter plan mode
+
+**1. Keyboard shortcut (in an active session):** Press `Shift+Tab` twice in the Claude Code prompt. The status line shows `[plan mode]` when active.
+
+**2. Flag at startup:**
+```bash
+claude --permission-mode plan
+```
+
+**3. Default in `settings.json`** (so every session starts in plan mode):
+```json
+{
+  "defaultMode": "plan"
+}
+```
+
+## What happens in plan mode
+
+Claude Code reads your codebase normally but cannot write, edit, or run commands that modify state. It does its research — checking types, reading imports, tracing call sites — then outputs a structured plan:
+
+```
+Plan:
+1. Add `SaveButton` component to app/components/ — new file
+2. Update app/ai-news/[id]/page.tsx — import SaveButton, add to article header
+3. Update app/lib/types.ts — add isSaved to PostMeta type
+4. Add useArticleSave hook to app/lib/hooks/ — new file
+5. Update tests in __tests__/BlogPost.test.tsx — cover save state
+
+No files changed. Approve to begin, or edit this plan (Ctrl+G) before proceeding.
+```
+
+The plan is written to `~/.claude/plans/` so you can review it outside the terminal if needed.
+
+## Editing the plan before approving
+
+Press `Ctrl+G` to open the plan in your `$EDITOR`. You can:
+
+- Reorder steps (if a dependency order matters to you)
+- Remove steps you'll handle separately
+- Add a note about a constraint Claude Code might not have seen
+
+After saving, the session picks up the edited plan and executes it.
+
+## Re-entering plan mode mid-execution
+
+If you approve a plan and Claude Code's execution starts drifting from what you expected, you can re-enter plan mode mid-task: press `Shift+Tab` twice again. The session pauses, produces a revised plan for the remaining steps, and waits for re-approval.
+
+## When it's most useful
+
+Plan mode pays off on tasks with multiple interacting changes: a refactor that touches a shared type, a feature that adds both a hook and a UI component, or any change where the order of edits affects whether the build stays green between steps. For single-file changes or well-scoped additions, normal mode is faster.
+
+---
+
+*Sources: [DataCamp: Claude Code Plan Mode](https://www.datacamp.com/tutorial/claude-code-plan-mode); [OpenReplay: Plan Mode for Complex Tasks](https://blog.openreplay.com/plan-mode-claude-code-complex-tasks/); [claudefa.st: Planning Modes](https://claudefa.st/docs/learn/mechanics/planning-modes).*
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic Updates Its Usage Policy Ahead of the November Midterms — The New 'Democratic Processes' Section Bans Voter Deception and Lifts the Blanket Political Targeting Ban]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-02-anthropic-usage-policy-democratic-processes-november</link>
+      <guid isPermaLink="false">2026-10-16-02-anthropic-usage-policy-democratic-processes-november</guid>
+      <pubDate>Fri, 16 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Best Practices</category>
+      <category>LLM</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-02-anthropic-usage-policy-democratic-processes-november.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-02-anthropic-usage-policy-democratic-processes-november.jpg" />
+      <description><![CDATA[Anthropic's revised usage policy, effective November 12, adds a "Do Not Undermine Democratic Processes" section banning voter deception while lifting the blanket ban on personalized political messaging for legitimate civic uses.]]></description>
+      <content:encoded><![CDATA[
+Anthropic has updated its usage policy with a new **"Do Not Undermine Democratic Processes"** section, taking effect **November 12, 2026** — two weeks before the US midterm elections. The update revises two earlier rules that had been in place since April.
+
+**What changed:**
+
+- **New ban:** Using Claude to generate voter-suppression content, spread disinformation about voting processes, or impersonate election officials is now explicitly prohibited.
+- **Ban lifted:** The prior blanket prohibition on personalized political messaging has been revised. Operators running civic-use applications — voter registration tools, legislative contact assistants, verified political organizations — are now permitted to use Claude for personalized outreach, subject to the operator agreement.
+- **Hardened rule:** "Election deception" (fabricating candidate statements, creating fake endorsements, generating misleading ballot information) is now a hard policy violation regardless of stated purpose.
+
+**Why it matters for operators:** If you run a Claude-powered product that touches political content in any form — a civic-engagement app, a news summarization tool, a community Q&A bot — November 12 is your review deadline. The updated policy draws a sharper line between permissible civic uses and prohibited election interference than the prior blanket rules did. Review your operator agreement and system prompt against the new section before then.
+
+The updated usage policy is at [anthropic.com/news/election-safeguards-update](https://www.anthropic.com/news/election-safeguards-update). The November 12 effective date was confirmed by AI Weekly.
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Fine-Tuning Script Manages Templates, Packing, and LoRA Separately — SFTTrainer Takes One `messages` Dataset and One Config to Handle All Three]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune</link>
+      <guid isPermaLink="false">2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune</guid>
+      <pubDate>Fri, 16 Oct 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <media:content url="https://img.cloudcodetree.com/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune.jpg" />
+      <description><![CDATA[TRL's SFTTrainer accepts a messages-format dataset, auto-applies your model's chat template, packs examples per sequence, and takes a LoraConfig directly — trl sft --config config.yaml runs the whole pipeline without a training loop.]]></description>
+      <content:encoded><![CDATA[
+**TL;DR:** Instead of manually tokenizing conversations, applying chat templates, writing packing logic, and wiring LoRA yourself, you hand SFTTrainer a `messages`-format dataset and a config. It handles the rest. The `trl sft` CLI runs the entire pipeline from a single YAML file — no training loop to write.
+
+## What you'll be able to do
+
+Fine-tune a chat model on your own conversation data using the standard supervised fine-tuning pipeline: proper chat-template application, sequence packing for efficiency, and LoRA for parameter-efficient training — all from one config file.
+
+## The three things SFTTrainer handles for you
+
+**1. Chat template application.** If your dataset uses the `messages` format (a list of `{"role": ..., "content": ...}` dicts), SFTTrainer calls your model's tokenizer chat template automatically. No manual `apply_chat_template` call in your data pipeline.
+
+```jsonl
+{"messages": [{"role": "user", "content": "Summarize this article."}, {"role": "assistant", "content": "The article discusses..."}]}
+{"messages": [{"role": "user", "content": "Translate to French."}, {"role": "assistant", "content": "Voici la traduction..."}]}
+```
+
+**2. Sequence packing.** Setting `packing=True` in your config bins multiple short examples into each sequence up to `max_seq_length`, dramatically improving GPU utilization on datasets with variable-length conversations.
+
+**3. LoRA via peft_config.** Pass a `LoraConfig` object directly to `SFTTrainer` and it handles PEFT setup — no separate model wrapping step.
+
+## The full config
+
+```yaml
+# sft_config.yaml
+model_name_or_path: meta-llama/Llama-3.2-3B-Instruct
+dataset_name: your-org/your-dataset
+dataset_text_field: messages
+packing: true
+max_seq_length: 2048
+num_train_epochs: 3
+per_device_train_batch_size: 4
+gradient_accumulation_steps: 2
+learning_rate: 2.0e-4
+output_dir: ./sft-output
+```
+
+And a `peft_config.yaml` alongside it (or inline in the same config under `peft_config:`):
+
+```yaml
+peft_config:
+  peft_type: LORA
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]
+```
+
+## Running it
+
+```bash
+trl sft --config sft_config.yaml
+```
+
+That's the full training run. No script, no training loop, no manual collator setup.
+
+## Loading the result
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM
+
+base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-3B-Instruct")
+model = PeftModel.from_pretrained(base, "./sft-output")
+```
+
+Or merge the adapter weights into the base:
+
+```python
+model = model.merge_and_unload()
+```
+
+## Limits to know
+
+- **`assistant_only_loss`** (train only on assistant tokens) requires your chat template to mark assistant turns with `{% generation %}`. Without that tag in the template, the option silently trains on all tokens.
+- **Packing is incompatible with `DataCollatorForCompletionOnlyLM`** — if you need response-only loss with an older tokenizer that lacks `{% generation %}`, disable packing.
+- The `tokenizer` argument to `SFTTrainer` was renamed **`processing_class`** in recent TRL versions. If you hit a deprecation warning, switch to `processing_class=tokenizer`.
+
+---
+
+*Sources: [HuggingFace TRL SFT Trainer docs](https://huggingface.co/docs/trl/main/en/sft_trainer); [TRL CLI docs](https://huggingface.co/docs/trl/main/en/clis); [Fine-tuning open AI models using Hugging Face TRL](https://youtu.be/cnGyyM0vOes) (Wietse Venema).*
+]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Regenerate in Claude Design or Edit in the Editor — Here Is the Decision Rule]]></title>
@@ -5703,161 +6005,10 @@ Cloudflare built this to handle 3,500+ API operations across multiple languages 
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Embedder Gets a 2,000-Word Wall of Text — RecursiveCharacterTextSplitter Breaks It Into Retrievable Pieces</title>
-      <link>https://www.youtube.com/watch?v=POE8LDjdAw4</link>
-      <guid isPermaLink="false">2026-09-29-04-document-chunking-recursivecharactertextsplitter-rag</guid>
-      <pubDate>Tue, 29 Sep 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <description>Embedding a full document averages everything into one vector — split first. RecursiveCharacterTextSplitter is the default starting point: it tries paragraph → sentence → word separators in order so boundaries land on natural breaks.</description>
-      <media:content url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/POE8LDjdAw4/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**Embedding a full document returns one dense vector averaging everything in it — split documents into chunks first, then embed each chunk so retrieval can surface the right piece.**
-
-**What you'll be able to do after this:** split any text document into context-preserving chunks ready for embedding, choose the right parameters for your corpus, and catch the splitter failure mode that silently degrades retrieval at scale.
-
-- LangChain's `RecursiveCharacterTextSplitter` tries separators in order — `"\n\n"` (paragraphs), `"\n"` (lines), `". "` (sentences), `" "` (words) — falling back down the list until each piece fits within `chunk_size`. Boundaries land on natural text breaks rather than arbitrary character positions.
-- `chunk_overlap` copies the tail of each chunk into the head of the next, preserving context for sentences that span a boundary. It adds storage (~10% overhead for a 50-char overlap on 512-char chunks) in exchange for retrieval continuity.
-- The splitter can silently fail to create overlap when separator alignment does not match the overlap window. Always spot-check a sample before vectorizing a large corpus.
-
-**Walk-through:**
-
-```python
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=512,       # characters — not tokens; check your embedding model's limit
-    chunk_overlap=50,
-    separators=["\n\n", "\n", ". ", " ", ""],
-    add_start_index=True, # stores chunk offset in metadata for debugging
-)
-chunks = splitter.split_documents(docs)
-
-# spot-check that overlap actually landed
-for i in range(len(chunks) - 1):
-    if chunks[i].page_content[-30:] not in chunks[i + 1].page_content:
-        print(f"chunk {i}: no overlap — check separators for this document type")
-```
-
-**What to watch for:**
-
-- `chunk_size` is in **characters**, not tokens. A 512-token embedding limit corresponds to roughly 1,500–2,000 characters depending on language and vocabulary.
-- PDFs without embedded newlines cause fallback to character splitting — every chunk breaks mid-sentence. Pre-process with `pdfplumber` or `pypdf` to restore paragraph structure before chunking.
-- For source code, use `RecursiveCharacterTextSplitter.from_language(Language.PYTHON)` (or `Language.JS`, `Language.GO`, etc.) — it substitutes language-aware separators that split on function and class boundaries instead of whitespace.
-
-The video below walks through fixed-size, recursive, and semantic chunking side by side with LangChain, including retrieval quality comparisons for each strategy.
-
-**Sources:** [RAG Tutorial 2025 #8: Text Chunking Strategies for Better RAG — YouTube](https://www.youtube.com/watch?v=POE8LDjdAw4) · [RecursiveCharacterTextSplitter: the workhorse — theneuralbase.com](https://theneuralbase.com/chunking-strategies/learn/beginner/recursivecharactertextsplitter-the-workhorse/) · [LangChain recursive text splitter docs](https://python.langchain.com/docs/how_to/recursive_text_splitter/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Set a Completion Condition and Claude Keeps Working Until Tests Pass — The `/goal` Command</title>
-      <link>https://code.claude.com/docs/en/goal</link>
-      <guid isPermaLink="false">2026-09-29-03-claude-code-goal-completion-condition-autonomous</guid>
-      <pubDate>Tue, 29 Sep 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>/goal sets a verifiable condition; a Haiku evaluator checks it after every turn and Claude keeps working unattended until the condition is met, impossible, or you run /goal clear.</description>
-      <content:encoded><![CDATA[**`/goal` keeps Claude working turn-by-turn without re-prompting — a separate evaluator checks your condition after each turn and stops only when it's met or impossible.**
-
-The common problem: you kick off a long migration, Claude makes progress, then returns control and waits. You re-read the context, re-prompt, repeat. `/goal` closes that loop: after every turn, a fast Haiku model checks your stated condition against the conversation transcript; if it's not met, Claude takes another turn automatically.
-
-**How to use it:**
-
-```text
-/goal all tests in test/auth pass and the lint step is clean
-```
-
-Setting the goal starts a turn immediately using the condition as the directive — you don't also type a separate prompt. Claude runs tests, fixes failures, re-runs, and repeats until Haiku judges the condition met or impossible. During the run, a `◎ /goal active` indicator shows elapsed time and turn count.
-
-Combine with auto mode for fully unattended work, or run non-interactively in a script:
-
-```bash
-claude -p "/goal CHANGELOG.md has an entry for every PR merged this week"
-```
-
-**Write conditions Claude can verify from its own output.** The evaluator reads the conversation transcript, not your filesystem directly. "All tests pass" works because Claude runs the tests and the result appears in the transcript. "eslint exits 0 with the current config" works. "The code is clean" does not — it gives the evaluator nothing measurable to judge.
-
-Add a turn limit to prevent open-ended loops: `/goal all 404s resolved, or stop after 30 turns`.
-
-**Limit:** on very long runs, auto-compaction can overflow and force-clear the goal — Claude Code warns and pauses rather than continuing with degraded context; re-set after compacting. Also: the evaluator reads only what Claude surfaced in the transcript, so a condition that requires fresh file inspection Claude has not yet done in the current run will not resolve until Claude does that inspection explicitly.
-
-**Sources:** [Keep Claude working toward a goal — Claude Code Docs](https://code.claude.com/docs/en/goal) · [Mastering Claude Code /goal — amitray.com](https://amitray.com/claude-code-goal-command-guide-2026/) · [Claude Code autonomous commands — Towards AI](https://medium.com/@richardhightower/claude-code-the-autonomous-commands-that-finish-work-while-you-sleep-goal-loop-batch-etc-7acb82bf46b1)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Ollama v0.40 Makes MLX the Default on Apple Silicon, vLLM 0.30 Lands a Persistent GPU Weight Cache</title>
-      <link>https://github.com/ollama/ollama/releases/tag/v0.40.0</link>
-      <guid isPermaLink="false">2026-09-29-02-ollama-v040-mlx-default-vllm-v030</guid>
-      <pubDate>Tue, 29 Sep 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Self-Hosting</category>
-      <category>Local AI</category>
-      <description>Ollama v0.40 (Sep 25) routes MLX-supported models through Apple's MLX runtime by default — Ollama reports ~1.6x faster prefill, ~2x faster decode. vLLM v0.30 ships Fast Start for cold-start reduction.</description>
-      <content:encoded><![CDATA[**Two local-inference updates from this week: Ollama v0.40 makes Apple Silicon inference faster by default; vLLM 0.30 cuts engine cold-start time on GPU servers.**
-
-**Ollama v0.40.0 (September 25).** MLX-supported model architectures now run on Apple's MLX runtime by default on Apple Silicon — no configuration change needed. Ollama reports ~1.6× faster prefill and roughly 2× faster decode compared to the Metal backend on M3/M4 chips; M5 chips gain additional acceleration from GPU Neural Accelerators. Same release: `/api/tags` drops from ~3 s to ~294 ms cold on large libraries. **Limit:** MLX routing applies only to MLX-supported architectures — models whose weights are not MLX-compatible continue using the Metal backend unchanged. **Why it matters:** if you run local models on a Mac for eval harnesses, subagent routing, or offline RAG dev, the speed improvement is automatic on update with no code changes.
-
-**vLLM v0.30.0 (September 22).** The headline addition is Fast Start: a persistent per-GPU daemon holds post-quantized, TP-sharded weights in GPU memory and maps them over CUDA IPC on engine restart, removing the reload-from-disk step. Also ships: HiSparse (host-resident KV tier for sparse-MLA decode under GPU pressure), DeepSeek-V4.1-Flash with MXFP8 KV storage, and Model Runner V2 with dual-batch overlap. **Limit:** Fast Start requires the weight-cache daemon to already be running — the very first cold start without the daemon is no faster than before. **Why it matters:** makes local vLLM deployments behave more like always-warm services, useful for eval loops or dev pipelines that restart the engine frequently.
-
-**Sources:** [Ollama v0.40.0 release notes — GitHub](https://github.com/ollama/ollama/releases/tag/v0.40.0) · [vLLM v0.30.0 release notes — GitHub](https://github.com/vllm-project/vllm/releases/tag/v0.30.0) · [Ollama adopts MLX for Apple Silicon — 9to5Mac](https://9to5mac.com/2026/03/31/ollama-adopts-mlx-for-faster-ai-performance-on-apple-silicon-macs/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Existing Codebase Is the Artboard's Starting Point — `/design` in Claude Code Reads Your Tokens Before Drawing</title>
-      <link>https://code.claude.com/docs/en/whats-new/2026-w34</link>
-      <guid isPermaLink="false">2026-09-29-01-design-command-existing-repo-reverse-handoff</guid>
-      <pubDate>Tue, 29 Sep 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>Run /design from inside your repo and Claude drafts artboards using your actual tokens and component names, not its own defaults. Pick one, adjust it on the canvas, then have Claude implement it.</description>
-      <content:encoded><![CDATA[**`/design` inside a repo reads your token definitions, component names, and nearby screens before drawing artboards — so the output starts from your design system, not Claude's defaults.**
-
-**What you'll be able to do after this:** kick off a redesign of an existing screen from your working codebase, review options Claude draws using your actual design system, pick and adjust one in the canvas, then bring it back to the editor — without the screenshot-as-context workaround.
-
-- Before generating artboards, Claude scans your repo for token definitions, component names, and nearby existing screens — artboards start from what is actually there, not invented placeholders
-- You pick and edit the artboard on the published canvas at `claude.ai/design`, then return to the terminal to implement — Claude reads the artboard state directly, no file export needed
-- Artboard → implementation is an iterative loop, not a one-shot: plan for at least one correction pass between picking the artboard and the committed file
-
-**Walk-through:**
-
-In a Claude Code session at your project root:
-
-```text
-> /design three options for reworking the UserProfile sidebar — it's too noisy on mobile
-```
-
-Claude reads your codebase first, then publishes a canvas link. Open it in your browser. You'll see three artboards drawn with your actual token names and component names (not Claude's visual defaults). Adjust whichever you prefer — drag items, change field labels, tweak the spacing.
-
-Return to the terminal with the canvas open:
-
-```text
-> implement option 2 — preserve the existing breakpoint logic in UserProfile.tsx
-```
-
-Claude reads the artboard state from Claude Design and builds against your actual components. Because it drew from your token names, the generated code references them rather than hardcoded hex values or generic class names.
-
-**Limit:** research preview as of v2.1.234 — the artboard carries visual intent, not component state or logic. State machines, event handlers, and animations are inferred during implementation rather than read from the canvas. Plan for a round of correction. Requires v2.1.234 or later on Pro, Max, Team, or Enterprise.
-
-**Sources:** [Week 34: the `/design` skill — Claude Code Docs](https://code.claude.com/docs/en/whats-new/2026-w34) · [Claude Code gets a /design command — The Decoder](https://the-decoder.com/claude-code-gets-a-design-command-that-lets-developers-create-ui-mockups-right-in-the-terminal/) · [Claude Design inside Claude Code workflow — wmedia.es](https://wmedia.es/en/tips/claude-code-design-editable-canvas)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
+    
     
     
     
