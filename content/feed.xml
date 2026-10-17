@@ -10,7 +10,60 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 17 Oct 2026 12:14:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 17 Oct 2026 20:10:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Unattended Claude Code Run Stops at the First 429 — `CLAUDE_CODE_RETRY_WATCHDOG` Retries Capacity Errors; Two Cap Variables Prevent Infinite Waits]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-17-06-claude-code-retry-watchdog-429-unattended-run</link>
+      <guid isPermaLink="false">2026-10-17-06-claude-code-retry-watchdog-429-unattended-run</guid>
+      <pubDate>Sat, 17 Oct 2026 20:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description><![CDATA[CLAUDE_CODE_RETRY_WATCHDOG=1 retries 429 and 529 capacity errors automatically in unattended runs. Add CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS and the new MAX_USAGE_LIMIT_WAIT_MS (v2.1.301) to prevent indefinite blocking.]]></description>
+      <content:encoded><![CDATA[**`CLAUDE_CODE_RETRY_WATCHDOG=1` retries 429 and 529 capacity errors automatically in unattended runs; pair it with two cap variables so a long outage or usage-limit reset doesn't hold your pipeline indefinitely.**
+
+If you run Claude Code headlessly — nightly CI agents, overnight refactors, multi-step `--print` pipelines — a single 429 or 529 capacity error ends the run by default. The job exits cleanly, your workflow shows green, and the work was never done.
+
+## The default without the watchdog
+
+Claude Code retries transient errors with exponential backoff, up to `CLAUDE_CODE_MAX_RETRIES` attempts (default 10, hard-capped at 15 since v2.1.186). On a persistent capacity event, that retry envelope runs out in roughly 2.5 minutes before the process exits.
+
+## Enable the watchdog
+
+```bash
+CLAUDE_CODE_RETRY_WATCHDOG=1
+```
+
+Set this in your environment, `.env`, or shell script. With it enabled, Claude Code retries 429 and 529 capacity errors indefinitely — no count limit — backing off up to 5 minutes between attempts. On v2.1.199+, it also retries server errors and timeouts with a ceiling of 300 attempts.
+
+## Add the two cap variables
+
+An infinite retry loop is correct for "provider is briefly overloaded." It is wrong for "the provider is down for three hours." Two environment variables give you control:
+
+**`CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS`** — caps total time the watchdog will spend waiting across all retries. No default; unlimited without it. For an overnight run that must clean up by morning, `3600000` (one hour) is a reasonable ceiling.
+
+**`CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS`** — new in v2.1.301 (October 15): separately caps how long the watchdog blocks when the API response indicates a *usage-limit reset* rather than a capacity error. Without this, a usage-limit wait runs until the reset window closes (potentially hours) while your job window is open.
+
+## One more backstop
+
+Even with these caps, add a job-level timeout as a final guarantee. In GitHub Actions: `timeout-minutes: 90`. The env vars control Claude Code's internal retry logic; the job timeout is the OS-level guarantee that the runner reclaims its slot regardless.
+
+## Putting it together
+
+```bash
+CLAUDE_CODE_RETRY_WATCHDOG=1 \
+CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS=3600000 \
+CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS=1800000 \
+  claude --print "your task here"
+```
+
+**One limit to know:** since v2.1.239, a 429 that carries a spend-limit or exhausted-credits flag fails immediately regardless of watchdog settings — that kind of limit won't lift until you take account action, so waiting forever is genuinely wrong. Log that exit code separately and alert on it; the watchdog won't mask it.
+
+**Sources:** [Claude Code retry watchdog guide — developersdigest.tech](https://www.developersdigest.tech/blog/claude-code-retry-watchdog-unattended-runs) · [v2.1.301 MAX_USAGE_LIMIT_WAIT_MS — fyve.co.jp](https://fyve.co.jp/claude-code/articles/claude-code-retry-watchdog) · [MAX_RETRIES cap and watchdog docs gap — claudeissues.com](https://claudeissues.com/issue/70142-docs-error-and-env-var-docs-omit-claude-code-max-retries-cap-and-retry-watchdog)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[A Hook That Crashes Was Silently Passing Actions — Set `onFailure: "block"` to Fail Closed]]></title>
@@ -6191,28 +6244,7 @@ Claude subscribes; the other session sends one notice when it next goes idle.
 **Sources:** [Using Claude Design for prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design to Claude Code handoff — claudefa.st](https://claudefa.st/blog/guide/mechanics/claude-design-handoff) · [Claude Design → Claude Code handoff — claude-code-playbook](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Anthropic, OpenAI, and Google Plan SAFA — the Industry Safety Body That Would Require Pre-Deployment Audits for Frontier Models</title>
-      <link>https://www.newsbytesapp.com/news/science/google-openai-and-anthropic-plan-safa-to-set-ai-rules/tldr</link>
-      <guid isPermaLink="false">2026-10-01-01-safa-frontier-ai-standards-industry-self-regulatory-body</guid>
-      <pubDate>Thu, 01 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Policy</category>
-      <description>Three frontier labs announced SAFA on September 25 — an industry-led, FINRA-style body to set pre-deployment testing and auditing requirements for frontier AI, targeting a year-end launch.</description>
-      <content:encoded><![CDATA[**Three frontier labs announced the Standards Authority for Frontier AI (SAFA) on September 25 — an industry-led body modeled on FINRA that would set pre-deployment testing and auditing requirements, without a government role.**
-
-Google, OpenAI, and Anthropic have been coordinating since July to build SAFA, a self-regulatory body that would establish mandatory pre-deployment safety testing, incident-reporting rules, and qualification standards for third-party auditors. The structure is explicitly modeled on FINRA, the Wall Street self-regulator: industry sets the standards, funds the body, and enforces them — no government agency involved. Former White House AI advisor Sriram Krishnan has been approached as CEO; a formal launch is targeted by year-end 2026.
-
-**Limits:** SAFA is a plan, not an operational body. Industry self-regulation has a mixed track record; the body's authority is only as strong as its founding members' willingness to follow it. OpenAI has separately called for governments to play a role, which could mean competing frameworks. The announcement covers "pre-deployment testing" without specifying what tests pass or who runs them.
-
-**Why it matters:** If SAFA ships with real teeth, the frontier models you build on will carry audited safety records for the first time. That changes model selection from "trust the vendor's benchmark" to "compare third-party audit findings" — a meaningful shift when you're choosing a model for a production workload.
-
-**Sources:** [Google, OpenAI and Anthropic plan SAFA to set AI rules — NewsBytesApp](https://www.newsbytesapp.com/news/science/google-openai-and-anthropic-plan-safa-to-set-ai-rules/tldr) · [Google, OpenAI, Anthropic Plan Own AI Regulator — Outspoken Digest](https://outspokendigest.com/article/google-openai-anthropic-frontier-ai-standards-authority-september-2026) · [Google, OpenAI, Anthropic Form New AI Self-Regulation Body — Guru Focus](https://www.gurufocus.com/news/9097076/google-openai-anthropic-form-new-ai-selfregulation-body)]]></content:encoded>
-    </item>
-
+    
     <item>
       <title>`--output-format stream-json` Turns a Long Claude Code Run Into a Live NDJSON Feed Your Pipeline Can Act On</title>
       <link>https://code.claude.com/docs/en/cli-reference</link>
