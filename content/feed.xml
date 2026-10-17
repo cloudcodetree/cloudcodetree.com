@@ -10,7 +10,88 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 17 Oct 2026 04:19:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 17 Oct 2026 12:14:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[A Hook That Crashes Was Silently Passing Actions — Set `onFailure: "block"` to Fail Closed]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-17-05-claude-code-hook-onfailure-block-fail-closed</link>
+      <guid isPermaLink="false">2026-10-17-05-claude-code-hook-onfailure-block-fail-closed</guid>
+      <pubDate>Sat, 17 Oct 2026 12:14:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <description><![CDATA[Claude Code command and HTTP hooks now support onFailure: "block" — a hook that crashes or errors will block the action it guards instead of silently passing it through.]]></description>
+      <content:encoded><![CDATA[**Claude Code hooks that crash used to fail open — the action they guarded went through anyway. `onFailure: "block"` closes that gap for `command` and `http` hooks.**
+
+Your secret-scan hook runs `detect-secrets` on every `git commit`. The hook crashes because `detect-secrets` isn't installed in the CI container. Old behavior: commit goes through. With `onFailure: "block"`: commit is blocked.
+
+This is the fail-closed vs. fail-open distinction that matters for any hook used as a security gate. Before v2.1.295 (October 8), a hook that failed to *run* — crashed, missing binary, network error on an HTTP hook — defaulted to letting the action through. That creates a bypass path for every error condition the hook doesn't anticipate.
+
+## Wiring it up
+
+Add `"onFailure": "block"` to any hook that must not silently pass on error:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/secret-scan.sh",
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+For HTTP hooks, the same key works — a hook that can't reach its endpoint will block the action.
+
+## What counts as a failure
+
+`onFailure` applies to *failures to execute*: the process can't start, the binary is missing, the network is unreachable. It does **not** change how intentional non-zero exits work — exit 2 still blocks explicitly, exit 0 still passes. An HTTP hook returning 4xx or 5xx counts as a failure and will block.
+
+## The trade-off
+
+Any hook outage now blocks the action it guards. For a secret-scan or destructive-command gate, that's correct. For a logging-only or notification hook, it isn't — keep the default (fail open) for non-gate hooks so a transient crash doesn't halt legitimate work.
+
+`onFailure: "block"` is the right default for every hook that doubles as a security gate. Leave it off for observability hooks where availability matters more than strict enforcement.
+
+**Sources:** [Claude Code changelog v2.1.295 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code hooks docs — code.claude.com](https://code.claude.com/docs/en/hooks)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Meta Releases Muse Spark Open: 816B-Param Open Weights for Coding Agents, Available on Fireworks AI and Groq]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-17-04-meta-muse-spark-open-816b-weights-groq-fireworks</link>
+      <guid isPermaLink="false">2026-10-17-04-meta-muse-spark-open-816b-weights-groq-fireworks</guid>
+      <pubDate>Sat, 17 Oct 2026 12:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Meta released open weights for Muse Spark on October 15 — 816B-parameter MoE with 42B active per token, 1M-token context, built for coding and long-running agent workloads.]]></description>
+      <content:encoded><![CDATA[**Meta released open weights for Muse Spark on October 15: 816B total params, 42B active per token (MoE), 1M-token context, built for coding and long-running agent workloads.**
+
+Muse Spark has been a closed proprietary model since its April debut. The weights are now on Hugging Face and in the model catalogs of AWS, Google, and Microsoft. Seven inference providers launched on day one, including Groq and Fireworks AI — both are OpenAI-SDK-compatible, so routing calls to it is a `base_url` swap.
+
+**License:** The Muse Model License is not Apache 2.0. Most developers can use it freely. Companies that sell hosted API *access to the model itself* and have cleared $20M in annual revenue need a separate agreement. Consumer products and applications built on top of it are not affected by the revenue threshold.
+
+**Benchmarks (Meta's own harness):** 76.4 on Terminal-Bench 2.1 — behind Kimi K3's 85 on the same benchmark. 89.2 on MCP-Atlas (tool-use). Full independent evaluation results have not been published yet; treat the headline numbers as directional, not confirmed.
+
+**What remains closed:** Meta's Muse Wonder series, which scores higher, is available only through Meta's own API and Muse Code. Muse Spark Open is the open-weight tier.
+
+**Why it matters:** The first 816B open-weight model purpose-built for agentic coding. If your pipeline needs self-hostable, frontier-adjacent reasoning without a custom enterprise license, it's the first serious option at this scale. The Fireworks AI partnership means it's one config change away from an existing OpenAI-compatible inference setup.
+
+**Sources:** [SiliconANGLE](https://siliconangle.com/?p=850737) · [The New Stack](https://thenewstack.io/meta-muse-spark-open/) · [Meta Muse Spark Open on Together AI](https://together.ai/blog/meta-muse-spark-open)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Headless Claude Code Pipeline Blocks on Every Tool Prompt — Wire `--permission-prompt-tool` to an MCP Handler That Auto-Approves Safe Patterns, Logs Every Decision, and Routes Risky Commands to a Webhook]]></title>
@@ -6175,128 +6256,8 @@ Add `--verbose` to include tool-call events with the tool name, input arguments,
 **Sources:** [Claude Code CLI Reference — code.claude.com](https://code.claude.com/docs/en/cli-reference) · [Claude Code in CI/CD and Headless Automation — hidekazu-konishi.com](https://hidekazu-konishi.com/entry/claude_code_cicd_and_headless_automation.html) · [Headless Claude in CI — agentpatterns.ai](https://agentpatterns.ai/workflows/headless-claude-ci/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>An Embedding Is a Dense Vector — Here's How to Generate, Compare, and Store Them With sentence-transformers</title>
-      <link>https://sbert.net/docs/quickstart.html</link>
-      <guid isPermaLink="false">2026-10-01-03-sentence-transformers-text-embeddings-cosine-similarity-foundations</guid>
-      <pubDate>Thu, 01 Oct 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Embeddings</category>
-      <category>HuggingFace</category>
-      <description>What you'll be able to do after this: turn raw text into semantic vectors, measure similarity with cosine distance, and plug the output into any retrieval pipeline — 8 lines of Python, no GPU required.</description>
-      <content:encoded><![CDATA[**An embedding turns text into a dense vector so similarity math can operate on meaning, not keywords — sentence-transformers makes this an 8-line, no-GPU install.**
-
-**What you'll be able to do after this:** generate embeddings for arbitrary text, compare them by cosine similarity to find semantically related content, and feed the output to any vector store that accepts numpy arrays — starting on a free CPU with no cloud account required.
-
-- sentence-transformers wraps bi-encoder models and returns a numpy array from `.encode()`. `all-MiniLM-L6-v2` is the 80 MB starter: 384 dimensions, CPU-friendly, 256-token input window
-- Passing `normalize_embeddings=True` returns unit-norm vectors — after that, a dot product equals cosine similarity, which is faster than calling `util.cos_sim` on large batches
-- The same `.encode()` call handles a single string or a list of thousands; always pass a list to get 10–100× better throughput over a single-item loop
-
-**Walk-through:**
-
-```bash
-pip install -U sentence-transformers
-```
-
-```python
-from sentence_transformers import SentenceTransformer
-import numpy as np
-
-model = SentenceTransformer("all-MiniLM-L6-v2")  # ~80 MB, downloads once
-
-docs = [
-    "pgvector adds cosine similarity to Postgres",
-    "ChromaDB is an in-process vector store for prototyping",
-    "The weather in Paris is mild in October",
-]
-
-# encode returns (n_docs, 384) float32 array
-# normalize_embeddings=True: unit-norm vectors → dot product = cosine similarity
-embeddings = model.encode(docs, normalize_embeddings=True)
-
-# semantic search: encode the query, find the nearest doc
-query = model.encode("which vector database runs in Python without a server?",
-                     normalize_embeddings=True)
-scores = embeddings @ query           # shape: (3,)
-best = docs[int(np.argmax(scores))]   # → "ChromaDB is an in-process vector store..."
-print(f"Best match: {best}")
-```
-
-**Picking a model:**
-- `all-MiniLM-L6-v2` — 384 dims, 80 MB, fast CPU baseline, good for most tasks
-- `all-mpnet-base-v2` — 768 dims, 420 MB, higher quality, slower
-- For production: benchmark on your actual task using the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) — a model that tops the overall average can underperform on domain-specific text
-
-**Limits to know before you ship:**
-- `all-MiniLM-L6-v2` has a **256-token input limit** — inputs longer than that are silently truncated. Always chunk first (see the RecursiveCharacterTextSplitter post).
-- Embeddings from **different models are not interchangeable**: switch models and you must re-encode everything already in your index.
-- A 384-dim float32 vector is ~1.5 KB; 1 million documents ≈ 1.5 GB in memory. Budget storage before indexing a large corpus.
-
-The [sbert.net quickstart](https://sbert.net/docs/quickstart.html) covers five more patterns in the same format, including batched encoding and semantic search over a large corpus with a FAISS index.
-
-**Sources:** [SentenceTransformers Quickstart — sbert.net](https://sbert.net/docs/quickstart.html) · [sentence-transformers/all-MiniLM-L6-v2 — Hugging Face](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) · [MTEB Leaderboard — Hugging Face Spaces](https://huggingface.co/spaces/mteb/leaderboard) · [Sentence Transformers Cheat Sheet — theneuralbase.com](https://theneuralbase.com/cheatsheet/sentence-transformers/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Two Agents, One Repo, Zero Conflicts — `claude --worktree` Puts Each Session on Its Own Branch</title>
-      <link>https://code.claude.com/docs/en/agent-sdk/parallel-agents</link>
-      <guid isPermaLink="false">2026-09-30-05-claude-worktree-parallel-agent-sessions</guid>
-      <pubDate>Wed, 30 Sep 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>claude --worktree creates an isolated checkout under .claude/worktrees/ on its own branch, so two sessions share git history but not files — no more write conflicts when running parallel agents.</description>
-      <content:encoded><![CDATA[**`claude --worktree feature-auth` gives a second agent its own isolated branch — share git history, not files, so two sessions run in parallel without stepping on each other.**
-
-When two Claude Code sessions edit the same working tree at the same time, the second write stomps the first. The fix is git worktrees: each `--worktree` session gets its own checkout directory, on its own branch, while all sessions share a single `.git` directory.
-
-**Setting it up**
-
-```bash
-# Terminal 1 — feature work
-claude --worktree feature-auth
-
-# Terminal 2 — bug fix happening in parallel
-claude --worktree bugfix-login
-```
-
-Each command creates a fresh checkout at `.claude/worktrees/<name>/` on a new branch that starts from `origin/HEAD`. The sessions share git history but write to completely different directories — no file conflicts regardless of what each agent edits.
-
-To start from an existing PR instead of `origin/HEAD`:
-
-```bash
-claude --worktree "#1234"
-```
-
-The short flag `-w` works too. Auto-generated names are available if you omit the name.
-
-**After the sessions finish**
-
-Each worktree is a normal git branch. Merge or open a PR the same way you would any branch:
-
-```bash
-git merge --no-ff feature-auth
-git worktree remove .claude/worktrees/feature-auth
-git worktree prune   # clean up stale .git/worktrees/ entries
-```
-
-**The cost**
-
-Each worktree gets its own copy of everything git doesn't track — `node_modules`, build outputs, Python's `__pycache__`. On a repo with heavy build artifacts, three parallel worktrees can consume 10–15 GB of disk. If that is a problem, symlink `node_modules` across worktrees or use a shared package cache, but test carefully: some build tools assume the package directory is relative to the working tree.
-
-Context limits are per-session: each worktree agent runs its own independent conversation with no shared context, which is the point, but also means each one will hit the same compaction threshold independently.
-
-**When it pays off**
-
-The pattern is most useful when two tasks are genuinely independent: writing tests for one module while refactoring another, or a hotfix branch while a feature branch is mid-flight. For dependent work where agent B waits on agent A's output, sequential sessions in the same checkout are simpler.
-
-**Sources:** [Git Worktrees + Claude Code — DEV Community](https://dev.to/stacknotice/git-worktrees-claude-code-run-parallel-ai-agents-on-the-same-repo-2026-mga) · [Parallel Claude Code Sessions with Git Worktrees — AgentsCamp](https://agentscamp.com/guides/advanced/parallel-claude-code-worktrees) · [Claude Code Worktrees: The Complete Guide — crystl.dev](https://crystl.dev/blog/git-worktrees-claude-code/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
