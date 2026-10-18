@@ -10,7 +10,154 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 18 Oct 2026 12:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 18 Oct 2026 20:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Claude Code --print Returns Freeform Text by Default — Add --json-schema to Get Schema-Pinned Structured Output Your Pipeline Can Parse Without Regex]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-18-05-claude-code-json-schema-headless-structured-output</link>
+      <guid isPermaLink="false">2026-10-18-05-claude-code-json-schema-headless-structured-output</guid>
+      <pubDate>Sun, 18 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Add --json-schema to --output-format json and Claude Code's headless mode puts a schema-validated object in .structured_output — no text-parsing or regex needed in your CI script.]]></description>
+      <content:encoded><![CDATA[**When Claude Code runs headless with `-p --output-format json`, the answer lands in `.result` as a prose string. Add `--json-schema` and it lands in `.structured_output` as a validated object your script can destructure directly.**
+
+When you pipe Claude Code output to a CI script, the default JSON envelope looks like this:
+
+```json
+{ "result": "The PR introduces a breaking change in getUser...", "session_id": "...", "total_cost_usd": 0.003 }
+```
+
+That `.result` is a prose string — you end up regex-ing for "yes" or "no" or building a secondary parse step. `--json-schema` removes that entirely:
+
+```bash
+SCHEMA='{"type":"object","properties":{"has_breaking_change":{"type":"boolean"},"reason":{"type":"string"}},"required":["has_breaking_change","reason"]}'
+
+claude -p "Analyze this diff for breaking changes" \
+  --output-format json \
+  --json-schema "$SCHEMA" \
+  | jq '.structured_output'
+```
+
+Output:
+
+```json
+{"has_breaking_change": true, "reason": "Changed return type of getUser from string to User object"}
+```
+
+The envelope still includes `session_id`, `total_cost_usd`, and `is_error` — pipe through `jq '.structured_output'` to extract just the structured result, or use the full envelope for spend tracking.
+
+**Three things to know:**
+
+- Pass the schema inline as a JSON string, or from a file: `--json-schema "$(cat schema.json)"`.
+- An invalid schema causes an immediate CLI exit with an error (v2.1.205+ improved reporting; earlier versions silently fell back to freeform text — worth pinning your CLI version in CI).
+- `format` keywords (e.g. `"format": "date"`) are accepted but treated as annotations, not enforced. Use `pattern` if you need validation.
+
+**Limit:** An open bug reported July 2026 shows array-type fields serializing as XML text in some versions. If your schema has array properties, test carefully against your installed version before relying on it in production CI.
+
+**Sources:** [Headless mode — Claude Code docs](https://code.claude.com/docs/en/headless) · [CLI usage — Anthropic docs](https://docs.anthropic.com/en/docs/claude-code/cli-usage) · [`--json-schema` invalid-schema behavior — Claude Code issues tracker](https://claudeissues.com/issue/75875-docs-json-schema-flag-docs-omit-v2-1-205-fix-for-invalid-schema-silent-fallback)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Open-Model Inference Needs No Always-On Server — Modal Deploys vLLM on H100s from a Single Python File and Scales to Zero]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-18-06-modal-vllm-serverless-gpu-openai-endpoint</link>
+      <guid isPermaLink="false">2026-10-18-06-modal-vllm-serverless-gpu-openai-endpoint</guid>
+      <pubDate>Sun, 18 Oct 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>Cloud</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Modal wraps vLLM in a Python decorator, deploys it on cloud GPUs in one command, and scales the container to zero when idle — the OpenAI-compatible endpoint works with your existing client code.]]></description>
+      <content:encoded><![CDATA[**Modal deploys vLLM on real GPUs from a single Python file, exposes an OpenAI-compatible HTTPS endpoint, and scales the container to zero when idle — you pay only for requests, not for a server sitting warm.**
+
+**What you'll be able to do after this:** run any HuggingFace model (including a fine-tune you trained locally) on H100 or H200 GPUs behind an OpenAI-compatible API, with no Dockerfile, no Kubernetes, and no idle billing.
+
+## Where Modal fits
+
+Ollama, vLLM, and managed endpoints (Fireworks, Together AI) all expose OpenAI-compatible APIs. The choice is about where the model runs:
+
+- **Ollama:** local GPU you own — fastest, no latency, no cost per request; requires hardware
+- **Fireworks / Together AI:** managed endpoints you call — lowest ops burden, highest ongoing cost at scale
+- **Modal + vLLM:** you define the runtime in Python, Modal provisions cloud GPUs, container idles down between requests — right for a specific open model (e.g. a fine-tuned Mistral from the QLoRA tutorial) when you don't want to operate a persistent server
+
+## Walk-through
+
+```bash
+pip install modal
+modal setup   # opens browser for one-time auth
+```
+
+Create `vllm_server.py`:
+
+```python
+import modal
+
+app = modal.App("vllm-openai")
+
+vllm_image = modal.Image.debian_slim().pip_install("vllm")
+
+@app.cls(
+    image=vllm_image,
+    gpu="H100",
+    scaledown_window=15 * 60,   # container idles down after 15 min
+)
+class VLLMServer:
+    @modal.enter()
+    def load(self):
+        import subprocess, time
+        self.proc = subprocess.Popen([
+            "python", "-m", "vllm.entrypoints.openai.api_server",
+            "--model", "mistralai/Mistral-7B-Instruct-v0.3",
+            "--port", "8000",
+        ])
+        time.sleep(40)   # wait for weights to load into GPU memory
+
+    @modal.web_server(8000)
+    def serve(self):
+        pass
+```
+
+Deploy:
+
+```bash
+modal deploy vllm_server.py
+# Prints: https://your-workspace--vllm-openai-serve.modal.run
+```
+
+Point your existing OpenAI client at the endpoint — no other code changes:
+
+```python
+from openai import OpenAI
+client = OpenAI(
+    base_url="https://your-workspace--vllm-openai-serve.modal.run/v1",
+    api_key="unused",   # vLLM doesn't require auth by default
+)
+resp = client.chat.completions.create(
+    model="mistralai/Mistral-7B-Instruct-v0.3",
+    messages=[{"role": "user", "content": "Summarize this diff in 3 bullets."}],
+)
+```
+
+During development, `modal serve vllm_server.py` gives you a hot-reload URL without committing to a persistent deployment.
+
+## Limits
+
+**Cold start:** after the container idles down, the first request waits 30–60 seconds while vLLM loads model weights into GPU memory. The Modal Volume caches weights across deploys, so subsequent starts are faster — but first-request latency is real. If you need sub-second P99, keep a minimum replica running (`min_containers=1`) and accept the idle cost.
+
+**Cost:** H100 time runs roughly $3–4/hour at current Modal pricing. That's economical for bursty workloads; for sustained high-throughput production, a managed endpoint is cheaper. The free tier includes credits to experiment.
+
+**Fine-tuned models:** a model you trained locally needs its weights available to Modal — store them in a Modal Volume or point to a private HuggingFace repo using a `modal.Secret` for `HF_TOKEN`.
+
+The official Modal example uses Gemma on H200s as the production-grade reference — it's the canonical code to follow; the code above is a minimal illustration of the pattern.
+
+**Sources:** [Run OpenAI-compatible LLM inference with Gemma and vLLM — Modal docs](https://modal.com/docs/examples/vllm_inference) · [How to deploy vLLM — Modal blog](https://modal.com/blog/how-to-deploy-vllm) · [Deploying the Magistral vLLM Server on Modal — KDnuggets](https://www.kdnuggets.com/deploying-the-magistral-vllm-server-on-modal) · [vLLM on Modal — vLLM deployment docs](https://docs.vllm.ai/en/v0.9.1/deployment/frameworks/modal.html)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[The Claude Design Export Shows One Viewport — Add a Three-Line Responsive Brief to Your Claude Code Handoff Before It Starts Building]]></title>
@@ -6272,114 +6419,8 @@ Claude for Microsoft 365 is a separate early-access product in the same environm
 **Sources:** [Claude for Government is now generally available — ExecutiveBiz](https://www.executivebiz.com/articles/claude-for-government-fedramp-high-general-availability) · [Anthropic Opens Claude to Federal Agencies With FedRAMP Certification — GK Report](https://gokhshtein.com/news/2026-10-01-anthropic-opens-claude-to-federal-agencies-with-fedramp) · [Claude for Microsoft 365 early access — BigGo Finance](https://finance.biggo.com/news/yX2jBZ4BoQmpnl36mLEb)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your OpenAI Client Already Speaks to Together AI — 200+ Open Models, One base_url Change, One ID Format to Learn</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-01-together-ai-openai-compatible-api-200-open-models</link>
-      <guid isPermaLink="false">2026-10-02-01-together-ai-openai-compatible-api-200-open-models</guid>
-      <pubDate>Fri, 02 Oct 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <media:content url="https://img.youtube.com/vi/_GQfj3jhXVM/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/_GQfj3jhXVM/maxresdefault.jpg" />
-      <description>Together AI is OpenAI-compatible across chat, completions, and embeddings. Swap base_url and api_key, learn the org/model-variant ID format, and your existing code runs Llama, Qwen, DeepSeek, and 200+ others.</description>
-      <content:encoded><![CDATA[**Your existing OpenAI client reaches Llama 3.3, Qwen3, DeepSeek, and 200+ other open models by changing base_url and api_key — the only integration difference is Together AI's org/model-variant ID format.**
-
-**What you'll be able to do after this:**
-- Run any of Together AI's 200+ open-source models from your existing OpenAI SDK with two environment variable changes
-- Look up model IDs in the catalog before writing code against them
-- Prototype on serverless endpoints and move to dedicated endpoints without changing any other code
-
-**Three things to take away:**
-- Together AI's API is OpenAI-compatible across chat, completions, vision, embeddings, and TTS — `base_url` and `api_key` are the only changes
-- Model IDs use `org/model-variant` format: `meta-llama/Llama-3.3-70B-Instruct-Turbo`, not `llama-3.3-70b` — this is what breaks most integrations
-- Serverless and dedicated endpoints share the same API surface — switch by pointing at the dedicated endpoint URL, nothing else changes in your code
-
-**Walk-through:**
-
-```python
-# Before: your existing OpenAI code
-from openai import OpenAI
-client = OpenAI()  # uses OPENAI_API_KEY
-
-# After: Together AI — same SDK, different target
-import os
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["TOGETHER_API_KEY"],
-    base_url="https://api.together.xyz/v1"
-)
-response = client.chat.completions.create(
-    model="meta-llama/Llama-3.3-70B-Instruct-Turbo",  # not "llama-3.3-70b"
-    messages=[{"role": "user", "content": "Hello"}],
-    max_tokens=512,
-)
-print(response.choices[0].message.content)
-```
-
-Or use the native Together SDK: `pip install together`, then `from together import Together; client = Together()` with the same model IDs.
-
-**Finding model IDs:** check [docs.together.ai/docs/serverless/models](https://docs.together.ai/docs/serverless/models) or call `client.models.list()`. The catalog covers Llama 3.3, Qwen3, DeepSeek V4 series, Mixtral, and code-specialized variants.
-
-**What Together AI adds beyond Fireworks:** built-in fine-tuning (upload JSONL, launch a run, the result is a deployable endpoint on the same API), batch processing at up to 50% lower per-token cost for offline workloads (Together AI's own figure), and a wider catalog including image and video generation.
-
-**Real limits:**
-- Model IDs don't map from OpenAI names — there's no automatic translation; always check the catalog before writing code against a model name
-- Together AI claims 2.75x faster serverless inference than competitors per their own benchmarks — independent head-to-head data is limited, test your own latency requirements before committing
-- Serverless can throttle under high load; dedicated endpoints are fixed-price (per GPU-hour, model-dependent) and require upfront volume estimates
-- Context window and rate limits vary by model — don't assume they match OpenAI's, check the model card for each
-
-**Sources:** [OpenAI compatibility — Together AI docs](https://docs.together.ai/docs/inference/openai-compatibility) · [Available models — Together AI docs](https://docs.together.ai/docs/serverless/models) · [Open Source AI Inference API w/ Together — YouTube](https://www.youtube.com/watch?v=_GQfj3jhXVM) · [Together AI: Serverless GPU inference guide — Zaira Labs](https://zairalabs.ai/guide/tools/together-ai/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Cloudflare Ships Clef: An Open-Source Decision Model for Your Agent's Routing Layer</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-01-07-cloudflare-clef-decision-model-agent-routing-open-source</link>
-      <guid isPermaLink="false">2026-10-01-07-cloudflare-clef-decision-model-agent-routing-open-source</guid>
-      <pubDate>Thu, 01 Oct 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <description>Cloudflare ships Clef and Clef-flash today: open-source decision models on Workers AI that return typed probabilities for agent routing without a generation pass.</description>
-      <content:encoded><![CDATA[**Clef returns fast typed probabilities for a fixed schema of routing questions — no generation, no parsing — as a zero-config binding on Cloudflare Workers AI.**
-
-TypeSafe's Jev ([covered September 21](/ai-news/2026-09-21-08-jev-typesafe-decision-model-agent-routing)) introduced the category of specialist decision models for agent routing. Cloudflare's Clef, released today, adds two things Jev doesn't have: open weights (Apache 2.0, available on HuggingFace) and an RL fine-tuning platform so you can adapt the routing schema to your own data.
-
-**Call pattern:**
-
-```javascript
-const result = await env.AI.run("@cf/cloudflare/clef", {
-  state: "Checkout failing for all customers for the past hour.",
-  questions: {
-    urgent: { type: "noul", instructions: "Is this urgent?" },
-    team: {
-      type: "choice",
-      instructions: "Which team handles this?",
-      criteria: {
-        billing: "Payments, invoices, refunds",
-        technical: "Outages, errors, configuration",
-        sales: "Plans and upgrades"
-      }
-    }
-  }
-});
-// result: { urgent: { yes: 0.96 }, team: { technical: 0.91, billing: 0.06, sales: 0.03 } }
-```
-
-Two models: Clef (27B) and Clef-flash (9B). Cloudflare benchmarks Clef at 2.5× faster than Jev at the median on their classification tasks — vendor figures, no independent replication yet.
-
-**Real limits:** the RL fine-tuning platform requires a paid Cloudflare Workers plan; the decision schema must be fixed upfront — Clef doesn't handle open-ended questions where the answer space is unknown; Workers AI only (no local self-hosting despite Apache 2.0 weights on HuggingFace).
-
-**Why it matters:** working on Cloudflare Workers already gets you a zero-config agent routing layer; the open Apache 2.0 weights give everyone an alternative to proprietary routing models.
-
-**Sources:** [Introducing Clef — Cloudflare Blog](https://blog.cloudflare.com/clef-decision-models/) · [Clef Workers AI docs](https://developers.cloudflare.com/workers-ai/models/clef/) · [Cloudflare Clef resource page](https://www.cloudflare.com/resource/clef-rl-interest/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
