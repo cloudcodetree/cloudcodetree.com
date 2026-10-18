@@ -10,7 +10,142 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 18 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 18 Oct 2026 12:11:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[The Claude Design Export Shows One Viewport — Add a Three-Line Responsive Brief to Your Claude Code Handoff Before It Starts Building]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-18-04-claude-design-export-responsive-brief-handoff</link>
+      <guid isPermaLink="false">2026-10-18-04-claude-design-export-responsive-brief-handoff</guid>
+      <pubDate>Sun, 18 Oct 2026 12:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Claude Design exports a single desktop viewport with no breakpoints. Without a responsive brief in your handoff prompt, Claude Code uses generic media queries that won't match your design system. Three lines fix this.]]></description>
+      <content:encoded><![CDATA[**Claude Design gives Claude Code a desktop frame — no breakpoints, no mobile layout, no spacing-scale hints. A three-line responsive brief in your handoff prompt closes that gap before the first line of code is written.**
+
+**What you'll be able to do after this:** write a responsive brief that takes your Claude Design export from "desktop only" to "works at 375px, 768px, and 1280px" in a single Claude Code session, without regenerating the design.
+
+## What Claude Design does not export
+
+Claude Design produces a visual composition at one viewport — typically the desktop width you designed at. It exports:
+- Layout structure and component arrangement
+- Color tokens, typography, and spacing values used in the design
+- Component states (hover, active, disabled) if you specified them
+
+It does not export:
+- Breakpoints or responsive rules
+- Mobile layout changes (stacked vs. side-by-side, hidden elements, reordered sections)
+- Touch target sizes
+- Any instruction about which elements collapse, reorder, or disappear at smaller widths
+
+Claude Code has no way to infer these from a desktop frame. Left to its own heuristics, it will emit generic `max-width` breakpoints that have no relationship to your design system's scale.
+
+## The three-line responsive brief
+
+Add this block to your handoff prompt, immediately after pasting the exported design or describing the component:
+
+```
+Responsive rules:
+- ≤640px (mobile): stack all flex rows to column, 16px side gutters, minimum 44px touch targets
+- 641–1024px (tablet): two-column grid max, sidebar collapses to drawer if present
+- ≥1025px (desktop): match the exported layout exactly
+```
+
+Adjust the column rules to match your actual design decisions. The gutters and touch targets should stay consistent across projects — make them a reusable snippet.
+
+**Where to put it:**
+- In `CLAUDE.md` under a "Responsive contract" heading if you want it applied to every Claude Code session in the repo
+- Inline in the handoff prompt for a one-off component
+
+## One step before the handoff
+
+Before exporting, resize the Claude Design canvas to 375px and review the result. Claude Design will attempt a mobile adaptation — it's often incomplete, but it surfaces the decisions you haven't made yet: does the hero image disappear? Does the nav collapse to a hamburger? Does the pricing table stack or scroll?
+
+Make those decisions in the design before the handoff. The responsive brief only works if you've actually thought through the mobile layout — it's a communication format, not a substitute for design judgment.
+
+**Limit:** The brief tells Claude Code your rules but doesn't give it your full design-system token file. If your system has specific breakpoint values (e.g., `--bp-md: 768px`), either pass the token file or name the variable in the brief: "use `--bp-md` for the 641px breakpoint."
+
+**Sources:** [Claude Design documentation](https://support.claude.ai/hc/en-us/articles/get-started-with-claude-design), [responsive design patterns with Claude Code](https://www.anthropic.com/news/claude-responsive-design), [Claude Design to Claude Code handoff mechanics](https://claudefa.st/handoff-mechanics)]]></content:encoded>
+      <media:content url="https://img.cloudcodetree.com/2026-10-18-04-claude-design-export-responsive-brief-handoff.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-18-04-claude-design-export-responsive-brief-handoff.jpg" />
+    </item>
+
+    <item>
+      <title><![CDATA[Your Multi-Agent Run Shows Hex IDs in the Fleet View — Pass `name:` to Every Agent Call and Use `n:` to Find Any Session Instantly]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-18-03-agent-name-fleet-view-n-filter</link>
+      <guid isPermaLink="false">2026-10-18-03-agent-name-fleet-view-n-filter</guid>
+      <pubDate>Sun, 18 Oct 2026 12:10:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Unnamed Agent calls show as hex IDs in `claude agents`. A `name:` on every call plus the `n:` filter in the fleet view makes navigating ten or more parallel sessions practical.]]></description>
+      <content:encoded><![CDATA[**When you launch parallel agents without a `name:`, the fleet view shows hex IDs you can't distinguish at a glance. A one-field addition to every Agent call turns a wall of identifiers into a navigable dashboard.**
+
+**What you'll be able to do after this:** open the fleet view during a multi-agent run, find any specific agent by name in under two seconds using the `n:` filter, and know which convention to use for naming agents across different call patterns.
+
+## Why the fleet view shows hex IDs
+
+Every agent call spawns a session with a generated ID. The fleet view (`claude agents`, or ctrl+] on Mac) lists running sessions by that ID unless you provided a human-readable name. With five or more parallel agents, all running in background mode, hex IDs make it impossible to tell which session is reviewing auth, which is analyzing deps, and which is now stuck.
+
+Unnamed sessions also make `SendMessage` error-prone — you're copying a hex string instead of typing a purposeful label.
+
+## The `name:` field on Agent tool calls
+
+Every Agent tool call accepts a `name:` parameter. It's optional in the schema but should be treated as required in practice:
+
+```
+Agent({
+  name: "review:auth",
+  description: "Review the auth middleware for security issues",
+  prompt: "...",
+  run_in_background: true
+})
+```
+
+**Naming convention that works across projects:** `purpose:target`
+- `review:auth`, `review:payments`, `review:api`
+- `analyze:deps`, `analyze:bundle`, `analyze:types`
+- `generate:tests`, `generate:docs`, `generate:fixtures`
+- `fix:lint`, `fix:types`
+
+The colon separator makes the `n:` filter especially effective — `n:review` matches all review agents at once.
+
+## The `label:` field in workflow scripts
+
+If you're writing workflow scripts (via the Workflow tool), the equivalent is `label:` in the `opts` object passed to `agent()`:
+
+```js
+agent("Review the auth module for security issues", {
+  label: "review:auth",
+  phase: "Review"
+})
+```
+
+`label:` and `name:` appear identically in the fleet view.
+
+## Using `n:` in the fleet view
+
+Open `claude agents` during a run. Type `n:` followed by any substring of a session name to filter immediately:
+
+- `n:review` — shows all review agents
+- `n:auth` — shows any agent whose name contains "auth"
+- `n:review:auth` — exact match
+
+Press Enter on a result to attach to that session and read its output. Press Escape to return to the list and filter again.
+
+**Limit:** Names must be unique within a run — if two agents share the same name, the `n:` filter returns both and you can't tell them apart. For agents that iterate (e.g., multiple fix passes), append a suffix: `fix:types-1`, `fix:types-2`.
+
+**Sources:** [Claude Code sub-agents documentation](https://code.claude.com/docs/en/sub-agents), [Claude Code 2.1.287 release notes](https://www.havoptic.com/r/claude-code-2.1.287), [Claude Code workflow authoring guide](https://code.claude.com/docs/en/workflow-authoring)]]></content:encoded>
+      <media:content url="https://img.cloudcodetree.com/2026-10-18-03-agent-name-fleet-view-n-filter.jpg" medium="image" />
+      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-18-03-agent-name-fleet-view-n-filter.jpg" />
+    </item>
 
     <item>
       <title><![CDATA[Your Generated UI Passes the Prompt Test and Fails the Tab Key — Five Checks to Run Before the Claude Code Handoff]]></title>
@@ -6245,74 +6380,8 @@ Two models: Clef (27B) and Clef-flash (9B). Cloudflare benchmarks Clef at 2.5× 
 **Sources:** [Introducing Clef — Cloudflare Blog](https://blog.cloudflare.com/clef-decision-models/) · [Clef Workers AI docs](https://developers.cloudflare.com/workers-ai/models/clef/) · [Cloudflare Clef resource page](https://www.cloudflare.com/resource/clef-rl-interest/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Two Claude Code Sessions Can Now Message Each Other — Mention the Target With `@` and Claude Routes the Handoff</title>
-      <link>https://code.claude.com/docs/en/cross-session-messaging</link>
-      <guid isPermaLink="false">2026-10-01-04-claude-code-cross-session-messaging-list-agents</guid>
-      <pubDate>Thu, 01 Oct 2026 12:13:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Cross-session messaging (v2.1.224+) lets one Claude Code session warn another about a breaking change or hand off a decision — text only, works on the same machine with no extra setup.</description>
-      <content:encoded><![CDATA[**Cross-session messaging lets one Claude Code session warn another about a breaking change or send a decision across — useful for parallel worktrees or a frontend/backend split, with no relay from you.**
-
-When you run a library in one terminal and a consuming app in another, the usual workflow is: make a change in session A, then manually re-explain it in session B. Cross-session messaging (v2.1.224+, macOS and Linux) removes that relay.
-
-**How it works.** Claude uses two tools under the hood — `ListAgents` to discover your other live sessions and `SendMessage` to write to one. You never call either directly. Ask Claude to pass something and it handles the addressing:
-
-```
-Let the payments-api session know that users.name is now users.display_name
-```
-
-To name a specific target, type `@` followed by the session name — Claude Code autocompletes from the live session list. For names with spaces: `@"release notes"`.
-
-**`/list-agents`** shows what Claude can reach: subagents, your other sessions on this machine, and (when connected to Remote Control) cloud sessions and sessions on other machines.
-
-**Useful patterns:**
-- **Parallel worktrees on the same repo:** each session notifies the other when a shared API contract changes.
-- **Monorepo frontend/API split:** the API session sends "schema migration finished" instead of you watching two terminals.
-
-**Wait-for-idle:** ask Claude to notify you when a long task finishes:
-```
-Tell me when the migration session finishes what it's working on
-```
-Claude subscribes; the other session sends one notice when it next goes idle.
-
-**What crosses: text only.** Not conversation history, not files, not permissions. The receiving session's own permission rules still apply to anything the message asks for. A received message can never answer a permission prompt on your behalf or change project configuration.
-
-**Limits:** same-machine only without Remote Control; ~1 million character message cap; rapid bursts to one session are rate-limited automatically; macOS and Linux only for same-machine (native Windows requires v2.1.234+).
-
-**Sources:** [Cross-session messaging — Claude Code docs](https://code.claude.com/docs/en/cross-session-messaging) · [Week 32 digest — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w32) · [Claude Code cross-session communication — nexforce.ai](https://nexforce.ai/en/blog/claude-code-sessions-communicate-mid-task)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>VS Code 1.140 Makes HydraFusion the Default and Adds Experimental Multi-Folder Agent Sessions</title>
-      <link>https://code.visualstudio.com/updates/v1_140</link>
-      <guid isPermaLink="false">2026-10-01-05-vscode-1140-hydrafusion-default-multi-folder-agent-sessions</guid>
-      <pubDate>Thu, 01 Oct 2026 12:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>LLM</category>
-      <description>VS Code 1.140 (September 30) enables HydraFusion multi-model routing by default and adds experimental multi-folder agent sessions where each chat owns its own folder without cross-contamination.</description>
-      <content:encoded><![CDATA[**VS Code 1.140 (released September 30) turns on HydraFusion multi-model routing by default in Copilot chat and adds experimental multi-folder agent sessions that isolate agent work across separate repos.**
-
-**HydraFusion** is now on by default in VS Code's Copilot chat. It automatically routes each coding task across three execution patterns: route to a single model directly, cascade from a cheaper model to a stronger one when quality gates aren't met, or have a second model critique and revise the first's output. GitHub's own benchmarks claim 67% cost reduction vs Claude Opus 5 at matched quality on TerminalBench 2.1 — those numbers are GitHub's, independent benchmarks pending. It remains a research preview and its behavior may change.
-
-**Multi-folder agent sessions (experimental)** let each chat tab own its own folder, branch, and PR. Agent work on repo A cannot contaminate repo B in the same VS Code window. Useful for managing related but separate services or packages without leaking context between sessions.
-
-**Worktree symlink reuse:** the new `git.worktreeSymlinkFolders` setting symlinks `node_modules` (and other directories listed in `.gitignore`) from the main checkout into each new worktree. This cuts worktree setup time from "full install" to "symlink creation" on repos with heavy dependencies.
-
-**Limits:** HydraFusion is still a research preview — intermediate model drafts are hidden until completion, and the routing rules may change. Multi-folder sessions are experimental and may not persist across restarts.
-
-**Why it matters:** HydraFusion's cascade pattern (try a cheaper model, escalate only if a quality gate fails) is a practical design principle for anyone building multi-model routing in their own agent stack — regardless of whether you use VS Code Copilot.
-
-**Sources:** [VS Code 1.140 release notes](https://code.visualstudio.com/updates/v1_140) · [VS Code 1.140 agent coordination — Visual Studio Magazine](https://visualstudiomagazine.com/articles/2026/09/30/vs-code-1-140-expands-agent-coordination-across-folders-and-machines.aspx) · [Project HydraFusion — GitHub Blog](https://github.blog/ai-and-ml/github-copilot/project-hydrafusion-frontier-quality-via-multi-model-orchestration/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
