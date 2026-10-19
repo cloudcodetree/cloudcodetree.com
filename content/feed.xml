@@ -10,7 +10,92 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 18 Oct 2026 20:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 19 Oct 2026 04:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Auto Mode Logs Don't Tell You Why a Tool Was Blocked — v2.1.301 Adds classifier_verdict and permission_mode to Every tool_decision Span]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-19-02-claude-code-auto-mode-otel-classifier-verdict</link>
+      <guid isPermaLink="false">2026-10-19-02-claude-code-auto-mode-otel-classifier-verdict</guid>
+      <pubDate>Mon, 19 Oct 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Claude Code v2.1.301 adds classifier_verdict and permission_mode to tool_decision OTel spans — traces now show whether auto mode's classifier or a permission rule blocked each tool call.]]></description>
+      <content:encoded><![CDATA[**Claude Code v2.1.301 adds `classifier_verdict` and `permission_mode` to `claude_code.tool_decision` spans — your OTel backend can now distinguish classifier blocks from permission-rule blocks in unattended runs.**
+
+Auto mode logs a `claude_code.tool_decision` event on every tool call decision. Before v2.1.301, the event carried `tool_name`, `decision`, and `source`, but nothing that distinguished why a call was blocked: you couldn't tell whether auto mode's classifier refused it or a permission rule in your `settings.json` denied it. Both showed up as "blocked", pointing you at the wrong part of your configuration when you tried to debug.
+
+**What v2.1.301 adds (October 15):**
+- `classifier_verdict` — the auto mode classifier's raw decision for this call
+- `permission_mode` — the permission source (classifier, explicit deny, allowlist, etc.) that produced the final outcome
+
+Filter on `classifier_verdict` to find calls the classifier was unsure about. Join with `tool_name` and you can see which tools repeatedly hit the classifier — a signal that your auto mode threshold is tight relative to your actual usage pattern.
+
+**v2.1.302 follow-up (October 16): `CLAUDE_CODE_AUTO_MODE_MODEL`**
+
+A new env var pins the model used for client-side auto mode classification, independent of the session model:
+
+```
+CLAUDE_CODE_AUTO_MODE_MODEL=claude-haiku-5-5
+```
+
+Default is Sonnet for external sessions. Setting this to Haiku on a batch Workflow run reduces classifier overhead when the tasks are straightforward and the classifier rarely needs to deliberate.
+
+**Known regression in v2.1.301 (fixed in v2.1.302):** `classifier_category` was dropped from `tool_decision` events in 2.1.301. Upgrade to 2.1.302 before building dashboards that read that field.
+
+**Limits:** As of October 16, the official auto-mode docs page does not yet list `classifier_verdict` or `permission_mode`. The field names come from the Classmethod write-up and release notes — confirmed by implementation, not yet official reference. Server-side auto mode decisions are not emitted through client OTel, so this only covers client-side classifier decisions.
+
+**Sources:** [Claude Code v2.1.301 OTel changes — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261016-cc-updates-v2-1-301/) · [Claude Code telemetry with OpenTelemetry — openobserve.ai](https://openobserve.ai/blog/claude-agent-sdk-observability-opentelemetry/) · [Claude Code auto mode config — code.claude.com](https://code.claude.com/docs/en/auto-mode-config.md)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[You're Regenerating in Claude Design for Changes That Belong in Your Editor — Here Is the Decision Rule for When to Stay vs. When to Switch to Claude Code]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-19-01-claude-design-regenerate-vs-code-decision-rule</link>
+      <guid isPermaLink="false">2026-10-19-01-claude-design-regenerate-vs-code-decision-rule</guid>
+      <pubDate>Mon, 19 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Use Claude Design for structural and aesthetic changes; switch to Claude Code once the design is settled. Inline canvas adjustments handle small visual nudges without burning a generation.]]></description>
+      <content:encoded><![CDATA[**Use Claude Design for layout overhauls and aesthetic direction; switch to Claude Code the moment you're adjusting an implementation detail — spacing values, component props, a media query. Inline canvas adjustments handle small visual nudges without spending a generation.**
+
+**What you'll be able to do after this:** Decide in under 30 seconds which tool a UI change belongs in, and stop re-exporting a design after you've already iterated in code.
+
+**Three takeaways:**
+
+1. **Structural and aesthetic changes → Claude Design.** A new section, a layout overhaul, a color direction shift, a different typographic treatment — these require the model to understand overall design intent. Give them to Claude Design via chat, where it can reason about the whole composition.
+
+2. **Implementation changes → Claude Code.** Spacing values, responsive breakpoints, a component prop, a CSS custom property, a WCAG fix — these live in code, don't require design intent, and won't sync back to the canvas anyway. Fix them in your editor; a round-trip through Claude Design costs a full generation and returns the same structure with a slightly different implementation.
+
+3. **Small visual nudges → inline adjustments first.** Claude Design's inline canvas comments let you adjust targeted properties without triggering a full generation. Use them for minor visual tuning before deciding whether a change is substantial enough to warrant a chat prompt.
+
+**Concrete walk-through:**
+
+You have a hero section. The client wants a more editorial direction — bigger headline, no gradient overlay.
+
+1. **That's structural → Claude Design.** Prompt: *"Make the hero editorial: headline at 2× current size, remove the gradient overlay, bleed the image edge-to-edge."* Claude Design regenerates the section.
+
+2. **Export and hand off.** Claude Code builds the component from the bundle.
+
+3. **The headline/subheadline gap is 24px but you want 32px.** Implementation detail → fix it in code (`gap-6` → `gap-8`, or adjust the design token). Do not go back to Claude Design for this.
+
+4. **Client wants to explore three different header directions.** Structural → back to Claude Design. Ask for variants in separate chat turns; save the state between them.
+
+5. **Breakpoint behavior at 768px is broken.** Responsive bug → fix in Claude Code.
+
+**The handoff is one-directional by default.** Code changes don't sync back to the Claude Design canvas. If you re-export from Claude Design after iterating in code, your code-side changes are overwritten. Treat the export as your starting point; once the component is in the repo, it lives in Claude Code.
+
+**Limit:** Full regeneration in Claude Design draws from your plan's shared usage pool alongside chat and Claude Code. On a project with many components, keep structural sessions focused on one section at a time — whole-design prompts consume more than targeted ones. As of October 2026, there is no selective regeneration of one section while others stay fixed; chat iterates the entire canvas.
+
+**Sources:** [Using Claude Design for prototypes and UX — claude.com/resources](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Iterative refinement loop in Claude Design — mindstudio.ai](https://www.mindstudio.ai/blog/iterative-refinement-loop-claude-design-multimodal)]]></content:encoded>
+    </item>
+
 
     <item>
       <title><![CDATA[Claude Code --print Returns Freeform Text by Default — Add --json-schema to Get Schema-Pinned Structured Output Your Pipeline Can Parse Without Regex]]></title>
@@ -6334,91 +6419,8 @@ No migration path from Gemini 3.5 Pro API calls announced yet.
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>A Three-File TypeScript Plugin Changes How Every Tool Call in Claude Code Behaves — Mods Let You Hook Any Event</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-03-claude-code-mods-typescript-hooks-tool-call-intercept</link>
-      <guid isPermaLink="false">2026-10-02-03-claude-code-mods-typescript-hooks-tool-call-intercept</guid>
-      <pubDate>Fri, 02 Oct 2026 04:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Claude Code Mods (shipped October 1) are TypeScript event handlers that intercept tool calls, permission prompts, and UI events — observe, rewrite, or fully replace any Claude Code behavior in a three-file plugin.</description>
-      <content:encoded><![CDATA[**Claude Code Mods are TypeScript event handlers that intercept any tool call, permission prompt, or UI draw event — you can observe, rewrite, or replace the behavior entirely.**
-
-A mod is a small JS/TS file that registers hooks on Claude Code's internal events. Each time Claude calls a tool, asks for permission, or renders part of the interface, it fires an event. Your hook runs alongside it or in its place.
-
-**Three hook modes:**
-- **Observe** — read what happened, let it continue unchanged
-- **Rewrite** — change the event before it continues (edit the tool call arguments, modify the output)
-- **Answer** — handle the event yourself; the normal behavior doesn't run
-
-Hooks form a middleware chain. `next(e)` passes to the next handler; skip it to intercept entirely.
-
-**Minimal mod structure (three files):**
-
-```
-my-mod/
-  plugin.json   # plugin manifest
-  hooks.json    # declares which events your module handles
-  register.js   # your event handlers
-```
-
-```js
-// register.js — block any git push not to a feature branch
-export function register({ on }) {
-  on('tool:call', async (e, next) => {
-    if (e.tool === 'Bash' && e.input?.command?.startsWith('git push')) {
-      if (!e.input.command.includes('origin feature/')) {
-        return { error: 'Pushes to non-feature branches require manual confirmation.' };
-      }
-    }
-    return next(e);
-  });
-}
-```
-
-**Three things you can build immediately:**
-1. **Secret redaction** — hook `tool:result` and scrub any line matching `sk-`, `AKIA`, or your own patterns before Claude reads it
-2. **Push gate** — intercept `Bash` calls starting with `git push` and require a branch check
-3. **Inline Mermaid** — hook `interface:draw` and replace a code block tagged `mermaid` with a rendered diagram panel
-
-**To install or write:** run `/plugin` in the Claude Code CLI to install a plugin that includes mods. To write your own, create a plugin directory, add `hooks.json` pointing to your code file, and export a `register` function.
-
-**Real limits:**
-- Mods run only in the Claude Code CLI and desktop app — they don't run in remote sessions, CI pipelines, or the Agent SDK
-- Hooks run synchronously inside Claude Code's event loop; a blocking operation stalls the whole session
-- You can't currently register new slash commands or directly modify the system prompt through a mod (use CLAUDE.md for that)
-- Mod code runs with the same filesystem and network access as the Claude Code session — vet what you install from the directory
-
-**Sources:** [Mods overview — Claude Code Docs](https://code.claude.com/docs/en/plugins/mods/overview) · [Create a mod — Claude Code Docs](https://code.claude.com/docs/en/plugins/mods/create) · [Customize Claude Code with mods in TypeScript — claude.com/blog](https://claude.com/blog/claude-code-mods) · [Claude Code mods rewrite prompts and approve tool permissions — Runtime Wire](https://runtimewire.com/article/anthropic-claude-code-mods-typescript-permissions)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Claude for Government Reaches GA — Claude Code CLI and Microsoft 365 Integration in Early Access Under FedRAMP High</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-02-claude-government-fedramp-ga-claude-code-early-access</link>
-      <guid isPermaLink="false">2026-10-02-02-claude-government-fedramp-ga-claude-code-early-access</guid>
-      <pubDate>Fri, 02 Oct 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>Cloud</category>
-      <description>Anthropic's Claude for Government reached general availability September 30; Claude Code CLI and the Microsoft 365 add-in entered early access under the same FedRAMP High authorized environment.</description>
-      <content:encoded><![CDATA[**Claude for Government hit GA on September 30; Claude Code CLI and a Microsoft 365 add-in (Word, Excel, PowerPoint, Outlook in beta) entered early access under the same FedRAMP High boundary.**
-
-Anthropic moved the platform from the July 2026 public beta to general availability. The FedRAMP High authorization covers the same Claude coding and agentic capabilities as the commercial offering — there is no government-specific model variant, just the same models inside a compliant boundary.
-
-For engineers: the main change is the authorization boundary. Contractors and agency engineers who have been routing around compliance requirements to use Claude Code can now use it within an approved FedRAMP environment. Billing is usage-based with per-administrator spend caps and per-model tier controls, so department leads can segment and monitor costs.
-
-Claude for Microsoft 365 is a separate early-access product in the same environment: a Word/Excel/PowerPoint add-in with Outlook in beta. Less directly relevant for engineering workloads, but it closes the gap for mixed teams where some staff work mainly in Office.
-
-**Why it matters:** authorization was the main blocker for using Claude Code at most agencies, not capability. GA removes that blocker for FedRAMP-compliant workloads.
-
-**Sources:** [Claude for Government is now generally available — ExecutiveBiz](https://www.executivebiz.com/articles/claude-for-government-fedramp-high-general-availability) · [Anthropic Opens Claude to Federal Agencies With FedRAMP Certification — GK Report](https://gokhshtein.com/news/2026-10-01-anthropic-opens-claude-to-federal-agencies-with-fedramp) · [Claude for Microsoft 365 early access — BigGo Finance](https://finance.biggo.com/news/yX2jBZ4BoQmpnl36mLEb)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
