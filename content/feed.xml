@@ -10,7 +10,87 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 19 Oct 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 19 Oct 2026 12:07:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your PR Review Queue Is the Bottleneck, Not Your Inference Speed — Harvard Finds AI Coding Agents Raise Code Output +30% With No Gain in Shipped Features]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-19-03-harvard-coding-agents-bottleneck-nemotron-bolt</link>
+      <guid isPermaLink="false">2026-10-19-03-harvard-coding-agents-bottleneck-nemotron-bolt</guid>
+      <pubDate>Mon, 19 Oct 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[A Harvard working paper on 700+ software firms found AI coding agents raised code output 30% with no gain in resolved issues; PR merge times rose 49%.]]></description>
+      <content:encoded><![CDATA[**A Harvard working paper finds AI coding agents raised per-worker code output ~30% across 700+ firms — but resolved issues were flat, PR merge time rose 49%, and revision requests nearly doubled; the bottleneck is review, not generation.**
+
+Fiona Chen and James Stratton (Harvard, "Artificial Intelligence in the Firm," Aug 2026) used Jellyfish engineering analytics data from over 700 software companies between 2021–2026. Workers using AI coding agents produced roughly 1,500 extra lines per month (+30%), 20% more commits, and 23% more pull requests. Resolved Jira issues and completed epics showed no statistically significant change; firm-level headcount held flat.
+
+The identified constraint: review. PR-to-merge time rose 49%. Revision requests nearly doubled. The share of workers assigned to review grew 14%.
+
+Practical read: adding generation capacity without matching review bandwidth shifts the queue, not the throughput. If your team is already reviewer-limited, more AI-generated PRs accelerate that constraint rather than relieving it.
+
+One caveat: the study measures commit and PR metadata, not shipped-feature quality or post-merge impact. It covers adoption through early 2026, and both the tools and the workflow patterns around them continue to change.
+
+**Also this week:** NVIDIA released [Nemotron 3.5 Bolt 74B](https://www.techrepublic.com/article/news-nvidia-nemotron-3-5-super-vl-bolt-ai-models/) — an open model (24 GB VRAM, ~9B active parameters per NVIDIA's own figures) built for local agentic workloads — available now on Ollama, LM Studio, and llama.cpp. OpenRouter's earlier testing of the Nemotron 3.5 Lightning variant found lower accuracy than NVIDIA's benchmarks, so measure on your own tasks.
+
+**Why it matters:** The Harvard finding reframes where AI coding tool ROI actually lands — invest in review tooling and process, not just a faster model.
+
+**Sources:** [Harvard: AI Coding Agents Lift Code 30%, Shipped Output Flat — aiweekly.co](https://aiweekly.co/alerts/harvard-study-ai-coding-agents-lift-code-30-shipped-output-flat) · [Byteiota coverage and analysis](https://byteiota.com/ai-coding-agents-write-30-more-code-teams-ship-the-same/) · [NVIDIA Nemotron 3.5 Bolt — TechRepublic](https://www.techrepublic.com/article/news-nvidia-nemotron-3-5-super-vl-bolt-ai-models/) · [HPC Wire on Nemotron 3.5](https://www.hpcwire.com/aiwire/2026/10/15/nvidia-expands-nemotron-family-with-highest-efficiency-super-vl-and-bolt-models/)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Chunks Lose the Context That Made Them Retrievable — Late Chunking Embeds the Full Document First, Then Splits]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-19-04-late-chunking-jina-embeddings-full-document-context</link>
+      <guid isPermaLink="false">2026-10-19-04-late-chunking-jina-embeddings-full-document-context</guid>
+      <pubDate>Mon, 19 Oct 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Embeddings</category>
+      <category>RAG</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Late chunking embeds the full document first, then splits the resulting token embeddings per chunk — so each chunk inherits its surrounding document context.]]></description>
+      <content:encoded><![CDATA[**Late chunking embeds the full document first, then splits the resulting token embeddings at chunk boundaries — each chunk inherits its surrounding document context, not just its own text.**
+
+**What you'll be able to do after this:** generate chunk embeddings that capture cross-chunk references, so pronouns and entity mentions in a chunk don't become dead ends in your vector index.
+
+Standard RAG: split text → embed each chunk in isolation. The problem: "It increased 40% in Q3" produces a semantically vague embedding because the model only sees that sentence. Your vector store indexes it faithfully, but no plausible query can retrieve it reliably.
+
+Late chunking flips the order:
+
+1. Run the **full document** through a long-context embedding model to get one embedding **per token**.
+2. Split at your chunk boundaries and **average** the token embeddings for each span.
+
+Each chunk embedding is conditioned on its full document context. Cross-references, pronouns, and topic continuity survive the split.
+
+**With the Jina API (hosted, one call):**
+
+```python
+import requests, os
+
+response = requests.post(
+    "https://api.jina.ai/v1/embeddings",
+    headers={"Authorization": f"Bearer {os.environ['JINA_API_KEY']}"},
+    json={
+        "model": "jina-embeddings-v3",
+        "late_chunking": True,
+        "input": [
+            full_document,   # index 0 — discard this embedding
+            chunk_1, chunk_2, chunk_3,
+        ]
+    }
+)
+chunk_embeddings = [d["embedding"] for d in response.json()["data"][1:]]
+```
+
+Send the full document as the first element and your chunks after it. Discard `data[0]`; store the rest in your vector store as usual.
+
+**Limit:** Late chunking helps most when chunks have cross-document dependencies — financial reports, technical documentation, meeting notes. For self-contained paragraphs (e.g. FAQ entries), the gain over standard chunking is marginal. `jina-embeddings-v3` has an 8,192-token context window; documents longer than that need a sliding-window approach or a different long-context model.
+
+**Sources:** [Late Chunking in Long-Context Embedding Models — jina.ai](https://jina.ai/news/late-chunking-in-long-context-embedding-models/) · [Late Chunking hands-on tutorial — DataCamp](https://www.datacamp.com/tutorial/late-chunking) · [Hosted API implementation guide — TDS course](https://tds.s-anand.net/2026-02/docs/week-4/late-chunking/)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Auto Mode Logs Don't Tell You Why a Tool Was Blocked — v2.1.301 Adds classifier_verdict and permission_mode to Every tool_decision Span]]></title>
@@ -6363,62 +6443,8 @@ context = build_context(retrieved_chunks)
       <media:thumbnail url="https://opengraph.githubassets.com/1/NirDiamant/RAG_Techniques" />
     </item>
 
-    <item>
-      <title>Claude Code 2.1.287: 1M Context Is Now Default on Every Major Gateway — and a New Built-in Mod Flags What You Missed</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-05-claude-code-1m-context-default-gateways-you-should-know-mod</link>
-      <guid isPermaLink="false">2026-10-02-05-claude-code-1m-context-default-gateways-you-should-know-mod</guid>
-      <pubDate>Fri, 02 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Claude Code 2.1.287: Opus 4.7+ and Fable now default to 1M context on Bedrock, Vertex, Foundry, and the Claude apps gateway — no [1m] suffix needed. Also ships: the "You should know" built-in side agent mod.</description>
-      <content:encoded><![CDATA[**Two things in Claude Code 2.1.287 that warrant an immediate action for teams running on cloud gateways.**
-
-**1M context is now the default on Bedrock, Vertex, Foundry, and the Claude apps gateway.** For Opus 4.7+ and Fable models, the expanded context window is on by default — you no longer need the `[1m]` suffix in your model ID string. If your fleet has latency-sensitive workloads or cost budgets set for 200K, revert before upgrading:
-
-```env
-CLAUDE_CODE_DISABLE_1M_CONTEXT=1
-```
-
-Set this environment variable in your gateway config, CI runner, or container image before deploying 2.1.287.
-
-**"You should know" is a new built-in side agent.** It runs alongside the session and flags things you or Claude might miss — missing context, incomplete tool calls, gaps that could cause a silent failure downstream. Enable it with:
-
-```
-/plugin enable cc-plugin-you-should-know@builtin
-```
-
-**Limits:** the built-in path requires telemetry-on, first-party sessions only. It won't activate in telemetry-off or self-hosted fleets — those environments can author a custom mod that watches the same events.
-
-**Sources:** [Claude Code 2.1.287 — AICoder](https://aicoder.com/news/news-20261002-claude-code-2-1-287-mods-you-should-know) · [Claude Code Changelog](https://code.claude.com/docs/en/changelog)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Google Releases Gemini 4 Argon — First Frontier Model in Months, Fairwind Access Only, No Public API Yet</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-04-google-gemini-4-argon-fairwind-frontier-no-public-api</link>
-      <guid isPermaLink="false">2026-10-02-04-google-gemini-4-argon-fairwind-frontier-no-public-api</guid>
-      <pubDate>Fri, 02 Oct 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Security</category>
-      <description>Google launched Gemini 4 Argon on October 1 — its first frontier model in several months — but access is limited to vetted cybersecurity defenders through the Fairwind program. No public API date announced.</description>
-      <content:encoded><![CDATA[**Google launched Gemini 4 Argon on October 1, its first frontier model release in several months — and public access isn't coming yet.**
-
-The model replaces Gemini 3.5 Pro at the frontier tier and is positioned against current Claude and GPT-6 class models on software engineering and knowledge tasks. Initial rollout runs through the **Fairwind program**: vetted cybersecurity defenders only. Google cites the model's capability level as the reason for the phased approach.
-
-No date has been announced for paid API access or Google AI Ultra subscriber availability. Those audiences are next in queue after the cybersecurity cohort.
-
-No migration path from Gemini 3.5 Pro API calls announced yet.
-
-**Sources:** [Google limits Gemini 4 Argon access over cybersecurity risks — TechWire Asia](https://techwireasia.com/2026/10/google-gemini-4-argon-cybersecurity-access/) · [Google Rolls Out Gemini 4 Argon to Trusted Cyber Defenders — The Hacker News](https://thehackernews.com/2026/10/google-rolls-out-gemini-4-argon-to.html)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
