@@ -10,7 +10,105 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 19 Oct 2026 12:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 20 Oct 2026 04:08:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Claude Code Truncates Your Test Output Before the Failing Assertion — `bashOutputMaxChars` and `taskOutputMaxChars` in settings.json Raise the Cap to 128K]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-02-claude-code-bash-task-output-max-chars-settings</link>
+      <guid isPermaLink="false">2026-10-20-02-claude-code-bash-task-output-max-chars-settings</guid>
+      <pubDate>Tue, 20 Oct 2026 04:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Two settings.json keys raise Claude Code's Bash and task output cap to 128K characters so test failures and compile errors stop getting cut before you reach them.]]></description>
+      <content:encoded><![CDATA[**Two settings.json keys let you raise Claude Code's Bash and task output cap to 128,000 characters — the failing assertion stops getting cut from the bottom of your test run.**
+
+When a verbose test runner, a TypeScript type check, or a large `git diff` runs inside a Claude Code session, the raw output is silently cut at the tool's inline display limit — the error or failure is usually near the end, which is exactly where it gets truncated.
+
+Two settings added in v2.1.263 control this. Add them to `.claude/settings.json` (project-scoped) or `~/.claude/settings.json` (global):
+
+```json
+{
+  "bashOutputMaxChars": 128000,
+  "taskOutputMaxChars": 128000
+}
+```
+
+- **`bashOutputMaxChars`** — caps Bash tool inline output. Raise this when `jest --verbose`, `pytest -s -v`, or `tsc --noEmit` gets cut before the assertion you need.
+- **`taskOutputMaxChars`** — caps output from background subagent tasks. Raise this when you've delegated a CI-style run to a subagent and need the full log to diagnose failures after the fact.
+
+**When to set globally vs. per-project:** if you only need verbose output for one project's test suite, set it in that project's `.claude/settings.json`. If you routinely work with verbose tooling across projects, set it in `~/.claude/settings.json`.
+
+**Limit:** longer inline output means more tokens in context per tool call. On a tight context budget, or when you run many Bash calls in sequence, the context window fills faster. Pair this setting with explicit `allowedTools` restrictions to avoid tools that produce verbose noise you won't act on.
+
+**Sources:** [Claude Code v2.1.263 release summary — claudelog.com](https://www.claudelog.com/claude-code-changelog/) · [Claude Code context window and compaction — morphllm.com](https://www.morphllm.com/claude-code-context-window)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Vector Store Returns Documents About RAG Instead of Documents Mentioning "RAG v0.9" — Hybrid BM25 Plus Dense Search Fuses Both Rankings With RRF in Qdrant]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-01-qdrant-hybrid-bm25-dense-rrf-better-rag</link>
+      <guid isPermaLink="false">2026-10-20-01-qdrant-hybrid-bm25-dense-rrf-better-rag</guid>
+      <pubDate>Tue, 20 Oct 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Dense search encodes meaning but blurs exact tokens; BM25 catches them by term frequency; Qdrant's native hybrid mode fuses both rankings server-side via RRF.]]></description>
+      <content:encoded><![CDATA[**Dense search encodes meaning but blurs exact tokens; BM25 catches them by term frequency; running both and fusing via RRF consistently outperforms either alone on mixed-query RAG workloads.**
+
+**What you'll be able to do after this:** build a hybrid BM25 + dense retrieval pipeline that finds documents by meaning *and* by exact keyword — so searches for version strings, error codes, API identifiers, and technical terms don't disappear into the embedding space.
+
+- Dense embeddings encode semantic similarity but smear exact tokens. Searching "LangChain v0.3 deprecation" produces a vector near "LangChain framework changes" — useful, but it may miss a document that literally contains the string "v0.3".
+- BM25 scores by token frequency weighted by inverse document frequency (IDF) — it finds exact term matches that dense search misses.
+- Reciprocal Rank Fusion (RRF) merges two ranked lists by position rather than by raw score, so BM25 term counts and cosine similarity values (on different numeric scales) combine without normalization.
+
+**Walk-through (Qdrant, self-hosted or cloud):**
+
+```bash
+pip install qdrant-client fastembed
+```
+
+Create a collection with a dense vector and a BM25 sparse vector:
+
+```python
+from qdrant_client import QdrantClient, models
+
+client = QdrantClient(url="http://localhost:6333")  # or ":memory:"
+
+client.create_collection(
+    "docs",
+    vectors_config={"dense": models.VectorParams(size=384, distance=models.Distance.COSINE)},
+    sparse_vectors_config={
+        "bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)
+    },
+)
+```
+
+At query time, pass two `prefetch` sub-queries and fuse with `FusionQuery`:
+
+```python
+results = client.query_points(
+    collection_name="docs",
+    prefetch=[
+        models.Prefetch(query=dense_vec, using="dense", limit=20),
+        models.Prefetch(query=sparse_vec, using="bm25", limit=20),
+    ],
+    query=models.FusionQuery(fusion=models.Fusion.RRF),
+    limit=5,
+)
+```
+
+Qdrant computes the RRF fusion server-side — no manual rank-combination code needed. With Qdrant Cloud Inference you can pass a plain text string as `query` and skip the local embedding model entirely.
+
+**Limits:** sparse vectors add ~20–30% storage overhead. BM25 IDF is computed at index time across the full corpus — adding documents later recomputes IDF, which can shift rankings for existing queries. For very short queries (one or two tokens), BM25 can dominate over semantics; reduce the RRF k-constant below 60 to soften that effect.
+
+**Sources:** [Qdrant Hybrid Search with Reranking — qdrant.tech](https://qdrant.tech/documentation/tutorials-basics/reranking-hybrid-search/) · [Hybrid BM25 + Vector + RRF 2026 reference — sidhya.studio](https://sidhya.studio/posts/hybrid-bm25-vector-rerank-2026-reference) · [Hybrid Search with LangChain — LanceDB blog](https://lancedb.substack.com/p/hybrid-search-combining-bm25-and)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your PR Review Queue Is the Bottleneck, Not Your Inference Speed — Harvard Finds AI Coding Agents Raise Code Output +30% With No Gain in Shipped Features]]></title>
@@ -6281,168 +6379,8 @@ The program follows a medical-residency model: multi-day in-person training with
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>A Full Fine-Tune Needs 40+ GB of VRAM — QLoRA + Unsloth Shrinks That to a Free Colab T4 in 30 Minutes</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model</link>
-      <guid isPermaLink="false">2026-10-03-01-qlora-unsloth-free-colab-t4-fine-tuning-7b-model</guid>
-      <pubDate>Sat, 03 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>QLoRA freezes the base model in 4-bit NF4, trains only small LoRA adapters (~1–2% of params), and Unsloth's custom kernels make the whole thing run in ~30 minutes on Colab's free T4 GPU.</description>
-      <media:content url="https://img.youtube.com/vi/Lt7KrFMcCis/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/Lt7KrFMcCis/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**TL;DR: QLoRA freezes the base model in 4-bit, trains only ~1% of params as adapters, and runs on a free T4 in 30 minutes — Unsloth handles the VRAM math.**
-
-**What you'll be able to do after this:** Fine-tune an open-source model on your own dataset using a free Colab T4 GPU (16 GB), producing a ~50 MB LoRA adapter you can load at inference time or merge with the base weights for a self-contained deployment.
-
-**Three things to know before you start:**
-- Full fine-tuning a 7B model in bfloat16 requires ~60 GB of VRAM. QLoRA quantizes the frozen base model to 4-bit NF4 (~4 GB for 7B) and only trains the small inserted adapter layers — about 1–2% of total parameters.
-- [Unsloth](https://github.com/unslothai/unsloth) wraps HuggingFace TRL's SFTTrainer with hand-written CUDA kernels. Unsloth reports 2× faster training and 70% less VRAM than standard HuggingFace; independent results vary by GPU generation — the free T4 (Turing arch) sees less speedup than an A100 (Ampere).
-- The trained adapter is ~50 MB regardless of base model size. Distribute the adapter alone to HuggingFace Hub, or export merged weights with `save_pretrained_merged()` for a self-contained model file.
-
-**The walkthrough (Qwen 2.5 3B — confirmed on free Colab T4):**
-
-```python
-# In Colab: Runtime → Change runtime type → T4 GPU, then:
-pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
-pip install --no-deps trl peft accelerate bitsandbytes
-```
-
-```python
-from unsloth import FastLanguageModel
-
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="unsloth/Qwen2.5-3B-Instruct",
-    max_seq_length=2048,
-    load_in_4bit=True,        # NF4 quantization — base model frozen
-)
-
-model = FastLanguageModel.get_peft_model(
-    model,
-    r=16,                     # LoRA rank — reliable starting point
-    target_modules=["q_proj", "k_proj", "v_proj", "up_proj", "down_proj"],
-    lora_alpha=16,
-    lora_dropout=0,
-    bias="none",
-)
-```
-
-```python
-from trl import SFTTrainer
-from transformers import TrainingArguments
-
-trainer = SFTTrainer(
-    model=model,
-    tokenizer=tokenizer,
-    train_dataset=dataset,          # your HuggingFace Dataset
-    dataset_text_field="text",
-    max_seq_length=2048,
-    args=TrainingArguments(
-        per_device_train_batch_size=4,
-        gradient_accumulation_steps=4,
-        num_train_epochs=3,
-        learning_rate=2e-4,
-        fp16=True,
-        output_dir="outputs",
-    ),
-)
-trainer.train()
-
-# Save adapter (~50 MB) or merged weights
-model.save_pretrained("my-adapter")
-# model.save_pretrained_merged("my-merged", tokenizer, save_method="merged_16bit")
-```
-
-**Where it breaks:**
-- Models above 8B require at least 24 GB VRAM (A10G or A100 40 GB for 13B+). An 8B model at r=16 uses ~10 GB on the T4.
-- `max_steps=100` (the tutorial quick-test default) is far too brief for production quality — 500–1000 steps minimum.
-- `max_seq_length=4096` roughly doubles VRAM requirements relative to 2048.
-- Free Colab sessions cap at ~12 hours; a 3B run at 1000 steps finishes in time, a larger run may not.
-
-**Full hands-on tutorial with function-calling dataset and complete code:** [LLM_log #015 — Teach a 3B model to call functions with QLoRA + Unsloth on Colab T4](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/).
-
-**Sources:** [Unsloth GitHub](https://github.com/unslothai/unsloth) · [datahacker.rs LLM_log #015](https://datahacker.rs/llm_log-015-fine-tuning-llms-teach-a-3b-model-to-call-functions-with-qlora-unsloth-on-free-colab-t4/) · [QLoRA paper (arXiv:2305.14314)](https://arxiv.org/abs/2305.14314) · [TRL SFTTrainer docs](https://huggingface.co/docs/trl/sft_trainer)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your RAG Answer Cites Nothing — CitationQueryEngine Maps Every Claim to Its Source Chunk</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-02-06-rag-inline-citations-citation-query-engine-source-attribution</link>
-      <guid isPermaLink="false">2026-10-02-06-rag-inline-citations-citation-query-engine-source-attribution</guid>
-      <pubDate>Fri, 02 Oct 2026 20:15:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <description>Two changes to your RAG synthesis step — number every retrieved chunk and instruct the model to cite inline — give every claim a verifiable source. LlamaIndex CitationQueryEngine handles it in 10 lines.</description>
-      <content:encoded><![CDATA[**TL;DR: Number every retrieved chunk, instruct the model to cite inline, and every RAG answer becomes verifiable — LlamaIndex's CitationQueryEngine handles it in ~10 lines.**
-
-**What you'll be able to do after this:** emit numbered inline citations in RAG answers that map each factual claim to the exact source chunk it came from, so answers are verifiable rather than just plausible.
-
-**Three takeaways:**
-- Every chunk needs a stable anchor — a bracketed number `[1]` injected before the text in the synthesis prompt — for inline citation to work; the model cannot invent a citation it has not seen
-- `CitationQueryEngine` handles chunk-numbering, prompt injection, and citation parsing in about 10 lines of setup code
-- A detected citation is not a correct citation — add a structural check (does `[N]` point to a real chunk?) and a semantic check (does chunk N actually support the claim?) before shipping
-
-**The problem with uncited RAG.** Your pipeline retrieves five relevant chunks, sends them to the model, and gets back a fluent answer. The answer is faithful roughly 80% of the time — but you cannot tell which 80%. Without citations, "the model might have hallucinated this" applies to every sentence equally.
-
-**The solution: numbered chunks + prompt instruction.**
-
-```python
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
-from llama_index.core.query_engine import CitationQueryEngine
-
-docs = SimpleDirectoryReader("./docs").load_data()
-index = VectorStoreIndex.from_documents(docs)
-
-query_engine = CitationQueryEngine.from_args(
-    index,
-    similarity_top_k=5,
-    citation_chunk_size=512,   # tokens per source node
-)
-
-response = query_engine.query("What is the refund policy for international orders?")
-print(response)
-# "International orders are subject to a 30-day return window [1]. Refunds are
-#  processed within 5 business days of receipt [2]..."
-
-for i, node in enumerate(response.source_nodes, 1):
-    print(f"[{i}] {node.node.text[:120]}...")
-```
-
-`CitationQueryEngine` injects numbered chunks into the synthesis prompt and instructs the model to place `[1]`, `[2]`, etc. immediately after any claim derived from that chunk. `response.source_nodes` maps each number back to the original text.
-
-**Manual implementation (any LLM, not just LlamaIndex):**
-
-```python
-def build_context(chunks):
-    return "\n\n".join(f"[{i+1}] {chunk}" for i, chunk in enumerate(chunks))
-
-system = (
-    "You are a helpful assistant. Answer using ONLY the provided sources. "
-    "After every factual claim, add [N] where N is the source number you used. "
-    "If a claim is not supported by any source, say so explicitly."
-)
-
-context = build_context(retrieved_chunks)
-```
-
-**Validate citations before you ship.** Two deterministic checks:
-1. **Structural**: parse `[N]` markers with `re.findall(r'\[(\d+)\]', response)` and verify all indices are within `range(1, len(chunks)+1)`
-2. **Semantic**: check whether the cited chunk contains the claim (fuzzy string match for obvious misses; model-as-judge for subtle ones)
-
-**Limits:** citation density varies — the model sometimes cites the same source repeatedly or omits citations on high-confidence facts. `citation_chunk_size=512` is a reasonable floor; chunks below 100 tokens produce poor synthesis. Citations tell you *which chunk* supported a claim, not whether that chunk is accurate — retrieval quality is still the binding constraint.
-
-**Sources:** [Build RAG with inline citations — LlamaIndex CitationQueryEngine notebook](https://developers.llamaindex.ai/python/examples/workflow/citation_query_engine/) · [RAG_Techniques: citation and groundedness notebooks — NirDiamant/GitHub](https://github.com/NirDiamant/RAG_Techniques) · [Citations in the Key of RAG — cianfrani.dev](https://cianfrani.dev/posts/citations-in-the-key-of-rag/) · [Citation and Grounding: Attributing Answers — neelmishra.github.io](https://neelmishra.github.io/blog/mlops/rag/citation-grounding.html)
-]]></content:encoded>
-      <media:content url="https://opengraph.githubassets.com/1/NirDiamant/RAG_Techniques" medium="image" />
-      <media:thumbnail url="https://opengraph.githubassets.com/1/NirDiamant/RAG_Techniques" />
-    </item>
-
+    
+    
     
     
     
