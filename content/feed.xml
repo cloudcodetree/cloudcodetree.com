@@ -10,7 +10,76 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 20 Oct 2026 12:09:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 20 Oct 2026 20:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Claude Code's Built-In Plan and Explore Subagents Run Without Any Setup — They're Read-Only Sandboxes for Codebase Exploration That Can't Accidentally Write a File]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-07-claude-code-plan-explore-built-in-subagents-read-only-exploration</link>
+      <guid isPermaLink="false">2026-10-20-07-claude-code-plan-explore-built-in-subagents-read-only-exploration</guid>
+      <pubDate>Tue, 20 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Plan and Explore are built-in Claude Code subagents that need no .claude/agents/ definition — they search and analyze your codebase read-only and cannot write, delete, or run shell commands.]]></description>
+      <content:encoded><![CDATA[**Plan and Explore are built-in Claude Code subagents that run without any `.claude/agents/` setup — both are read-only sandboxes that can search and analyze your codebase but cannot write, delete, or execute shell commands.**
+
+When you trigger `/plan` or ask Claude to plan a change, it doesn't do all the file reading in your main session — it delegates that phase to the built-in **Plan** agent. Plan runs with a restricted tool set: Read, Glob, Grep, and nothing else. No Bash, no Edit. The exploration stays isolated from your main context window, and none of it can accidentally modify anything.
+
+**Explore** is the same idea for on-demand research. Invoke it for any multi-file search task where you want sandboxed exploration without polluting the main session. Because it's read-only, you can run it alongside an implementation session — Explore researches in parallel, finds what you need, and returns a summary; the main session writes files. Neither runs in the other's context.
+
+**What you'll be able to do after this:**
+- Understand why `/plan` keeps exploration isolated from your main context — and what that means for plan quality on a messy codebase
+- Explicitly invoke the Explore agent for multi-file audits or codebase surveys you don't want eating your main context
+- Trust the safety property: neither Plan nor Explore can write, delete, or run shell commands
+
+**The key difference from custom `.claude/agents/` subagents:** You don't define a file for Plan or Explore. Claude Code ships them and picks them automatically. You can override the defaults (including the model they use) by creating a `.claude/agents/explore.md` file — but out of the box they require no configuration.
+
+**When NOT to use them:** The subagent overhead isn't worth it for a targeted grep or a single-file lookup. Plan and Explore earn their keep when the exploration spans many files and would otherwise leave dozens of file-read results in the main session's context. For anything simpler, stay in the main session.
+
+A practical limit: if you've split your project across many directories without cross-linked CLAUDE.md files, Explore may miss relevant context that a manual search would catch. The agent reads what it can access from the project root; it doesn't load directory-specific CLAUDE.md files outside of the paths it visits.
+
+**Sources:** [Claude Code sub-agents — official docs](https://code.claude.com/docs/en/sub-agents), [How and when to use subagents in Claude Code](https://claude.com/blog/how-and-when-to-use-subagents-in-claude-code), [Practical guide: Claude Code subagents 2026](https://tembo.io/blog/claude-code-subagents), [3 patterns for saving context with subagents](https://vantaige.io/blog/claude-code-subagents-save-context-3-patterns)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Claude Design Canvas Doesn't Know What You Built Last Sprint — Run /design-sync in Claude Code to Push Your Repo Components Into the Canvas So Explorations Stay on Your Real Code]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-06-design-sync-push-repo-components-claude-design-canvas</link>
+      <guid isPermaLink="false">2026-10-20-06-design-sync-push-repo-components-claude-design-canvas</guid>
+      <pubDate>Tue, 20 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Run /design-sync from Claude Code to push your component library into Claude Design; the canvas then explores changes on your real components instead of generating generic defaults.]]></description>
+      <content:encoded><![CDATA[**Run `/design-sync` in Claude Code to push your actual component library into Claude Design — the canvas then explores changes on your real Button, Card, and Form components instead of generating generic defaults that don't match your codebase.**
+
+When you open Claude Design after a sprint of building in Claude Code, the canvas doesn't know what you actually shipped. It generates a Button that uses the wrong variant API, applies spacing that doesn't match your tokens, and produces components you'd rewrite from scratch before dropping into the repo. This is the reverse-direction problem: the Claude Design → Claude Code handoff exists, but the other way — bringing your real code back into the canvas — requires a deliberate sync.
+
+**What you'll be able to do after this:**
+- Explore UI changes in Claude Design on your actual component set, not generic approximations
+- Round-trip cleanly: design → export → build in Claude Code → `/design-sync` back — each direction feeds the other without drift
+- Understand what gets lost in each direction so you can anticipate where to verify after a sync
+
+**Steps:**
+1. In Claude Code, run `/design-sync` from your project root.
+2. Review the plan Claude proposes — a list of each component Claude Design will learn about, plus files to write or delete in the Claude Design workspace.
+3. Approve; the sync runs incrementally, one component at a time.
+4. Open Claude Design: explorations now start from your real component tree.
+
+**Limits:** The first sync can take a while on a large repo — one account of a medium-sized design system reported roughly 40 minutes. The sync is a snapshot, not a live watch; re-run it after significant refactors or renames. Independent testing at [gaugr.app](https://gaugr.app/en/blog/claude-design-2-update-design-systems-code-sync-guide) found framework coverage gaps: complex component trees with heavy prop drilling or deeply nested compound components may produce approximate representations. Verify critical components in the Claude Design workspace after the sync, rather than assuming the canvas matches the repo exactly.
+
+The sync doesn't give Claude Design access to your component's runtime behavior — it captures structure, props, and styling. Logic that's only visible at runtime (animation states, async data shapes) won't appear in the canvas.
+
+**Sources:** [Get started with Claude Design](https://support.claude.com/en/articles/14604416-get-started-with-claude-design), [Claude Design two-way sync blog post](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work), [design-sync guide with limits — gaugr.app](https://gaugr.app/en/blog/claude-design-2-update-design-systems-code-sync-guide), [How to sync a design system with Claude Design — nitayneeman.com](https://nitayneeman.com/blog/how-to-sync-a-design-system-with-claude-design/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Shell Script Has No Way to Call Claude Code — `claude -p` Runs One Prompt Non-Interactively, Reads Stdin, and Writes the Response to Stdout for CI and Batch Jobs]]></title>
@@ -6318,69 +6387,8 @@ The highest-friction vector: [booby-trapped `.git/config` files](https://adversa
 **Sources:** [Infostealers Target AI Coding Agents — GBHackers](https://gbhackers.com/infostealers-target-ai-tools/) · [HypeAgent Stealer analysis — Gurucul](https://gurucul.com/blog/hypeagent-stealer-multi-stage-infostealer-hijacking-claude-chatgpt-and-cursor-sessions/) · [AI coding agent vulnerabilities October 2026 — Adversa AI](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Hackers Target Claude, Cursor and Codex — Cybersecurity News](https://cybersecuritynews.com/ai-agents-2/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>CLAUDE.md Is Layer One — The Other Four Extension Points That Make Claude Code Agents Reliable and Distributable</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-04-claude-code-five-layer-context-stack-skills-hooks-subagents-plugins</link>
-      <guid isPermaLink="false">2026-10-03-04-claude-code-five-layer-context-stack-skills-hooks-subagents-plugins</guid>
-      <pubDate>Sat, 03 Oct 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code exposes five extension points — CLAUDE.md, skills, hooks, subagents, plugins — each solving a different reliability problem. Most teams stop at layer one; here is when to reach for each.</description>
-      <content:encoded><![CDATA[**Claude Code's extension stack has five layers: CLAUDE.md anchors always-on context, skills load domain expertise on demand, hooks enforce invariants the model cannot skip, subagents run isolated tasks with separate context windows, and plugins bundle everything into a single distributable unit. Most teams stop at layer one.**
-
-CLAUDE.md works fine for project-level conventions and gotchas — but it has no mechanism for "this rule must hold regardless of what the model decides," no way to isolate a large task from the main context, and no distribution story. The other four layers exist for those gaps.
-
-**Layer 1: CLAUDE.md** — always-on project memory. Everything here is in context for every turn. Keep it short: a long CLAUDE.md fills the context window before the agent starts working. Rule of thumb: if an instruction only matters for one kind of task, it belongs in a skill, not here.
-
-**Layer 2: Skills** (`.claude/skills/`) — on-demand expertise. Only the skill's description is always in context; the body loads only when invoked. A skill that is never triggered costs nothing. Use for: deploy procedures, specialized review checklists, tool-specific workflows. Write one skill per concern, not one giant file.
-
-**Layer 3: Hooks** (`.claude/settings.json`, `hooks:`) — deterministic guardrails. Shell commands that fire before or after tool calls. The model cannot skip or override a hook. Use for invariants: "run lint before every commit", "block API key patterns in diffs". If a rule truly must hold, it belongs in a hook — not in CLAUDE.md, where the model can reason around it.
-
-**Layer 4: Subagents** — isolated context windows. Each subagent starts fresh and can read a large codebase or run a long task without polluting the parent session. Use for: parallel analysis passes, independent code reviews, anything too large to fit in the current context window. Each subagent allocates a full context window; do not spawn one per function.
-
-**Layer 5: Plugins** — distributable bundles. A plugin is a manifest that packages MCP servers, skills, hooks, and commands into a single `claude install` unit. Use when you want to share a workflow across your team or multiple repos without per-project manual configuration.
-
-**The decision rule:**
-- Know it always → CLAUDE.md
-- Know it only sometimes → skill
-- Must be true regardless of the model → hook
-- Needs its own context window → subagent
-- Needs to travel with the team → plugin
-
-**Limits:** CLAUDE.md loads only project-scoped context; user-level overrides live at `~/.claude/CLAUDE.md`. Hooks fire on every matching tool call — keep each under ~200ms or they visibly slow the agent loop. Subagents each allocate a full context window; at scale, spawning many gets expensive.
-
-**Sources:** [Context Engineering Beyond CLAUDE.md: The 5-Layer Hierarchy — Pixelmojo](https://www.pixelmojo.io/blogs/context-engineering-ai-coding-agents-beyond-claude-md) · [Dive into Claude Code (arXiv 2604.14228) — VILA-Lab](https://arxiv.org/html/2604.14228v1) · [Claude Code Extension Layer Decision Guide — Hidekazu Konishi](https://hidekazu-konishi.com/entry/claude_code_extension_layers_decision_guide.html)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>GitHub Copilot Adds Scheduled Automations and Agent Merge — Two Modes That Advance a PR Without You Watching</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-05-copilot-automations-agent-merge-pr-hands-free</link>
-      <guid isPermaLink="false">2026-10-03-05-copilot-automations-agent-merge-pr-hands-free</guid>
-      <pubDate>Sat, 03 Oct 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Agents</category>
-      <description>GitHub Copilot September releases ship two unattended modes: automations run tasks on hourly/daily/weekly schedules; agent merge handles review feedback, conflict resolution, and CI reruns automatically (preview).</description>
-      <content:encoded><![CDATA[**GitHub Copilot September releases ship two unattended modes: automations run repeatable tasks on a configurable schedule; agent merge takes over once a PR enters review, handling feedback, conflicts, and CI reruns until the branch is green.**
-
-**Automations** are cron jobs for Copilot agent sessions. Define a task (from a template or a custom prompt), pick a cadence — hourly, daily, or weekly — and the agent runs it independently. Use cases GitHub documents: daily dependency audits, weekly stale-branch cleanup, on-demand test generation for changed files. Automations run in Copilot's cloud workspace, not on a local machine.
-
-**Agent merge** takes over once a PR is in review. Enabled per PR, the Copilot agent applies reviewer suggestions, resolves merge conflicts, reruns CI when checks fail, and iterates until the branch is mergeable without you watching the thread at 10pm. The manual cycle it replaces: incorporate feedback → push → wait for CI → handle new conflict from main → repeat.
-
-**Why it matters:** the async PR review cycle is one of the biggest sources of developer context-switching. Offloading the mechanical parts of the review-to-merge loop compounds over a sprint.
-
-**Limits:** agent merge is in preview and stops at design-level disagreements — it will not make architectural decisions or ask for clarification when a reviewer comment is ambiguous. Its interpretation of feedback can diverge from intent. Automations cannot deploy to production or make calls outside GitHub. Both features are currently cloud-only and unavailable in GitHub Enterprise Server.
-
-**Sources:** [GitHub Copilot in VS Code September 2026 releases — GitHub Changelog](https://github.blog/changelog/2026-10-01-github-copilot-in-vs-code-september-2026-releases/) · [Agentic autofix now uses Copilot Memory — GitHub Changelog](https://github.blog/changelog/2026-09-25-agentic-autofix-now-uses-copilot-memory/)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
