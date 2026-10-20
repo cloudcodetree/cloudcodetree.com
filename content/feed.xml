@@ -10,7 +10,124 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 20 Oct 2026 04:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 20 Oct 2026 12:09:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Shell Script Has No Way to Call Claude Code — `claude -p` Runs One Prompt Non-Interactively, Reads Stdin, and Writes the Response to Stdout for CI and Batch Jobs]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-04-claude-print-noninteractive-stdin-stdout-ci-pipelines</link>
+      <guid isPermaLink="false">2026-10-20-04-claude-print-noninteractive-stdin-stdout-ci-pipelines</guid>
+      <pubDate>Tue, 20 Oct 2026 12:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[The --print / -p flag runs Claude Code non-interactively — one prompt in, one response out, no session, no approval prompts — making it a scriptable AI step in CI pipelines and shell scripts.]]></description>
+      <content:encoded><![CDATA[**`claude -p "prompt"` makes Claude Code non-interactive — one prompt in, response to stdout, no session, no approval prompts — so it works as a pipe stage in any shell script or CI job.**
+
+The `--print` flag (or `-p`) switches Claude Code out of the interactive REPL. It reads stdin if you pipe to it, runs the prompt once, writes the response to stdout, and exits. You can capture the output like any other command:
+
+```bash
+# Summarize a PR diff for the description
+git diff main...HEAD | claude -p "Write a concise PR description for these changes."
+
+# Surface the root cause from a failing test run
+pnpm test 2>&1 | tail -200 | claude -p "What caused this test failure? Show the root cause and a one-line fix."
+
+# Review a file before committing
+claude -p "Flag any security issues in this file:" < src/api/auth.ts
+
+# Capture output for further shell processing
+SUMMARY=$(git log --oneline -20 | claude -p "Summarize the theme of these commits in one sentence.")
+echo "Theme: $SUMMARY"
+```
+
+**What breaks in this mode:** `-p` does not load your project's CLAUDE.md context or `.claude/settings.json` tool restrictions, so the model has no knowledge of your project conventions — put relevant constraints directly in the prompt. Sessions are ephemeral (no `/resume`, no history). No tool calls or file writes happen; output is text only.
+
+**Rate limits in batch loops:** if you're running `-p` across dozens of files in a `for` loop, space the calls out (`sleep 2`) or switch to `--model haiku` for speed-insensitive jobs.
+
+**Sources:** [Claude Code CLI reference — code.claude.com](https://code.claude.com/docs/en/cli-reference) · [Non-interactive usage patterns — docs.claude.com](https://docs.claude.com/en/claude-code/cli-usage) · [Simon Willison's `llm` CLI: the same Unix-pipeline idea for arbitrary models](https://llm.datasette.io/en/stable/usage.html)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[GitHub Copilot's Code Scanning Agent Explores the Codebase, Proposes a Fix, Re-runs CodeQL, and Opens a PR — Enterprise Advanced Security Only, Billed per Agent Session]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-03-copilot-agentic-autofix-code-scanning-ga</link>
+      <guid isPermaLink="false">2026-10-20-03-copilot-agentic-autofix-code-scanning-ga</guid>
+      <pubDate>Tue, 20 Oct 2026 12:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[GitHub Copilot's agentic autofix for code scanning is GA: assign a CodeQL alert and an agent explores files, writes a fix, verifies it, and opens a PR. Enterprise Advanced Security only.]]></description>
+      <content:encoded><![CDATA[**GitHub Copilot's agentic autofix for code scanning is GA: assign a CodeQL alert to Copilot, and an agent explores affected files, drafts a fix, re-runs the standard query suite to verify it, and opens a pull request — up to 25 alerts per session.**
+
+The workflow lives entirely in GitHub: an admin enables the "agentic autofix" policy, then any developer can assign a default-branch alert to Copilot from the code scanning alert view. The agent iterates on the fix until verification passes (or reports it couldn't), then opens the PR for review.
+
+Constraints not foregrounded in the announcement: this requires GitHub Enterprise Cloud with Code Security or Advanced Security — no Standard plan. Billing adds Copilot cloud agent sessions on top of whatever GitHub Actions the verification run consumes. Only the standard CodeQL query suite is used for the verification pass; custom queries don't run, so a fix that breaks a custom rule won't be caught before the PR opens. Fix quality has not yet been independently benchmarked outside GitHub's own reporting.
+
+**Why it matters:** The "scanning found 847 alerts, nobody has touched them in six months" problem has a mechanized path to a PR for the first time in a mainstream workflow. Whether the fix PR is merge-ready still needs review — but the gap between "alert exists" and "there's a PR to look at" is now closeable.
+
+**Sources:** [GitHub Changelog — Agentic Autofix for Code Scanning GA, Oct 15](https://github.blog/changelog/2026-10-15-agentic-autofix-for-code-scanning-alerts-general-availability) · [GitHub Advanced Security billing for agent sessions — docs.github.com](https://docs.github.com/en/billing/managing-billing-for-github-advanced-security/about-billing-for-github-advanced-security)]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[A Full Fine-Tune of an 8B Model Needs 64+ GB of VRAM — QLoRA With Unsloth Runs the Same Model in 4-Bit on a Free Colab T4, Cutting Peak VRAM to Under 10 GB]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-20-05-qlora-unsloth-free-colab-t4-llama-fine-tuning</link>
+      <guid isPermaLink="false">2026-10-20-05-qlora-unsloth-free-colab-t4-llama-fine-tuning</guid>
+      <pubDate>Tue, 20 Oct 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[QLoRA quantizes the frozen base model to 4-bit, so Llama 3.1 8B fine-tunes in under 10 GB of VRAM on a free Colab T4. Unsloth's notebook is the fastest way to run it.]]></description>
+      <content:encoded><![CDATA[**QLoRA quantizes the frozen base model to 4-bit so only the small LoRA adapter weights train in full precision — Llama 3.1 8B fits in under 10 GB of VRAM, which a free Colab T4 has.**
+
+**What you'll be able to do after this:**
+- Fine-tune a Llama 3.1 8B instruction model on your own dataset using a free GPU
+- Understand what QLoRA does differently from standard LoRA (and why the VRAM number is so much lower)
+- Export the result as a GGUF file to load locally with Ollama, or push the adapter weights to HuggingFace Hub
+
+**Why the VRAM drops:** standard LoRA keeps the base model in bf16 (~16 GB for 8B parameters). QLoRA quantizes the frozen base to NF4 (a 4-bit normal float format from the [Dettmers et al. QLoRA paper](https://arxiv.org/abs/2305.14314)), reducing it to ~4 GB. The LoRA adapters — the only weights actually updated during training — stay in bf16. Unsloth reports peak VRAM around 6–10 GB for Llama 3.1 8B (vendor-reported; varies by batch size and sequence length).
+
+**Steps** — open the [Unsloth Llama 3.1 fine-tuning notebook](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) (one-click Colab link on that page):
+
+1. **Runtime → Change runtime type → T4 GPU** in Colab (free tier).
+2. **Install:** `pip install unsloth`
+3. **Load the base model in 4-bit:**
+   ```python
+   from unsloth import FastLanguageModel
+   model, tokenizer = FastLanguageModel.from_pretrained(
+       model_name="unsloth/Meta-Llama-3.1-8B-Instruct",
+       max_seq_length=2048,
+       load_in_4bit=True,   # activates QLoRA — base weights stored as NF4
+   )
+   ```
+4. **Attach LoRA adapters** (only these train):
+   ```python
+   model = FastLanguageModel.get_peft_model(
+       model, r=16, lora_alpha=16,
+       target_modules=["q_proj","k_proj","v_proj","o_proj",
+                       "gate_proj","up_proj","down_proj"],
+   )
+   ```
+5. **Train on your Alpaca-format dataset** — use the recipe from the [Oct 9 dataset post](/ai-news/2026-10-09-07-alpaca-jsonl-instruction-tuning-dataset-lima-quality).
+6. **Export:**
+   ```python
+   # GGUF for Ollama
+   model.save_pretrained_gguf("model_gguf", tokenizer, quantization_method="q4_k_m")
+   # or push adapters to HuggingFace Hub
+   model.push_to_hub("your-username/my-llama-adapter", token="HF_TOKEN")
+   ```
+
+**Limits:** The free T4's 15 GB caps you at roughly 12B-parameter models with QLoRA — larger models need Colab Pro (A100/L4) or a local 24 GB+ card. Unsloth's speed and memory figures are vendor-reported; independently measured results vary by architecture and sequence length. And 4-bit base weights do degrade output quality slightly compared to full bf16 fine-tuning — QLoRA is a memory–quality trade-off, not a free lunch.
+
+**Sources:** [Unsloth fine-tuning guide with one-click Colab notebooks — unsloth.ai](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) · [QLoRA: Efficient Finetuning of Quantized LLMs — arXiv:2305.14314](https://arxiv.org/abs/2305.14314) · [Fine-tuning with Unsloth QLoRA walkthrough — computingforgeeks.com](https://computingforgeeks.com/fine-tune-llm-unsloth-qlora/)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Claude Code Truncates Your Test Output Before the Failing Assertion — `bashOutputMaxChars` and `taskOutputMaxChars` in settings.json Raise the Cap to 128K]]></title>
@@ -6264,121 +6381,9 @@ CLAUDE.md works fine for project-level conventions and gotchas — but it has no
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Vector Index Misses Exact Keywords — Combine BM25 With Vector Search and RRF for a Retriever That Wins Both Ways</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-06-hybrid-search-bm25-vector-rrf-lancedb</link>
-      <guid isPermaLink="false">2026-10-03-06-hybrid-search-bm25-vector-rrf-lancedb</guid>
-      <pubDate>Sat, 03 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Vectors</category>
-      <description>BM25 finds exact keywords your embedding model misses; combine it with vector ANN and Reciprocal Rank Fusion for a retriever that handles both concept queries and exact strings.</description>
-      <media:content url="https://img.youtube.com/vi/JSGQkyKZ8Rg/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/JSGQkyKZ8Rg/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**What you'll be able to do after this:** add a BM25 full-text index alongside your existing vector index and run a single hybrid query that consistently outperforms either retriever alone on real-world question sets with mixed exact-string and concept queries.
-
-**Why either retriever alone fails:**
-- **Vector search** captures semantic similarity — "bought" and "purchased" score high — but loses exact strings. Ask for "error code E1234" and a dense retriever may return semantically related content that never contains that exact token.
-- **BM25** scores exact keyword matches using term frequency and document length, with no concept of meaning. "GPT-6.1 Sol" and "the model at one-fifth the price" return different scores even though they describe the same thing.
-- **Hybrid search** runs both in parallel and merges the ranked lists, covering both failure modes.
-
-**Reciprocal Rank Fusion as the merge function:** RRF computes `1 / (rank + 60)` for each document in each result list, then sums across lists. A document ranked #1 in both lists wins clearly; a document ranked #4 in one list and absent from the other still beats one ranked #30 in each. It requires no calibration and no weight tuning between the two retrievers.
-
-**How to do it in LanceDB (Python):**
-
-```python
-import lancedb
-
-db = lancedb.connect("rag_db")
-table = db.open_table("docs")
-
-# One-time: build the BM25 full-text index on the text column
-table.create_fts_index("text")
-
-# Hybrid query: vector ANN + BM25, fused with RRF
-results = (
-    table.search("error code E1234 retry behavior", query_type="hybrid")
-    .rerank(reranker=lancedb.rerankers.RRFReranker())
-    .limit(5)
-    .to_pandas()
-)
-```
-
-`create_fts_index` is a one-time call; subsequent queries pick it up automatically. `RRFReranker()` is the default — swap in `CrossEncoderReranker` for a second-pass quality boost at higher latency.
-
-**Three takeaways:**
-- Hybrid search is the right fix when vector-only RAG handles concept questions well but drops on exact strings, error codes, model IDs, or version numbers.
-- RRF is parameter-free — no calibration needed between the two retrievers.
-- LanceDB, Weaviate, and Qdrant expose hybrid search natively; pgvector users need to compose `tsvector` + pgvector queries at the SQL layer — more setup, same principle.
-
-**Limit:** LanceDB's FTS index is disk-backed; for very large tables it adds measurable query latency vs. a pure ANN search. Benchmark with your corpus before deciding whether the quality gain justifies the added query time.
-
-**Sources:** [Hybrid Search in LanceDB: Vector + BM25 + RRF (Python 2026) — YouTube](https://www.youtube.com/watch?v=JSGQkyKZ8Rg) · [LanceDB hybrid search docs](https://lancedb.com/docs/search/hybrid-search/) · [Hybrid Search in 100 Lines: BM25 + pgvector with RRF — DEV Community](https://dev.to/gabrielanhaia/hybrid-search-in-100-lines-bm25-pgvector-with-rrf-merge-58cn)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Subagent No Longer Goes Silent When maxTurns Hits — Claude Code 2.1.288 Returns Partial Output and Tells You How to Continue It</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience</link>
-      <guid isPermaLink="false">2026-10-03-03-claude-code-2-1-288-subagent-partial-output-api-timeout-resilience</guid>
-      <pubDate>Sat, 03 Oct 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Claude Code 2.1.288 fixes two agentic pipeline failure modes: subagents that hit maxTurns now return partial output with a continuation hint, and non-interactive sessions recover from mid-stream API timeouts instead of failing.</description>
-      <content:encoded><![CDATA[**TL;DR: Two 2.1.288 fixes — subagents at maxTurns now return partial output with a SendMessage hint, and non-interactive sessions continue from partial responses instead of failing on API timeout.**
-
-If you run agentic pipelines in non-interactive mode — SDK scripts, cloud sessions, CI agents — two fixes in 2.1.288 directly change how failures look.
-
-**1. Subagents reaching maxTurns no longer appear finished.** Previously, a subagent that exhausted its turn budget would return empty or ambiguous output, leaving the orchestrator to infer that it had stopped mid-task. In 2.1.288, the subagent returns its accumulated output marked as `partial`, with a hint: "continue via SendMessage." The orchestrator can inspect the partial result and decide whether to send a follow-up — rather than treating silence as completion.
-
-**2. Mid-stream API timeouts in non-interactive sessions no longer fail the turn.** A dropped connection during a long response previously ended the turn with an error. Now the session retries from the partial response and continues. Thinking-only responses (where the model reasoned but produced no visible output before the disconnect) are retried from scratch. This matters most in cloud sessions and SDK scripts where there's no human to retry.
-
-**3. MCP OAuth scope changes prompt re-authentication automatically.** If an MCP server requests additional OAuth scope mid-session, 2.1.288 now surfaces a re-auth prompt rather than silently failing the tool call.
-
-**4. `/code-review` now accepts `--max-findings <n>` or `--max-findings all`** — useful for CI pipelines that need to control the volume of findings per run.
-
-**What this doesn't fix:** The timeout and partial-response fixes apply only to non-interactive sessions (`-p`, SDK, cloud). Interactive terminal sessions already handled mid-stream failures differently. The maxTurns partial output is a signal to the caller — if your orchestrator doesn't inspect the response body before checking completion status, you won't see the hint.
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [2.1.288 release notes](https://github.com/Mai0313/claude-code-binaries/releases/tag/2.1.288)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Anthropic Commits $100M to Train 10,000 Enterprise AI Engineers — Invitation-Only Residencies at Accenture, Deloitte, Morgan Stanley</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency</link>
-      <guid isPermaLink="false">2026-10-03-02-claude-frontier-academy-100m-enterprise-ai-engineers-residency</guid>
-      <pubDate>Sat, 03 Oct 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Claude Frontier Academy backs $100M in 12-week in-company residencies for software engineers deploying Claude at enterprise scale — currently invitation-only through Anthropic account teams.</description>
-      <media:content url="https://www-cdn.anthropic.com/images/4zrzovbb/website/cd4fd51deacd067d4e30aee4f4b149f6cba1b97b-1000x1000.svg" medium="image" />
-      <media:thumbnail url="https://www-cdn.anthropic.com/images/4zrzovbb/website/cd4fd51deacd067d4e30aee4f4b149f6cba1b97b-1000x1000.svg" />
-      <content:encoded><![CDATA[**TL;DR: $100M to train 10,000 enterprise AI engineers by 2027 via 12-week residencies — invitation-only through Anthropic's corporate partners.**
-
-Anthropic describes a skills gap inside the companies it works with: a small group of deeply skilled people drives most of what AI actually delivers, while everyone else struggles to get past demos. The [Claude Frontier Academy](https://www.anthropic.com/news/claude-frontier-academy) is the proposed fix.
-
-The program follows a medical-residency model: multi-day in-person training with Anthropic engineers → simulated enterprise deployments → 12-week residency running real Claude projects at the participant's own organization. Two credential levels: Claude Resident Engineer and the full Claude Frontier Deployed Engineer.
-
-**Curriculum scope:** use-case selection, security review, production deployment, and building agentic systems that transform business operations.
-
-**First cohorts:** Accenture, Bain, Capgemini, Commonwealth Bank of Australia, Deloitte, McKinsey, Morgan Stanley, Novo Nordisk. Locations: San Francisco, New York, London, expanding through 2027.
-
-**Why it matters:** The curriculum scope signals what Anthropic considers the current bottleneck — not model capability, but getting it into production with the right security posture and agentic architecture. Even without direct access, that framing is useful for calibrating your own deployment work.
-
-**Limits:** Access is by corporate nomination only — no self-enrollment, no public cohort dates, no individual path outside a participating organization. The 10,000-engineer target runs through end of 2027, not a near-term number.
-
-**Sources:** [Anthropic newsroom](https://www.anthropic.com/news/claude-frontier-academy) · [Unite.ai](https://www.unite.ai/new-anthropic-academy-backs-10-000-engineer-residencies-with-100m/) · [Crypto Briefing](https://cryptobriefing.com/anthropic-100-million-claude-frontier-academy/)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
