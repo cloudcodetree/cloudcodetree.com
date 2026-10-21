@@ -17,7 +17,22 @@ onlyBuiltDependencies:
   - workerd
 
 # Upstream tools still pin vulnerable transitive versions; remove these once
-# Next.js and Miniflare adopt the patched releases themselves.
+# Next.js, Miniflare, ESLint, Tailwind and Vitest adopt the patched releases
+# themselves.
 overrides:
   'next>postcss': 8.5.28
-  'miniflare>sharp': 0.35.4
+  'miniflare>sharp': 0.35.5
+  'brace-expansion@<1.1.21': 1.1.21
+  'brace-expansion@>=4.0.0 <5.0.12': 5.0.12
+  'source-map-js@<1.2.2': 1.2.2
+  'vite@>=8.0.0 <8.2.4': 8.3.5
+
+# Advisories with no patched release, accepted with a reason. Remove each entry
+# once a fixed version ships and an override above can replace it.
+#   GHSA-vfj7-8cjw-p6xm  braces <=3.0.3, no 3.0.4 on npm (checked 2026-10-21).
+#     Stack-exhaustion DoS from deeply nested glob patterns. Reached only
+#     through Tailwind's build-time file scanning, on globs from our own
+#     tailwind.config. No external input reaches it.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
