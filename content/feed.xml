@@ -10,7 +10,132 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 21 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 21 Oct 2026 20:06:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Claude Code Session Closed Before the Task Finished — `claude --continue` Reopens the Latest; `--resume` Picks Any]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-07-claude-code-continue-resume-session-recovery</link>
+      <guid isPermaLink="false">2026-10-21-07-claude-code-continue-resume-session-recovery</guid>
+      <pubDate>Wed, 21 Oct 2026 20:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>claude -c recovers the latest session in your working directory; --resume opens a searchable picker; --resume &lt;id&gt; targets a specific one. SDK runs expose session_id for pipeline handoff.</description>
+      <content:encoded><![CDATA[**`claude -c` recovers the latest session in your working directory; `claude --resume` opens a searchable picker; capture `session_id` from SDK runs for scripted handoff across pipeline steps.**
+
+A mid-task disconnect — a terminal crash, a Wi-Fi drop, a laptop lid close — doesn't have to mean starting over. Claude Code persists session history on disk, and three flags expose it.
+
+## The three recovery paths
+
+**Reopen the latest session:**
+```bash
+claude --continue   # or: claude -c
+```
+Restores the most recent conversation in the current project directory, including tool call history and the last working context.
+
+**Open the session picker:**
+```bash
+claude --resume
+```
+Lists recent sessions for the directory with timestamps and a first-line summary. Pass a search term to filter: `claude --resume "refactor auth"`.
+
+**Target a specific session by ID:**
+```bash
+claude --resume abc123def456
+```
+Useful in scripts: capture the session ID from the previous run and pass it to the next step without the picker.
+
+## SDK / pipeline pattern
+
+When you call Claude Code programmatically via `claude -p` or the Agent SDK, the result envelope includes `session_id`:
+
+```bash
+result=$(claude -p "run the migration plan" --output-format json)
+session_id=$(echo "$result" | jq -r '.session_id')
+
+# Later step in the same pipeline:
+claude --resume "$session_id" -p "now apply the plan"
+```
+
+This lets a multi-step script hand context across invocations without relying on the picker or re-encoding the prior conversation.
+
+## Limits
+
+`-p` and SDK sessions **do not appear in the session picker** — they're stored, but the picker only shows interactive sessions. You must capture and pass the session ID explicitly to resume one. Session history lives in `~/.claude/projects/<hash>/` and survives between terminal sessions and reboots, but may not carry over across major Claude Code version updates (the storage format has changed at least once). The official recommendation is to treat session history as best-effort, not durable state — commit or document work you need to keep rather than relying on resumability.
+
+**Sources:** [Sessions — Claude Code docs](https://code.claude.com/docs/en/sessions) · [You close Claude Code. The context is gone. Or is it? — Medium](https://medium.com/rigel-computer-com/you-close-claude-code-the-context-is-gone-or-is-it-3ebc5c1c379d) · [What is the --resume flag in Claude Code — claudelog.com](https://www.claudelog.com/faqs/what-is-resume-flag-in-claude-code/) · [How to resume your Claude Code session after a reboot — Medium](https://medium.com/@artjoms.stukans/how-to-resume-your-claude-code-session-after-a-reboot-automatically-126f710e9c1d)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your Model Gives Wrong Answers — Diagnose Whether It Lacks Facts or Lacks Behavior Before You Build Anything]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-06-rag-vs-fine-tuning-knowledge-gap-behavior-gap</link>
+      <guid isPermaLink="false">2026-10-21-06-rag-vs-fine-tuning-knowledge-gap-behavior-gap</guid>
+      <pubDate>Wed, 21 Oct 2026 20:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>RAG fixes knowledge gaps; fine-tuning fixes behavior gaps. A diagnostic flowchart, the decision ladder from prompt engineering through RAG to fine-tuning, and the key hallucination risk to know before you fine-tune.</description>
+      <content:encoded><![CDATA[**RAG fills a knowledge gap — facts the model doesn't have. Fine-tuning fills a behavior gap — format, tone, or domain style the model consistently gets wrong. Diagnosing which one you have before you build saves weeks.**
+
+**What you'll be able to do after this:**
+- Run a three-question diagnostic to identify whether your problem is a knowledge gap or a behavior gap
+- Know when long-context prompt caching is cheaper than building either pipeline
+- Recognize the specific case where fine-tuning on facts reliably makes hallucinations worse
+
+## The diagnostic
+
+Before choosing a technique, ask three questions about the wrong answers you're getting:
+
+1. **"Could the model answer this correctly if I pasted the source document into the prompt?"** If yes, the model lacks access to a document — that's a knowledge gap. RAG.
+2. **"Is the model producing answers with the right facts but in the wrong format, register, or domain style?"** If yes, that's a behavior gap. Fine-tuning.
+3. **"Would a longer, more explicit system prompt fix this reliably?"** If yes, neither — prompt engineering first.
+
+## The decision ladder
+
+Try cheaper options before building a pipeline:
+
+**Step 1 — prompt engineering.** If your entire knowledge base fits in ~200k tokens (product docs, policy, FAQ), load it with [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) and cache the tokens. One API call update keeps it current; cache hits cost ~90% less. Only build RAG when the knowledge base exceeds what a long context handles economically.
+
+**Step 2 — RAG** when knowledge is large, changes frequently, or requires source citations. Updating the vector store costs a single upsert; the model never retrains. Standard stack: chunk documents, embed with `sentence-transformers/all-MiniLM-L6-v2`, store in Chroma or pgvector, retrieve at query time:
+
+```python
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain.chains import RetrievalQA
+from langchain_anthropic import ChatAnthropic
+
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+vectorstore = Chroma.from_documents(docs, embeddings)
+
+chain = RetrievalQA.from_chain_type(
+    llm=ChatAnthropic(model="claude-sonnet-5-5"),
+    retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
+)
+answer = chain.invoke({"query": "What is our refund policy?"})
+```
+
+**Step 3 — fine-tuning** when the model consistently produces the wrong output shape even when it has the facts: wrong JSON schema, wrong tone for your brand, domain-specific phrasing it fumbles repeatedly. Fine-tune on *examples of the behavior you want*, not on facts you want it to memorize.
+
+## The hallucination trap
+
+[Gekhman et al. (2024)](https://arxiv.org/abs/2406.05233) found that fine-tuning a model on facts it doesn't already know reliably *increases* hallucinations — the model adopts the style of the training examples while generating new false details in the same register. The safe use of fine-tuning is for format and behavior; RAG is the tool for knowledge. A team that fine-tunes to inject proprietary facts ends up with a model that sounds more authoritative while being less accurate.
+
+## Combining both
+
+When you need both accuracy and consistent output style: build RAG for the knowledge layer, fine-tune for the output format layer. The fine-tuned model learns *how* to answer; the retrieved context gives it *what* to answer from. DataCamp's tutorial (link below) walks through a medical chatbot that implements both on the same dataset and compares the outputs.
+
+**Limits:** Updating fine-tuned knowledge requires retraining — a GPU bill and a multi-day turnaround. RAG adds latency at inference time: every query now includes an embedding call and a vector lookup. Neither is free.
+
+**Sources:** [RAG vs Fine-Tuning tutorial (DataCamp)](https://www.datacamp.com/tutorial/rag-vs-fine-tuning) · [When to fine-tune vs when to use RAG: decision framework (Reintech, Feb 2026)](https://reintech.io/blog/when-to-fine-tune-vs-when-to-use-rag-decision-framework) · [Knowledge Conflicts for LLMs: Gekhman et al. 2024 — arXiv:2406.05233](https://arxiv.org/abs/2406.05233) · [RAG vs Fine-Tuning: Which Approach to Choose? — denser.ai](https://denser.ai/blog/rag-vs-fine-tuning/)
+]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Agentic Loop Is 40 Lines of Boilerplate — The Anthropic SDK's tool_runner Collapses It to Five, and Here Is When You Still Want the Manual Version]]></title>
@@ -6378,81 +6503,8 @@ ollama pull qwen3:8b-q5_k_m
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>One Conversation Can't Hold a 50-File Migration — Dynamic Workflows Fan Out to Dozens of Agents and Synthesize Their Results</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-04-claude-code-dynamic-workflow-pipeline-parallel-fan-out</link>
-      <guid isPermaLink="false">2026-10-04-04-claude-code-dynamic-workflow-pipeline-parallel-fan-out</guid>
-      <pubDate>Sun, 04 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>Claude Code's dynamic workflows write a JS orchestration script that fans out to dozens of subagents with pipeline() and parallel()—running in the background while your session stays free.</description>
-      <content:encoded><![CDATA[**Claude Code's Workflow tool generates a JavaScript orchestration script that fans out to dozens (or hundreds) of subagents, runs in the background, and returns structured results — while your session stays free to do other work.**
-
-When a task outgrows one context window — a 50-file migration, a parallel audit across every API route, a multi-repo research sweep — ask Claude to "use a workflow" or include "ultracode" in your prompt. The runtime executes the script, not Claude's internal planner, so intermediate results never fill your context.
-
-## The three building blocks
-
-```js
-export const meta = { name: 'audit', description: 'Audit all routes' }
-
-const SCHEMA = { type: 'object', properties: { findings: { type: 'array', items: { type: 'string' } } } }
-
-const results = await pipeline(
-  routeFiles,
-  file => agent(`Audit ${file} for OWASP Top 10`, { label: `audit:${file}`, schema: SCHEMA })
-)
-return { findings: results.flatMap(r => r.findings) }
-```
-
-- **`agent(prompt, opts)`** — spawns one subagent, returns its structured or text result
-- **`pipeline(items, item => ...)`** — one agent per item, no global barrier; items flow through independently as each finishes
-- **`parallel([() => agent(...), ...])`** — global barrier; all must finish before the next stage
-
-Default to `pipeline()`. Use `parallel()` only when a later stage genuinely needs every prior result at once — for voting, merging, or deduplication across the full set.
-
-## When a workflow beats plain subagents
-
-With the Agent tool or subagents, Claude is the orchestrator — every result feeds back into one context window. That works for tasks up to roughly 10 independent units. A workflow moves the orchestration logic into JavaScript outside Claude's context, so 50 or 100 agents report their JSON results directly to the script. The script is resumable: re-invoke with `resumeFromRunId` and completed `agent()` calls return their cached results instantly — no re-running what already settled.
-
-## One real limit
-
-Workflows require explicit user opt-in ("use a workflow", "ultracode", or `/config`). Every subagent call bills your usage separately — a 50-agent run costs as much as 50 conversations. Calibrate on a small input list before scaling.
-
-**Sources:** [Orchestrate subagents at scale with dynamic workflows — code.claude.com](https://code.claude.com/docs/en/workflows) · [Claude Code Workflows: Deterministic Multi-Agent Orchestration — alexop.dev](https://alexop.dev/posts/claude-code-workflows-deterministic-orchestration/) · [Claude Code Dynamic Workflows — matthewswong.com](https://www.matthewswong.com/en/blog/claude-code-dynamic-workflows-orchestration/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>A Poisoned .git/config in a Zip File Runs Code in Seven AI Coding Agents Before Any Permission Prompt</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-05-gitspawn-git-config-rce-ai-coding-agents-claude-code</link>
-      <guid isPermaLink="false">2026-10-04-05-gitspawn-git-config-rce-ai-coding-agents-claude-code</guid>
-      <pubDate>Sun, 04 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Developer Tools</category>
-      <description>Manifold Security disclosed GitSpawn: 8 CVEs across 7 AI coding agents. A malicious .git/config triggers RCE via core.fsmonitor before any model-level permission prompt runs.</description>
-      <content:encoded><![CDATA[**Manifold Security disclosed GitSpawn: a poisoned `.git/config` in a received zip file, shared folder, or USB stick triggers arbitrary code execution in seven AI coding agents when any background `git status` runs — before any permission prompt is shown.**
-
-Git's `core.fsmonitor` config key accepts a shell command that git runs whenever it checks file state. A `.git/config` file that sets this key doesn't need a `git clone` to arrive — it can come via a zip, a mounted share, or a CI artifact. Open a project folder, an agent runs a routine `git status` in the background, and the payload executes as you, outside the sandbox.
-
-**Patching status at disclosure:**
-- **Claude Code 2.1.196+**: patched — update to 2.1.289+ (latest)
-- **Codex CLI 0.152.1+, Cursor (latest), Goose 1.44.0+**: patched
-- **Hermes Agent, Qwen Code, Grok Build**: unpatched at time of writing
-
-Eight CVEs across the seven affected agents.
-
-**Why it matters:** This bypasses the agent permission model. Watching what the agent does and denying suspicious commands doesn't help — the payload runs before the model receives any request. The attack surface is any project archive you didn't build yourself.
-
-**What to do now:** Run `claude --version` and update if below 2.1.196. Avoid opening untrusted project folders in any coding agent until your vendor ships a patch.
-
-**Sources:** [GitSpawn disclosure — adversa.ai](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Manifold Security coverage — getreadyforagents.com](https://www.getreadyforagents.com/news/gitspawn-ai-coding-agent-git-hijack-vulnerability/) · [GitSpawn: Malicious .git Configs Run Code in AI Coding Agents — agentoffense.com](https://agentoffense.com/blog/malicious-git-config-ai-agents-rce-gitspawn/)]]></content:encoded>
-    </item>
-
+    
+    
     
             
 
