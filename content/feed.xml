@@ -13,6 +13,144 @@
     <lastBuildDate>Wed, 21 Oct 2026 04:05:00 +0000</lastBuildDate>
 
     <item>
+      <title><![CDATA[Your Agentic Loop Is 40 Lines of Boilerplate — The Anthropic SDK's tool_runner Collapses It to Five, and Here Is When You Still Want the Manual Version]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-05-anthropic-tool-runner-collapse-agent-loop-sdk-beta</link>
+      <guid isPermaLink="false">2026-10-21-05-anthropic-tool-runner-collapse-agent-loop-sdk-beta</guid>
+      <pubDate>Wed, 21 Oct 2026 12:16:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>The Anthropic SDK's tool_runner handles the full agentic loop in one .run() call. Use it for straightforward function-calling; keep the manual loop for human-in-loop approval, per-call logging, or conditional execution.</description>
+      <content:encoded><![CDATA[**The Anthropic SDK's `client.beta.messages.tool_runner()` handles the full tool-use cycle in one `.run()` call. Use it for straightforward function-calling loops; keep the manual version when you need to intercept individual tool calls.**
+
+The manual agentic loop — check `stop_reason`, dispatch to a function, append the result, repeat — is correct and worth understanding once. After that, `tool_runner` gives you the same behavior in a fifth of the lines.
+
+## Usage
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+@client.beta.messages.tool_runner.beta_tool
+def get_weather(city: str) -> str:
+    """Fetch the current weather for a city."""
+    return fetch_weather_api(city)  # your actual implementation
+
+result = client.beta.messages.tool_runner(
+    model="claude-sonnet-5-5",
+    tools=[get_weather],
+    messages=[{"role": "user", "content": "What is the weather in Berlin?"}],
+).run()
+
+print(result.content)
+```
+
+`@client.beta.messages.tool_runner.beta_tool` decorates your function and generates the tool schema from its type hints and docstring. `.run()` executes the full loop: each `tool_use` stop triggers your function, the result goes back to the model, and the loop exits when `stop_reason == "end_turn"`. The final `Message` is returned.
+
+**Error handling:** if your function raises, the runner sends the exception message to the model as a tool result with `is_error: true`. Full stack traces are not forwarded.
+
+## When to keep the manual loop
+
+The official docs list these as out of scope for `tool_runner`:
+
+- **Human-in-the-loop approval.** You need to pause before executing the tool and either approve or abort. `tool_runner` executes immediately.
+- **Conditional execution.** You want to skip a tool call based on its arguments, or substitute a different implementation at runtime.
+- **Per-call logging.** You need to record the tool name, arguments, latency, and result on each iteration for observability.
+- **Mid-loop result transformation.** The model should receive a different value than what your function returned.
+
+For those patterns, the manual loop (check `stop_reason`, dispatch, append, repeat) gives you full control at the cost of the boilerplate.
+
+**Note:** `tool_runner` is in the SDK beta namespace. The API surface is stable in practice but not yet covered by the Anthropic API versioning guarantee — check the changelog before upgrading the SDK in production.
+
+**Sources:** [Tool Runner — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [Building a coding agent with the manual tool-use loop — dev.to](https://dev.to/pavelespitia/i-built-a-coding-agent-with-the-manual-tool-use-loop-heres-what-it-taught-me-4gjn)]]></content:encoded>
+    </item>
+    <item>
+      <title><![CDATA[Add a Python Tool to Claude Code Without Writing the MCP Protocol — FastMCP Exposes Any Function as an MCP Tool, Resource, or Prompt in Under 30 Lines]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-04-python-fastmcp-server-tool-resource-prompt-claude-code</link>
+      <guid isPermaLink="false">2026-10-21-04-python-fastmcp-server-tool-resource-prompt-claude-code</guid>
+      <pubDate>Wed, 21 Oct 2026 12:15:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description>FastMCP's three decorators (@mcp.tool, @mcp.resource, @mcp.prompt) turn Python functions into MCP tools Claude Code can call — no protocol code needed. Test with mcp dev before registering.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** register a Python function as an MCP tool Claude Code can call from any project, test it interactively before connecting it to any client, and extend the pattern to read-only context data (Resources) and named prompt templates (Prompts).
+
+The MCP Python SDK ships FastMCP — a decorator-based API that hides the protocol plumbing. You define a function, annotate it with type hints, and the server handles JSON Schema generation, transport, and the request/response cycle.
+
+## Install
+
+```bash
+uv add "mcp[cli]>=1.27,<2"  # pin below v2 alpha; class name changes in v2
+```
+
+## Three decorators, one server file
+
+```python
+# server.py
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("MyServer")
+
+# Tool — a function the model can call with arguments
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+
+# Resource — read-only context data exposed by URI
+@mcp.resource("config://app")
+def get_config() -> str:
+    return '{"timeout": 30, "retries": 3}'
+
+# Templated resource — URI parameter resolved at request time
+@mcp.resource("file://{path}")
+def read_file(path: str) -> str:
+    with open(path) as f:
+        return f.read()
+
+# Prompt — a named, parameterized message template
+@mcp.prompt()
+def review_prompt(code: str) -> str:
+    return f"Review this code for security issues:\n\n{code}"
+
+if __name__ == "__main__":
+    mcp.run()  # stdio transport by default
+```
+
+**Type hints are required on `@mcp.tool()` parameters.** The SDK uses them to build the JSON Schema the calling model receives. A parameter without a type hint causes the tool to fail registration.
+
+## Test locally with MCP Inspector
+
+```bash
+uv run mcp dev server.py
+```
+
+This opens the MCP Inspector — a browser UI that lists your tools, resources, and prompts, lets you invoke them manually, and shows the raw protocol messages. Verify tool behavior here before connecting to any client.
+
+## Register with Claude Code
+
+```bash
+claude mcp add my-server -- uv run server.py
+```
+
+Claude Code now sees the server's tools and resources as native tools in every session. Confirm with `claude mcp list`.
+
+## Limits
+
+- No built-in OAuth flow. If your tool calls an authenticated API, handle credentials via environment variables or a secrets manager.
+- Streaming tool responses are not supported in FastMCP v1. The `Context` parameter enables progress notifications but not true streaming.
+- FastMCP v2 alpha renames the import path — pin `mcp<2` until v2 is stable.
+
+**Sources:** [MCP Python SDK — PyPI](https://pypi.org/project/mcp/1.29.0/) · [Build MCP Servers with Python — glama.ai](https://glama.ai/mcp/servers/@surya-madhav/MCP/blob/db9db79cfcb56d67cbb87c5e16ebd40380183b32/docs/03-building-mcp-servers-python.md) · [MCP in Claude Code — code.claude.com](https://code.claude.com/docs/en/mcp)]]></content:encoded>
+    </item>
+    <item>
       <title><![CDATA[Your Parallel Subagents Encode the Parent Context Once Each — `subagent_type: "fork"` Turns Every Child Into a Prompt Cache Hit Instead]]></title>
       <link>https://cloudcodetree.com/ai-news/2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</link>
       <guid isPermaLink="false">2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</guid>
@@ -6315,92 +6453,8 @@ Eight CVEs across the seven affected agents.
 **Sources:** [GitSpawn disclosure — adversa.ai](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Manifold Security coverage — getreadyforagents.com](https://www.getreadyforagents.com/news/gitspawn-ai-coding-agent-git-hijack-vulnerability/) · [GitSpawn: Malicious .git Configs Run Code in AI Coding Agents — agentoffense.com](https://agentoffense.com/blog/malicious-git-config-ai-agents-rce-gitspawn/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Model Gets the Facts Right but the Format Wrong, or the Format Right but the Facts Wrong — the Two Questions That Tell You Which Problem You Have</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-06-rag-vs-fine-tuning-when-each-wins-decision-framework</link>
-      <guid isPermaLink="false">2026-10-04-06-rag-vs-fine-tuning-when-each-wins-decision-framework</guid>
-      <pubDate>Sun, 04 Oct 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>RAG</category>
-      <description>RAG fixes wrong facts; fine-tuning fixes wrong behavior. The decision tree that keeps most teams from spending three weeks building the wrong solution.</description>
-      <media:content url="https://img.youtube.com/vi/DQiMy1JV7J4/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/DQiMy1JV7J4/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**What you'll be able to do after this:** identify whether your LLM problem is a knowledge problem (reach for RAG) or a behavioral problem (reach for fine-tuning), and know when you need both.
-
-### Three takeaways
-
-- **RAG for facts that change.** If the right answer depends on current docs, tickets, prices, or code, RAG wins by default. Fine-tuning bakes data into weights — it goes stale the moment anything changes.
-- **Fine-tune for behavior that doesn't.** If the model produces correct information in the wrong format, drifts off a strict JSON schema, or refuses a safe request it should accept — that's behavioral. Retrieval won't fix it.
-- **Most production apps need both.** RAG keeps knowledge current; fine-tuning disciplines the routes where retrieved answers still aren't in the right shape.
-
-### The decision tree (two questions)
-
-1. **Does the right answer depend on data that changes — pricing, docs, tickets, codebase, policies?** → Start with RAG.
-2. **Does the model have correct knowledge but produce it in the wrong format, tone, or structure?** → Fine-tune on the behavioral gap, after RAG is working.
-
-If neither fires, you have a prompting problem. Solve it with prompting before reaching for either approach.
-
-### The catch: retrieval quality sets the ceiling
-
-Evaluating retrieval (with RAGAS or a held-out test set) before fine-tuning is non-optional. A fine-tune on top of poor retrieval teaches the model to hallucinate confidently in your preferred format. Fix retrieval first; fine-tune only on the residual behavioral gap.
-
-### The escalation path in practice
-
-Prompt engineering → add RAG for knowledge gaps → fine-tune for behavioral gaps on RAG-backed routes → re-evaluate retrieval quality after fine-tuning. Each step is reversible until the last.
-
-**Sources:** [RAG vs Fine-Tuning: Most People Pick the Wrong One — YouTube](https://www.youtube.com/watch?v=DQiMy1JV7J4) · [RAG vs Fine-Tuning in 2026: A Decision Framework for LLM Teams — winder.ai](https://winder.ai/rag-vs-fine-tuning-2026-decision-framework/) · [Fine-tuning vs RAG: why most teams pick wrong — channel.tel](https://www.channel.tel/blog/fine-tuning-vs-rag-when-to-use-which-lora-qlora)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Scope Each Subagent to Its Job — Tool Restrictions, Model Overrides, and a Spend Cap in the Claude Agent SDK</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-03-claude-agent-sdk-subagent-tool-restriction-model-budget-cap</link>
-      <guid isPermaLink="false">2026-10-04-03-claude-agent-sdk-subagent-tool-restriction-model-budget-cap</guid>
-      <pubDate>Sun, 04 Oct 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Claude Code</category>
-      <description>Three AgentDefinition fields — tools, model, and maxBudgetUsd — scope each subagent to exactly what its job needs, prevent accidental writes, and cap spend across the whole query tree.</description>
-      <content:encoded><![CDATA[**A subagent that can't write files can't accidentally overwrite them. Three fields in the Claude Agent SDK's `AgentDefinition` enforce this at the API level, not by convention.**
-
-A subagent defined without a `tools` field inherits every tool the parent has — including `Edit`, `Write`, and `Bash`. For ad hoc use that's fine; in a production pipeline it means a bug in your code-reviewer could rewrite the files it's reviewing. OWASP LLM Top 10 names this pattern "LLM08: Excessive Agency" and recommends minimal tool grants as the primary mitigation. The SDK's `AgentDefinition` implements it directly:
-
-**`tools`** — explicit allowlist, agent can't access anything outside it:
-```typescript
-agents: {
-  "code-reviewer": {
-    description: "Security and quality reviewer for PR diffs.",
-    prompt: "Review for security vulnerabilities and coding standards. Never modify files.",
-    tools: ["Read", "Grep", "Glob"]
-  }
-}
-```
-
-**`model`** — per-subagent model override. Route cheap tasks to `haiku`, complex synthesis to `opus`:
-```typescript
-model: "haiku"  // accepts "sonnet", "opus", "fable", a full model ID, or "inherit"
-```
-
-**`maxBudgetUsd`** — caps the entire query tree (parent + every spawned subagent) at a dollar amount. The query stops with `error_max_budget_usd` when it hits the limit:
-```typescript
-options: { allowedTools: [..., "Agent"], agents: { ... }, maxBudgetUsd: 5 }
-```
-
-Two environment variables bound the tree further:
-- `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1` — prevents subagents from spawning their own (default depth is 3)
-- `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS=5` — caps parallel execution (default is 20)
-
-**Limit:** `tools`, `model`, and `maxBudgetUsd` are programmatic-definition-only. Filesystem-based agents (`.claude/agents/*.md`) don't support them — they inherit all parent tools. The spend cap requires TypeScript SDK v0.3.219 / Python SDK v0.2.127 or later.
-
-**Why it matters:** tool scope is principle of least privilege applied to agents. A read-only code-reviewer is safe to run in an automated pipeline with broad permissions granted to the parent session — the restriction is enforced by the model layer, not by hoping the agent behaves.
-
-**Sources:** [Claude Agent SDK — Subagents](https://code.claude.com/docs/en/agent-sdk/subagents) · [Cap subagent depth, concurrency, and spend](https://code.claude.com/docs/en/agent-sdk/subagents#cap-subagent-depth-concurrency-and-spend) · [OWASP LLM Top 10: LLM08 Excessive Agency](https://owasp.org/www-project-top-10-for-large-language-model-applications/)]]></content:encoded>
-    </item>
-        
+    
+            
 
 
 
