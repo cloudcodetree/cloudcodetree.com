@@ -10,7 +10,162 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 20 Oct 2026 20:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 21 Oct 2026 04:05:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your Parallel Subagents Encode the Parent Context Once Each — `subagent_type: "fork"` Turns Every Child Into a Prompt Cache Hit Instead]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</link>
+      <guid isPermaLink="false">2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</guid>
+      <pubDate>Wed, 21 Oct 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Pass subagent_type: "fork" when fanning out parallel research that all needs the same background — the child inherits the parent's context as a prompt cache hit, not a fresh encode.]]></description>
+      <content:encoded><![CDATA[**A forked subagent inherits the parent's full context as a prompt cache hit — five parallel forks on a 100K-token session cost roughly what one fresh subagent encode costs.**
+
+Every `Agent()` call without `subagent_type` spawns a fresh context window — a blank slate that receives only what you pass as a prompt. Right for isolated tasks. But when you're fanning out five research questions that all need the same codebase context, you're encoding the same system prompt and conversation history five times — once per subagent. At 100K tokens of shared background, that's 500K input tokens for the fan-out.
+
+**The fork alternative**
+
+Pass `subagent_type: "fork"` and the child inherits the parent's full, uncompressed context — system prompt, tool call history, conversation history — as a prompt cache hit. Anthropic prices prompt cache reads at roughly 10× less than fresh input tokens, so a five-way fork on a 100K-token session costs about what one fresh subagent encode costs.
+
+```javascript
+// Five fresh contexts — each encodes the full parent context
+const fresh = await parallel(
+  questions.map(q => () => agent(q, { label: q.id }))
+)
+
+// Five cache hits — each inherits the parent context without re-encoding
+const forked = await parallel(
+  questions.map(q => () => agent(q, { subagent_type: "fork", label: q.id }))
+)
+```
+
+**When to fork vs. when to spawn fresh**
+
+Use forks when: (a) all children need the same shared background and (b) you don't need the children's intermediate tool output added to the parent context. Fork results come back through the return value only — the child's tool calls stay in its own context window.
+
+Skip forks when tasks are genuinely self-contained (reading different repos, independent computations) — inherited context inflates each child's window with irrelevant history.
+
+**Limits**
+
+- Forked context still counts against the child's window ceiling. A 180K-token parent session gives each fork only 20K tokens of headroom in a 200K window.
+- The prompt cache expires after one hour. Forks launched more than an hour after the parent context was last used pay the full encode cost.
+- Children cannot write back to the parent context. Read results through the agent's return value.
+- A fork inherits context but not ongoing tool permissions — the child runs with its own permission set.
+
+**Sources:** [Claude Code Subagents guide — morphllm.com](https://www.morphllm.com/claude-subagents) · [Fork subagents in Claude Code — mejba.me](https://www.mejba.me/blog/forked-subagents-claude-code-anthropic) · [Prompt caching — anthropic.com](https://www.anthropic.com/pricing)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Anthropic Rebuilt Version Control Because Its Agents Were Doing 30,000 Merges a Day — Scion Replaces Git in Its Monorepo]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-02-anthropic-scion-vcs-agent-scale-git-30k-merges-day</link>
+      <guid isPermaLink="false">2026-10-21-02-anthropic-scion-vcs-agent-scale-git-30k-merges-day</guid>
+      <pubDate>Wed, 21 Oct 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Anthropic's monorepo hit 30,000 AI-agent-generated merges per day by September 2026; git's assumptions buckled and a seven-person team built and migrated to Scion in five months.]]></description>
+      <content:encoded><![CDATA[**Anthropic's monorepo hit 30,000 agent-generated merges per day, up from 2,500 — git buckled, and a seven-person team built and migrated to Scion in five months.**
+
+Anthropic published an engineering post on October 13, 2026 describing Scion, the version control system it built to replace git internally. AI coding agents don't commit a few times a day the way human developers do. By September 2026, Anthropic's monorepo was absorbing more than 30,000 merges per day — up from roughly 2,500 in May. Standard git's locking and merge-queue assumptions, designed for human-paced batches, stopped scaling.
+
+**What changed and why it matters**
+
+Git was built for mostly-disconnected developers who push periodically. AI agents writing code in hundreds of parallel sessions and submitting changes continuously hit the same synchronization bottlenecks you'd see on a very large coordinated team — just faster. The underlying assumptions (branch checkouts, lock contention, merge queues sized for human throughput) were never stress-tested at this volume.
+
+If you're running Claude Code agents in CI or as long-running background workers, you're already dealing with an early version of this at smaller scale: stale base branches, merge conflicts on auto-generated changes, and queues not sized for that volume.
+
+**What Scion is and isn't**
+
+Anthropic says Scion was purpose-built for their specific setup: one huge monorepo accessed mostly by always-connected agents and CI jobs. It is not a general-purpose git replacement. They've said they want to work with GitHub, GitLab, and the open-source community to bring some ideas back to git, but there is no public release, and the code's open-source status is unconfirmed as of this writing.
+
+**The practical takeaway:** "developer infrastructure built for human scale" is a category that breaks at agent scale. If you're designing systems today where agents generate commits at volume, git's merge queue, branch model, and CI triggers are worth stress-testing before you're at 30,000 merges a day — not after.
+
+**Why it matters:** The signal is architectural, not a product. The gap between 2,500 human merges/day and 30,000 agent merges/day is roughly where every assumption about "normal" pull request volume fails.
+
+**Sources:** [Scion engineering overview — fourweekmba.com](https://fourweekmba.com/ai-anthropic-builds-scion-to-replace-git-at-30000-merges-a-day/) · [The Register coverage](https://www.theregister.com/a/5302943) · [The New Stack](https://thenewstack.io/?p=22840374)
+]]></content:encoded>
+    </item>
+
+    <item>
+      <title><![CDATA[Your RAG App Returns an Answer But Can't Say Which Chunk — LangChain's `.with_structured_output()` Maps Every Claim to Its Source Document]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-21-01-langchain-citation-aware-rag-with-structured-output</link>
+      <guid isPermaLink="false">2026-10-21-01-langchain-citation-aware-rag-with-structured-output</guid>
+      <pubDate>Wed, 21 Oct 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description><![CDATA[Number each retrieved chunk, pass a Pydantic CitedAnswer schema to .with_structured_output(), and the model returns the IDs it drew from — verify them before rendering sources.]]></description>
+      <content:encoded><![CDATA[**Number each retrieved chunk, pass a Pydantic `CitedAnswer` schema to `.with_structured_output()`, and the model returns the IDs it drew from — verify them before rendering sources.**
+
+**What you'll be able to do after this:**
+- Return verifiable RAG responses where every claim traces back to a specific retrieved chunk
+- Detect when the model generates from memory rather than retrieved context (no valid cited ID = flag it)
+- Build the citation layer in under 20 lines on top of any existing retrieval setup
+
+**The problem**
+
+RAG answers questions — but "the document says so" is only useful when the user can verify *which* document. Without citation IDs, you cannot tell whether an answer came from the retrieved context or from the model's training data. In any compliance- or accuracy-sensitive context, that gap is a non-starter.
+
+**The pattern (LangChain + any model with tool calling)**
+
+```python
+from langchain_anthropic import ChatAnthropic
+from pydantic import BaseModel, Field
+from typing import List
+
+class CitedAnswer(BaseModel):
+    answer: str = Field(description="Answer based only on the provided context")
+    cited_ids: List[int] = Field(
+        description="IDs of context chunks that support the answer"
+    )
+
+# Retrieve and label each chunk with an integer ID
+docs = retriever.invoke(question)
+context = "
+
+".join(
+    f"[Source {i}] {doc.page_content}"
+    for i, doc in enumerate(docs)
+)
+
+# Force the model to fill in citation IDs via structured output
+structured_llm = ChatAnthropic(model="claude-sonnet-5-5").with_structured_output(CitedAnswer)
+result = structured_llm.invoke(
+    f"Answer the question based only on the context below.
+
+{context}
+
+Question: {question}"
+)
+
+# Bounds-check before rendering — models can return IDs outside the range you gave them
+valid_sources = [docs[i].metadata for i in result.cited_ids if 0 <= i < len(docs)]
+```
+
+**Three things that go wrong**
+
+1. **ID hallucination.** Models occasionally return integers outside the range you gave them. Always bounds-check `cited_ids` before indexing into `docs`.
+
+2. **Post-hoc citations.** Research by Wallat et al. found that up to 57% of RAG citations are post-rationalized: the model generates an answer from memory, then attaches a plausible source ID. A stronger variant adds a `quoted_text: str` field and requires the model to echo the exact passage it drew from — that verbatim quote is independently verifiable and significantly reduces post-hoc attachment.
+
+3. **Retrieval quality is the ceiling.** If your retriever returns low-precision chunks, accurate citation IDs still produce wrong answers. Citation quality is bounded by retrieval quality — fix retrieval first.
+
+The LangChain how-to also covers a retrieval post-processing variant and a generation post-processing variant for models that don't support structured output. Start with `.with_structured_output()` if your model supports tool calling; fall back to the others if it doesn't.
+
+**Sources:** [LangChain How-To: Add Citations to a RAG App](https://python.langchain.com/docs/how_to/qa_citations) · [Citation-Aware RAG in LangChain — netjstech.com](https://www.netjstech.com/2026/04/citation-aware-rag-application-in.html) · [Citation faithfulness in RAG: Wallat et al.](https://arxiv.org/abs/2406.13663)
+]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Claude Code's Built-In Plan and Explore Subagents Run Without Any Setup — They're Read-Only Sandboxes for Codebase Exploration That Can't Accidentally Write a File]]></title>
@@ -6245,148 +6400,11 @@ Two environment variables bound the tree further:
 
 **Sources:** [Claude Agent SDK — Subagents](https://code.claude.com/docs/en/agent-sdk/subagents) · [Cap subagent depth, concurrency, and spend](https://code.claude.com/docs/en/agent-sdk/subagents#cap-subagent-depth-concurrency-and-spend) · [OWASP LLM Top 10: LLM08 Excessive Agency](https://owasp.org/www-project-top-10-for-large-language-model-applications/)]]></content:encoded>
     </item>
-    <item>
-      <title>MCP Config Files Are Leaking Live Credentials — 2,117 Valid Secrets Found, Protocol Gets Stateless Core and Fixed OAuth</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-02-mcp-secrets-config-files-gitguardian-stateless-protocol-oauth</link>
-      <guid isPermaLink="false">2026-10-04-02-mcp-secrets-config-files-gitguardian-stateless-protocol-oauth</guid>
-      <pubDate>Sun, 04 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>MCP</category>
-      <category>Security</category>
-      <description>GitGuardian found 24,008 secrets in public MCP config files (2,117 still valid); the MCP protocol's July update replaces its handshake model with a stateless core and patches an OAuth mix-up attack vector.</description>
-      <content:encoded><![CDATA[**GitGuardian's 2026 secrets-sprawl report found 24,008 secrets in public MCP config files; 2,117 were still valid at time of scan.**
-
-The top exposed types: Google API Keys (19%), PostgreSQL connection strings (14%), Firecrawl API keys (12%). The cause is structural — popular MCP setup guides still recommend pasting API keys directly into JSON config files or command-line arguments, and those configs routinely land on GitHub as dotfiles, project scaffolds, or example repos.
-
-**The one-line fix:** replace hardcoded values with environment variable references. Most MCP clients read these at startup:
-```json
-{ "env": { "MY_API_KEY": "${MY_API_KEY}" } }
-```
-The secret stays in your shell environment; the config file is safe to commit.
-
-**Separately:** the Agentic AI Foundation (Linux Foundation, backed by Anthropic, OpenAI, Google, and others) shipped a major protocol update on July 28. Two meaningful changes for server authors:
-- **Stateless request-centric model:** each request carries all the information it needs; servers no longer maintain per-connection state. This enables load balancing across replicas without shared storage — a real operational improvement for multi-instance deployments.
-- **Fixed OAuth mix-up attack:** the previous authorization flow let a malicious server intercept authorization codes from a legitimate one. The update closes that with stricter authorization metadata handling.
-
-**Limit:** the stateless shift is a breaking change for servers that rely on connection-level state. The Foundation's deprecation policy keeps old behavior functional for twelve months, so nothing breaks immediately — but migration planning starts now.
-
-**Why it matters:** MCP config files are the new `.env` — they carry real credentials and they need the same secrets-management discipline. The OAuth fix is separately important if you're building servers that authenticate users via third-party providers.
-
-**Sources:** [GitGuardian State of Secrets Sprawl 2026](https://blog.gitguardian.com/the-state-of-secrets-sprawl-2026/) · [MCP major protocol update — ITdaily](https://itdaily.com/news/software/mcp-2026-update-specs/) · [MCP ecosystem growth numbers — DEV Community](https://dev.to/grahamduescn/mcp-in-2026-the-numbers-behind-the-ecosystem-explosion-2b8e)]]></content:encoded>
-    </item>
-    <item>
-      <title>Your Data Source Has No Claude Integration — Build One in 30 Minutes With the MCP TypeScript SDK</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio</link>
-      <guid isPermaLink="false">2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio</guid>
-      <pubDate>Sun, 04 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <description>An MCP server registers typed tools that Claude, Cursor, and Windsurf can call natively — build one connecting any data source to the agent loop in under 30 minutes with the official TypeScript SDK.</description>
-      <content:encoded><![CDATA[**An MCP server is a process that registers typed tools (functions with Zod schemas) that any MCP-compatible client can call — build one in under 30 minutes using the official TypeScript SDK.**
-
-**What you'll be able to do after this:** connect a calendar, database, REST API, or internal tool to Claude (and any other MCP client) as a native tool the agent calls, not a prompt trick you maintain.
-
-**Three things to know before you start:**
-- The SDK is the standard implementation: 97 million monthly downloads, 13,000+ servers registered on npm and GitHub.
-- Tools expose a name, a Zod schema for inputs, and an async handler — the client never sees your code, only the schema.
-- stdio transport works for local use; HTTP/SSE transport is needed for remote or multi-client deployments.
-
-**Walk-through (Node 20, TypeScript):**
-
-1. Initialize and install:
-```bash
-npm init -y && npx tsc --init
-npm install @modelcontextprotocol/sdk zod
-```
-
-2. Create `server.ts` and initialize `McpServer`:
-```typescript
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-
-const server = new McpServer({ name: "my-tools", version: "1.0.0" });
-```
-
-3. Register a tool with a Zod schema:
-```typescript
-server.tool(
-  "get-events",
-  "Fetch calendar events for a given date (YYYY-MM-DD)",
-  { date: z.string().describe("ISO date string, e.g. 2026-10-04") },
-  async ({ date }) => {
-    const events = await fetchCalendarEvents(date); // your API call here
-    return { content: [{ type: "text", text: events.join("\n") }] };
-  }
-);
-```
-
-4. Connect and run:
-```typescript
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-5. Register in Claude Desktop's `claude_desktop_config.json`:
-```json
-{
-  "mcpServers": {
-    "my-tools": {
-      "command": "node",
-      "args": ["dist/server.js"],
-      "env": { "MY_API_KEY": "${MY_API_KEY}" }
-    }
-  }
-}
-```
-
-6. Test with MCP Inspector (`npx @modelcontextprotocol/inspector`) before wiring to a live client — it shows the handshake, tool list, and individual call results.
-
-**Limits:** Tool descriptions are the only documentation the model has about your tool — vague descriptions produce inconsistent calls, so write them like docstrings. stdio transport works only for local single-client use; if you need the server running remotely or serving multiple clients, you'll need the streamable HTTP transport, which adds session management.
-
-**Full hands-on video (40 min, free lab environment):** [MCP Tutorial: Build Your First MCP Server and Client from Scratch — KodeKloud](https://www.youtube.com/watch?v=RhTiAOGwbYE). Covers JSON-RPC 2.0 internals, both server and client side, and walks through the inspector flow.
-
-**Sources:** [FreeCodeCamp MCP server handbook](https://www.freecodecamp.org/news/how-to-build-a-custom-mcp-server-with-typescript-a-handbook-for-developers/) · [MCP TypeScript SDK — modelcontextprotocol/sdk on GitHub](https://github.com/modelcontextprotocol/sdk) · [KodeKloud YouTube — MCP Tutorial](https://www.youtube.com/watch?v=RhTiAOGwbYE)]]></content:encoded>
-      <media:content url="https://img.youtube.com/vi/RhTiAOGwbYE/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/RhTiAOGwbYE/maxresdefault.jpg" />
-    </item>
+        
 
 
 
-
-    <item>
-      <title>Infostealers Are Harvesting Claude, Cursor, and Cline Tokens From Developer Machines — What They Target and How to Cut the Surface</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-03-07-infostealers-ai-coding-agents-claude-cursor-cline-token-harvest</link>
-      <guid isPermaLink="false">2026-10-03-07-infostealers-ai-coding-agents-claude-cursor-cline-token-harvest</guid>
-      <pubDate>Sat, 03 Oct 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Agents</category>
-      <description>Four infostealer families now target AI coding-agent tokens, MCP config secrets, and prompt histories — here is what they harvest and how to reduce your exposure.</description>
-      <content:encoded><![CDATA[**Four infostealer families now specifically harvest AI coding-agent tokens, MCP config secrets, and prompt histories from developer endpoints.**
-
-Adversa AI's October 2026 catalog documents 10 attack classes against AI coding agents, four targeting predictable local paths without elevated access. The CallbackBeaver family logged 5,000+ samples in a recent 30-day window after expanding to Claude, Cursor, Cline, and Codex targets; [Gurucul's HypeAgent Stealer analysis](https://gurucul.com/blog/hypeagent-stealer-multi-stage-infostealer-hijacking-claude-chatgpt-and-cursor-sessions/) (independent security research) confirms the haul: session and refresh tokens, API keys, full MCP config files with nested credentials, and complete prompt histories. A stolen session token lets an attacker silently drain quota; Anthropic reports issuing warnings and partial refunds when it detects the pattern.
-
-The highest-friction vector: [booby-trapped `.git/config` files](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) that fire attacker code when a folder is opened — before any approval prompt appears. Claude Code's deny rules in `.claude/settings.json` narrow this surface but do not block attacks that execute at the IDE level before the session opens.
-
-**Reduce your exposure now:**
-- Rotate Claude.ai credentials after opening any untrusted repository
-- Keep MCP config files free of raw secrets — use env references or a secrets manager
-- On macOS, exclude `~/Library/Application Support/Claude/` from iCloud backup; the macOS-native Djinn stealer knows this path
-- Add `.claude/settings.json` deny rules for `git config`, `curl`, and commands that read env files
-
-**Why it matters:** Agent runtimes now hold credentials, code context, and execution capability in one place — infostealers know it, and that directory deserves the same protection as `~/.ssh/`.
-
-**Sources:** [Infostealers Target AI Coding Agents — GBHackers](https://gbhackers.com/infostealers-target-ai-tools/) · [HypeAgent Stealer analysis — Gurucul](https://gurucul.com/blog/hypeagent-stealer-multi-stage-infostealer-hijacking-claude-chatgpt-and-cursor-sessions/) · [AI coding agent vulnerabilities October 2026 — Adversa AI](https://adversa.ai/blog/top-ai-coding-agent-security-resources-october-2026/) · [Hackers Target Claude, Cursor and Codex — Cybersecurity News](https://cybersecuritynews.com/ai-agents-2/)]]></content:encoded>
-    </item>
-
+    
     
     
     
