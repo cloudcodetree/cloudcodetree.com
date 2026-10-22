@@ -10,8 +10,192 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Thu, 22 Oct 2026 04:05:00 +0000</lastBuildDate>
+        <lastBuildDate>Thu, 22 Oct 2026 12:09:00 +0000</lastBuildDate>
 
+    <item>
+      <title><![CDATA[Your Python Automation Script Ships Without Its Own Requirements — PEP 723 Puts the Dependencies Inside the File; `uv run script.py` Installs Them and Runs]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-22-06-uv-pep-723-self-contained-python-automation-script</link>
+      <guid isPermaLink="false">2026-10-22-06-uv-pep-723-self-contained-python-automation-script</guid>
+      <pubDate>Thu, 22 Oct 2026 12:09:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Developer Tools</category>
+      <category>Claude Code</category>
+      <category>Building AI Products</category>
+      <description>PEP 723 lets you declare pip dependencies in a comment block at the top of any .py file. `uv run script.py` reads the block, builds a temp venv, and runs — one command, no setup.</description>
+      <content:encoded><![CDATA[**PEP 723 embeds pip dependencies directly in a `.py` file as a comment block. `uv run script.py` reads the block, builds a temporary virtual environment, and executes — no requirements.txt, no Makefile step, no `pip install` before the script runs.**
+
+This matters for automation scripts you write alongside Claude Code tasks, share via a repo, or run in CI: the script is the whole package. Drop it in your `.claude/hooks/` directory, check it into the repo, and any machine with `uv` installed runs it correctly from the first `uv run`.
+
+## The inline dependency block (PEP 723)
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "httpx",
+#   "rich>=13.0",
+# ]
+# ///
+
+import httpx
+from rich import print
+
+r = httpx.get("https://api.example.com/status")
+print(r.json())
+```
+
+The `# /// script` block is parsed by uv before execution. Everything between `# ///` and the closing `# ///` is TOML. `dependencies` is a list of PEP 508 dependency specifiers — the same format as requirements.txt.
+
+## Three commands you'll use daily
+
+```bash
+# Scaffold a new self-contained script
+uv init --script analyze.py --python 3.12
+
+# Add a dependency — writes it into the block in-place
+uv add --script analyze.py httpx
+
+# Run without activating anything
+uv run analyze.py
+```
+
+`uv add --script` adds the dependency and updates the inline block atomically; there is no separate file to keep in sync.
+
+## In CI (GitHub Actions)
+
+```yaml
+- uses: astral-sh/setup-uv@v3
+- run: uv run scripts/validate.py
+```
+
+No `pip install` step, no requirements cache to maintain. uv installs the declared deps to an ephemeral environment that it caches across CI runs by content hash.
+
+## Claude Code angle
+
+Claude Code uses `uv` internally for its own Python tool calls. Hooks written as uv scripts match that toolchain exactly — `uv run` in a `PreToolUse` or `PostToolUse` hook works consistently across local machines and cloud sessions without a system Python or an activated venv.
+
+## Limits
+
+- Only uv reads PEP 723 natively — running the script with `python script.py` skips the block and fails with an import error. The `#!/usr/bin/env -S uv run --script` shebang makes the file self-executing on Unix if uv is on PATH.
+- `uv add --script` writes the current Python version into `requires-python` (e.g. `>=3.12.3`), which is usually more restrictive than you need — change it to `>=3.11` manually.
+- A script in a directory that has a `pyproject.toml` is treated as a project script by default; pass the explicit `--script` flag to override: `uv run --script script.py`.
+- No lockfile by default — for reproducibility, run `uv lock --script script.py` to pin the dep graph.
+
+**Sources:** [uv Scripts guide — docs.astral.sh](https://docs.astral.sh/uv/guides/scripts/) · [Share Python Scripts Like a Pro: uv and PEP 723 — thisdavej.com](https://thisdavej.com/share-python-scripts-like-a-pro-uv-and-pep-723-for-easy-deployment/) · [How to write a self-contained script — pydevtools.com](https://pydevtools.com/handbook/how-to/how-to-write-a-self-contained-script/)]]></content:encoded>
+    </item>
+    <item>
+      <title><![CDATA[Anthropic Launches Claude Duet — A Proactive Cloud Agent That Monitors Your Apps and Gates Irreversible Actions on Your Approval]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-22-05-claude-duet-proactive-agent-research-preview</link>
+      <guid isPermaLink="false">2026-10-22-05-claude-duet-proactive-agent-research-preview</guid>
+      <pubDate>Thu, 22 Oct 2026 12:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <description>Anthropic launched Claude Duet Oct 21 as a research preview for Pro/Max subscribers: a proactive agent running on Anthropic's cloud computer that sends morning briefs, monitors connected apps, and requires explicit approval before any irreversible action.</description>
+      <content:encoded><![CDATA[**Anthropic announced Claude Duet on October 21 as a research preview for US Pro/Max subscribers: a proactive agent that runs on Anthropic's cloud computer, monitors your connected apps, and initiates — morning briefs, background tasks, alerts — while gating any irreversible action (send, pay, sign, delete) on explicit approval.**
+
+**Why it matters:** This is the first Anthropic product where Claude initiates rather than responds. The approval-before-irreversible-action pattern it ships as a default — not an opt-in — is exactly what well-behaved autonomous agents need, and Duet is now a published reference implementation for that architecture. If you're designing an agent that acts on behalf of a user, look at how Duet classifies which actions require a gate and which don't.
+
+Duet runs on Claude Opus 5.5. Anthropic claims over 6,000 connectors across email, calendar, project trackers, and communication tools — that figure is Anthropic's own and has not been independently verified. The product is positioned alongside OpenAI Dots and Meta Muse in the proactive-agent space.
+
+**Limits to know:**
+
+- Proactive agents that monitor for urgency tend to misjudge it — expect Duet to surface low-signal noise alongside genuinely time-sensitive items until the filtering improves
+- Research preview is US-only for personal Pro/Max plans; Team and Enterprise are not yet included
+- Duet's background work draws from the same plan quota as your interactive Claude sessions
+
+**Sources:** [@claudeai on X — official announcement Oct 21, 2026](https://x.com/claudeai/status/2112984664256241837) · [Digital Trends — Anthropic unveils Claude Duet](https://www.digitaltrends.com/computing/anthropic-unveils-claude-duet-ai-agent/) · [9to5Mac — Anthropic takes on ChatGPT Dots with Claude Duet](https://9to5mac.com/2026/10/21/anthropic-takes-on-chatgpt-dots-and-meta-muse-with-claude-duet/) · [shattered.io — Claude Duet runs on Opus 5.5](https://shattered.io/claude-duet-anthropic-ai-agent-opus-5-5-2026/)]]></content:encoded>
+    </item>
+    <item>
+      <title><![CDATA[Your AI-Generated Components Pass the Prompt Test and Fail at 375px — Three Playwright Projects Catch Horizontal Overflow at Mobile, Tablet, and Desktop Widths]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-22-04-playwright-responsive-viewport-ai-generated-ui</link>
+      <guid isPermaLink="false">2026-10-22-04-playwright-responsive-viewport-ai-generated-ui</guid>
+      <pubDate>Thu, 22 Oct 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <description>Define three Playwright projects (mobile/tablet/desktop) in playwright.config.ts; `document.body.scrollWidth > window.innerWidth` catches layout breakage in CI before shipping AI-generated components.</description>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** add responsive layout checks for your AI-generated components to an existing Playwright suite, catch horizontal overflow at three viewport widths in CI, and handle the multi-variant DOM pattern AI-generated components tend to produce.
+
+**Three-bullet takeaway:**
+- A single `projects` array in `playwright.config.ts` runs every spec at mobile (375px), tablet (768px), and desktop (1280px) — no per-test code changes
+- `document.body.scrollWidth > window.innerWidth` catches text, images, and absolutely positioned elements that bleed past the viewport
+- AI-generated components often render multiple breakpoint variants to the DOM simultaneously and use CSS to hide inactive ones — use `.locator(':visible')` to avoid matching hidden variants
+
+---
+
+## Step 1 — Three projects in one config
+
+```typescript
+// playwright.config.ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  projects: [
+    { name: 'mobile',  use: { viewport: { width: 375,  height: 812  } } },
+    { name: 'tablet',  use: { viewport: { width: 768,  height: 1024 } } },
+    { name: 'desktop', use: { viewport: { width: 1280, height: 900  } } },
+  ],
+  testDir: './tests',
+});
+```
+
+Every spec file now runs three times, once per project. No test changes required.
+
+## Step 2 — The overflow check
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('no horizontal overflow', async ({ page }) => {
+  await page.goto('/components/card');
+  const hasOverflow = await page.evaluate(
+    () => document.body.scrollWidth > window.innerWidth
+  );
+  expect(hasOverflow).toBe(false);
+});
+```
+
+Run this at each breakpoint to catch any content bleeding past the viewport edge.
+
+## Step 3 — Handle the AI-generated component caveat
+
+Many AI-generated components (and many design-system components) render all breakpoint variants to the DOM simultaneously and use CSS (`display: none`, `visibility: hidden`) to show the right one. A locator like `page.getByRole('heading')` may match the hidden mobile variant while running on desktop. Scope to visible elements:
+
+```typescript
+const heading = page
+  .getByRole('heading', { name: 'Card title' })
+  .locator(':visible')
+  .first();
+```
+
+## Step 4 — Screenshot baseline
+
+```typescript
+await page.screenshot({
+  path: `snapshots/card-${test.info().project.name}.png`,
+  fullPage: true,
+});
+```
+
+Run `playwright test --update-snapshots` once to create the baseline; subsequent CI runs catch visual regressions per breakpoint.
+
+## Limits
+
+- `scrollWidth > innerWidth` passes when an element uses `overflow: hidden` — content hidden inside a container won't be detected. For deeper coverage, walk the DOM checking `getComputedStyle(el).overflow !== 'hidden'` on each child.
+- `setViewportSize()` alone does not emulate touch events or device pixel ratio; import `devices['iPhone 12']` from `@playwright/test` for full device emulation including touch handling.
+- Screenshot comparisons need a committed baseline; the first run always passes. Regenerate snapshots in version control when layouts change intentionally.
+
+**Sources:** [Playwright Emulation — Viewport — playwright.dev](https://playwright.dev/docs/emulation#viewport) · [Zero overflow in 10 minutes: responsive testing with Claude Code and Playwright — web-developpeur.com](https://www.web-developpeur.com/en/blog/responsive-testing-claude-code-playwright) · [Responsive overflow tests scaffold — github.com/CyberPunkCodes](https://github.com/CyberPunkCodes/responsive-overflow-tests)]]></content:encoded>
+    </item>
     <item>
       <title><![CDATA[Your OpenAI SDK Already Works Against Together AI's Open-Model Catalog — Swap base_url and a Model ID, Keep Everything Else]]></title>
       <link>https://cloudcodetree.com/ai-news/2026-10-22-01-together-ai-openai-sdk-base-url-open-models</link>
@@ -6233,225 +6417,9 @@ ollama rm llama3.2         # delete model and reclaim disk space
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your SubagentStop Hook Can Now Pass Audit Context to the Lead — Wire the Gating Pattern in One Script</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-05-05-subagent-stop-hook-additional-context-lead-audit</link>
-      <guid isPermaLink="false">2026-10-05-05-subagent-stop-hook-additional-context-lead-audit</guid>
-      <pubDate>Mon, 05 Oct 2026 12:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <description>SubagentStop's hookSpecificOutput.additionalContext (2.1.163+) injects a string into the lead's context window the instant a subagent finishes. Gate and audit in one script instead of two hooks and a temp file.</description>
-      <content:encoded><![CDATA[**SubagentStop's `hookSpecificOutput.additionalContext` (Claude Code 2.1.163+) lets your hook inject a string into the lead's context window the instant a subagent finishes — turn a binary pass/block gate into an audit log with details, without a second hook or a temp file.**
-
-A SubagentStop hook fires between a subagent's last message and the lead seeing its summary. Before 2.1.163, your options were `exit 0` (let it pass) or `exit 2` (block and retry). Now you can return `hookSpecificOutput.additionalContext` — a string the lead sees injected into its context right after the subagent's turn.
-
-This matters for multi-subagent workflows where the lead needs to act on *what* a subagent found, not just whether it passed. Previously the standard workaround was writing state to a temp file and picking it up in a separate UserPromptSubmit hook; `additionalContext` collapses that into one script.
-
-## Pattern: gate + audit trail
-
-```python
-# .claude/hooks/gate_subagent.py
-import sys, json, subprocess
-
-payload = json.loads(sys.stdin.read())
-
-result = subprocess.run(
-    ["pnpm", "test", "--reporter=compact"],
-    capture_output=True, text=True
-)
-
-if result.returncode != 0:
-    sys.stderr.write(json.dumps({
-        "decision": "block",
-        "reason": result.stdout[-500:]
-    }))
-    sys.exit(2)   # block: subagent is sent back to fix it
-
-sha = subprocess.check_output(
-    ["git", "rev-parse", "--short", "HEAD"]
-).decode().strip()
-
-summary_line = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "all passed"
-print(json.dumps({
-    "continue": True,
-    "hookSpecificOutput": {
-        "additionalContext": f"tests passed at {sha}: {summary_line}"
-    }
-}))
-```
-
-Wire it in `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "SubagentStop": [{
-      "matcher": "**",
-      "hooks": [{"type": "command", "command": "python3 .claude/hooks/gate_subagent.py"}]
-    }]
-  }
-}
-```
-
-The lead sees your string injected as a system reminder immediately after the subagent's turn. In the transcript it appears as a hook-injected context block labelled with the hook type. The lead can reference it when planning its next action.
-
-**Limits:** Hook timeout is 5 seconds. If your validation (build + test) takes longer, spawn it in a background process, write the result to a cache file, and have the hook return the cached result on subsequent fires. `additionalContext` is a flat string — no structured fields. Avoid dumping large logs into it since it costs tokens in the lead's context window verbatim.
-
-**Sources:** [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks) · [SubagentStop patterns in production — pixelmojo](https://www.pixelmojo.io/blogs/claude-code-hooks-production-quality-ci-cd-patterns) · [claude-code-hooks-mastery examples — disler GitHub](https://github.com/disler/claude-code-hooks-mastery)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Similarity Search Scans Every Vector — FAISS IVF Clusters First, HNSW Graphs It: Pick the One That Scales</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process</link>
-      <guid isPermaLink="false">2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process</guid>
-      <pubDate>Mon, 05 Oct 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Vectors</category>
-      <category>Embeddings</category>
-      <description>FAISS is the in-process ANN library for similarity search without a DB server. IVF clusters at train time and searches a subset; HNSW builds a graph and needs no training. Both beat brute-force past 100K vectors.</description>
-      <content:encoded><![CDATA[**FAISS is Meta's in-process ANN library for similarity search when you want no server. IVF clusters at train time and searches a subset of them; HNSW builds a navigable graph and needs no training. Both beat brute-force past 100K vectors.**
-
-## What you'll be able to do after this:
-
-Run approximate nearest-neighbor search over millions of vectors inside a Python process — no Postgres, no Chroma server, no Qdrant — and know when to hand off to a managed vector DB instead.
-
-**Three things to take away:**
-
-1. `IndexFlatL2` is exact brute-force: no training, always correct, but O(n) per query. Use it only for baselines and datasets under ~100K vectors.
-2. `IndexIVFFlat` clusters vectors into `nlist` buckets at train time; at query time it searches only `nprobe` buckets. Fast, but recall drops if `nprobe` is too low.
-3. `IndexHNSWFlat` builds a multi-layer proximity graph — no training required, high recall at high QPS, but uses 2–3× more RAM than IVF at millions of vectors.
-
-## Walk-through
-
-```bash
-pip install faiss-cpu sentence-transformers
-```
-
-```python
-import faiss
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
-encoder = SentenceTransformer("all-MiniLM-L6-v2")
-docs = [
-    "Embeddings are dense vector representations of text",
-    "FAISS indexes vectors for approximate nearest-neighbor search",
-    "Chunking splits documents before embedding them",
-]
-vecs = encoder.encode(docs).astype("float32")   # FAISS requires float32
-d = vecs.shape[1]  # 384 for MiniLM
-
-# --- IVF ---
-nlist = 2                                        # ~sqrt(N) in real data
-quantizer = faiss.IndexFlatL2(d)
-index_ivf = faiss.IndexIVFFlat(quantizer, d, nlist)
-index_ivf.train(vecs)                            # required: learns cluster centers
-index_ivf.add(vecs)
-index_ivf.nprobe = 1                             # how many clusters to search
-
-q = encoder.encode(["vector similarity"]).astype("float32")
-D, I = index_ivf.search(q, k=2)
-print([docs[i] for i in I[0]])
-
-# --- HNSW ---
-m = 32                                           # edges per node (16–64)
-index_hnsw = faiss.IndexHNSWFlat(d, m)
-index_hnsw.add(vecs)                             # no training step
-D2, I2 = index_hnsw.search(q, k=2)
-print([docs[i] for i in I2[0]])
-```
-
-## When to use which
-
-| | IVF | HNSW |
-|---|---|---|
-| Training required | Yes | No |
-| Memory | Lower | 2–3× higher |
-| Recall tuning knob | `nlist` / `nprobe` | `efSearch` |
-| Best for | Large datasets, memory-constrained | High throughput, simpler ops |
-
-**FAISS is in-memory only** — no persistence between restarts, no built-in delete (you rebuild or use `remove_ids` on an IDMap wrapper). For production workloads that need durability or deletes, use pgvector or ChromaDB as the store and optionally layer FAISS as a read-side cache.
-
-**Primary resource:** [Pinecone FAISS series — vector indexes deep-dive](https://www.pinecone.io/learn/series/faiss/vector-indexes/) covers recall@k benchmarks at scale and IVF-PQ (adding product quantization to cut memory further).
-
-**Sources:** [Pinecone FAISS tutorial](https://www.pinecone.io/learn/series/faiss/faiss-tutorial/) · [FAISS ANN explained — PyImageSearch 2026](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/) · [FAISS Python API reference — GoLinuxCloud](https://www.golinuxcloud.com/faiss-python-api/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Repetitive Claude Code Tasks Are Three Lines of Markdown — Custom Slash Commands Take $ARGUMENTS and Live in Git</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-05-01-claude-code-custom-slash-commands-arguments-team-sharing</link>
-      <guid isPermaLink="false">2026-10-05-01-claude-code-custom-slash-commands-arguments-team-sharing</guid>
-      <pubDate>Mon, 05 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>A .claude/commands/ markdown file becomes a slash command; $ARGUMENTS injects what you type after the slash. Commit the folder and every teammate gets the same project commands on pull.</description>
-      <content:encoded><![CDATA[**A `.claude/commands/<name>.md` file becomes `/name` in every Claude Code session; `$ARGUMENTS` injects whatever you type after it. Commit the folder to git and the whole team shares the same project vocabulary.**
-
-Claude Code's built-in commands (`/compact`, `/doctor`, `/goal`) are useful, but your project has repetitive tasks the defaults don't cover: a PR review checklist, a migration format, a release note template. Custom commands solve that in three files.
-
-## How it works
-
-Drop a markdown file in `.claude/commands/`. The filename (without extension) becomes the slash command:
-
-- `.claude/commands/review.md` → `/review`
-- `.claude/commands/migrate.md` → `/migrate`
-
-`$ARGUMENTS` is replaced with everything you type after the command name:
-
-```markdown
-<!-- .claude/commands/review.md -->
-Review $ARGUMENTS for correctness, security, and the conventions in CLAUDE.md.
-Run the project lint and tests against the changes before summarising.
-List any violations of CLAUDE.md rules explicitly — don't soften findings.
-```
-
-Then:
-
-```
-/review src/components/AuthWidget.tsx
-```
-
-Claude receives the full expanded prompt and runs your checklist — not a generic review.
-
-## Sharing with the team
-
-```bash
-git add .claude/commands/
-git commit -m "chore: add shared slash commands"
-```
-
-Everyone who pulls gets the same commands with no setup. This is the most underused form of team-level Claude Code standardisation: your review protocol, migration rules, and release checklist live in the repo, not in a wiki entry nobody re-reads.
-
-## YAML frontmatter to lock down the run
-
-Commands now support frontmatter for tool restriction and model selection:
-
-```markdown
----
-allowed_tools: [Read, Grep, Glob]
-model: claude-haiku-4-5-20251001
----
-Audit $ARGUMENTS for any import that does not appear in package.json dependencies.
-```
-
-This turns the command into a sandboxed, cheap read-only check — useful for the kind of routine scan you don't want running Bash.
-
-**Limit:** `$ARGUMENTS` is a flat string. For multi-parameter or structured input, a skill with defined argument slots gives you more control. Commands also run in your current session and inherit its full context — which is usually what you want, but can be surprising if you run them from a heavily loaded session.
-
-**Sources:** [Custom slash commands — Claude Code Docs](https://code.claude.com/docs/en/features-overview) · [Claude Code Custom Slash Commands 2026 — DEV Community](https://dev.to/stacknotice/claude-code-custom-slash-commands-2026-automate-your-repetitive-workflows-2il2)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
