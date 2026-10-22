@@ -10,7 +10,96 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Thu, 22 Oct 2026 12:09:00 +0000</lastBuildDate>
+        <lastBuildDate>Thu, 22 Oct 2026 20:04:00 +0000</lastBuildDate>
+
+    <item>
+      <title><![CDATA[Your RAG Pipeline Splits Documents at Arbitrary Byte Boundaries — RecursiveCharacterTextSplitter Falls Back Through Paragraph, Line, and Word Separators to Keep Context Together]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-10-22-07-recursive-char-splitter-chunk-size-overlap-langchain</link>
+      <guid isPermaLink="false">2026-10-22-07-recursive-char-splitter-chunk-size-overlap-langchain</guid>
+      <pubDate>Thu, 22 Oct 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <description>RecursiveCharacterTextSplitter splits on paragraph breaks first, then lines, then spaces — never at a random byte offset — keeping context units intact before they are embedded.</description>
+      <content:encoded><![CDATA[**RecursiveCharacterTextSplitter splits on paragraph breaks first, then lines, then spaces — so chunks respect sentence and paragraph boundaries rather than landing mid-sentence inside your vector store.**
+
+**What you'll be able to do after this:**
+- Split any text document into context-preserving chunks ready for embedding
+- Choose chunk_size and chunk_overlap values that match your embedding model and retrieval setup
+- Know when to swap for a structure-aware splitter instead
+
+## Why the splitter choice matters
+
+A fixed-size character split at byte offset 512 cuts sentences mid-thought. The embedded fragment loses its subject. Your retriever then surfaces partial answers as the best match.
+
+`RecursiveCharacterTextSplitter` avoids this by trying a cascade of separators in order — paragraph breaks (`
+
+`), then line breaks (`
+`), then spaces (` `), then individual characters as a last resort. It only falls to a finer separator when a chunk still exceeds `chunk_size` after splitting on the coarser one.
+
+## Minimal setup
+
+```python
+pip install langchain-text-splitters
+```
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=500,       # max characters per chunk
+    chunk_overlap=50,     # characters re-used from the end of the prior chunk
+    length_function=len,  # default; swap for tiktoken to count tokens instead
+)
+
+# Split plain text
+chunks = splitter.split_text(your_long_string)
+
+# Split LangChain Document objects (keeps .metadata: source, page, etc.)
+from langchain_community.document_loaders import TextLoader
+docs = TextLoader("README.md").load()
+doc_chunks = splitter.split_documents(docs)
+```
+
+`split_documents` preserves `metadata` from the loader — `source`, `page`, and any custom keys — so each chunk knows where it came from.
+
+## Sizing decisions
+
+| Document type | chunk_size (chars) | chunk_overlap |
+|---|---|---|
+| Prose / articles | 400–600 | 50–80 |
+| FAQ / short paragraphs | 150–300 | 30–50 |
+| Code (use `language=` variant) | 1000–2000 | 200 |
+
+Start at 500/50 and measure retrieval recall on your own data before optimising. Most embedding models have a 512-token limit; 500 characters is roughly 375–400 tokens for English prose, which leaves safe margin.
+
+**Counting tokens instead of characters:**
+
+```python
+import tiktoken
+enc = tiktoken.get_encoding("cl100k_base")  # matches OpenAI & many open models
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=400,       # now in tokens, not characters
+    chunk_overlap=40,
+    length_function=lambda text: len(enc.encode(text)),
+)
+```
+
+## When to reach for a different splitter
+
+`RecursiveCharacterTextSplitter` does not know what a heading, table, code fence, or list item is — it splits on whitespace patterns only. Two situations where it causes problems:
+
+- **Markdown with headers**: use `MarkdownHeaderTextSplitter` to split by `#` / `##` / `###` levels. Each chunk then carries the header path as metadata, which lets you filter by section at retrieval time.
+- **PDFs and structured documents**: use Docling's `DOC_CHUNKS` mode (covered in an [earlier post](https://cloudcodetree.com/ai-news/2026-10-14-03-docling-langchain-pdf-table-structure-rag)). Docling preserves table rows and section breaks before the chunks reach LangChain.
+
+**Limits:** `chunk_overlap` is a *target*, not a guarantee — if the final separator that fits a chunk is longer than the overlap window, the actual overlap may be zero for that pair. And character-based sizing means two chunks with identical character counts can have very different token counts depending on vocabulary (code, URLs, and numbers are cheap in characters but expensive in tokens). Measure before you deploy.
+
+**Sources:** [Recursively split by character — LangChain official docs](https://python.langchain.com/docs/how_to/recursive_text_splitter) · [RAG Chunking Strategies 2026: 8 Methods Compared with Code — denser.ai](https://denser.ai/blog/rag-chunking-strategies/) · [Chunking Strategies for RAG: Fixed, Semantic, and Recursive — codingshuttle.com](https://www.codingshuttle.com/blogs/chunking-strategies-for-rag-fixed-semantic-and-recursive)]]></content:encoded>
+    </item>
 
     <item>
       <title><![CDATA[Your Python Automation Script Ships Without Its Own Requirements — PEP 723 Puts the Dependencies Inside the File; `uv run script.py` Installs Them and Runs]]></title>
@@ -6350,73 +6439,7 @@ Adaptive thinking gives you less cost predictability than a hard budget. Thinkin
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Local Machine Is an Inference Server — Ollama Turns a Model Download Into an OpenAI-Compatible REST API in One Command</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-05-06-ollama-local-llm-pull-run-openai-api</link>
-      <guid isPermaLink="false">2026-10-05-06-ollama-local-llm-pull-run-openai-api</guid>
-      <pubDate>Mon, 05 Oct 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Local AI</category>
-      <category>Self-Hosting</category>
-      <description>Ollama wraps llama.cpp with a single CLI for pulling and running 7B+ models locally; your existing OpenAI SDK code connects by changing base_url to http://localhost:11434/v1.</description>
-      <media:content url="https://img.youtube.com/vi/xJu2DzQVmis/maxresdefault.jpg" medium="image" />
-      <media:thumbnail url="https://img.youtube.com/vi/xJu2DzQVmis/maxresdefault.jpg" />
-      <content:encoded><![CDATA[**Ollama wraps llama.cpp with a one-command CLI for pulling, running, and serving open-weight models; your existing OpenAI SDK code connects by changing `base_url` to `http://localhost:11434/v1`.**
-
-**What you'll be able to do after this:**
-- Pull and run Llama 3.2, Phi-3.5, Mistral, and Qwen locally with no API key or cloud dependency
-- Call your local model from Python code that already uses the OpenAI client — zero rewrite
-- Pick the right quantization level for your RAM budget (the [GGUF post from yesterday](https://cloudcodetree.com/ai-news/2026-10-04-07-gguf-quantization-q4-k-m-q8-local-model-selection) has the tradeoff table)
-
-## Setup (macOS/Linux, under 5 min)
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh   # Windows: download installer at ollama.com
-ollama pull llama3.2     # 2.0 GB, runs on 8 GB RAM
-ollama pull phi3.5       # 2.2 GB, strong at reasoning for its size
-ollama run llama3.2      # opens an interactive chat shell
-```
-
-## Your existing OpenAI code works unchanged
-
-Ollama serves `/v1/chat/completions` on `localhost:11434`, matching the OpenAI API shape:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
-response = client.chat.completions.create(
-    model="llama3.2",
-    messages=[{"role": "user", "content": "Write a Python decorator that logs execution time."}]
-)
-print(response.choices[0].message.content)
-```
-
-`api_key="ollama"` is a placeholder the SDK requires; Ollama ignores it.
-
-## Useful CLI
-
-```bash
-ollama list                # all downloaded models
-ollama ps                  # what's currently loaded in GPU/CPU memory
-ollama show llama3.2       # metadata: family, parameters, context length, quantization
-ollama rm llama3.2         # delete model and reclaim disk space
-```
-
-## The limits that matter
-
-**RAM is your wall.** 7B models need ~6 GB VRAM (or ~8 GB system RAM for CPU inference); 13B need ~10 GB; 70B need ~40 GB. Q4 quantization cuts those numbers roughly in half at some quality cost. Loading a model for the first time takes 5–30 seconds depending on disk speed; subsequent requests are fast.
-
-**Disk adds up.** Models store in `~/.ollama/models/` — a few 7B downloads fill a laptop SSD. Run `ollama rm` to prune models you're done with.
-
-**The `/v1/` compatibility layer has gaps.** Ollama's OpenAI-compatible endpoint does not support the Batch API, `o1`-style reasoning tokens, or fine-tuned model IDs. Tool use and structured output work on most models but behavior varies by model family.
-
-**Sources:** [Ollama docs — ollama.com](https://ollama.com) · [Ollama Full Tutorial for Beginners — YouTube](https://www.youtube.com/watch?v=xJu2DzQVmis) · [Run Local LLMs 2026 complete developer guide — SitePoint](https://www.sitepoint.com/run-local-llms-2026-complete-developer-guide/) · [OpenAI-Compatible LLM APIs 2026: Ollama, vLLM & LiteLLM — vucense.com](https://vucense.com/dev-corner/openai-compatible-llm-apis-2026/)
-]]></content:encoded>
-    </item>
-
+    
     
     
     
