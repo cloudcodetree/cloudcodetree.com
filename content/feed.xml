@@ -10,7 +10,183 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Fri, 23 Oct 2026 04:05:00 +0000</lastBuildDate>
+        <lastBuildDate>Fri, 23 Oct 2026 12:08:00 +0000</lastBuildDate>
+
+    <item>
+    <title><![CDATA[Anthropic User Profiles API: Per-Customer Usage Tracking and Rate-Limit Budgets in Three Lines]]></title>
+    <link>https://docs.anthropic.com/en/api/user-profiles</link>
+    <guid isPermaLink="false">2026-10-23-06-anthropic-user-profiles-api-per-customer-tracking</guid>
+    <pubDate>Fri, 23 Oct 2026 12:08:00 +0000</pubDate>
+    <author>Claude Code Tree</author>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Developer Tools</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Anthropic's beta User Profiles API lets you attach a per-user ID to every Claude API call, unlocking per-customer dashboards, spend limits, and rate-limit budgets without building your own metering layer.]]></description>
+    <content:encoded><![CDATA[Anthropic's beta User Profiles API (released Oct 20, 2026) lets you attach a stable per-customer identity to every Claude API call. You get per-user dashboards, spend limits, and rate-limit budgets without building your own metering layer.
+
+**What you'll be able to do after this:** route multi-tenant API calls through named user profiles so Anthropic's dashboard breaks out cost and usage by customer, and enforce per-customer token budgets, with about ten lines of code.
+
+## Create a profile once, attach it everywhere
+
+```python
+import anthropic
+client = anthropic.Anthropic()
+
+# Create a profile for a customer (idempotent by external_user_id)
+profile = client.beta.user_profiles.create(
+    external_user_id="customer-42",
+    name="Acme Corp",
+    access_type="application"   # "passthrough" for resellers
+)
+
+# Attach the profile to every call for this customer
+message = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": prompt}],
+    extra_headers={"anthropic-user-profile-id": profile.id}
+)
+```
+
+`access_type="application"` means you're calling on behalf of your own product. `"passthrough"` is for platforms that resell API access directly — it requires Anthropic approval.
+
+## What you get in the dashboard
+
+Once a profile ID appears in requests, the Anthropic console shows:
+- Token usage broken out by profile
+- Spend over time per customer
+- Rate-limit headroom per profile (set via the API)
+
+This replaces the common pattern of shadowing every API call in your own database just to answer "how much did customer X use this month?"
+
+## Limits to know before shipping
+
+- **Still in beta**: the header name changed once already (Oct 21 patch), so pin to the latest SDK version and watch the changelog.
+- **Passthrough access type** requires explicit Anthropic approval before it shows up in your account.
+- **Webhooks for budget exhaustion** are on the roadmap but not yet available — you'll need to poll or catch 429s with a `user_profile_budget_exceeded` error code for now.
+- **Profile IDs are not portable** across API keys; if you rotate keys, re-create or re-map profiles.
+
+**Source:** Anthropic, "User Profiles" API reference (Oct 20, 2026) — [docs.anthropic.com](https://docs.anthropic.com/en/api/user-profiles). *Note: as of this writing (Oct 23, 2026) no independent tech-outlet coverage exists for this three-day-old feature; all details above come from Anthropic's official documentation.*
+
+**Limits recap:** beta instability (header changed Oct 21); passthrough needs Anthropic approval; budget-exhaustion webhooks not yet available; profiles are not portable across API keys.
+]]></content:encoded>
+  </item>
+  <item>
+    <title><![CDATA[Anthropic Donates Agent Skills Standard to Linux Foundation — 70+ Platforms, 1 M Published Skills]]></title>
+    <link>https://www.anthropic.com/news/agent-skills</link>
+    <guid isPermaLink="false">2026-10-23-05-anthropic-agent-skills-standard-linux-foundation-aaif</guid>
+    <pubDate>Fri, 23 Oct 2026 12:07:00 +0000</pubDate>
+    <author>Claude Code Tree</author>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>MCP</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Anthropic has donated the Agent Skills specification to the AI Alliance and Interoperability Forum (AAIF) under the Linux Foundation, alongside MCP. The standard now spans 70+ platforms and 1 M published skills with 280 M installs — but "integrated" still doesn't mean "interoperable."]]></description>
+    <content:encoded><![CDATA[Anthropic announced on Oct 22, 2026 that it is donating the **Agent Skills** specification to the **AI Alliance and Interoperability Forum (AAIF)**, the Linux Foundation body that already stewards MCP. According to Anthropic, the Skills ecosystem now counts 70+ integrated platforms, ~1 M published skills, and 280 M cumulative installs.
+
+## What Agent Skills is
+
+Agent Skills is a standard that lets users bundle a reusable capability — a prompt template, a tool binding, a short agentic workflow — into a shareable artifact that any compliant agent host can discover and invoke. Think of it as the package-manager layer on top of MCP's protocol layer: MCP defines how an agent calls a tool; Skills defines how you package and distribute a named, versioned capability that wraps those calls.
+
+## Why the AAIF donation matters
+
+Handing the spec to the Linux Foundation removes Anthropic as sole steward and opens governance to the broader ecosystem. The AAIF already governs MCP this way. Together the two donations mean both the transport (MCP) and the packaging (Skills) layers of agent interoperability live in neutral hands — a prerequisite for enterprise procurement teams that need vendor-independence assurances.
+
+SDTimes covered the AAIF's formation when MCP was donated in late 2025: the body was explicitly designed as a home for agent-interoperability standards across vendors.
+
+## The limit: integrated ≠ interoperable
+
+70 platforms list Skills support, but "support" ranges from native invocation to a compatibility shim. A skill authored for Claude Code may need manual porting to work in a different agent host. The spec defines the format, not the runtime semantics — until conformance tests are published and vendors certify against them, interoperability is best-effort.
+
+**Source:** Anthropic, "Agent Skills" announcement (Oct 22, 2026) — [anthropic.com/news/agent-skills](https://www.anthropic.com/news/agent-skills); AAIF background — SD Times coverage of the Linux Foundation AI body (Dec 2025). *Note: as of Oct 23, 2026 the specific Oct 22 donation announcement has not yet appeared in independent tech-outlet news cycles; the AAIF governance context and the 70+/1 M/280 M figures are Anthropic's own.*
+
+**Limits:** "integrated" does not mean certified interoperable; conformance tests have not been published; skill portability across hosts remains best-effort.
+]]></content:encoded>
+  </item>
+  <item>
+    <title><![CDATA[LangChain @before_model: Trim Context Windows Before They Overflow Your Agent]]></title>
+    <link>https://langchain-ai.github.io/langgraph/how-tos/memory/add-summary-of-the-conversation-history/</link>
+    <guid isPermaLink="false">2026-10-23-04-langchain-before-model-trim-messages-context-window</guid>
+    <pubDate>Fri, 23 Oct 2026 12:06:00 +0000</pubDate>
+    <author>Claude Code Tree</author>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[After 40+ agent turns the message list overflows. LangChain's @before_model decorator and trim_messages utility let you trim older messages before every LLM call — no call-site changes required.]]></description>
+    <content:encoded><![CDATA[Long-running agents quietly hit their context limit one message at a time. When the list finally overflows you get a truncation error or a mysteriously wrong answer — neither is obvious. LangChain's `@before_model` decorator and `trim_messages` utility let you enforce a context budget before every LLM call, with no changes to the rest of your graph.
+
+**Curriculum area:** Applied/agentic → Memory & context engineering.
+
+## The problem
+
+Every turn in a LangGraph agent appends to `state["messages"]`. After 40–50 turns on a long conversation — or a few turns with large tool outputs — the accumulated history blows past the model's context window. The model silently truncates or the API returns a 400. Neither tells you which messages were lost.
+
+## Two strategies with one decorator
+
+`@before_model` is middleware that intercepts `state` before the LLM call. Return a modified state and LangChain uses that for the call — original state is unchanged.
+
+```python
+from langchain_core.messages import trim_messages
+from langgraph.graph import StateGraph, MessagesState
+
+# Strategy 1 — count-based: keep system message + last 20 messages
+def keep_last_20(state):
+    msgs = state["messages"]
+    # Always preserve the system message at index 0
+    return {"messages": [msgs[0]] + msgs[-20:] if len(msgs) > 21 else msgs}
+
+# Strategy 2 — token-based: keep system message + last 4,000 tokens
+def trim_by_tokens(state):
+    return {
+        "messages": trim_messages(
+            state["messages"],
+            max_tokens=4_000,
+            strategy="last",
+            token_counter=len,      # swap for a real tokenizer in production
+            include_system=True,
+            allow_partial=False,    # never split a message mid-sentence
+        )
+    }
+```
+
+Wire it in when you build the graph:
+
+```python
+from langgraph.prebuilt import create_react_agent
+
+agent = create_react_agent(
+    model=llm,
+    tools=tools,
+    pre_model_hook=keep_last_20,   # or trim_by_tokens
+)
+```
+
+## Choosing a strategy
+
+| | Count-based | Token-based |
+|---|---|---|
+| **Predictable** | Yes — always exactly N messages | No — depends on message length |
+| **Accurate** | No — a long tool output costs 10× a short one | Yes |
+| **Cost** | Cheap | Requires a tokenizer call per turn |
+
+For most agents, start with count-based (simple, no tokenizer dependency). Upgrade to token-based once you know your tool outputs vary widely in length.
+
+## What trim_messages does not do
+
+- It does not summarize dropped messages. If your agent needs to recall facts from turn 5 while operating at turn 50, dropping those messages silently corrupts behavior. Add a summarization step before dropping (see LangGraph's "add summary of conversation history" how-to).
+- `token_counter=len` counts characters, not tokens — fast for development, wrong for production. Swap in `model.get_num_tokens_from_messages(msgs)` or a tiktoken call.
+- `allow_partial=False` means a single oversized message is never split — if one tool output exceeds `max_tokens` on its own, trim_messages raises. Handle this upstream by truncating tool outputs before they enter state.
+
+**Sources:** LangGraph "How to add summary of the conversation history" — [langchain-ai.github.io](https://langchain-ai.github.io/langgraph/how-tos/memory/add-summary-of-the-conversation-history/); LangChain Core `trim_messages` reference — [python.langchain.com](https://python.langchain.com/docs/how_to/trim_messages/); LangGraph prebuilt `create_react_agent` + `pre_model_hook` — [langchain-ai.github.io](https://langchain-ai.github.io/langgraph/reference/prebuilt/).
+
+**Limits:** `token_counter=len` counts characters, not tokens — replace with a real tokenizer before shipping; `trim_messages` does not summarize dropped history; `allow_partial=False` will raise on a single message that exceeds `max_tokens`.
+]]></content:encoded>
+  </item>
 
     <item>
     <title><![CDATA[Your CLAUDE.md Grows Into a Context Sink — Anthropic's Guide Defines When to Use a Skill, Hook, or Subagent Instead]]></title>
@@ -6279,145 +6455,9 @@ The dataset format is the same three-column schema used by DPO (`prompt`, `chose
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Main Session Allows Bash — That Permission Shouldn't Ride Into Every Subagent. Use `agent_id` in PreToolUse to Set Per-Tier Limits.</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-05-agent-id-pretooluse-hook-subagent-bash-gate</link>
-      <guid isPermaLink="false">2026-10-06-05-agent-id-pretooluse-hook-subagent-bash-gate</guid>
-      <pubDate>Tue, 06 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code v2.1.290 adds agent_id to PreToolUse events. A jq check in your hook now lets subagents inherit read-only Bash while the main session keeps its full permissions.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.290 (Oct 5) adds `agent_id` to PreToolUse events — a one-line jq check now lets your hook apply tighter Bash rules inside subagents than in the main session.**
-
-Before this release, hooks ran identically whether the call came from your session or from a subagent. If you'd allowed `Bash` for read-write work in your main session, every spawned worker inherited it — including ones meant only to read files.
-
-`agent_id` is absent for main-session calls and set to the subagent's UUID otherwise. That's enough to split on:
-
-```bash
-#!/bin/bash
-# ~/.claude/hooks/subagent-bash-gate.sh
-input=$(cat)
-agent_id=$(jq -r '.agent_id // empty' <<< "$input")
-tool_name=$(jq -r '.tool_name' <<< "$input")
-command=$(jq -r '.tool_input.command // ""' <<< "$input")
-
-# Apply a read-only allowlist inside any subagent
-if [ -n "$agent_id" ] && [ "$tool_name" = "Bash" ]; then
-  if ! echo "$command" | grep -qE "^(cat |ls |grep |find |head |tail |wc |echo |git (log|status|diff|show))"; then
-    printf '{"decision":"block","reason":"subagent bash is read-only; %s needs main-session approval"}
-' "$command" >&2
-    exit 2
-  fi
-fi
-```
-
-Wire it in `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "~/.claude/hooks/subagent-bash-gate.sh" }]
-      }
-    ]
-  }
-}
-```
-
-Exit code 2 blocks the call and returns the reason to Claude. The main session hits the same hook but `agent_id` is absent, so the check falls through and nothing changes for you.
-
-v2.1.290 also adds `agent_type` to the same event, so if you name your subagents (e.g., `"type": "security-reviewer"`) you can gate by role instead of just "is this a subagent at all."
-
-**One real limit:** the allowlist above is a pattern-prefix match, not a parser — a command that starts with `cat` passes even if it pipes output somewhere interesting. For high-security contexts, pair this with an explicit denylist for commands you want blocked in every session (e.g., `rm -rf`, `git push --force`), and use `exit 1` (prompt the user) rather than `exit 2` (block silently) for anything ambiguous.
-
-**Sources:** [Automate actions with hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks-guide), [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks), [Claude Code v2.1.290 Changelog (gradually.ai)](https://www.gradually.ai/en/changelogs/claude-code/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Cowork Tasks Now Run in Anthropic's Cloud by Default — Scheduled Jobs Survive a Closed Laptop, but Local Files Still Need the Desktop App</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-04-claude-cowork-cloud-default-oct-6-scheduled-tasks</link>
-      <guid isPermaLink="false">2026-10-06-04-claude-cowork-cloud-default-oct-6-scheduled-tasks</guid>
-      <pubDate>Tue, 06 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <description>Starting October 6, new Cowork tasks on Pro and Max plans run in Anthropic's cloud. The "Only on your computer" toggle is removed. Scheduled tasks no longer need a device online.</description>
-      <content:encoded><![CDATA[**Starting today, new Cowork tasks on Pro and Max plans run in Anthropic's cloud. Anthropic removed the "Only on your computer" toggle in Settings → General.**
-
-Scheduled tasks now run without a device staying awake — that was the main reason people left laptops on overnight. Tasks that access local files or run browser automations still need the Claude Code desktop app open as an intermediary; the cloud session bridges to your machine through the desktop app rather than reading the filesystem directly.
-
-Tasks already running on your computer finish where they started. Anthropic added a transcript-download button to existing tasks so you can archive them before those sessions close.
-
-For developers using Cowork to automate scheduled ingest jobs or nightly research runs, the practical takeaway is simple: tasks now reliably complete. For tasks that read local paths, swap those paths for MCP connector URLs or Shared Folder paths the desktop bridge can serve, so they're not blocked when the app isn't open.
-
-**Why it matters:** removes the "laptop must stay on" constraint for scheduled automation — at the cost of local-file tasks becoming conditionally dependent on the desktop app.
-
-**Sources:** [Use Claude Cowork on web, desktop, and mobile](https://support.claude.com/en/articles/15520349-use-claude-cowork-on-web-desktop-and-mobile)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Agent's Memory Store Gets Stale — Dreams Run an Async Cleanup Pass Over Past Sessions and Hand You a Reorganized Store to Review</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-03-claude-managed-agents-dreams-api-memory-cleanup-async</link>
-      <guid isPermaLink="false">2026-10-06-03-claude-managed-agents-dreams-api-memory-cleanup-async</guid>
-      <pubDate>Tue, 06 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <description>Dreaming is an async API call that reads a memory store plus 1-100 past sessions, runs a dedup-and-synthesize pass, and returns a cleaned output store for you to review and swap in.</description>
-      <content:encoded><![CDATA[**Dreaming is an async API call that takes a memory store + 1–100 past sessions, runs a dedup-and-synthesize pass, and returns a cleaned output store you review and swap in on your next session.**
-
-Every session write is local and incremental: preferences, corrections, and task facts accumulate in a Claude Managed Agents memory store over time. After a few weeks you have duplicates, contradictions, and entries that no longer match the current work. You can prune manually — or you can let the model do it.
-
-```python
-# Requires: anthropic-beta: managed-agents-2026-04-01,dreaming-2026-04-21
-dream = client.beta.dreams.create(
-    inputs=[
-        {"type": "memory_store", "memory_store_id": store_id},
-        {"type": "sessions", "session_ids": [session_a, session_b, session_c]},
-    ],
-    model="claude-opus-4-8",
-    instructions="Focus on coding-style preferences; ignore one-off debugging notes.",
-)
-
-# Dreams run asynchronously — poll until complete
-while dream.status in ("pending", "running"):
-    time.sleep(10)
-    dream = client.beta.dreams.retrieve(dream.id)
-
-# Use the output store in your next session
-output_store_id = next(
-    o.memory_store_id for o in dream.outputs if o.type == "memory_store"
-)
-session = client.beta.sessions.create(
-    agent=agent_id,
-    environment_id=env_id,
-    resources=[{"type": "memory_store", "memory_store_id": output_store_id}],
-)
-```
-
-The input store is **never modified**. You get a separate output store to inspect via the Memory Stores API or the Console before you decide whether to attach it to production agents.
-
-**When to run it:** After 10+ sessions of activity on one agent, or when the agent starts acting on stale context. The `instructions` field steers what survives vs. what gets merged — useful when certain memory categories matter more than others ("ignore debugging notes from last quarter" keeps the store lean).
-
-**Three limits:**
-1. **Research preview — gated.** Dreams need the `dreaming-2026-04-21` beta header and a separate access request at `claude.com/form/claude-managed-agents`. If you're already using Managed Agents, apply separately for dream access.
-2. **Cost scales with session count.** Billed at standard API token rates; start with 2–5 sessions to calibrate before running across your full history.
-3. **Synthesis can introduce errors.** The reorganized store is Claude's interpretation of patterns — review it before attaching to a production agent. Inspect individual memories with the Memory Stores API; apply targeted corrections with `store.update()` before promoting.
-
-**Sources:** [Dreams — Anthropic Platform Docs](https://platform.claude.com/docs/en/managed-agents/dreams) · [Claude Managed Agents: Dreaming, Outcomes, Orchestration — Developers Digest](https://www.developersdigest.tech/blog/claude-managed-agents-dreaming-outcomes-multi-agent)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
