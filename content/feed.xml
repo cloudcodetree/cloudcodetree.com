@@ -10,8 +10,123 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Fri, 23 Oct 2026 12:08:00 +0000</lastBuildDate>
+        <lastBuildDate>Fri, 23 Oct 2026 20:05:00 +0000</lastBuildDate>
 
+
+
+    <item>
+    <title><![CDATA[Your Repo's Build Commands Live in the README and Nowhere Else — AGENTS.md Gives Every Coding Agent the Narrow Directives That Actually Matter]]></title>
+    <link>https://simonwillison.net/2026/Sep/18/thariq-shihipar/</link>
+    <guid isPermaLink="false">2026-10-23-08-agents-md-coding-agent-directives-claude-code-native</guid>
+    <pubDate>Fri, 23 Oct 2026 20:05:00 +0000</pubDate>
+    <author>Claude Code Tree</author>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[AGENTS.md is a plain Markdown file any AAIF-conformant coding agent reads before acting — Claude Code reads it natively since v2.1.277 (September 2026), so one root file gives every agent the same build, test, and gotcha directives.]]></description>
+    <content:encoded><![CDATA[**AGENTS.md is a plain Markdown file any AAIF-conformant coding agent reads before acting — Claude Code reads it natively since v2.1.277 (September 2026), giving every agent on your repo the same build, test, and gotcha directives.**
+
+Every coding agent — Claude Code, GitHub Copilot, Cursor, Codex — infers your project setup from the code. They run the wrong test command, use npm in a pnpm repo, and miss the gotcha that isn't in any file. Each agent restarts from scratch because there's no authoritative source for "never `npm install`, always `pnpm install --frozen-lockfile`" or "run `typecheck` before committing, not just `tsc`."
+
+AGENTS.md is that file. It's a plain Markdown file at your repository root that any conformant coding agent reads before acting. It's an AAIF standard (Linux Foundation, since December 2025), so the same file reaches every tool that implements it — not just Claude Code.
+
+**What to put in it** (keep it under 30 lines — a 2026 ETH Zurich study found that README-style overviews add 20%+ token cost while slightly hurting agent performance):
+
+```markdown
+## Build
+pnpm install --frozen-lockfile
+pnpm run build   # outputs to ./out — do not use npm
+
+## Test
+pnpm run typecheck   # run before committing, not just tsc
+pnpm test            # worker unit tests, ~3s
+
+## Gotchas
+- Turbopack is disabled (crashes @next/mdx); use webpack dev server only
+- Never hand-edit public/blog/posts.json — use scripts/ingest-feed.mjs
+- The dev watcher ignores companions/ and projects/ — expected
+
+## Commit check
+Run .claude/hooks/validate-blog.sh before any commit touching public/blog/
+```
+
+Narrow, non-inferable directives: build commands, gotchas, verification steps. Omit anything an agent can read from the code — architecture descriptions, feature lists, README prose.
+
+**Claude Code integration:** since v2.1.277 (September 18, 2026), Claude Code reads AGENTS.md when there is no CLAUDE.md in a folder. If you already have CLAUDE.md, add `@AGENTS.md` as its first line — one file for all agents, CLAUDE.md for Claude-specific additions that don't belong in a cross-agent file.
+
+## Limits
+
+Native Claude Code support is not yet available on Bedrock, Vertex, or Foundry as of September 2026. In a monorepo, the nearest AGENTS.md wins — a nested file overrides the root, which is intentional but can cause confusion if subdirectory files drift out of sync. The spec has no required fields or schema; agents parse whatever headings you write, which means a badly named section may be silently ignored by a particular tool.
+
+**Sources:** [Simon Willison — Claude Code v2.1.277 AGENTS.md support, Sept 18 2026](https://simonwillison.net/2026/Sep/18/thariq-shihipar/) · [AGENTS.md standard reference (agentic-ai.readthedocs.io)](https://agentic-ai.readthedocs.io/en/latest/Standards/agents-md/) · [AGENTS.md Complete Guide for Engineering Teams 2026 (buildbetter.ai)](https://blog.buildbetter.ai/agents-md-complete-guide-for-engineering-teams-in-2026/) · [What AGENTS.md Does (morphllm.com)](https://morphllm.com/agents-md-guide)]]></content:encoded>
+    </item>
+    <item>
+    <title><![CDATA[Your SFT Model Gets the Task Right But Responds in the Wrong Tone — DPO Aligns Style Without a Reward Model]]></title>
+    <link>https://huggingface.co/docs/trl/main/en/dpo_trainer</link>
+    <guid isPermaLink="false">2026-10-23-07-dpo-trainer-trl-preference-alignment-no-reward-model</guid>
+    <pubDate>Fri, 23 Oct 2026 20:04:00 +0000</pubDate>
+    <author>Claude Code Tree</author>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[DPO replaces RLHF's reward model and PPO loop with a single classifier loss on (prompt, chosen, rejected) triplets — same TRL install you use for SFT, runs on one GPU with a small preference dataset.]]></description>
+    <content:encoded><![CDATA[**DPO replaces RLHF's reward model and PPO loop with a single classifier loss on (prompt, chosen, rejected) triplets — same TRL install you already use for SFT, runs on one GPU with a small preference dataset.**
+
+SFT teaches a model what to do. After fine-tuning on your task data, it answers correctly — but in a style that doesn't match your use case: too verbose, too casual, too blunt. That is a behavior gap, not a knowledge gap, and SFT alone can't close it.
+
+Direct Preference Optimization (DPO) aligns behavioral style from a preference dataset. Traditional RLHF requires a separate reward model and a PPO training loop — expensive, unstable, and complex to tune. DPO absorbs the reward signal directly into the language model loss on `{prompt, chosen, rejected}` triplets. The loss increases the probability of the chosen response and decreases the rejected one, relative to a frozen reference (your SFT base). No reward model. No PPO. One `.train()` call.
+
+**What you'll be able to do after this:** fine-tune a model's behavioral style — tone, verbosity, format, safety refusals — on top of a task-trained SFT base, using TRL's DPOTrainer and a small preference dataset.
+
+**Three things to know before you start:**
+1. **SFT first, DPO second.** DPO requires a strong task-trained base. Running it on an instruction-naive model produces unstable gradients.
+2. **Your dataset is `{prompt, chosen, rejected}` pairs.** One prompt, two responses: one preferred, one dispreferred. `trl-lib/ultrafeedback_binarized` is the canonical public example; for domain-specific alignment, generate pairs with an LLM judge comparing two generations.
+3. **`beta` controls the leash.** Lower beta (0.05) lets the model diverge further from the SFT base; higher beta (0.5) keeps it close. Start at 0.1 and tune from there.
+
+## Walk-through
+
+```bash
+pip install trl transformers datasets
+```
+
+```python
+from datasets import load_dataset
+from trl import DPOConfig, DPOTrainer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained("your-sft-checkpoint", torch_dtype="auto")
+tokenizer = AutoTokenizer.from_pretrained("your-sft-checkpoint")
+
+# Dataset must have "prompt", "chosen", "rejected" columns
+dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train[:2000]")
+
+training_args = DPOConfig(
+    output_dir="dpo-output",
+    num_train_epochs=1,
+    per_device_train_batch_size=2,
+    beta=0.1,
+)
+trainer = DPOTrainer(
+    model=model,
+    args=training_args,
+    processing_class=tokenizer,  # note: `tokenizer=` arg is deprecated in TRL v1.x
+    train_dataset=dataset,
+)
+trainer.train()
+```
+
+DPOTrainer uses your loaded model as both the trained model and the reference policy (frozen copy). It handles tokenization, loss computation, and logging without additional setup.
+
+## Limits
+
+A high `beta` makes DPO converge toward the SFT base and the style signal washes out; a very low `beta` can destabilize training. Building quality preference pairs is the hard part: synthetic LLM-judged pairs introduce label noise proportional to how closely the judge's preferences match yours. For small style shifts, 500–2,000 pairs is often enough. For safety-critical alignment, you need human-rated pairs and a much larger dataset. DPO does not improve task accuracy — if the base model makes factual errors, DPO won't fix them.
+
+**Sources:** [TRL DPOTrainer docs](https://huggingface.co/docs/trl/main/en/dpo_trainer) · [Maxime Labonne's DPO Colab — TRL community tutorials](https://huggingface.co/docs/trl/en/community_tutorials) · [Rafailov et al., "Direct Preference Optimization" (arXiv:2305.18290)](https://arxiv.org/abs/2305.18290) · [IBM Skills Network DPO guided project](https://catalog.skills.network/catalog_item/6413)]]></content:encoded>
+    </item>
     <item>
     <title><![CDATA[Anthropic User Profiles API: Per-Customer Usage Tracking and Rate-Limit Budgets in Three Lines]]></title>
     <link>https://docs.anthropic.com/en/api/user-profiles</link>
@@ -6358,103 +6473,8 @@ elif tool_call.name == "extract_order":
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>ORPO: Fine-Tune and Align a LLaMA Model in One Pass — No Reference Model, No Separate DPO Step</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-08-orpo-fine-tune-align-llama-single-pass-no-reference-model</link>
-      <guid isPermaLink="false">2026-10-06-08-orpo-fine-tune-align-llama-single-pass-no-reference-model</guid>
-      <pubDate>Tue, 06 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>ORPO (Odds Ratio Preference Optimization) combines SFT and preference alignment into a single training pass. No reference model, no separate DPO stage. A Colab notebook by Maxime Labonne fine-tunes LLaMA 3 8B on a consumer GPU using TRL's ORPOTrainer.</description>
-      <content:encoded><![CDATA[**ORPO combines SFT and preference alignment into one training pass. No reference model, no separate DPO stage — and TRL ships `ORPOTrainer` to handle the math. A Google Colab notebook fine-tunes LLaMA 3 8B end to end.**
-
-Standard RLHF-derived pipelines have two costs: a supervised fine-tuning run to specialize the model, then a second preference-alignment run (DPO or PPO) that needs a frozen reference copy to compute a KL divergence penalty. ORPO eliminates the second step by adding a small odds-ratio penalty directly to the SFT loss:
-
-```
-ORPO loss = SFT cross-entropy loss
-           + λ × odds_ratio_penalty(chosen, rejected)
-```
-
-The odds-ratio term penalizes the model for assigning higher probability to rejected completions than to chosen ones, relative to the model's own current outputs — no reference model needed, because the ratio is computed against the current model weights at each step. `λ` is typically 0.1–1.0 (the Labonne notebook uses the TRL default).
-
-**Key tradeoff vs DPO.** DPO anchors the alignment signal to a stable pre-SFT baseline. ORPO's reference is the model's own current state, which updates every batch. In practice this trains faster and needs less memory, but can be noisier at high `λ`; start at 0.1 and validate on a held-out preference test set.
-
-**Running it with TRL.**
-
-```python
-from trl import ORPOConfig, ORPOTrainer
-from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model_id = "meta-llama/Meta-Llama-3-8B"
-model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-
-# Dataset must have 'prompt', 'chosen', 'rejected' columns
-dataset = load_dataset("mlabonne/orpo-dpo-mix-40k", split="train")
-
-orpo_args = ORPOConfig(
-    learning_rate=8e-6,
-    beta=0.1,           # λ — the odds-ratio weight
-    max_length=1024,
-    per_device_train_batch_size=2,
-    gradient_accumulation_steps=4,
-    num_train_epochs=1,
-    output_dir="./orpo-llama3-8b",
-)
-
-trainer = ORPOTrainer(
-    model=model,
-    args=orpo_args,
-    train_dataset=dataset,
-    processing_class=tokenizer,
-)
-trainer.train()
-```
-
-The dataset format is the same three-column schema used by DPO (`prompt`, `chosen`, `rejected`), so existing DPO datasets work without changes.
-
-**Practical checklist:**
-- Memory: 8B model at bf16 + LoRA fits in ~16 GB VRAM (A100 or 2× consumer GPUs with FSDP)
-- Validation: hold out 5–10% of preference pairs; measure rejection rate (% of steps where model scores chosen > rejected) before and after
-- `beta` tuning: start at 0.1; increase to 0.5 if alignment is weak; watch for mode collapse above 1.0
-- The Labonne notebook uses QLoRA (4-bit) for a free Colab T4 — slower but accessible without renting a GPU node
-
-**Sources:** [Fine-tune LLaMA 3 with ORPO — Maxime Labonne, HuggingFace Blog](https://huggingface.co/blog/mlabonne/orpo-llama-3) · [ORPOTrainer — TRL Docs](https://huggingface.co/docs/trl/en/orpo_trainer) · [ORPO: Monolithic Preference Optimization without Reference Model (arXiv)](https://arxiv.org/abs/2403.07691)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Claude Now in Google Docs, Sheets, and Slides — Add-On in the Sidebar, Connectors in Claude.ai (Beta, Oct 6)</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-06-claude-google-workspace-docs-sheets-slides-add-on-connectors</link>
-      <guid isPermaLink="false">2026-10-06-06-claude-google-workspace-docs-sheets-slides-add-on-connectors</guid>
-      <pubDate>Tue, 06 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Agents</category>
-      <description>Anthropic launched two complementary features on Oct 6: a Claude for Google Workspace add-on (sidebar in Docs, Sheets, Slides) and Google Docs, Sheets, Slides connectors in Claude.ai — both in beta for Pro, Max, Team, and Enterprise.</description>
-      <content:encoded><![CDATA[**Anthropic shipped two complementary Google Workspace integrations today: a sidebar add-on for Docs, Sheets, and Slides, and reciprocal connectors that let Claude.ai read and write those files directly. Both are in beta for Pro, Max, Team, and Enterprise plans.**
-
-**The add-on: Claude inside Google Workspace.** Install from the Google Workspace Marketplace and a Claude panel appears in the Docs, Sheets, and Slides sidebars. You can draft text, rewrite selected ranges, generate formulas, and summarize slide decks without leaving the document. The add-on integrates with Claude Projects — conversation history and any connected resources follow you across Workspace apps.
-
-**The connectors: Google files inside Claude.ai.** New Docs, Sheets, and Slides connectors in Claude.ai Projects → Connectors let you attach live files to a conversation. Claude reads the current version of a file and can write back to it on request. A developer refining an architecture spec in Docs, for example, can now ask Claude to update the doc directly rather than copy-pasting between tabs.
-
-**Why it matters for developers.** The connectors are the more consequential piece for agentic workflows. Claude can now hold a spec document as a first-class resource — reading requirements, generating code, and updating the spec as a living artifact in the same session. Combined with the existing GitHub connector, a design-to-PR loop is now possible without a local Claude Code session: Docs spec → Claude generates code → pushes to GitHub → updates the spec with the PR link.
-
-**Current limits:**
-- Both features are in beta — the Marketplace listing updated October 2, the connectors are new today
-- Connectors are in Claude.ai Projects only; Claude Code cloud sessions don't yet surface them as MCP sources
-- Slide write-back is text and layout only; custom animations and embedded media can't be authored via the connector
-
-**Sources:** [Claude now works in Google Docs, Sheets, and Slides — Anthropic](https://claude.com/resources/articles/claude-now-works-in-google-docs-sheets-and-slides) · [Claude for Google Workspace — Google Workspace Marketplace](https://workspace.google.com/marketplace/app/claude_for_google_workspace)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
