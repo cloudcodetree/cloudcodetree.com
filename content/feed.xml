@@ -10,9 +10,104 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Fri, 23 Oct 2026 20:05:00 +0000</lastBuildDate>
+        <lastBuildDate>Sat, 24 Oct 2026 04:04:00 +0000</lastBuildDate>
 
 
+
+    <item>
+    <title><![CDATA[Claude Code's Read Tool Truncates Large Files at a Fixed Cap — `allow_large: true` Reads Them Whole When the Session Has Context Room]]></title>
+    <link>https://code.claude.com/docs/en/</link>
+    <guid isPermaLink="false">2026-10-24-01-allow-large-read-tool-whole-file-context-aware-claude-code</guid>
+    <pubDate>Sat, 24 Oct 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Claude Code v2.1.296 added allow_large: true to the Read tool. When context has room, Claude reads a text file whole instead of chunking at the ~25K token default cap — the read is sized against remaining session context.]]></description>
+    <content:encoded><![CDATA[**Claude Code v2.1.296 added `allow_large: true` to the Read tool — when the session has context room, Claude reads a text file whole in one call instead of chunking it across multiple offset/limit reads.**
+
+The Read tool has a default size cap: roughly 25,000 tokens in the CLI and 10,000 in Claude Desktop. Before v2.1.296 (October 9, 2026), a file that exceeded the cap would require multiple chunk reads with `offset` and `limit` — Claude would have to stitch the results, sometimes losing inter-section relationships in the process.
+
+`allow_large: true` removes the cap and instead sizes the read against whatever context space the session has at call time. Claude sets the parameter itself based on current session budget; there is no user-facing flag to force it.
+
+**What this means for how you structure sessions:**
+
+- **Start large-file tasks fresh.** If your task is a deep audit of a 20,000-line generated file, open a new session or run `/compact` early. A full read late in a busy session still falls back to chunks because the context has less room.
+- **Subagent sessions start empty.** An Agent tool call or forked subagent inherits nothing from the orchestrator's session — so it can read a large file whole even when the parent session is half full. Structure analysis of large files as a subagent if the orchestrator conversation is already deep.
+- **Explicit `limit` still wins.** `allow_large` affects the automatic cap, not a `limit` you set explicitly. Passing `limit: 500` still reads 500 lines even if the file is small.
+
+**Limits:** Claude sets the parameter itself; the behavior is not user-configurable. The exact behavior is not yet fully documented in the official tools reference as of October 2026 — check [code.claude.com/docs](https://code.claude.com/docs) before relying on it in production. Applies to text files; images, PDFs, and Jupyter notebooks follow separate size rules and are not affected.
+
+**Sources:** [Claude Code v2.1.296 Major Updates: autoCompactWindow and allow_large — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261010-cc-updates-v2-1-296/) · [Claude Code File Size Limits and Large File Handling — fast.io](https://fast.io/resources/claude-code-file-size-limit/)
+]]></content:encoded>
+    </item>
+
+    <item>
+    <title><![CDATA[Your Query Embeds From One Angle — LangChain's `MultiQueryRetriever` Generates Variants, Retrieves for Each, and Returns the Unique Union]]></title>
+    <link>https://api.python.langchain.com/en/latest/retrievers/langchain.retrievers.multi_query.MultiQueryRetriever.html</link>
+    <guid isPermaLink="false">2026-10-24-02-multiqueryretriever-langchain-query-variants-vector-recall</guid>
+    <pubDate>Sat, 24 Oct 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[MultiQueryRetriever asks an LLM to rewrite your query from 3+ angles, runs each against the same vector store, and deduplicates the combined results — better recall without re-chunking or re-indexing.]]></description>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** expand vector search recall without re-chunking or re-indexing by rewriting the query from multiple angles before the search runs.
+
+Vector similarity is path-dependent. "Show me revenue trends" and "quarterly income graphs" embed differently and can return different chunks from the same index — even when those chunks are directly relevant to both phrasings. A retriever that only runs your original query misses chunks that align with a slightly different framing.
+
+`MultiQueryRetriever` addresses this: it passes your question to an LLM, asks it to generate three rephrased variants, retrieves documents for each variant, and returns the deduplicated union. Your vector store and chunks stay untouched.
+
+**Three takeaways:**
+1. The LLM generates variants at `temperature=0` by default — deterministic reformulations, not creative ones. The goal is angle coverage, not novelty.
+2. Deduplication is by document identity: a chunk that surfaces in two variant results appears once in the final set.
+3. One extra LLM call per user query. Size it with a fast, cheap model — the variants it writes are short prompts, not complex reasoning tasks.
+
+**How to wire it in:**
+
+```python
+from langchain_community.vectorstores import Chroma
+from langchain_anthropic import ChatAnthropic
+from langchain_openai import OpenAIEmbeddings
+from langchain.retrievers.multi_query import MultiQueryRetriever
+
+vectordb = Chroma(
+    persist_directory="./my_chroma_db",
+    embedding_function=OpenAIEmbeddings()
+)
+base_retriever = vectordb.as_retriever(search_kwargs={"k": 5})
+
+# Any fast, cheap model works for variant generation
+llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
+
+retriever = MultiQueryRetriever.from_llm(
+    retriever=base_retriever,
+    llm=llm,
+    include_original=True,  # adds your original query to the variant set
+)
+
+docs = retriever.invoke("What are the latency implications of adding a reranker?")
+```
+
+To inspect the variants it generated:
+
+```python
+import logging
+logging.getLogger("langchain.retrievers.multi_query").setLevel(logging.INFO)
+```
+
+**Limits:**
+- Adds one LLM call and extra vector queries per user request — latency compounds if `k` is large or the vector store is slow
+- Recall gain diminishes past 5–7 variants; the default 3 is a reasonable starting point
+- Over-retrieves on narrow factual lookups where the original query is already precise; for those, a plain retriever is faster and sufficient
+
+**Sources:** [MultiQueryRetriever Python API Reference — LangChain](https://api.python.langchain.com/en/latest/retrievers/langchain.retrievers.multi_query.MultiQueryRetriever.html) · [3 Advanced Strategies for Retrievers in LangChain — Analytics Vidhya](https://www.analyticsvidhya.com/blog/2024/11/retrievers-in-langchain/)
+]]></content:encoded>
+    </item>
 
     <item>
     <title><![CDATA[Your Repo's Build Commands Live in the README and Nowhere Else — AGENTS.md Gives Every Coding Agent the Narrow Directives That Actually Matter]]></title>
@@ -6327,152 +6422,8 @@ Training ran on roughly 4,000 NVIDIA Grace Blackwell GPUs in Mistral's European 
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Retriever Returns Scattered Fragments — LlamaIndex's Auto-Merging Reassembles Them Into the Parent Chunk That Has the Full Answer</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-01-auto-merging-retrieval-llamaindex-hierarchical-nodes</link>
-      <guid isPermaLink="false">2026-10-07-01-auto-merging-retrieval-llamaindex-hierarchical-nodes</guid>
-      <pubDate>Wed, 07 Oct 2026 04:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <description>LlamaIndex's HierarchicalNodeParser splits documents into a 2048→512→128-token tree; AutoMergingRetriever indexes leaves for precision, then merges siblings back to their parent when enough match — giving your LLM rich context without embedding bloat.</description>
-      <content:encoded><![CDATA[**LlamaIndex's `HierarchicalNodeParser` splits documents into a 2048→512→128-token tree; `AutoMergingRetriever` indexes the 128-token leaves for precise retrieval, then promotes matched siblings to their parent chunk when a threshold is hit — so the LLM reads full paragraphs, not fragments.**
-
-**What you'll be able to do after this:** Build a RAG pipeline that embeds at sentence-granularity for recall precision, but delivers paragraph-level context to the LLM at query time — using LlamaIndex's `HierarchicalNodeParser` and `AutoMergingRetriever`.
-
-**Three takeaways:**
-- Embedding large chunks (1024+ tokens) averages out too many ideas; embedding small chunks (128 tokens) gives precise recall but fragments the context. Auto-merging decouples the two concerns.
-- The merge threshold is the key parameter: if ≥ N% of a parent's leaf-node children are retrieved for a query, return the parent instead. More coherent context for multi-sentence answers.
-- The docstore must hold ALL nodes (leaves and parents); only leaf nodes go into the vector index. This is the setup step most tutorials skip.
-
-**Building it:**
-
-```python
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext
-from llama_index.core.node_parser import HierarchicalNodeParser, get_leaf_nodes
-from llama_index.core.retrievers import AutoMergingRetriever
-from llama_index.core.query_engine import RetrieverQueryEngine
-
-# 1. Parse into a 3-level hierarchy: 2048 → 512 → 128 tokens
-docs = SimpleDirectoryReader("./data").load_data()
-parser = HierarchicalNodeParser.from_defaults(chunk_sizes=[2048, 512, 128])
-nodes = parser.get_nodes_from_documents(docs)
-leaf_nodes = get_leaf_nodes(nodes)  # only 128-token nodes
-
-# 2. Store ALL nodes in docstore; index only leaves
-storage_ctx = StorageContext.from_defaults()
-storage_ctx.docstore.add_documents(nodes)       # parents live here
-index = VectorStoreIndex(leaf_nodes, storage_context=storage_ctx)
-
-# 3. AutoMergingRetriever wraps the base retriever
-base_retriever = index.as_retriever(similarity_top_k=12)
-retriever = AutoMergingRetriever(
-    base_retriever,
-    storage_ctx,
-    verbose=True   # logs which nodes merged — worth watching on first runs
-)
-query_engine = RetrieverQueryEngine(retriever=retriever)
-
-response = query_engine.query("What are the key findings from the Q3 report?")
-```
-
-**Why `similarity_top_k=12` on the base retriever?** Auto-merging works best with more leaf candidates — you want enough hits per parent to actually trigger merges. Top-12 on 128-token leaves is a common starting point; tune down if responses are slow, up if answers are still fragmentary.
-
-**Limits:** The merge threshold needs tuning for your corpus; too low and you always promote to parents (losing the precision benefit), too high and you never merge (same as flat retrieval). The docstore must hold the full node tree — this increases RAM for large corpora compared to a flat index. The technique also assumes your documents have coherent paragraphs worth merging back to; for highly heterogeneous or short documents, a flat index may perform as well.
-
-**Resource:** Jerry Liu and Anupam Datta's free [Building and Evaluating Advanced RAG](https://www.deeplearning.ai/short-courses/building-evaluating-advanced-rag/) at DeepLearning.AI has a dedicated hands-on lesson (Lesson 5) on auto-merging with runnable notebooks — the best starting point for seeing the merge behavior on a real document.
-
-**Sources:** [LlamaIndex AutoMergingRetriever docs](https://developers.llamaindex.ai/python/examples/retrievers/auto_merging_retriever/) · [Building and Evaluating Advanced RAG — DeepLearning.AI](https://www.deeplearning.ai/short-courses/building-evaluating-advanced-rag/)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Forcing a Tool Call Gets You JSON — In Sonnet 5.5, It Also Costs You Reasoning. Use `type: 'any'` with a Sentinel Tool Instead.</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-06-07-tool-choice-structured-output-sonnet-5-5-sentinel-pattern</link>
-      <guid isPermaLink="false">2026-10-06-07-tool-choice-structured-output-sonnet-5-5-sentinel-pattern</guid>
-      <pubDate>Tue, 06 Oct 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>Developer Tools</category>
-      <description>tool_choice: {type: 'tool'} guarantees structured output but suppresses Claude's ability to flag ambiguous input. A two-tool pattern with type: 'any' and a clarify sentinel preserves structure while recovering from bad inputs gracefully.</description>
-      <content:encoded><![CDATA[**`tool_choice: {type: 'tool', name: X}` guarantees structured output — but in Sonnet 5.5 it also suppresses the model's ability to flag ambiguous input. A two-tool pattern with `type: 'any'` and a `clarify` sentinel gives you both.**
-
-The Claude Messages API exposes three `tool_choice` modes:
-
-```json
-// Mode 1: Claude decides whether to call a tool
-{ "type": "auto" }
-
-// Mode 2: Claude must call *some* tool — it picks which
-{ "type": "any" }
-
-// Mode 3: Claude must call exactly *this* tool
-{ "type": "tool", "name": "extract_order" }
-```
-
-**When `type: 'tool'` is right.** High-volume, predictable inputs where you control the content — structured API responses, your own database records, fixed document templates. Output is always valid JSON, no prompt engineering required.
-
-**When it breaks.** Sonnet 5.5 was trained to reason through ambiguity. Forcing a specific tool call works against that: the model fills in schema fields rather than pausing on uncertain inputs. The Anthropic migration guide notes that forced single-tool calls can lead to less thoughtful, mechanical output in Sonnet 5.5 — you get silently wrong JSON instead of a legible failure or a clarifying question.
-
-**The fix: `type: 'any'` with a sentinel.** Add a second minimal tool alongside your extraction tool:
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-tools = [
-    {
-        "name": "extract_order",
-        "description": "Extract structured order details from the user's message.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "item": {"type": "string"},
-                "quantity": {"type": "integer"},
-                "delivery_date": {"type": "string", "format": "date"}
-            },
-            "required": ["item", "quantity"]
-        }
-    },
-    {
-        "name": "clarify",
-        "description": "Ask one clarifying question when the input is ambiguous or missing required fields.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"question": {"type": "string"}},
-            "required": ["question"]
-        }
-    }
-]
-
-response = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    tools=tools,
-    tool_choice={"type": "any"},   # must call some tool; Claude picks which
-    messages=[{"role": "user", "content": user_input}]
-)
-
-tool_call = response.content[0]
-if tool_call.name == "clarify":
-    # Return the question to the user and loop
-    follow_up = tool_call.input["question"]
-elif tool_call.name == "extract_order":
-    order = tool_call.input  # guaranteed valid JSON
-```
-
-`type: 'any'` ensures Claude always calls a tool (no free-text fallback), but lets it route to `clarify` when the input is ambiguous. Handle the `clarify` branch by returning the question and re-running with the user's answer. Structured output semantics hold either way.
-
-**One real limit:** `type: 'any'` with two tools adds a small reasoning cost relative to `type: 'tool'`. For high-volume pipelines with stable, predictable inputs, forced tool calls are still the right default. Reserve the sentinel pattern for user-facing agents and workflows that consume variable real-world text.
-
-**Sources:** [Tool use overview — tool_choice — Anthropic Docs](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) · [Claude Sonnet 5.5 migration guide — Anthropic Docs](https://docs.anthropic.com/en/docs/about-claude/models/migration-guide)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
