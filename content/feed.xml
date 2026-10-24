@@ -10,7 +10,138 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Sat, 24 Oct 2026 04:04:00 +0000</lastBuildDate>
+        <lastBuildDate>Sat, 24 Oct 2026 20:11:00 +0000</lastBuildDate>
+
+    <item>
+    <title><![CDATA[Your Embedding Pipeline Handles Text Only — EmbeddingGemma 2 Puts Text, Images, and Audio Into One 768-Dim Space Locally]]></title>
+    <link>https://ai.google.dev/gemma/docs/embeddinggemma</link>
+    <guid isPermaLink="false">2026-10-24-03-embeddinggemma2-multimodal-embeddings-text-image-audio-local</guid>
+    <pubDate>Sat, 24 Oct 2026 20:11:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Embeddings</category>
+    <category>RAG</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[EmbeddingGemma 2 (Google, Apache 2.0, 740M params, Oct 6) maps text, images, and audio into one 768-dim vector space — one local model for multimodal RAG, no separate encoders per modality.]]></description>
+    <content:encoded><![CDATA[**EmbeddingGemma 2 (Google, Apache 2.0, 740M params) maps text, code, images, and audio into a single 768-dimensional embedding space — one locally-runnable model for multimodal RAG without separate encoders per modality.**
+
+Most RAG pipelines are text-only: embed documents, embed queries, compare vectors. When your corpus mixes screenshots, product images, or audio recordings with text, you typically need separate embedding models for each modality — or you transcribe and describe everything into text first, losing fidelity.
+
+EmbeddingGemma 2 changes that. Its core is a 270M text encoder; a vision encoder and audio encoder attach only when you pass non-text inputs. All modalities project into the same 768-dim space, so an image query returns text documents and vice versa.
+
+**Get started:**
+
+```bash
+pip install transformers accelerate
+```
+
+```python
+from transformers import AutoModel, AutoProcessor
+import torch
+
+model = AutoModel.from_pretrained("google/embeddinggemma-2", trust_remote_code=True)
+processor = AutoProcessor.from_pretrained("google/embeddinggemma-2")
+
+# Embed text
+inputs = processor(text="What is speculative decoding?", return_tensors="pt")
+text_emb = model(**inputs).last_hidden_state.mean(dim=1)
+
+# Embed an image (PIL Image)
+from PIL import Image
+img = Image.open("diagram.png")
+inputs = processor(images=img, return_tensors="pt")
+image_emb = model(**inputs).last_hidden_state.mean(dim=1)
+
+# Cosine similarity works directly across modalities
+import torch.nn.functional as F
+score = F.cosine_similarity(text_emb, image_emb)
+```
+
+Both return `[1, 768]` float tensors. Cross-modal cosine similarity works because both modalities share the same projection head.
+
+**Matryoshka truncation:** slice the output to 512, 256, or 128 dims if your vector store has a fixed dimension or you're optimizing index size. The model is trained with Matryoshka Representation Learning, so shorter slices still preserve relative ordering.
+
+**When to reach for it:**
+- Corpus mixes images, diagrams, or audio with text (product catalogs, design docs, recorded meetings)
+- You want a single local model rather than a cloud vision API per document
+
+**When to skip it:**
+- Text-only workloads: at 740M params it is roughly 30× larger than `all-MiniLM-L6-v2` (22M) for no gain on text-only inputs — use a smaller dedicated model
+- Google reports an 8K-token context window; that figure has not been independently confirmed
+- Per-modality accuracy benchmarks from independent sources are not yet published; Google's own eval results have not been replicated in peer-reviewed settings
+
+**Sources:** [EmbeddingGemma 2 model overview — Google AI for Developers](https://ai.google.dev/gemma/docs/embeddinggemma) · [Why Google's Small EmbeddingGemma 2 Deserves More Attention — Towards AI](https://pub.towardsai.net/why-googles-small-embeddinggemma-2-model-deserves-more-attention-9d127ae57697) · [EmbeddingGemma 2: Google's tiny AI model for multimodal search — YourStory](https://yourstory.com/ai-story/embeddinggemma-2-google-tiny-ai-multimodal-search) · [google/embeddinggemma-2 — Hugging Face](https://huggingface.co/google/embeddinggemma-2)]]></content:encoded>
+    </item>
+
+    <item>
+    <title><![CDATA[Your vLLM Server Generates One Token at a Time — EAGLE3 Speculative Decoding Drafts Tokens Ahead and Verifies in a Single Forward Pass]]></title>
+    <link>https://docs.vllm.ai/en/stable/features/spec_decode.html</link>
+    <guid isPermaLink="false">2026-10-24-04-vllm-eagle3-speculative-decoding-draft-tokens-latency</guid>
+    <pubDate>Sat, 24 Oct 2026 20:10:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Add --speculative-config to vllm serve with an EAGLE3 draft checkpoint to propose several tokens ahead; the target verifies in one parallel forward pass with zero quality loss.]]></description>
+    <content:encoded><![CDATA[**Add `--speculative-config '{"method":"eagle3","model":"<draft>","num_speculative_tokens":3}'` to `vllm serve` to cut token-generation latency using a lightweight draft model — output quality is mathematically identical to running the target alone.**
+
+**What you'll be able to do after this:**
+- Enable EAGLE3 speculative decoding on any vLLM-served model that has a published draft checkpoint
+- Set `num_speculative_tokens` for your workload and measure the acceptance rate before committing
+- Understand when speculative decoding helps (long-context, chat-like prompts) vs. when it slows you down (short, dissimilar prompts)
+
+## How it works
+
+Standard autoregressive generation calls the full target model once per output token. Speculative decoding uses a cheaper *draft* model to propose *k* tokens ahead, then calls the target once to verify all *k* in parallel. If the target agrees, you've paid one forward pass for *k* tokens instead of *k* passes. When it rejects a draft token, it falls back to the target's correct token — so output distribution is identical to the un-speculated target.
+
+EAGLE3 conditions the draft model on the target's hidden states (rather than just the output logits), which gives higher acceptance rates on instruction-tuned models than earlier EAGLE versions.
+
+## Step-by-step
+
+**1. Find a compatible draft checkpoint**
+
+The draft and target must share the same model family and architecture. Red Hat publishes EAGLE3 checkpoints for Llama 3.1 8B on Hugging Face:
+
+```
+red-hat-research/Meta-Llama-3.1-8B-Instruct-EAGLE3
+```
+
+Browse the `eagle3-checkpoints` Hugging Face organization for other families.
+
+**2. Serve with `--speculative-config`**
+
+```bash
+vllm serve meta-llama/Llama-3.1-8B-Instruct   --speculative-config '{
+    "method": "eagle3",
+    "model": "red-hat-research/Meta-Llama-3.1-8B-Instruct-EAGLE3",
+    "num_speculative_tokens": 3,
+    "draft_tensor_parallel_size": 1
+  }'
+```
+
+`draft_tensor_parallel_size` must be `1` for EAGLE3 even if your target uses tensor parallelism.
+
+**3. Benchmark before committing**
+
+Run the same prompt batch with and without the flag. AMD reports up to 2.3× throughput on Llama 3.1 70B with a 1B draft on ROCm hardware — that figure is AMD's own benchmark on AMD hardware and varies significantly by prompt length, batch size, and workload type. On coding tasks with long system prompts, acceptance rates tend to be higher than on diverse chat tasks.
+
+Check vLLM's logs for `draft_acceptance_rate`. If it falls below ~0.5, the draft isn't well-aligned with your workload and you may see a slowdown rather than a speedup.
+
+## Limits
+
+- Draft and target must share the same model family — you cannot use a Mistral draft for a Llama target
+- `num_speculative_tokens` too high → acceptance rate drops; too low → overhead outweighs gains. Start at 3 and tune with your actual prompt distribution
+- The `method: ngram` alternative requires no draft model but only helps on repetitive prompts (code with boilerplate, templated output)
+- EAGLE3 draft checkpoints for newer model families (Llama 4, Gemma 4) are sparse — check the `eagle3-checkpoints` organization on Hugging Face before expecting coverage
+- `draft_tensor_parallel_size: 1` means the draft model loads on a single GPU; on multi-GPU setups this can create a memory imbalance if the draft is large
+
+**Sources:** [Speculative Decoding in vLLM — vLLM docs](https://docs.vllm.ai/en/stable/features/spec_decode.html) · [Deploy EAGLE3 speculative decoding with vLLM Neuron — AWS Neuron](https://awsdocs-neuron.readthedocs-hosted.com/en/latest/vllm-neuron/docs/tutorials/tutorial-eagle3-speculative-decoding-llama-3-1.html) · [Speculative Decoding Deep Dive (AMD ROCm, Llama 3.1 70B benchmark)](https://rocm.docs.amd.com/projects/ai-developer-hub/en/v9.0/notebooks/inference/speculative_decoding_deep_dive.html) · [vLLM Speculators project guide](https://docs.vllm.ai/projects/speculators/en/latest/user_guide/tutorials/serve_vllm/)]]></content:encoded>
+    </item>
+
+
 
 
 
@@ -6346,82 +6477,8 @@ The official hands-on walkthrough builds from a single call to a production-read
 
 
 
-    <item>
-      <title>One Parameter Tells Each Subagent How Hard to Work — v2.1.292's `effort` Field Controls Thinking Budget Per Agent</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-03-claude-code-agent-effort-parameter-subagent-thinking-budget</link>
-      <guid isPermaLink="false">2026-10-07-03-claude-code-agent-effort-parameter-subagent-thinking-budget</guid>
-      <pubDate>Wed, 07 Oct 2026 04:12:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Building AI Products</category>
-      <description>Claude Code v2.1.292 adds an effort field to the Agent tool: low, medium, high, xhigh, or max. Set it per-subagent to control thinking token budget without changing the model — cheap for extraction tasks, deep for planning.</description>
-      <content:encoded><![CDATA[**Claude Code v2.1.292 adds an `effort` field to the Agent tool: `low`, `medium`, `high`, `xhigh`, or `max`. Set it per-subagent to control thinking token budget without changing the model — cheap for extraction tasks, deep for planning.**
-
-Released October 6, v2.1.292 lets you specify how deeply each subagent reasons before acting. The field belongs inside any `Agent` tool call in your workflow or `.claude/agents/` definitions.
-
-**The five levels:**
-
-| effort | use case |
-|--------|----------|
-| `low` | Fast, minimal reasoning. Extraction, formatting, grepping for patterns in structured data. |
-| `medium` | Balanced. Agentic tasks that need some planning but not full depth. |
-| `high` | Default when omitted. Full reasoning depth for the current model. |
-| `xhigh` | Extended budget for long-horizon work. Available on Opus 4.7+. |
-| `max` | No ceiling. Maximum analysis and self-correction. Opus-class only. |
-
-**How to use it in an Agent tool call:**
-
-```json
-{
-  "type": "agent",
-  "description": "Scan all *.test.ts files for TODO comments and group by file",
-  "effort": "low",
-  "prompt": "Find all TODO comments in *.test.ts under src/. Output JSON: {file: string, todos: string[]}. Do nothing else."
-}
-```
-
-A realistic use case: a dynamic workflow with one coordinator and twelve fan-out workers scanning a large codebase for a specific pattern. Each worker does dumb extraction from a single file — no ambiguity, no judgment. Setting `effort: "low"` across those workers trims thinking token consumption significantly, while the coordinator that synthesizes the migration plan stays at `effort: "high"`.
-
-**Also in v2.1.292:** the `--marketplace` flag on `plugin install` routes the install through official marketplace policy checks before it completes — safer than `--github` for shared team tooling.
-
-**Limits:** `xhigh` and `max` are only available on Opus 4.7 and NextOpus at launch — a `max` effort request on a smaller model silently falls back to `high`. Effort adjusts the thinking token budget, not the model's weights; a `high`-effort Haiku is still Haiku reasoning, and on tasks that are genuinely complex, the right answer is a more capable model, not more effort. Usage dashboards don't yet show effort as a cost dimension — monitor token counts directly if you're optimizing spend.
-
-**Sources:** [Claude Code effort docs — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/effort) · [v2.1.292 release notes](https://releasebot.io/updates/anthropic/claude-code)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Mistral Large 4 Is Available via API Now — 1T-Parameter MoE, Natively Multimodal, Open Weights Coming End of October</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-02-mistral-large-4-le-chonk-1t-moe-open-weight-api</link>
-      <guid isPermaLink="false">2026-10-07-02-mistral-large-4-le-chonk-1t-moe-open-weight-api</guid>
-      <pubDate>Wed, 07 Oct 2026 04:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <description>Mistral Large 4 (Le Chonk) launched API access October 6: 1.05T parameters, 49B active (MoE), natively multimodal, trained on 4,000 Grace Blackwell GPUs. Open weights arrive end of October.</description>
-      <content:encoded><![CDATA[**Mistral released API access to Large 4 (Le Chonk) on October 6: 1.05T parameters, 49B active per token via MoE, natively multimodal. Open weights ship end of October — making it the largest open-weight model in this capability tier.**
-
-Mistral Large 4 is a mixture-of-experts model: 1.05 trillion total parameters, but only 49 billion are active per token inference pass. The 49B active figure is what determines per-token compute cost; the 1T total determines what the model can represent. A 1.6-billion-parameter vision encoder is baked into the base architecture, so multimodal capability isn't a bolt-on adapter.
-
-Training ran on roughly 4,000 NVIDIA Grace Blackwell GPUs in Mistral's European data centers, over approximately two months.
-
-**What engineers are watching:**
-
-- **Open weights end of October.** That puts a natively multimodal, 1T+ MoE in the same tier as Llama for self-hosting, fine-tuning, and distillation pipelines. The weights announcement — not the API launch — is the signal to act on.
-- **Benchmark claims.** Per Mistral's announcement, it's the strongest open-weight model on aggregated benchmarks across cyber defense, manufacturing, and finance. Independent third-party replication hasn't appeared yet; treat the numbers as vendor claims until then.
-- **European data center provenance.** For teams with EU data residency requirements, the training provenance matters beyond the benchmark headline.
-
-**Why it matters:** "Open weights end of October" changes what self-hosted and private fine-tuned pipelines can access. If benchmark claims hold after independent testing, the gap between hosted-only and run-anywhere frontier models narrows substantially for teams that need to own their inference stack.
-
-**Limits:** 49B active parameters require H100-class hardware for useful inference throughput — this is not a laptop model. The vision encoder is new enough that production reliability on diverse image workloads is unproven. Independent benchmark replication hasn't landed; don't commit an architecture to it based solely on Mistral's numbers.
-
-**Sources:** [Mistral AI announcement](https://x.com/MistralAI/status/2107457414387622310) · [Guillaume Lample (co-founder)](https://x.com/GuillaumeLample/status/2107461898127954001) · [Mistral Large 4 specs and benchmarks — cellcog.ai](https://cellcog.ai/blog/mistral-large-4/)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
