@@ -112,7 +112,7 @@ Supabase (free): Postgres + pgvector + Auth      Resend (free): email      Sentr
 - Watchlist prices come from the server, never the client (`serve.py:248` today trusts the client).
 - Saved searches get a table and routes.
 - A scheduled re-price job checks watchlist and saved-search items against Best Buy and emails a price drop through Resend, with an unsubscribe link. It is idempotent and catches up after a missed run. A Healthchecks.io ping alerts when the last good run is too old.
-- **No cron on GitHub Actions.** Its terms bar "part of a serverless application" use. Scheduling is Cloud Scheduler, including the Supabase keep-alive for the new project. GitHub Actions stays for build, test and deploy, which its terms allow. (The site's existing `.github/workflows/supabase-keepalive.yml` uses the same cron pattern; that is a separate question for the owner, outside this design.)
+- **No cron on GitHub Actions.** Its terms bar "part of a serverless application" use. Scheduling is Cloud Scheduler, including the Supabase keep-alive for the new project. GitHub Actions stays for build, test and deploy, which its terms allow. Lesson from the site (2026-10-25): an anonymous read did NOT stop the free project from pausing; the site now writes a throttled heartbeat row daily from a Worker Cron Trigger (`worker/keepalive.ts`, migration 0008). DealFinder's keep-alive must also be a write, plus a dead-man's switch.
 
 ### 6.6 Request path: performance, cost, abuse
 
@@ -237,6 +237,8 @@ The owner walks through every lesson, then the course is released by adding the 
 - **Launch gate rewrite.** G5 wording; no queue at launch; rate limits per §6.6.
 
 ## 9. Open items for the builder
+
+- **O0. Supabase slot (owner decision).** The free plan allows two active projects. `homestead-finder` and the site's `cct-demos` are both active (verified 2026-10-25). DealFinder's own project (`deal-finder`, paused) cannot also be active. Options: share `cct-demos` (one sign-in across the site and DealFinder), or give DealFinder homestead's slot.
 
 - **O1. Owner-only setup.** These need the owner's identity, so no agent can do them. The builder tries API routes first, quotes any failure, and asks only for what remains:
   - a GCP account with billing enabled (a card is required even on the free tier)
