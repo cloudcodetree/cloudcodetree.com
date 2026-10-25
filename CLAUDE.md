@@ -199,8 +199,11 @@ covers the zone-level chores with the same token. Both environments carry the `a
 and `vectorize` (`VECTORIZE` → `cct-search`) bindings in `wrangler.jsonc` for search; the CI
 token's scopes include Workers AI Read and Vectorize Edit alongside its existing scopes.
 Local deploys use `wrangler login` (OAuth) — no token on disk.
-`.github/workflows/supabase-keepalive.yml` pings the
-Supabase project twice a week so the free tier never pauses it.
+The site Worker's daily Cron Trigger (`worker/keepalive.ts`, 09:17 UTC, production only) calls
+`keepalive_beat()` (migration 0008), a throttled database write, so the free-tier Supabase
+project never pauses. It replaced a GitHub Actions cron on 2026-10-25: that job's anonymous
+read did not prevent pauses, and GitHub's terms bar Actions as part of a serverless app.
+Optional `HEALTHCHECK_URL` Worker secret = a Healthchecks.io dead-man's switch.
 
 ### DNS (Cloudflare zone `cloudcodetree.com`)
 Nameservers `henrik.ns.cloudflare.com` / `meg.ns.cloudflare.com`, changed at the

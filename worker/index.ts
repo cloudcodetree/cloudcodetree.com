@@ -7,6 +7,7 @@ import { handleSearch } from './search';
 import { handleFeed } from './feed';
 import { handleEngage } from './engage';
 import { handleClearance } from './clearance';
+import { runKeepalive } from './keepalive';
 
 export interface Env {
   ASSETS: Fetcher;
@@ -26,6 +27,8 @@ export interface Env {
   ENGAGE_ORIGINS?: string;
   TURNSTILE_SECRET?: string;
   ENGAGE_HMAC_KEY?: string;
+  /** Healthchecks.io ping URL for the Supabase keep-alive (a secret). Optional. */
+  HEALTHCHECK_URL?: string;
 }
 
 // Gated: the live demos only — /projects/<slug>/demo/*. Landing pages, the
@@ -68,6 +71,12 @@ export default {
     if (ADMIN_PATH.test(url.pathname)) return ownerGate(request, env, url);
 
     return env.ASSETS.fetch(request);
+  },
+
+  // Daily Cron Trigger (wrangler.jsonc "triggers"): keeps the free-tier
+  // Supabase project from pausing. Production only; staging sets no crons.
+  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+    await runKeepalive(env);
   },
 } satisfies ExportedHandler<Env>;
 
