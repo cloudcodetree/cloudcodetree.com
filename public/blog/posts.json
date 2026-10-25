@@ -1,5 +1,41 @@
 [
   {
+    "id": "2026-10-25-06-review-md-claude-code-review-github-app-pr-customize",
+    "title": "REVIEW.md Is How You Tell Claude Code Review What Actually Matters in Your Codebase",
+    "excerpt": "The GitHub App reads both CLAUDE.md and REVIEW.md. The local /code-review command reads only CLAUDE.md. Knowing that split is how you make PR reviews useful without adding noise to local analysis.",
+    "author": "Claude Code Tree",
+    "date": "10-25-2026",
+    "publishedAt": "2026-10-25T20:25:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/code-review-customize",
+    "content": "**The Claude Code Review GitHub App reads two files when it reviews a PR: `CLAUDE.md` and `REVIEW.md`. The local `/code-review` command reads only `CLAUDE.md`. Knowing this split is how you make PR reviews useful without adding noise to local analysis.**\n\n`REVIEW.md` is the PR-review-only configuration layer. It sits in your repo root on the default branch and tells the GitHub App what counts as important — without affecting how Claude Code analyzes diffs locally.\n\n**A working REVIEW.md:**\n\n```markdown\n# Review instructions\n\n## What Important means here\nReserve Important for findings that would break behavior, leak data,\nor block a rollback: incorrect logic, unscoped database queries, PII\nin logs or error messages, and migrations that aren't backward compatible.\nStyle, naming, and refactoring suggestions are Nit at most.\n\n## Cap the nits\nReport at most five Nits per review.\n\n## Do not report\n- Anything CI already enforces: lint, formatting, type errors\n- Generated files under src/gen/ and any *.lock file\n- Test-only code that intentionally violates production rules\n\n## Always check\n- New API routes have an integration test\n- Log lines don't include email addresses, user IDs, or request bodies\n- Database queries are scoped to the caller's tenant\n```\n\n**Three things REVIEW.md can do that CLAUDE.md cannot:**\n\n1. **Cap the nit count.** \"Report at most five Nits per review\" applies only to the GitHub App — the local `/code-review` command has no such cap.\n2. **Exclude generated files.** Protect `*.lock`, `src/gen/`, or migration files from noise-generating findings.\n3. **Add subdirectory rules.** A `backend/REVIEW.md` adds checks specifically for changes under `backend/` — additive to the root file, not a replacement.\n\n**Two things to know before shipping REVIEW.md:**\n\n- **The file is read from the base/default branch, not from the PR.** A `REVIEW.md` added in a PR itself does not take effect — it must already exist on `main` (or your default branch).\n- **Nit caps and path exclusions require a protected branch.** Without branch protection, the App ignores those directives. Check your branch settings first.\n\nYou can also pull in skill files: `@.claude/skills/steward/SKILL.md` loads a per-repo review checklist that both the GitHub App and the babysit/steward system share.\n\n**Sources:** [Customize Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review-customize)"
+  },
+  {
+    "id": "2026-10-25-05-arize-phoenix-trace-claude-agent-sdk-llm-observability",
+    "title": "Your Claude Agent SDK Has Zero Observability by Default — Three Lines Add Full Traces to Phoenix",
+    "excerpt": "Every query() call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.",
+    "author": "Claude Code Tree",
+    "date": "10-25-2026",
+    "publishedAt": "2026-10-25T20:10:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Agents",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk",
+    "content": "**Every `query()` call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.**\n\nInstall the OpenInference instrumentation package alongside your SDK:\n\n```bash\npip install openinference-instrumentation-claude-agent-sdk claude-agent-sdk arize-phoenix-otel\n```\n\nThen, **before any `query()` call**, register Phoenix and let it auto-instrument:\n\n```python\nfrom phoenix.otel import register\n\ntracer_provider = register(\n    project_name=\"my-agent\",\n    auto_instrument=True,\n)\n```\n\nThat's it. Every subsequent `query()` call records a span: the model called, tool calls made, token counts, latency, and the full input/output. Open `http://localhost:6006` to browse traces in the Phoenix UI.\n\n**When you need privacy controls** — to hide user inputs or agent outputs from the trace store — skip `auto_instrument` and configure the instrumentor directly:\n\n```python\nfrom phoenix.otel import register\nfrom openinference.instrumentation.claude_agent_sdk import ClaudeAgentSDKInstrumentor\n\ntracer_provider = register(project_name=\"my-agent\")\nClaudeAgentSDKInstrumentor().instrument(\n    tracer_provider=tracer_provider,\n    hide_inputs=True,\n    hide_outputs=True,\n)\n```\n\n`hide_inputs=True` redacts the messages you send; `hide_outputs=True` redacts model responses. Spans still record timing, tool names, and token counts.\n\n**Three things traces reveal that logs miss:**\n\n1. **Tool call waterfalls** — which tools the agent invoked, in what order, and which ones took the most wall time.\n2. **Token spend per task** — how many tokens each `query()` consumed, so you can find expensive paths before they hit your budget.\n3. **Failure attribution** — when an agent task fails, the span tree shows whether the problem was in a tool call, a model refusal, or the application layer.\n\n**Limit:** Phoenix stores traces locally by default. For a shared team view or persistence beyond a single dev session, set `PHOENIX_COLLECTOR_ENDPOINT` to point at a hosted Phoenix instance or another OTLP-compatible backend.\n\n**Sources:** [Phoenix × Claude Agent SDK — Arize docs](https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk) · [Claude Agent SDK tracing — Phoenix docs](https://phoenix.arize.com/docs/ax/integrations/python-agent-frameworks/claude-agent-sdk/claude-agent-sdk-tracing.md) · [OpenInference instrumentation — GitHub](https://github.com/Arize-ai/openinference)"
+  },
+  {
     "id": "2026-10-25-04-agent-ci-merge-queue-atomic-branch-per-task",
     "title": "Anthropic's Agents Made 30,000 Commits a Day — Three Patterns That Keep Agent-Driven CI/CD From Imploding",
     "excerpt": "Anthropic's engineering post on Scion reveals what happens when agents drive commit volume beyond what git handles. Four patterns that hold up: merge queues, branch-per-task, atomic commits, fast CI.",

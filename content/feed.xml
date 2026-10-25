@@ -10,7 +10,122 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Sun, 25 Oct 2026 12:04:00 +0000</lastBuildDate>
+        <lastBuildDate>Sun, 25 Oct 2026 20:25:00 +0000</lastBuildDate>
+
+<item>
+    <title><![CDATA[REVIEW.md Is How You Tell Claude Code Review What Actually Matters in Your Codebase]]></title>
+    <link>https://code.claude.com/docs/en/code-review-customize</link>
+    <guid isPermaLink="false">2026-10-25-06-review-md-claude-code-review-github-app-pr-customize</guid>
+    <pubDate>Sun, 25 Oct 2026 20:25:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <description><![CDATA[The GitHub App reads both CLAUDE.md and REVIEW.md. The local /code-review command reads only CLAUDE.md. Knowing that split is how you make PR reviews useful without adding noise to local analysis.]]></description>
+    <content:encoded><![CDATA[**The Claude Code Review GitHub App reads two files when it reviews a PR: `CLAUDE.md` and `REVIEW.md`. The local `/code-review` command reads only `CLAUDE.md`. Knowing this split is how you make PR reviews useful without adding noise to local analysis.**
+
+`REVIEW.md` is the PR-review-only configuration layer. It sits in your repo root on the default branch and tells the GitHub App what counts as important — without affecting how Claude Code analyzes diffs locally.
+
+**A working REVIEW.md:**
+
+```markdown
+# Review instructions
+
+## What Important means here
+Reserve Important for findings that would break behavior, leak data,
+or block a rollback: incorrect logic, unscoped database queries, PII
+in logs or error messages, and migrations that aren't backward compatible.
+Style, naming, and refactoring suggestions are Nit at most.
+
+## Cap the nits
+Report at most five Nits per review.
+
+## Do not report
+- Anything CI already enforces: lint, formatting, type errors
+- Generated files under src/gen/ and any *.lock file
+- Test-only code that intentionally violates production rules
+
+## Always check
+- New API routes have an integration test
+- Log lines don't include email addresses, user IDs, or request bodies
+- Database queries are scoped to the caller's tenant
+```
+
+**Three things REVIEW.md can do that CLAUDE.md cannot:**
+
+1. **Cap the nit count.** "Report at most five Nits per review" applies only to the GitHub App — the local `/code-review` command has no such cap.
+2. **Exclude generated files.** Protect `*.lock`, `src/gen/`, or migration files from noise-generating findings.
+3. **Add subdirectory rules.** A `backend/REVIEW.md` adds checks specifically for changes under `backend/` — additive to the root file, not a replacement.
+
+**Two things to know before shipping REVIEW.md:**
+
+- **The file is read from the base/default branch, not from the PR.** A `REVIEW.md` added in a PR itself does not take effect — it must already exist on `main` (or your default branch).
+- **Nit caps and path exclusions require a protected branch.** Without branch protection, the App ignores those directives. Check your branch settings first.
+
+You can also pull in skill files: `@.claude/skills/steward/SKILL.md` loads a per-repo review checklist that both the GitHub App and the babysit/steward system share.
+
+**Sources:** [Customize Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review-customize)]]></content:encoded>
+    </item>
+
+    <item>
+    <title><![CDATA[Your Claude Agent SDK Has Zero Observability by Default — Three Lines Add Full Traces to Phoenix]]></title>
+    <link>https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk</link>
+    <guid isPermaLink="false">2026-10-25-05-arize-phoenix-trace-claude-agent-sdk-llm-observability</guid>
+    <pubDate>Sun, 25 Oct 2026 20:10:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Developer Tools</category>
+    <description><![CDATA[Every query() call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.]]></description>
+    <content:encoded><![CDATA[**Every `query()` call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.**
+
+Install the OpenInference instrumentation package alongside your SDK:
+
+```bash
+pip install openinference-instrumentation-claude-agent-sdk claude-agent-sdk arize-phoenix-otel
+```
+
+Then, **before any `query()` call**, register Phoenix and let it auto-instrument:
+
+```python
+from phoenix.otel import register
+
+tracer_provider = register(
+    project_name="my-agent",
+    auto_instrument=True,
+)
+```
+
+That's it. Every subsequent `query()` call records a span: the model called, tool calls made, token counts, latency, and the full input/output. Open `http://localhost:6006` to browse traces in the Phoenix UI.
+
+**When you need privacy controls** — to hide user inputs or agent outputs from the trace store — skip `auto_instrument` and configure the instrumentor directly:
+
+```python
+from phoenix.otel import register
+from openinference.instrumentation.claude_agent_sdk import ClaudeAgentSDKInstrumentor
+
+tracer_provider = register(project_name="my-agent")
+ClaudeAgentSDKInstrumentor().instrument(
+    tracer_provider=tracer_provider,
+    hide_inputs=True,
+    hide_outputs=True,
+)
+```
+
+`hide_inputs=True` redacts the messages you send; `hide_outputs=True` redacts model responses. Spans still record timing, tool names, and token counts.
+
+**Three things traces reveal that logs miss:**
+
+1. **Tool call waterfalls** — which tools the agent invoked, in what order, and which ones took the most wall time.
+2. **Token spend per task** — how many tokens each `query()` consumed, so you can find expensive paths before they hit your budget.
+3. **Failure attribution** — when an agent task fails, the span tree shows whether the problem was in a tool call, a model refusal, or the application layer.
+
+**Limit:** Phoenix stores traces locally by default. For a shared team view or persistence beyond a single dev session, set `PHOENIX_COLLECTOR_ENDPOINT` to point at a hosted Phoenix instance or another OTLP-compatible backend.
+
+**Sources:** [Phoenix × Claude Agent SDK — Arize docs](https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk) · [Claude Agent SDK tracing — Phoenix docs](https://phoenix.arize.com/docs/ax/integrations/python-agent-frameworks/claude-agent-sdk/claude-agent-sdk-tracing.md) · [OpenInference instrumentation — GitHub](https://github.com/Arize-ai/openinference)]]></content:encoded>
+    </item>
 
 <item>
     <title><![CDATA[Anthropic's Agents Made 30,000 Commits a Day — Three Patterns That Keep Agent-Driven CI/CD From Imploding]]></title>
@@ -6279,101 +6394,8 @@ Every parallel thread draws from the same Pro or Max plan allowance. Four simult
 **Sources:** [Anthropic launches Claude Code Projects in beta — MarkTechPost](https://www.marktechpost.com/2026/09/17/anthropic-launches-claude-code-projects-in-beta-parallel-cloud-sessions-that-keep-running-after-you-close-your-laptop/) · [Per-repo settings caveat — claude-code-docs PR #1297](https://github.com/thevibeworks/claude-code-docs/pull/1297) · [Claude Code Projects: access and limits — beevaults.com](https://beevaults.com/claude-code-projects/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Haiku 5.5 Ships: Anthropic Claims ~75% Cheaper Than Haiku 4.5, Adds Effort Controls, 1M Context — Sonnet 5.5 Cache Reads Also Cut</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-08-02-claude-haiku-5-5-pricing-effort-controls-launch</link>
-      <guid isPermaLink="false">2026-10-08-02-claude-haiku-5-5-pricing-effort-controls-launch</guid>
-      <pubDate>Thu, 08 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description>Claude Haiku 5.5 launched Oct 7 at $0.10/M input—Anthropic claims ~75% cheaper than Haiku 4.5, adds effort controls, 1M context. Sonnet 5.5 cache reads also cut to $0.10/M.</description>
-      <content:encoded><![CDATA[**Claude Haiku 5.5 shipped October 7: $0.10/M input tokens, 1M context, first Haiku with effort controls; Sonnet 5.5 cache reads drop to $0.10/M simultaneously.**
-
-Anthropic released Haiku 5.5 on October 7, generally available on the Claude API, Amazon Bedrock, and Google Cloud. Anthropic claims the model costs about 75% less to run than Haiku 4.5 on most tasks. Published pricing: $0.10 per million input tokens and $0.50 per million output tokens — those rates apply up to 100,000 tokens in context. Above 100K, the input rate rises to $0.50/M, so the savings narrow for long-context calls.
-
-The notable addition for agentic workflows is **effort controls** — a first for the Haiku tier. You can now configure effort per call rather than committing one setting across an entire workload: low effort for filtering and classification, higher for code generation or multi-step tool use.
-
-Alongside the Haiku 5.5 launch, Anthropic cut the Sonnet 5.5 cache read price to $0.10 per million tokens, reducing costs for applications that rely on prompt caching for repeated system prompts or large shared context.
-
-**Why it matters:** High-volume subagent pipelines — classifiers, dispatchers, summarizers — get materially cheaper if per-call token counts stay under 100K. Effort controls let you right-size inference cost per task type rather than paying for a single setting across everything.
-
-**Limits to know:** The 75% figure and benchmarks are Anthropic's own claims. VentureBeat reports a different figure (90%) in their headline — the discrepancy is unresolved. The input price step-up at 100K tokens matters for long-context calls. No new capabilities over Haiku 4.5 were announced; this is a price and speed refresh.
-
-**Sources:** [Claude on X — @claudeai](https://x.com/claudeai/status/2107894039626277339) · [Haiku 5.5 — MarkTechPost](https://www.marktechpost.com/2026/10/07/anthropic-releases-claude-haiku-5-5-a-small-model-with-1m-context-priced-at-0-10-per-million-input-tokens/) · [Haiku 5.5 on AWS — AWS Blog](https://aws.amazon.com/blogs/machine-learning/introducing-claude-haiku-5-5-on-aws/) · [VentureBeat coverage](https://venturebeat.com/technology/anthropic-launches-claude-haiku-5-5-with-90-api-price-reduction-matching-gpt-6-luna)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Your Cloudflare Worker Is One Binding Away from Calling Open Models at the Edge — No Separate Inference Server, No Extra API Keys</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-08-01-cloudflare-workers-ai-binding-wrangler-inference</link>
-      <guid isPermaLink="false">2026-10-08-01-cloudflare-workers-ai-binding-wrangler-inference</guid>
-      <pubDate>Thu, 08 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>Cloud</category>
-      <category>Building AI Products</category>
-      <description>Add the [ai] binding to wrangler.toml, call env.AI.run() with any open model ID, and Cloudflare routes it to GPU — also accessible via an OpenAI-compatible REST endpoint.</description>
-      <content:encoded><![CDATA[**Your Cloudflare Worker is one binding away from calling open models at the edge — no separate inference server, no API key management beyond your existing CF token.**
-
-**What you'll be able to do after this:** call Llama, Mistral, Qwen, or Gemma from any Worker function; route inference through an OpenAI-compatible endpoint from any language; add streaming LLM responses to an existing API without a separate backend.
-
-**Three things to understand before you start:**
-- The `[ai]` binding in `wrangler.toml` exposes `env.AI.run(modelId, input)` from inside your handler — it works like a local async function; Cloudflare routes it to GPU hardware on the nearest edge node.
-- Model IDs follow `@cf/<vendor>/<model>` naming (e.g. `@cf/meta/llama-3.1-8b-instruct-fast`). Run `npx wrangler ai models list` for the current catalog — IDs rotate and old ones break without warning.
-- Cloudflare also exposes an OpenAI-compatible endpoint at `https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1` — swap `base_url` and use your CF API token, and any OpenAI SDK client works unchanged.
-
-**Walk-through (Workers + Wrangler):**
-
-```bash
-npm create cloudflare@latest my-ai-worker
-# select: Worker → TypeScript → no Git
-cd my-ai-worker
-```
-
-In `wrangler.toml`, add:
-```toml
-[ai]
-binding = "AI"
-```
-
-In `src/index.ts`:
-```typescript
-interface Env { AI: Ai }
-
-export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
-    const result = await env.AI.run(
-      "@cf/meta/llama-3.1-8b-instruct-fast",
-      {
-        messages: [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user",   content: await req.text() }
-        ]
-      }
-    );
-    return Response.json(result);
-  }
-} satisfies ExportedHandler<Env>;
-```
-
-Test locally with `wrangler dev` (you'll be prompted to log in). Deploy with `wrangler deploy`.
-
-**Streaming:** pass `stream: true` in the run options and pipe the resulting `ReadableStream` directly with `Content-Type: text/event-stream`.
-
-**Limits to know before you ship:**
-- All Workers AI models run at 4-bit or 8-bit quantization. Full-precision inference isn't available on this platform.
-- The free plan includes a daily neuron quota (Cloudflare's billing unit per Cloudflare's pricing docs); usage beyond that is billed. Check the dashboard for current rates — they change.
-- Model IDs rotate. Pin a specific ID in your Worker, test on each deploy, and monitor for 404s in production.
-- No persistent sessions: each request cold-starts if the edge node hasn't warmed recently on low-traffic routes.
-- Worker inputs are processed on Cloudflare's shared infrastructure. Review Cloudflare's data handling terms before routing confidential data through this path.
-
-**Sources:** [Workers AI — Workers + Wrangler get started (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/) · [Workers AI models catalog (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/models/) · [REST API quickstart (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) · [Workers AI LLM inference guide — noqta.tn](https://noqta.tn/en/tutorials/cloudflare-workers-ai-llm-inference-typescript-2026)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
