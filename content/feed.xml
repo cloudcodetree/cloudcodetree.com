@@ -10,7 +10,119 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Sat, 24 Oct 2026 20:11:00 +0000</lastBuildDate>
+        <lastBuildDate>Sun, 25 Oct 2026 04:04:00 +0000</lastBuildDate>
+
+    <item>
+    <title><![CDATA[Your LoRA Adapter Runs an Extra Matrix Multiply on Every Inference Call — `merge_and_unload()` Folds It Into the Base Weights]]></title>
+    <link>https://huggingface.co/learn/llm-course/en/chapter11/4</link>
+    <guid isPermaLink="false">2026-10-25-01-peft-merge-and-unload-lora-adapter-deployment</guid>
+    <pubDate>Sun, 25 Oct 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[After fine-tuning with LoRA or QLoRA, fold the adapter into base weights with merge_and_unload() — one checkpoint, no per-call overhead, no PEFT dependency at serving time.]]></description>
+    <content:encoded><![CDATA[**After fine-tuning with LoRA or QLoRA, fold the adapter into the base weights with `merge_and_unload()` before deploying — one checkpoint, no adapter overhead, no PEFT dependency at serving time.**
+
+**What you'll be able to do after this:** Take a LoRA-fine-tuned model from two files (base + adapter) to a single, standard HuggingFace checkpoint you can serve with vLLM, Ollama, or `llama.cpp` without any PEFT dependency at inference.
+
+**Three things to know:**
+- A LoRA adapter is a pair of low-rank matrices. At inference, every forward pass runs the base layer *plus* the adapter addition. `merge_and_unload()` permanently adds that contribution to the base weights and discards the adapter object. The merged model runs at full base-model speed with no extra computation.
+- **QLoRA caveat:** if you trained with 4-bit quantization, load the base in `bfloat16` (not `load_in_4bit=True`) before merging. A quantized base cannot be merged directly — the adapter weights are full precision but the base isn't, and the math doesn't compose.
+- Once merged, you lose the ability to swap or unload the adapter dynamically. If you plan to serve multiple LoRA adapters from one base (e.g., with vLLM's `--enable-lora` flag), keep the original adapter files and skip the merge.
+
+**Walk-through:**
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+BASE = "meta-llama/Llama-3.1-8B"
+ADAPTER = "your-org/llama-3-1-8b-lora-adapter"  # your adapter on HF Hub
+
+# Load base in full precision — 4-bit quantized bases cannot merge
+base = AutoModelForCausalLM.from_pretrained(
+    BASE, torch_dtype=torch.bfloat16, device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained(BASE)
+
+# Load adapter on top of base
+model = PeftModel.from_pretrained(base, ADAPTER)
+
+# Merge adapter weights into the base, drop adapter layers
+merged = model.merge_and_unload()
+
+# Save as a plain HuggingFace model
+merged.save_pretrained("./llama-3-1-8b-merged")
+tokenizer.save_pretrained("./llama-3-1-8b-merged")
+
+# Push to Hub — loads like any standard model, no PEFT needed
+merged.push_to_hub("your-org/llama-3-1-8b-merged")
+tokenizer.push_to_hub("your-org/llama-3-1-8b-merged")
+```
+
+After pushing, `vllm serve your-org/llama-3-1-8b-merged` and `ollama create` both work without any adapter flags. The serving stack treats it as a standard base model.
+
+**Limit:** merging requires loading the full-precision base, so you need enough VRAM or RAM for the unquantized weights. An 8B model in bfloat16 needs ~16 GB; a 70B model needs ~140 GB (use `device_map="auto"` to offload layers to CPU if needed). The merge itself takes 20–60 seconds on an 8B model. If you need multi-adapter serving (one base, many adapters swapped at runtime), the unmerged path with vLLM's LoRA support is better suited.
+
+**Sources:** [HuggingFace LLM Course — Fine-tuning for deployment (ch. 11)](https://huggingface.co/learn/llm-course/en/chapter11/4), [PEFT LoRA developer guide — merging into base model](https://huggingface.co/docs/peft/main/en/developer_guides/lora#merging-lora-into-the-base-model), [ApX — Merging LoRA adapters with base models (QLoRA precision caveat)](https://apxml.com/courses/fine-tuning-small-language-model/chapter-7-model-merging-and-deployment/merging-lora-adapters-with-base-models)]]></content:encoded>
+    </item>
+
+    <item>
+    <title><![CDATA[Your Parallel Research Subagents Return Walls of Text That Flood the Orchestrator's Context — Have Each Write a Structured File Instead]]></title>
+    <link>https://code.claude.com/docs/en/agent-sdk/subagents</link>
+    <guid isPermaLink="false">2026-10-25-02-parallel-subagent-file-output-orchestrator-context</guid>
+    <pubDate>Sun, 25 Oct 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[When running 3+ parallel subagents, have each write findings to a structured file; the orchestrator reads selectively at the end, keeping its context clean for synthesis.]]></description>
+    <content:encoded><![CDATA[**When running parallel research subagents, have each write its findings to a structured file during the run; the orchestrator reads those files once — selectively — instead of receiving all output in context at once.**
+
+Four parallel subagents each returning 3,000 tokens of analysis is 12k tokens in the parent's context window before synthesis starts. The most important details are buried between the boilerplate, and you've spent a meaningful share of your context budget on raw delivery.
+
+**The pattern: instruct each subagent to write its output to a file**
+
+In the prompt for each parallel `Agent()` call, specify a file path and a structured format:
+
+```
+Investigate the authentication flow in the codebase and write your
+findings to .claude/research/auth.md. Use this exact structure:
+
+## Summary (3 sentences max)
+## Key files (paths only)
+## Issues found (bulleted list)
+## Recommendation (1 sentence)
+
+Do not return the full analysis in your reply — write it to the file
+and confirm the path when done.
+```
+
+Run all subagents in a single response (multiple `Agent()` calls so they execute in parallel). Once they complete, read only what you need:
+
+```
+Read the ## Issues found sections from .claude/research/auth.md,
+.claude/research/payments.md, and .claude/research/sessions.md.
+Rank every issue by severity and produce a prioritized fix plan.
+```
+
+The orchestrator's context now holds one targeted synthesis read instead of three full reports.
+
+**Why it works:** Claude Code subagents write files by default (same permission scope as the orchestrator unless restricted). The file lives outside the context window until you choose to read it — and you can read only the section you need. The parent session stays uncluttered for the synthesis step where careful reasoning actually matters.
+
+**When to keep in-context output:** read-only subagents you've scoped with `permissions: { allowed_tools: [Read, Grep, Glob] }` shouldn't be writing files — keep them limited and constrain their reply instead (ask for a 5-bullet summary). The file pattern also doesn't help for sequential chains where each step's output is the next step's input: there, the dependency is real and you're not fighting context bloat, you're building on it.
+
+**Limit:** `.claude/research/` is a reasonable project-local path, but it will be staged if you do a broad `git add`. Use a `.gitignore` entry or write to a temp dir when the findings are ephemeral. Temp files (`/tmp/`) disappear across sessions, so write to the project directory for anything you'll need in a follow-up session.
+
+**Sources:** [Claude Code agent SDK — subagents](https://code.claude.com/docs/en/agent-sdk/subagents), [LangGraph state persistence](https://langchain-ai.github.io/langgraph/concepts/persistence/) (the same write-intermediate-results-to-storage principle in a multi-agent framework)]]></content:encoded>
+    </item>
+
 
     <item>
     <title><![CDATA[Your Embedding Pipeline Handles Text Only — EmbeddingGemma 2 Puts Text, Images, and Audio Into One 768-Dim Space Locally]]></title>
@@ -6312,167 +6424,8 @@ print(chain.invoke({"context": context, "question": question}).content)
 **Sources:** [Build a RAG agent with LangChain — Official Docs](https://docs.langchain.com/oss/python/langchain/rag) · [Build a semantic search engine — LangChain Official Docs](https://docs.langchain.com/oss/python/langchain/knowledge-base) · [LangChain Part 3: Retrieval and RAG — jtdub.com (Aug 2026)](https://www.jtdub.com/2026/08/27/langchain-part-3-retrieval-and-rag/)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Your Remote MCP Server Is Already a Tool List — Pass `mcp_servers` in the API Call and Skip Writing the Client</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-04-mcp-connector-messages-api-remote-tools-no-client</link>
-      <guid isPermaLink="false">2026-10-07-04-mcp-connector-messages-api-remote-tools-no-client</guid>
-      <pubDate>Wed, 07 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>Add `mcp_servers` to a Messages API call with the MCP beta header, and Claude discovers and calls every tool on your remote HTTP server — no MCP client code needed in your app.</description>
-      <content:encoded><![CDATA[**Add `mcp_servers` to any Messages API call and Claude discovers and calls every tool on your remote HTTP server — no MCP client code needed in your app.**
-
-Every MCP server exposes a tool list. If yours is reachable over HTTP (Streamable HTTP or SSE), you can hand it directly to the Anthropic Messages API and let Claude use those tools — no client library, no local adapter, no glue code between your app and the server.
-
-**Wire it up with two additions to your existing API call:**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-response = client.beta.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    betas=["mcp-client-2025-04-04"],
-    mcp_servers=[{
-        "type": "url",
-        "url": "https://your-server.example.com/mcp",
-        "name": "my-server",
-        # "headers": {"Authorization": "Bearer token"} if your server needs auth
-    }],
-    messages=[{"role": "user", "content": "List all open issues"}],
-)
-```
-
-Claude calls `list_tools` on the server, adds those functions to its tool set, and runs the standard tool-use loop. You don't write the schemas — the server provides them. You don't write the execution loop — the normal `tool_use` / `tool_result` exchange handles it.
-
-**Where this is useful:** You've already built or found an MCP server for a database, a ticketing system, or a knowledge base. Adding it to your API call takes four lines. Without this, you'd need to extract the tool schemas, add them to `tools`, and write handlers — all duplication of what the server already defines.
-
-**Limits worth knowing:**
-
-- Servers must be publicly reachable over HTTPS. Local `stdio` servers cannot be connected this way.
-- Only *tools* are exposed; MCP resources and prompts are not yet supported by the connector.
-- `list_tools` happens on every request, adding one extra round-trip of latency.
-- Mixed use (your own `tools` array + `mcp_servers`) works — Claude sees both as a unified tool set.
-- The beta header (`mcp-client-2025-04-04`) is required and the API may change when this exits beta.
-
-**Sources:** [MCP Connector — Anthropic Docs](https://docs.anthropic.com/en/docs/agents-and-tools/mcp-connector) · [FastMCP: Anthropic Integration Guide](https://gofastmcp.com/integrations/anthropic)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Every Agent Framework Is a Wrapper Around This Loop — Understand the 5-Step Tool Use Cycle Before You Let a Library Handle It</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-05-tool-use-agentic-loop-json-schema-tool-runner-foundations</link>
-      <guid isPermaLink="false">2026-10-07-05-tool-use-agentic-loop-json-schema-tool-runner-foundations</guid>
-      <pubDate>Wed, 07 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>Define a tool with JSON Schema, call the API, get back a tool_use block, execute the function, return a tool_result — that loop is what every agent framework wraps. Build it by hand once.</description>
-      <content:encoded><![CDATA[**Define a tool with JSON Schema, call the API, get back a `tool_use` block, execute the function, return a `tool_result` — that loop is what every agent framework wraps. Build it by hand once before using any abstraction.**
-
-**What you'll be able to do after this:** write the raw agentic loop yourself; read any agent framework's internals and understand exactly what it's doing; know when the SDK Tool Runner shortcut is the right call and when it isn't.
-
-**Three-bullet takeaway:**
-- A tool definition is JSON Schema plus a name and description — Claude decides when to call it based on the description
-- Claude returns a `tool_use` block with the arguments your function needs; you execute it and return a `tool_result` with the same `tool_use_id`
-- The loop repeats until Claude's `stop_reason` is `"end_turn"` with no `tool_use` blocks in the response
-
----
-
-**Step 1 — Define the tool:**
-
-```python
-tools = [{
-    "name": "get_weather",
-    "description": "Get current weather for a city. Use this when the user asks about weather.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "location": {
-                "type": "string",
-                "description": "City name, e.g. 'San Francisco, CA'"
-            }
-        },
-        "required": ["location"]
-    }
-}]
-```
-
-The description is load-bearing. Claude uses it — not the function name — to decide whether to call the tool. Be specific about when it applies.
-
-**Step 2 — Call the API:**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-messages = [{"role": "user", "content": "What's the weather in Tokyo?"}]
-
-response = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    tools=tools,
-    messages=messages,
-)
-```
-
-**Step 3 — Handle the `tool_use` block:**
-
-```python
-if response.stop_reason == "tool_use":
-    for block in response.content:
-        if block.type == "tool_use":
-            # Execute your function with Claude's chosen arguments
-            result = get_weather(block.input["location"])  # your real function
-
-            # Step 4 — Append assistant turn and tool result
-            messages.append({"role": "assistant", "content": response.content})
-            messages.append({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": block.id,   # must match the tool_use block's id
-                    "content": str(result),
-                }]
-            })
-```
-
-**Step 5 — Loop:**
-
-```python
-while response.stop_reason == "tool_use":
-    response = client.messages.create(
-        model="claude-sonnet-5-5",
-        max_tokens=1024,
-        tools=tools,
-        messages=messages,
-    )
-    # handle tool_use blocks again...
-
-# When stop_reason is "end_turn", the text blocks contain Claude's final answer
-```
-
-**When to use the SDK Tool Runner instead:**
-
-Once you've written this once, `client.beta.messages.tool_runner()` collapses the loop into two lines. Call `.until_done()` and it handles the loop, error wrapping, and type coercion. Use the manual loop when you need human-in-the-loop approval before executing a tool, conditional execution based on interim reasoning, or custom logging on each tool call. The Tool Runner doesn't currently support those patterns.
-
-The official hands-on walkthrough builds from a single call to a production-ready agent: [Build a Tool-Using Agent — Anthropic Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/build-a-tool-using-agent).
-
-**Limits:** Parallel tool use (multiple `tool_use` blocks in one response) requires you to return *all* results in a single `user` message — one `tool_result` per block. Omitting one breaks the protocol. The SDK Tool Runner handles this automatically.
-
-**Sources:** [Build a Tool-Using Agent — Anthropic Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/build-a-tool-using-agent) · [Tool Runner (SDK) — Anthropic Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [Learning Agentic AI: Lesson 1 — Tool Use (Towards AI)](https://pub.towardsai.net/learning-agentic-ai-lesson-1-tool-use-59c766a86dc1)
-]]></content:encoded>
-    </item>
-
+    
+    
 
 
 
