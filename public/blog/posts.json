@@ -1,5 +1,42 @@
 [
   {
+    "id": "2026-10-25-04-agent-ci-merge-queue-atomic-branch-per-task",
+    "title": "Anthropic's Agents Made 30,000 Commits a Day — Three Patterns That Keep Agent-Driven CI/CD From Imploding",
+    "excerpt": "Anthropic's engineering post on Scion reveals what happens when agents drive commit volume beyond what git handles. Four patterns that hold up: merge queues, branch-per-task, atomic commits, fast CI.",
+    "author": "Claude Code Tree",
+    "date": "10-25-2026",
+    "publishedAt": "2026-10-25T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://anthropic.com/engineering/redesigning-source-control",
+    "content": "**Anthropic published the design rationale behind Scion, its in-house VCS that replaced git after agent-generated commits outpaced what git's offline-first architecture could handle. The patterns behind it apply to any agent-driven repo today.**\n\nGit assumes clients work mostly offline with a full copy of the repository. That assumption breaks when most commits come from always-networked agents — CI jobs, coding agents, automated test runners. Secondary coverage of [Anthropic's engineering post](https://anthropic.com/engineering/redesigning-source-control) reports daily merges rising to over 30,000; the post's first design principle for Scion was \"clients are always online.\" Scion itself is internal and not open source — but the workflow patterns it was built to survive are ones you can adopt now.\n\n**Four patterns that hold up at agent commit volume:**\n\n**1. Turn on the merge queue.** GitHub, GitLab, and Bitbucket all support merge queues. Enable one on any branch where agents push concurrently. Merge queues serialize merges, eliminating the \"twenty PRs, all stale from the same branch point\" problem that appears the moment parallel agents each open a PR.\n\n**2. One branch per agent task.** Claude Code does this by default via git worktrees. If you're building your own pipeline, give each agent task a fresh branch at task start. Shared feature branches accumulate mid-task conflicts when two tasks run in parallel.\n\n**3. Atomic commits.** Agents shouldn't accumulate 50-file diffs any more than humans should. Keep each commit to one purpose: a CI task that breaks can be reverted cleanly, and a code review tool can reason about a targeted change.\n\n**4. Make CI fast.** At human commit rates, a 10-minute CI run is annoying. At agent commit rates, it becomes a merge-queue bottleneck that backs up indefinitely. Profile the slowest check in your critical path and target under 2 minutes.\n\n**Limit:** These patterns reduce friction; they don't replace a solid test suite. A fast, broken CI is worse than a slow, accurate one.\n\n**Sources:** [Redesigning source control at Anthropic — Anthropic Engineering](https://anthropic.com/engineering/redesigning-source-control) · [Scion coverage with 30k/day figure — fourweekmba.com](https://fourweekmba.com/ai-anthropic-builds-scion-to-replace-git-at-30000-merges-a-day/) · [GitHub merge queues docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)"
+  },
+  {
+    "id": "2026-10-25-03-anthropic-api-2026-10-21-breaking-changes-sdk-migration",
+    "title": "Anthropic's API Version 2026-10-21 Drops temperature, Rejects Document Blocks in Assistant Messages, and Rejects Citation Arrays in User Messages",
+    "excerpt": "API version 2026-10-21 — first major version since 2023 — removes temperature/top_p/top_k and adds two new 400 rules. Apps on the old version header are unaffected until they migrate.",
+    "author": "Claude Code Tree",
+    "date": "10-25-2026",
+    "publishedAt": "2026-10-25T12:03:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/api/migration-2026-10-21",
+    "content": "**Anthropic shipped API version 2026-10-21, the first major API version since 2023-06-01. Three breaking changes trigger 400 errors once you migrate — audit your codebase before upgrading the SDK.**\n\n**The three breaking changes:**\n\n- **Sampling parameters removed.** `temperature`, `top_p`, and `top_k` — including at their previous default values — now return a 400. Omit them entirely. For \"deterministic\" behavior that you were getting via `temperature=0`, use prompt framing instead (\"be precise and consistent\").\n- **Document blocks in assistant messages rejected.** A `document` block placed directly in an assistant message now returns a 400. Move documents to user messages. Documents inside tool results are still accepted.\n- **Citation arrays in user message text blocks rejected.** A `text` block in a user message carrying a non-empty `citations` array now returns a 400.\n\n**Migration:** Upgrade the `anthropic` package per [Anthropic's official migration guide](https://platform.claude.com/docs/en/api/migration-2026-10-21), address these three patterns in your codebase, and test before shipping. Apps still sending `anthropic-version: 2023-06-01` continue to work until they adopt the new version.\n\nThe temperature restriction was already enforced on Opus 4.7+ models (April 2026). The 2026-10-21 API version formalizes it across all current models and adds the two document and citation rules.\n\n**Why it matters:** Any production integration that passes `temperature` (even `temperature=0`), uses document blocks in assistant turns, or sends citation arrays in user messages will break the moment it upgrades to an SDK that sets the new version header.\n\n**Sources:** [Migration guide — Anthropic Platform Docs](https://platform.claude.com/docs/en/api/migration-2026-10-21) · [Real-world 400 errors — GitHub: ComfyUI issue](https://github.com/Comfy-Org/ComfyUI/issues/13923) · [Sampling removal coverage — AlphaSignal](https://alphasignal.ai/news/anthropic-rewrites-claude-api-after-3-years-removing-temperature-controls)"
+  },
+  {
     "id": "2026-10-25-02-parallel-subagent-file-output-orchestrator-context",
     "title": "Your Parallel Research Subagents Return Walls of Text That Flood the Orchestrator's Context — Have Each Write a Structured File Instead",
     "excerpt": "When running 3+ parallel subagents, have each write findings to a structured file; the orchestrator reads selectively at the end, keeping its context clean for synthesis.",

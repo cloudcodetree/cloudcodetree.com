@@ -10,9 +10,68 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-        <lastBuildDate>Sun, 25 Oct 2026 04:04:00 +0000</lastBuildDate>
+        <lastBuildDate>Sun, 25 Oct 2026 12:04:00 +0000</lastBuildDate>
+
+<item>
+    <title><![CDATA[Anthropic's Agents Made 30,000 Commits a Day — Three Patterns That Keep Agent-Driven CI/CD From Imploding]]></title>
+    <link>https://anthropic.com/engineering/redesigning-source-control</link>
+    <guid isPermaLink="false">2026-10-25-04-agent-ci-merge-queue-atomic-branch-per-task</guid>
+    <pubDate>Sun, 25 Oct 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Anthropic's engineering post on Scion reveals what happens when agents drive commit volume beyond what git handles. Four patterns that hold up: merge queues, branch-per-task, atomic commits, fast CI.]]></description>
+    <content:encoded><![CDATA[**Anthropic published the design rationale behind Scion, its in-house VCS that replaced git after agent-generated commits outpaced what git's offline-first architecture could handle. The patterns behind it apply to any agent-driven repo today.**
+
+Git assumes clients work mostly offline with a full copy of the repository. That assumption breaks when most commits come from always-networked agents — CI jobs, coding agents, automated test runners. Secondary coverage of [Anthropic's engineering post](https://anthropic.com/engineering/redesigning-source-control) reports daily merges rising to over 30,000; the post's first design principle for Scion was "clients are always online." Scion itself is internal and not open source — but the workflow patterns it was built to survive are ones you can adopt now.
+
+**Four patterns that hold up at agent commit volume:**
+
+**1. Turn on the merge queue.** GitHub, GitLab, and Bitbucket all support merge queues. Enable one on any branch where agents push concurrently. Merge queues serialize merges, eliminating the "twenty PRs, all stale from the same branch point" problem that appears the moment parallel agents each open a PR.
+
+**2. One branch per agent task.** Claude Code does this by default via git worktrees. If you're building your own pipeline, give each agent task a fresh branch at task start. Shared feature branches accumulate mid-task conflicts when two tasks run in parallel.
+
+**3. Atomic commits.** Agents shouldn't accumulate 50-file diffs any more than humans should. Keep each commit to one purpose: a CI task that breaks can be reverted cleanly, and a code review tool can reason about a targeted change.
+
+**4. Make CI fast.** At human commit rates, a 10-minute CI run is annoying. At agent commit rates, it becomes a merge-queue bottleneck that backs up indefinitely. Profile the slowest check in your critical path and target under 2 minutes.
+
+**Limit:** These patterns reduce friction; they don't replace a solid test suite. A fast, broken CI is worse than a slow, accurate one.
+
+**Sources:** [Redesigning source control at Anthropic — Anthropic Engineering](https://anthropic.com/engineering/redesigning-source-control) · [Scion coverage with 30k/day figure — fourweekmba.com](https://fourweekmba.com/ai-anthropic-builds-scion-to-replace-git-at-30000-merges-a-day/) · [GitHub merge queues docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)]]></content:encoded>
+    </item>
 
     <item>
+    <title><![CDATA[Anthropic's API Version 2026-10-21 Drops temperature, Rejects Document Blocks in Assistant Messages, and Rejects Citation Arrays in User Messages]]></title>
+    <link>https://platform.claude.com/docs/en/api/migration-2026-10-21</link>
+    <guid isPermaLink="false">2026-10-25-03-anthropic-api-2026-10-21-breaking-changes-sdk-migration</guid>
+    <pubDate>Sun, 25 Oct 2026 12:03:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[API version 2026-10-21 — first major version since 2023 — removes temperature/top_p/top_k and adds two new 400 rules. Apps on the old version header are unaffected until they migrate.]]></description>
+    <content:encoded><![CDATA[**Anthropic shipped API version 2026-10-21, the first major API version since 2023-06-01. Three breaking changes trigger 400 errors once you migrate — audit your codebase before upgrading the SDK.**
+
+**The three breaking changes:**
+
+- **Sampling parameters removed.** `temperature`, `top_p`, and `top_k` — including at their previous default values — now return a 400. Omit them entirely. For "deterministic" behavior that you were getting via `temperature=0`, use prompt framing instead ("be precise and consistent").
+- **Document blocks in assistant messages rejected.** A `document` block placed directly in an assistant message now returns a 400. Move documents to user messages. Documents inside tool results are still accepted.
+- **Citation arrays in user message text blocks rejected.** A `text` block in a user message carrying a non-empty `citations` array now returns a 400.
+
+**Migration:** Upgrade the `anthropic` package per [Anthropic's official migration guide](https://platform.claude.com/docs/en/api/migration-2026-10-21), address these three patterns in your codebase, and test before shipping. Apps still sending `anthropic-version: 2023-06-01` continue to work until they adopt the new version.
+
+The temperature restriction was already enforced on Opus 4.7+ models (April 2026). The 2026-10-21 API version formalizes it across all current models and adds the two document and citation rules.
+
+**Why it matters:** Any production integration that passes `temperature` (even `temperature=0`), uses document blocks in assistant turns, or sends citation arrays in user messages will break the moment it upgrades to an SDK that sets the new version header.
+
+**Sources:** [Migration guide — Anthropic Platform Docs](https://platform.claude.com/docs/en/api/migration-2026-10-21) · [Real-world 400 errors — GitHub: ComfyUI issue](https://github.com/Comfy-Org/ComfyUI/issues/13923) · [Sampling removal coverage — AlphaSignal](https://alphasignal.ai/news/anthropic-rewrites-claude-api-after-3-years-removing-temperature-controls)]]></content:encoded>
+    </item>
+
+        <item>
     <title><![CDATA[Your LoRA Adapter Runs an Extra Matrix Multiply on Every Inference Call — `merge_and_unload()` Folds It Into the Base Weights]]></title>
     <link>https://huggingface.co/learn/llm-course/en/chapter11/4</link>
     <guid isPermaLink="false">2026-10-25-01-peft-merge-and-unload-lora-adapter-deployment</guid>
@@ -6315,115 +6374,8 @@ Test locally with `wrangler dev` (you'll be prompted to log in). Deploy with `wr
 **Sources:** [Workers AI — Workers + Wrangler get started (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/workers-wrangler/) · [Workers AI models catalog (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/models/) · [REST API quickstart (Cloudflare Docs)](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) · [Workers AI LLM inference guide — noqta.tn](https://noqta.tn/en/tutorials/cloudflare-workers-ai-llm-inference-typescript-2026)]]></content:encoded>
     </item>
 
-    <item>
-      <title>Add `isolation: worktree` to an Agent's Frontmatter — Every Invocation Gets Its Own Isolated Branch, No `--worktree` Flag Needed</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-06-agent-frontmatter-isolation-worktree-auto-branch</link>
-      <guid isPermaLink="false">2026-10-07-06-agent-frontmatter-isolation-worktree-auto-branch</guid>
-      <pubDate>Wed, 07 Oct 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <category>Building AI Products</category>
-      <description>Add isolation: worktree to a .claude/agents/ definition and every invocation — yours, a teammate's, or an orchestrator's — runs in its own auto-created branch automatically.</description>
-      <content:encoded><![CDATA[**One frontmatter line makes every invocation of a subagent automatically land on its own isolated git branch — no `--worktree` flag, no per-run setup.**
-
-`claude --worktree` is imperative: you add it when you want isolation. Frontmatter `isolation: worktree` is declarative: isolation is part of what the agent *is*. Any invocation — yours, a teammate's, or an orchestrator's Agent tool call — runs in its own worktree without the caller doing anything.
-
-Add it to any `.claude/agents/` definition:
-
-```yaml
----
-name: code-refactor
-description: Refactors a module for readability. Call with the file or directory path.
-isolation: worktree
----
-
-Your task: refactor the code at $ARGUMENTS for readability...
-```
-
-Claude creates a temporary worktree on its own branch, runs the agent there, then:
-- **If no commits or untracked files remain:** the worktree and branch are removed automatically.
-- **If changes were made:** Claude prompts whether to keep or remove the worktree.
-
-**Base branch control.** By default the worktree branches from `origin/main`. To branch from the current `HEAD` instead — useful when the agent continues work in progress — add `worktree.baseRef: "head"` to the frontmatter.
-
-**When to reach for it:**
-- Refactoring or generation agents whose output you want to review before merging
-- Shared team agents in `.claude/agents/` — isolation declared once, honored in every session
-- Orchestrator subagents fanning out to work on independent parts of a codebase in parallel
-
-**The limit:** The worktree starts from committed git state. Uncommitted changes in your working tree are invisible to the agent — it sees only the committed history. Commit first, or set `worktree.baseRef: "head"` to branch from HEAD and stash in-progress changes before invoking.
-
-**Sources:** [Worktrees — Claude Code Docs](https://code.claude.com/docs/en/worktrees) · [Claude Code Subagents guide — morphllm.com](https://www.morphllm.com/claude-subagents)]]></content:encoded>
-    </item>
-
-    <item>
-      <title>Every RAG Tutorial Teaches the Pieces Separately — Here Is the Six-Step Pipeline That Connects Them</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-07-07-langchain-rag-pipeline-load-split-embed-retrieve-generate</link>
-      <guid isPermaLink="false">2026-10-07-07-langchain-rag-pipeline-load-split-embed-retrieve-generate</guid>
-      <pubDate>Wed, 07 Oct 2026 20:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <category>Building AI Products</category>
-      <description>Six Python steps — load, split, embed, store, retrieve, generate — form the minimal RAG scaffold. Here is the pipeline that connects all the individual pieces into a working system.</description>
-      <content:encoded><![CDATA[**Six Python steps — load, split, embed, store, retrieve, generate — form the minimal RAG scaffold that every advanced variant builds on top of.**
-
-**What you'll be able to do after this:** Wire a complete RAG pipeline from document loading to grounded answer generation; swap any stage independently; and know the three changes that move it from prototype to production.
-
-**Three takeaways:**
-- The six steps are strictly sequential — each output feeds the next. The retriever (step 5) is the seam between storage and generation; most RAG optimization work lives there.
-- `InMemoryVectorStore` works for local testing but disappears on process exit. Swapping it for Chroma or pgvector is one argument change.
-- `OpenAIEmbeddings()` is the quickest start. `HuggingFaceEmbeddings("all-MiniLM-L6-v2")` runs the same pipeline fully locally with no external call.
-
-**The minimal pipeline:**
-
-```python
-# pip install langchain langchain-community langchain-openai langchain-text-splitters
-from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_core.prompts import ChatPromptTemplate
-
-# 1. Load
-docs = TextLoader("your_docs.txt").load()
-
-# 2. Split
-chunks = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50).split_documents(docs)
-
-# 3+4. Embed + store
-store = InMemoryVectorStore.from_documents(chunks, OpenAIEmbeddings())
-
-# 5. Retrieve
-retriever = store.as_retriever(search_kwargs={"k": 4})
-
-# 6. Generate
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "Answer only from this context:\n{context}"),
-    ("human", "{question}"),
-])
-chain = prompt | ChatOpenAI(model="gpt-4.1")
-
-question = "..."
-context = "\n\n".join(d.page_content for d in retriever.invoke(question))
-print(chain.invoke({"context": context, "question": question}).content)
-```
-
-**The three production swaps:**
-- `InMemoryVectorStore` → `Chroma("./db", OpenAIEmbeddings())` for persistence across restarts
-- `OpenAIEmbeddings()` → `HuggingFaceEmbeddings("all-MiniLM-L6-v2")` to run fully local
-- `TextLoader` → `WebBaseLoader([url])` or `PyPDFLoader("doc.pdf")` for different input sources
-
-**The limit:** This pipeline runs k=4 similarity searches across all stored chunks with no metadata filtering. As your corpus grows past a few hundred documents, retrieval precision degrades — add metadata filtering or hybrid search (BM25 + vector) before that happens. It also has no citation tracking and no conversation memory; each is a one-layer addition covered in separate posts.
-
-**Sources:** [Build a RAG agent with LangChain — Official Docs](https://docs.langchain.com/oss/python/langchain/rag) · [Build a semantic search engine — LangChain Official Docs](https://docs.langchain.com/oss/python/langchain/knowledge-base) · [LangChain Part 3: Retrieval and RAG — jtdub.com (Aug 2026)](https://www.jtdub.com/2026/08/27/langchain-part-3-retrieval-and-rag/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
 
