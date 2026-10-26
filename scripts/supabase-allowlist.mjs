@@ -23,6 +23,19 @@ export function mergeAllowList(current, add) {
   return out.join(',');
 }
 
+/**
+ * The list to write, from the GET's response. Throws unless the read succeeded and
+ * returned a real list (a string, or an explicit null for "empty"), so a failed or
+ * odd read can never be mistaken for an empty list and wipe the existing entries.
+ */
+export function nextAllowList(res, body, add) {
+  if (!res.ok) throw new Error(`management API read failed: HTTP ${res.status}${body?.message ? ` (${body.message})` : ''}`);
+  const current = body?.uri_allow_list;
+  if (current !== null && typeof current !== 'string') throw new Error('management API returned no uri_allow_list');
+  const before = current ?? '';
+  return { before, after: mergeAllowList(before, add) };
+}
+
 function parseEnv(p) {
   const out = {};
   try {
@@ -58,12 +71,12 @@ async function main() {
   const API = `https://api.supabase.com/v1/projects/${ref}/config/auth`;
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
 
-  const before = await (await fetch(API, { headers })).json();
-  if (before.message) { console.error(`✗ management API: ${before.message}`); process.exit(1); }
-  const after = mergeAllowList(before.uri_allow_list, add);
-  console.log('before:', before.uri_allow_list || '(empty)');
+  const read = await fetch(API, { headers });
+  const body = await read.json().catch(() => null);
+  const { before, after } = nextAllowList(read, body, add);
+  console.log('before:', before || '(empty)');
   console.log('after: ', after);
-  if (after === (before.uri_allow_list || '')) { console.log('· nothing to change'); return; }
+  if (after === before) { console.log('· nothing to change'); return; }
   if (dryRun) { console.log('· dry run: nothing written'); return; }
 
   const res = await fetch(API, { method: 'PATCH', headers, body: JSON.stringify({ uri_allow_list: after }) });
