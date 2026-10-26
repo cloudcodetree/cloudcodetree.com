@@ -35,6 +35,7 @@ The owner wants two things, in this order:
 | Hosting | **Google Cloud Run free tier, with deal pages served static from Cloudflare.** |
 | If Best Buy can't carry verdicts | Verdicts move to a **"check a deal"** mode: the shopper types a product and price and gets the verdict. Best Buy search still runs, without verdicts. |
 | Teaching snapshot | **Kept** as the teaching and training data, **minus the image URLs**, which are removed from the committed file and the lab. |
+| Supabase | **DealFinder shares the site's `cct-demos` project**: one sign-in across cloudcodetree.com and DealFinder, $0. The free plan's two active slots are taken by `homestead-finder` and `cct-demos`. |
 | Payments lesson (P34) | **Stripe in test mode**: real code, committed and tested, never switched on in the live product. |
 
 ## 3. Goals
@@ -83,7 +84,7 @@ browser ──► deals.cloudcodetree.com  (Cloudflare Worker, zone managed by i
               ├─ /api/*  → Cloud Run service (FastAPI), with edge cache + rate limit
               └─ /lab/*  → Cloud Run service (lab UI + inspectors)
 Cloud Scheduler ──► Cloud Run job(s): refresh catalog + rebuild static deal pages, re-price watchlists + send alerts, keep-alives
-Supabase (free): Postgres + pgvector + Auth      Resend (free): email      Sentry (free): errors      Healthchecks.io (free): dead-man's switch
+Supabase `cct-demos` (shared with the site): Postgres + pgvector + Auth      Resend (free): email      Sentry (free): errors      Healthchecks.io (free): dead-man's switch
 ```
 
 ### 6.2 Data and verdicts
@@ -109,10 +110,11 @@ Supabase (free): Postgres + pgvector + Auth      Resend (free): email      Sentr
 
 - Supabase Auth with Google, GitHub and magic link. The backend verifies Supabase JWTs against JWKS (ES256). **Remove the `X-User-Id` header path entirely**; today it lets anyone read or edit any watchlist (`tenancy.py:79-83`).
 - Per-user isolation keeps the existing Postgres RLS pattern (`userstore.py`, non-superuser app role).
+- **Shared project rules.** DealFinder's tables live in their own `dealfinder` schema, never in `public`. The Cloud Run backend connects through the pooler as a dedicated non-superuser role (`dealfinder_app`) granted only that schema, because superusers bypass RLS. RLS policies key on `auth.uid()`, so a cloudcodetree.com account is a DealFinder account. Migrations stay in the DealFinder repo and run against the `dealfinder` schema only; they never touch the site's tables. pgvector is enabled in the project. DealFinder's data must fit beside the site's within the free plan's 500 MB, which the 72-hour Best Buy limit keeps small; the builder measures it. The site's daily heartbeat (`worker/keepalive.ts`) already keeps the project awake, so DealFinder needs no keep-alive of its own.
 - Watchlist prices come from the server, never the client (`serve.py:248` today trusts the client).
 - Saved searches get a table and routes.
 - A scheduled re-price job checks watchlist and saved-search items against Best Buy and emails a price drop through Resend, with an unsubscribe link. It is idempotent and catches up after a missed run. A Healthchecks.io ping alerts when the last good run is too old.
-- **No cron on GitHub Actions.** Its terms bar "part of a serverless application" use. Scheduling is Cloud Scheduler, including the Supabase keep-alive for the new project. GitHub Actions stays for build, test and deploy, which its terms allow. Lesson from the site (2026-10-25): an anonymous read did NOT stop the free project from pausing; the site now writes a throttled heartbeat row daily from a Worker Cron Trigger (`worker/keepalive.ts`, migration 0008). DealFinder's keep-alive must also be a write, plus a dead-man's switch.
+- **No cron on GitHub Actions.** Its terms bar "part of a serverless application" use. Scheduling is Cloud Scheduler, no keep-alive needed (the site's heartbeat covers the shared project). GitHub Actions stays for build, test and deploy, which its terms allow. Lesson from the site (2026-10-25): an anonymous read did NOT stop the free project from pausing; the site now writes a throttled heartbeat row daily from a Worker Cron Trigger (`worker/keepalive.ts`, migration 0008). DealFinder's keep-alive must also be a write, plus a dead-man's switch.
 
 ### 6.6 Request path: performance, cost, abuse
 
@@ -226,7 +228,7 @@ The owner walks through every lesson, then the course is released by adding the 
   - Cloud Run service with `min-instances=0`.
   - Cloud Run jobs plus Cloud Scheduler for scheduled work.
   - Secret Manager for secrets.
-  - Supabase in a new free project, separate from `cct-demos`, holding the data, pgvector and auth. It is reached through the pooler (port 6543).
+  - Supabase: the shared `cct-demos` project (owner decision), `dealfinder` schema, `dealfinder_app` role, reached through the pooler (port 6543).
   - The Worker on the existing Cloudflare zone, managed in `infra/`.
 - **Front end.** React + Vite for the shopper page, styled with the Nocturne tokens. The lab is the existing Nocturne HTML served at `/lab`. `index.html` is retired as a product UI.
 - **Course pipeline.** The §7.1 pipeline, with steps as generated commits.
@@ -238,14 +240,12 @@ The owner walks through every lesson, then the course is released by adding the 
 
 ## 9. Open items for the builder
 
-- **O0. Supabase slot (owner decision).** The free plan allows two active projects. `homestead-finder` and the site's `cct-demos` are both active (verified 2026-10-25). DealFinder's own project (`deal-finder`, paused) cannot also be active. Options: share `cct-demos` (one sign-in across the site and DealFinder), or give DealFinder homestead's slot.
-
 - **O1. Owner-only setup.** These need the owner's identity, so no agent can do them. The builder tries API routes first, quotes any failure, and asks only for what remains:
   - a GCP account with billing enabled (a card is required even on the free tier)
   - a Best Buy API key
   - eBay developer keys and production access
   - Resend, Sentry and Healthchecks.io accounts
-  - OAuth client redirect URIs for the new Supabase project
+  - Adding `https://deals.cloudcodetree.com` to the shared project's auth redirect allowlist (`scripts/configure-auth.mjs` may do this through the Management API; try it first)
 - **O2. Facts to verify before relying on them.** Research marks each as secondary or unconfirmed:
   - the Cloud Run free tier for jobs
   - the Cloud Scheduler free job count
