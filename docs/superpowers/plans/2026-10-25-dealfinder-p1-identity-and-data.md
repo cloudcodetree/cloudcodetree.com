@@ -14,14 +14,16 @@
 
 ## Plan sequence (this is Plan 1)
 
+Shared names, routes and migration numbers for Plans 1-6: `docs/superpowers/plans/2026-10-26-dealfinder-launch-contracts.md`.
+
 1. **Identity and data foundation** ← this plan.
-2. Live data and verdict compliance: Best Buy source + attribution + 72-hour purge, eBay box without verdicts, "check a deal" mode, concurrent sources, snapshot `image_url` strip, response caching.
-3. Hosting: Cloud Run service and jobs, Cloud Scheduler, Secret Manager, the `deals.cloudcodetree.com` Worker, static deal pages, budget caps, `COST.md` + `cost_check.py` for the cloud.
-4. Shopper front end (React + Nocturne tokens), the lab at `/lab`, accessibility CI.
-5. Alerts (re-price job + Resend), observability (Sentry, logs, dead-man's switch), privacy pages, launch-gate rewrite in `ROADMAP.md`.
-6. Course lesson-build pipeline: generated step commits, anchor includes, captured outputs, CI per step, screenshot manifests.
-7. Course re-grounding + three new lessons (split by course phase).
-8. Soft launch, owner walkthrough, release, Show HN.
+2. Live data and verdict compliance: `2026-10-26-dealfinder-p2-live-data-and-verdicts.md`.
+3. Hosting: `2026-10-26-dealfinder-p3-hosting.md`.
+4. Shopper front end and the lab: `2026-10-26-dealfinder-p4-shopper-front-end.md`.
+5. Alerts, observability, privacy and the launch gate: `2026-10-26-dealfinder-p5-alerts-observability-privacy.md`.
+6. Course lesson-build pipeline: `2026-10-26-dealfinder-p6-course-build-pipeline.md`.
+7. Course re-grounding plus three new lessons. Written after Plans 1-5 land, against the final code.
+8. Soft launch, owner walkthrough, release, Show HN. Written after Plan 7.
 
 ## Global Constraints
 
