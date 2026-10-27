@@ -12,7 +12,202 @@
     <language>en-us</language>
     <lastBuildDate>Tue, 27 Oct 2026 04:12:00 +0000</lastBuildDate>
 
-<item>
+  <item>
+    <title><![CDATA[Your Claude Code Monitor Commands Were Silently No-Ops on Bedrock and Vertex — v2.1.307 Fixes That and Brings Cross-Session Messaging to Enterprise Deployments]]></title>
+    <link>https://code.claude.com/docs/en/changelog</link>
+    <guid isPermaLink="false">2026-10-27-04-claude-code-monitor-bedrock-vertex-foundry</guid>
+    <pubDate>Tue, 27 Oct 2026 12:29:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Claude Code v2.1.307 (Oct 23) enables Monitor, SendMessage, and ListAgents on Bedrock, Vertex AI, and Microsoft Foundry — Monitor was silently inoperable on these backends until now.]]></description>
+    <content:encoded><![CDATA[**Claude Code v2.1.307 (Oct 23) enables Monitor, plugin monitors, SendMessage, and ListAgents on Bedrock, Vertex AI, and Microsoft Foundry — Monitor was previously silently inoperable on these backends.**
+
+If your organization routes Claude Code through AWS Bedrock or Google Vertex (as most enterprise deployments do), Monitor calls were accepted without error but doing nothing. The same was true in sessions where nonessential traffic is disabled. As of Oct 23, all behaviors match the direct Anthropic API.
+
+**What Monitor actually does:** it runs a command in the background and feeds each line of output back to Claude as the command runs — not after it finishes. Claude Code invokes it as a first-class tool call during a session:
+
+```
+Monitor(command="pytest --tb=short -q", timeout=120)
+# Claude sees each test result as it streams; it can start fixing failures
+# before the full suite finishes, rather than reading the dump at the end
+```
+
+A Claude Code session watching `pytest` in real time can iterate on failures inline rather than running the full suite, reading output, then fixing — cutting the outer loop from minutes to seconds on large test suites.
+
+**Cross-session messaging on enterprise backends:** `SendMessage` (send a message to a named running session) and `ListAgents` (enumerate active sessions) also work now on Bedrock/Vertex/Foundry. Multi-agent workflows that coordinate across sessions work the same behind an enterprise backend as they do with a direct API key.
+
+**What also changed in the same update:** auto mode on Bedrock/Vertex/Foundry now uses the same classifier defaults as the Anthropic API. Long foreground `sleep` commands are blocked on these platforms (same behavior as the direct API now). If you have an automation that `sleep`s between steps, replace it with a Monitor poll:
+
+```
+Monitor(command="until [ -f .done ]; do sleep 2; done")
+```
+
+**Limits:** Monitor still doesn't work in `claude mcp serve` mode. Auto mode Monitor allow-rules are set aside while auto mode is active, so Monitor commands on Bedrock go through the same classifier review as Bash commands — allow rules you set for Monitor don't bypass auto-mode review.
+
+**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Monitor tool reference — code.claude.com](https://code.claude.com/docs/en/tools-reference)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your LangGraph Agent Crashes the Whole Graph When One Node Times Out — v1.2 Adds Per-Node Timeouts and Error Handlers That Route to Recovery Nodes]]></title>
+    <link>https://docs.langchain.com/oss/python/langgraph/fault-tolerance</link>
+    <guid isPermaLink="false">2026-10-27-05-langgraph-node-timeout-error-handler-fault-tolerance</guid>
+    <pubDate>Tue, 27 Oct 2026 12:28:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Agents</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[LangGraph v1.2 ships per-node timeouts, error handlers that route to recovery nodes, and graceful shutdown that saves a resumable checkpoint — a stuck node no longer crashes the whole graph.]]></description>
+    <content:encoded><![CDATA[**LangGraph v1.2 ships per-node timeouts, error handlers that route to recovery nodes instead of crashing the whole graph, and graceful shutdown that saves a resumable checkpoint.**
+
+Before v1.2, an unhandled exception or stuck API call in any node crashed the entire graph unless you wrapped every node in `try/except`. The new fault-tolerance primitives handle this at the graph level.
+
+**Per-node timeout — async nodes only:**
+
+```python
+from datetime import timedelta
+
+builder.add_node(
+    "call_external_api",
+    call_api_node,
+    timeout=timedelta(seconds=30)  # raises NodeTimeoutError after 30s
+)
+```
+
+`NodeTimeoutError` subclasses Python's built-in `TimeoutError`, so existing retry policies catch it by default. Adding a timeout to a sync node raises an error at `compile()` time — async-only.
+
+**Node-level error handler with routing:**
+
+```python
+from langgraph.types import Command, NodeError
+
+async def handle_api_failure(state: MyState, error: NodeError) -> Command:
+    return Command(
+        update={"last_error": str(error.original_error)},
+        goto="fallback_node"   # route to a recovery node
+    )
+
+builder.add_node(
+    "call_external_api",
+    call_api_node,
+    timeout=timedelta(seconds=30),
+    error_handler=handle_api_failure
+)
+```
+
+The handler runs only after all retries are exhausted. If the process crashes before the handler finishes, the failure context is saved in the checkpoint — on resume, the handler sees the same `NodeError`.
+
+**Graph-wide defaults and graceful shutdown:**
+
+```python
+# Set defaults for all nodes; per-node values override at compile time
+builder.set_node_defaults(timeout=60.0, retry=RetryPolicy(max_attempts=3))
+
+# Graceful shutdown on SIGTERM
+from langgraph.types import RunControl
+control = RunControl()
+signal.signal(signal.SIGTERM, lambda *_: control.request_drain())
+# request_drain() waits for the current superstep, saves a resumable
+# checkpoint, and raises GraphDrained — no lost work
+```
+
+**Why it matters for this reader:** LangGraph graphs that call external APIs, run unattended in CI, or span overnight runs previously needed per-node defense. Now the graph itself handles failures, and a SIGTERM during a long agent run doesn't mean starting over from scratch.
+
+**Caveats:** Timeouts are async-only; error handlers can't themselves have error handlers (prevents recursion); graceful shutdown requires wiring in `RunControl`, which is a new setup step.
+
+**Sources:** [Fault tolerance in LangGraph — docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/fault-tolerance) · [LangChain October 2026 newsletter — langchain.com/blog](https://www.langchain.com/blog/october-2026-langchain-newsletter) · [Community thread on parallel-node failures — forum.langchain.com](https://forum.langchain.com/t/parallel-nodes-how-to-manage-failures-or-exceptions/3226)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your LLM App Has No Regression Tests — inspect-ai Writes an Eval in 30 Lines: Task, Solver, Scorer, Run]]></title>
+    <link>https://inspect.aisi.org.uk/tutorial.html</link>
+    <guid isPermaLink="false">2026-10-27-06-inspect-ai-llm-eval-task-solver-scorer</guid>
+    <pubDate>Tue, 27 Oct 2026 12:27:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[pip install inspect-ai; define a @task returning Task(dataset, solver, scorer); run inspect eval to grade any model against your inputs and catch regressions before users do.]]></description>
+    <content:encoded><![CDATA[**pip install inspect-ai; define a @task returning Task(dataset, solver, scorer); run `inspect eval` to grade any model against your inputs and catch regressions before they reach users.**
+
+**What you'll be able to do after this:**
+- Write a repeatable LLM eval that runs against Claude, OpenAI, or a local Ollama model with one flag swap
+- Grade model outputs against expected answers — exact match, substring, or a second model as judge
+- Spot regressions when you change a system prompt, swap models, or update your context pipeline
+
+## The 30-line eval
+
+```python
+from inspect_ai import task
+from inspect_ai.dataset import Sample
+from inspect_ai.solver import generate, system_message
+from inspect_ai.scorer import includes, model_graded_qa
+from inspect_ai.task import Task
+
+@task
+def qa_regression():
+    return Task(
+        dataset=[
+            Sample(
+                input="What is the output of list(range(3))?",
+                target="[0, 1, 2]"
+            ),
+            Sample(
+                input="Write a one-liner to reverse a Python list.",
+                target="returns reversed list"
+            ),
+        ],
+        solver=[
+            system_message("Answer concisely and precisely."),
+            generate()
+        ],
+        scorer=includes()   # target string must appear in the model output
+    )
+```
+
+Run it: `inspect eval qa_regression.py --model anthropic/claude-sonnet-4-6`
+
+Swap models without touching the file: `--model openai/gpt-4o` or `--model ollama/llama3.2`.
+
+## Scorers: choosing the right one
+
+| Scorer | Use when | Cost |
+|---|---|---|
+| `match()` | Exact or case-insensitive string | None |
+| `includes()` | Target appears anywhere in output | None |
+| `model_graded_qa()` | No single correct string; prose or code | One model call per sample |
+
+```python
+# Use a cheaper model to grade to keep costs manageable
+scorer=model_graded_qa(
+    model="anthropic/claude-haiku-5-5",
+    instructions="Grade: does the response correctly solve the task?"
+)
+```
+
+## Reviewing runs
+
+`inspect view` opens a local web UI showing per-sample grading, the full conversation, and scorer reasoning — useful for finding systematic failure patterns.
+
+## Three limits to know
+
+1. `model_graded_qa()` adds a model call per sample; grading cost can match eval cost at scale. Use `includes()` or `match()` where possible.
+2. Pin your `inspect-ai` version — the scorer API changed between 0.3.x releases.
+3. Multi-agent evals with sandboxed tool use require Docker or another sandbox provider as an extra setup step.
+
+inspect-ai is maintained by the UK AI Security Institute and ships with 200+ pre-built eval sets (Inspect Evals), including MMLU, HumanEval, and the safety benchmarks the institute uses for its own frontier-model testing.
+
+**Sources:** [inspect-ai Tutorial — inspect.aisi.org.uk](https://inspect.aisi.org.uk/tutorial.html) · [Inspect AI: An OSS Python Library For LLM Evals — hamel.dev](https://hamel.dev/notes/llm/evals/inspect.html) (independent practitioner review with creator guest lecture video)]]></content:encoded>
+  </item>
+
+  <item>
     <title><![CDATA[Your Complex Analysis Keeps Returning a Flat Wrong Answer — `thinking: {"type": "enabled", "budget_tokens": N}` Shows the Full Reasoning Chain Before the Final Response]]></title>
     <link>https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking</link>
     <guid isPermaLink="false">2026-10-27-03-extended-thinking-budget-tokens-reasoning-trace</guid>
@@ -6349,182 +6544,7 @@ Fallback fires automatically on: rate limits, provider downtime, context-length 
 **Sources:** [OpenRouter routing docs](https://openrouter.ai/docs/guides/routing) · [OpenRouter model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks) · [DataCamp OpenRouter tutorial](https://www.datacamp.com/tutorial/openrouter) · [Agno: increase reliability with OpenRouter failover](https://www.agno.com/changelog/increase-reliability-with-openrouter-failover-and-dynamic-model-routing)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Claude Code Subagents Don't Have to Be General-Purpose — Write a .claude/agents/ Markdown File, Restrict Its Tools, and Contain What Prompt Injection Can Reach]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-09-08-claude-code-custom-agent-definition-markdown-frontmatter-tools</link>
-      <guid isPermaLink="false">2026-10-09-08-claude-code-custom-agent-definition-markdown-frontmatter-tools</guid>
-      <pubDate>Fri, 09 Oct 2026 12:24:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>A .claude/agents/ Markdown file with YAML frontmatter creates a specialized subagent — lock its tools to what it actually needs to limit blast radius on untrusted inputs.</description>
-      <content:encoded><![CDATA[**A `.claude/agents/` Markdown file creates a specialized subagent the Agent tool auto-dispatches by description — restrict its tools to limit what a prompt-injected input can reach.**
-
-When the Agent tool selects from "Available agent types," those types come from Markdown files in `.claude/agents/` (project) or `~/.claude/agents/` (user). Writing one takes two minutes.
-
-**The file format**
-
-Create `.claude/agents/code-reviewer.md`:
-
-~~~md
----
-name: code-reviewer
-description: Use to review changed files for correctness and edge cases. Does not modify files.
-model: haiku
-tools:
-  - Read
-  - Grep
-  - Glob
----
-
-Review the files at the given paths for correctness, off-by-one errors, and unhandled edge cases. Report findings as a numbered list with file and line. Do not suggest refactors or style changes.
-~~~
-
-**Field reference**
-
-| Field | Required | What it does |
-|---|---|---|
-| `name` | yes | How the Agent tool addresses this agent |
-| `description` | yes | The routing key — write "Use to …" so dispatch is unambiguous |
-| `model` | no | `haiku` for cheap narrow tasks; omit to inherit session default |
-| `tools` | no | Allowed set; omit = all tools (blast-radius risk) |
-| Body | no | The system prompt |
-
-**Scope and priority**
-
-`.claude/agents/` is project scope — commit it for shared team agents. `~/.claude/agents/` applies to all your projects. Name collisions resolve highest-priority first; in nested project directories the file closest to the working directory wins (v2.1.178+).
-
-**The blast-radius argument for `tools`**
-
-A read-only reviewer with `Read`, `Grep`, `Glob` cannot write files or run commands — even if a prompt-injected input in a third-party file tries to override its instructions. When an orchestrator fans out parallel subagents over untrusted data (third-party code, user-supplied documents), tool restrictions are the containment boundary.
-
-**Check what's loaded**
-
-```bash
-claude agents    # lists all agents grouped by source, marks name overrides
-```
-
-**Stated limits:** No live reload — restart the session after editing frontmatter. The `/agents` wizard was removed in v2.1.198; write the file directly or ask Claude to scaffold it.
-
-**Sources:** [Subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Claude Code best practices 2026 — smartscope.blog](https://smartscope.blog/en/generative-ai/claude/claude-code-best-practices-advanced-2026/)]]></content:encoded>
-    </item>
-    <item>
-      <title><![CDATA[LIMA Proved 1,000 Curated Examples Beat 50,000 Noisy Ones — Build and Validate the Alpaca JSONL Dataset Your Fine-Tune Actually Needs]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-09-07-alpaca-jsonl-instruction-tuning-dataset-lima-quality</link>
-      <guid isPermaLink="false">2026-10-09-07-alpaca-jsonl-instruction-tuning-dataset-lima-quality</guid>
-      <pubDate>Fri, 09 Oct 2026 12:23:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <description>LIMA showed data quality beats data volume for instruction tuning — Alpaca JSONL format, four quality checks, and the Hugging Face datasets load that catches errors before training.</description>
-      <content:encoded><![CDATA[**LIMA (Meta, 2023) proved that 1,000 carefully curated instruction pairs matched or outperformed 175,000-example baselines — here's the Alpaca JSONL format, four quality checks, and the `datasets` load that catches schema errors before you touch a training script.**
-
-**What you'll be able to do after this:** build a well-formed Alpaca-format JSONL dataset, validate it for schema errors and near-duplicates, and load it with Hugging Face `datasets`, ready to hand to Unsloth, TRL, or any PEFT trainer.
-
-- LIMA showed that diversity and quality beat raw volume — 1,000 examples matched or outperformed 175,000-example baselines on several benchmarks.
-- The Alpaca format is `{"instruction": "...", "input": "...", "output": "..."}` — one JSON object per line in a `.jsonl` file; dumping a JSON array into `.jsonl` breaks most loaders silently.
-- Deduplicate, enforce consistent instruction style, and hold out 10–20% as validation before training — most practitioners skip this and blame the model.
-
-**Build and validate**
-
-```python
-import json
-from datasets import load_dataset
-
-rows = [
-    {"instruction": "Summarize this issue in one sentence.",
-     "input": "PR #42 breaks mobile auth because the session cookie lacks SameSite=Strict.",
-     "output": "PR #42 breaks mobile auth due to a missing SameSite flag."},
-    # Use input="" when there is no context — don't omit the key
-]
-
-with open("train.jsonl", "w") as f:
-    for row in rows:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-ds = load_dataset("json", data_files={"train": "train.jsonl"}, split="train")
-assert all("instruction" in ex and "output" in ex for ex in ds), "Missing required fields"
-
-ds.push_to_hub("yourorg/my-fine-tune-data", private=True)
-```
-
-**Four quality checks before training**
-
-1. **Schema:** every row has `instruction` and `output`; `input` is `""` when empty, not absent.
-2. **Duplicates:** the original Stanford Alpaca data has known duplicate answers — use the [cleaned fork](https://github.com/gururise/AlpacaDataCleaned) if you start from it.
-3. **Instruction consistency:** mixed imperative/question style forces the model to learn format variation alongside the actual task.
-4. **Length balance:** a 2,000-word `output` against a one-line instruction creates a distribution mismatch the model internalizes.
-
-**Stated limit:** Alpaca is single-turn only. Multi-turn dialogue requires ChatML (`{"messages": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]}`); Axolotl, TRL, and Unsloth all support both formats via a dataset type field in their config.
-
-**Sources:** [Preparing a Dataset for Instruction Tuning — W&B](https://wandb.ai/capecape/alpaca_ft/reports/How-to-Fine-Tune-an-LLM-Part-1-Preparing-a-Dataset-for-Instruction-Tuning--Vmlldzo1NTcxNzE2) · [AlpacaDataCleaned — gururise/GitHub](https://github.com/gururise/AlpacaDataCleaned) · [LLM Fine-Tuning Data Preparation — centron.de](https://www.centron.de/en/tutorial/llm-fine-tuning-data-preparation-guide/)]]></content:encoded>
-    </item>
-    <item>
-      <title>Your Data Extraction Retries on Schema Violations — `output_config.format` in the Claude API Uses Constrained Decoding to Make Invalid JSON Structurally Impossible</title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-09-06-claude-api-output-config-format-constrained-json</link>
-      <guid isPermaLink="false">2026-10-09-06-claude-api-output-config-format-constrained-json</guid>
-      <pubDate>Fri, 09 Oct 2026 12:15:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>output_config.format uses constrained decoding: schema violations are structurally impossible before sampling, not caught by retry logic after. No more JSON parse errors from extraction pipelines.</description>
-      <content:encoded><![CDATA[**Set `output_config={"format": {"type": "json", "json_schema": {...}}}` and Claude's constrained decoding prevents any non-schema response at the sampling level — no retry loop needed.**
-
-The traditional approach — "respond in JSON like this:" prompting — retries when Claude wraps the JSON in prose or produces a schema violation. The `tool_choice` force pattern guarantees a tool call but changes how Claude reasons about ambiguous input. `output_config.format` is a third path: **constrained decoding during generation**. Only tokens that keep the response valid against your schema can be sampled.
-
-```python
-import anthropic, json
-
-client = anthropic.Anthropic()
-response = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=1024,
-    output_config={
-        "format": {
-            "type": "json",
-            "json_schema": {
-                "name": "EntityExtraction",
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {"type": "array", "items": {"type": "string"}},
-                        "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]},
-                        "summary": {"type": "string"}
-                    },
-                    "required": ["entities", "sentiment", "summary"],
-                    "additionalProperties": False
-                }
-            }
-        }
-    },
-    messages=[{"role": "user", "content": "Analyze: 'Anthropic released a new prompting guide today.'"}]
-)
-# response.content[0].text is always valid JSON — parse directly, no try/except needed
-data = json.loads(response.content[0].text)
-```
-
-**Schema rule:** every object in the schema must set `"additionalProperties": False` (Python) / `false` (JSON Schema), or the API returns a 400.
-
-**SDK shortcut:** the Python SDK's `client.messages.parse()` accepts a Pydantic model directly — the SDK generates the schema and deserializes the response into a model instance.
-
-**What this doesn't fix:** constrained decoding guarantees the *shape* is right, not the *content*. It prevents `{"sentiment": "unknown"}` (not in the enum), but not `{"sentiment": "positive"}` on a text that's actually negative. Validate semantic correctness in your application.
-
-**Limits to know:**
-- Available on Claude Opus 4.8, Mythos Preview, Opus 4.7, 4.6, Sonnet 4.6, 4.5, Opus 4.5, Haiku 4.5 — not every Claude model
-- On AWS Bedrock: `output_config` cannot be combined with the citations feature (returns 400)
-- The old `output_format` parameter still works during transition, then deprecated — migrate now
-- Assistant-turn prefill is no longer supported on Opus 4.6+ models; use structured outputs instead
-
-**Sources:** [Structured outputs — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/structured-outputs) · [Structured outputs vs tool use vs prefills in 2026 — DEV community](https://dev.to/pavelespitia/structured-outputs-vs-tool-use-vs-prefills-getting-json-out-of-claude-in-2026-5fi0) · [Anthropic structured output example — Deno](https://docs.deno.com/examples/anthropic_structured_output/)]]></content:encoded>
-    </item>
-
+            
     
     
     
