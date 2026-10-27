@@ -152,3 +152,6 @@ crash.log
 /.prepared-images/
 
 /public/tutorials/topic/
+
+# Claude Code per-developer permissions (see CLAUDE.md "Claude Code Tooling")
+/.claude/settings.local.json
