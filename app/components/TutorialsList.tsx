@@ -219,14 +219,14 @@ export default function TutorialsList({ tutorials, seriesTotals, variant = 'seri
               : isSeries
               ? 'Hands-on, hand-written courses — each series rolled into one card you can flip through, part by part.'
               : seriesFilter ? `All ${filtered.length} parts of this course, in order. ` : 'Every tutorial as an individual card. '}
-            {!isSeries && <Typography component={Link} prefetch={false} href={seriesFilter ? '/tutorials/all/' : '/tutorials/'} sx={{ color: ACCENT, textDecoration: 'none', fontFamily: MONO, fontSize: 14, '&:hover': { color: LINK } }}>{seriesFilter ? '← All tutorials' : '← Back to series'}</Typography>}
+            {!isSeries && <Typography component={Link} prefetch={false} href={seriesFilter ? '/tutorials/' : '/tutorials/courses/'} sx={{ color: ACCENT, textDecoration: 'none', fontFamily: MONO, fontSize: 14, '&:hover': { color: LINK } }}>{seriesFilter ? '← All tutorials' : 'Browse by course →'}</Typography>}
           </Typography>
         </Box>
       </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: { xs: 2, md: 3 }, flexWrap: 'wrap' }}>
         {isSeries ? (
-          <Typography component={Link} prefetch={false} href="/tutorials/all/" sx={{ fontFamily: MONO, fontSize: 13, color: ACCENT, textDecoration: 'none', border: '1px solid rgba(148,188,227,0.3)', borderRadius: 1, px: 1.5, py: 0.75, '&:hover': { background: 'rgba(148,188,227,0.1)', color: LINK } }}>
+          <Typography component={Link} prefetch={false} href="/tutorials/" sx={{ fontFamily: MONO, fontSize: 13, color: ACCENT, textDecoration: 'none', border: '1px solid rgba(148,188,227,0.3)', borderRadius: 1, px: 1.5, py: 0.75, '&:hover': { background: 'rgba(148,188,227,0.1)', color: LINK } }}>
             {`See all ${tutorials.length} tutorials →`}
           </Typography>
         ) : (
