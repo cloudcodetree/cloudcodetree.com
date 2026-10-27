@@ -14,6 +14,24 @@
 
 **Repo and branch:** companion `~/Development/tutorial-dealfinder`, branch `feat/launch-p3-hosting`, cut from `origin/main` after Plan 2 merges, else stacked on `feat/launch-p2-*`. Task 7 is in the site repo `~/Development/cloudcodetree.com`, branch `feat/deals-infra` from `origin/main`.
 
+## Launch without Best Buy (owner decision, 2026-10-27)
+
+Best Buy has not issued an API key, so the launch runs with no Best Buy data. Nothing in this plan builds, schedules or serves deal pages yet. The deferred tasks stay written as they are. When a key arrives they run on their own branch, and the trims below are undone.
+
+**Deferred, do not execute now:**
+- Task 4, static deal pages.
+- Task 5, the jobs runner. With no stored rows and no pages, nothing needs scheduling.
+- Task 7, the R2 bucket.
+
+**Trims to the tasks that run:**
+- **Goal and Global Constraints.** At launch the backend runs on Cloud Run behind the Worker, with no R2 and no Cloud Scheduler job. The deal-page constraints wait with Task 4: the 72-hour pages, attribution on pages, `noindex` until a verdict, and the sitemap. Review Focus items 1, 2 and 5 are pinned in deferred tasks, so they wait too.
+- **Task 6.** No `PAGES` binding and no `deal` or `r2root` route. `run_worker_first` is `["/api/*", "/lab", "/lab/*"]`. `routeOf` returns `"api" | "lab" | "assets"`, so `/deal/*`, `/sitemap.xml` and `/robots.txt` fall through to assets. `dealKey` and the two deal-page tests wait. The routing test expects `routeOf('/deal/a-b')` to be `'assets'`, and the `noindex` test probes `/lab`. That leaves 8 tests.
+- **Task 8.** No `jobs.tf`, no `scheduler.tf` and no `dealfinder-scheduler` account. `apis.tf` leaves out `cloudscheduler`. `verdict_mode` defaults to `"check"`. `test_alerts_schedule_starts_paused` waits, and `test_ci_owns_the_image` expects at least 1 `ignore_changes`. That leaves 6 checks.
+- **Task 10.** Step 7, the jobs update, waits.
+- **Task 11.** The Tier 3 table leaves out Cloud Run jobs and R2, and lists Cloud Scheduler and the Best Buy API as "not used at launch". `live_report` leaves out the bucket check. Teardown leaves out the R2 line.
+- **Task 12.** Step 1 expects `BESTBUY_API_KEY` to be absent. Steps 2, 5, 7 and 10 wait. In Step 8 the deal-page row becomes two rows. `/api/search?q=tv` answers 200 with empty `results`, which shows the Best Buy source is off. `/lab` in Chrome DevTools renders through the Worker with its API base set to `/api`, with a screenshot saved.
+- **Owner setup.** The Best Buy key, Best Buy logo and R2 token rows wait.
+
 ## Plan sequence
 
 This is Plan 3 of 8. Plan 1 built identity and data. Plan 2 built live data and the license policy. Plan 4 is the shopper front end, which replaces whatever `frontend/dist` holds today. Plan 5 fills the `alerts` job and adds observability. The full list is in Plan 1.
@@ -276,6 +294,8 @@ git commit -m "build: non-root prod image with the embedding model baked in (<N>
 
 ### Task 4: Static deal pages
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `dealfinder/pages.py`
 - Create: `dealfinder/templates/deal_page.html`, `dealfinder/templates/deal.css`
@@ -411,6 +431,8 @@ The logo file belongs to Plan 4. This plan only references its path.
 ---
 
 ### Task 5: Jobs runner and dead-man's-switch pings
+
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
 
 **Files:**
 - Create: `dealfinder/jobs.py`, `dealfinder/healthcheck.py`
@@ -586,6 +608,8 @@ git commit -m "feat(edge): dealfinder-edge Worker: /api proxy, edge cache, /ask 
 ---
 
 ### Task 7: R2 bucket in the site's OpenTofu (site repo)
+
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
 
 **Files (site repo, branch `feat/deals-infra`):**
 - Modify: `infra/r2.tf` (add `cloudflare_r2_bucket.dealfinder_pages`)

@@ -14,6 +14,22 @@
 
 **Repo and branch:** `~/Development/tutorial-dealfinder`, branch `feat/launch-p5-ops` from `origin/main` after Plan 4 merges (else stacked on Plan 4's branch). Task 11's DNS records go in the site repo, branch `feat/deals-resend-dns`.
 
+## Launch without Best Buy (owner decision, 2026-10-27)
+
+Best Buy has not issued an API key. The launch has no store data, no sign-in on the shopper front end and no email. The deferred tasks stay written as they are and run as a follow-up once a key arrives.
+
+**Deferred, do not execute now:** Tasks 1 to 6, from migration 0005 through alert history retention.
+
+**Trims to the tasks that run:**
+- **Global Constraints and Review Focus.** The Resend, email, unsubscribe and `alert_log` constraints wait. Plan 3 creates no Cloud Scheduler job at launch, and neither does this plan. Review Focus items 1, 2 and 4 wait, and item 5 keeps only its delete half.
+- **Owner setup.** The Resend rows wait.
+- **Task 9.** The backend routes ship over the tables that exist now, `watchlist` and `saved_searches`. `profiles` and `alert_log` join them in the follow-up. The two UI controls wait with Plan 4's `WatchlistPage`. `cookie_audit.py` leaves out `/sitemap.xml` and both `/deal/` URLs.
+- **Task 10.** `runUptime` runs the `assets` and `api` probes. The `pages` probe waits with the R2 bucket. `healthchecks_setup.py` creates only `dealfinder-uptime`.
+- **Task 11.** `resend_domain.py` and the site's `infra/resend.tf` wait. The RUNBOOK lists only the keys production holds at launch, and rotation redeploys the service only. `COST.md` leaves out Resend.
+- **Task 12.** Each `privacy.md` heading states the launch facts: no sign-in, no email, and nothing stored about a visitor. Resend and the alert history leave the processor and retention lists. The watchlist note waits with `WatchlistPage`.
+- **Task 13.** "Price-drop alert delivery" stays unchecked, marked "Deferred: waits for a Best Buy key (2026-10-27)". The scheduled-jobs box keeps its `maxScale` proof. There are no jobs at launch.
+- **Task 14.** Steps 2, 3 and 5 wait. Step 1 adds only `SENTRY_DSN`, `CLOUDFLARE_AI_TOKEN` and the Worker's `HEALTHCHECK_UPTIME_URL`. Step 4 sends the drill message from a local script that reads `SENTRY_DSN` from the env file itself. Step 7 runs the cookie audit only. Step 8 opens the companion PR only. Open question 2 waits with the email.
+
 ## Plan sequence (this is Plan 5)
 
 1. Identity and data. 2. Live data and verdicts. 3. Hosting. 4. Shopper front end. **5. Alerts, observability, privacy, launch gate ← this plan.** 6. Course build pipeline. 7. Course re-grounding. 8. Launch.
@@ -63,6 +79,8 @@ Each item says what an agent tries first. Ask the owner only for what fails, and
 ---
 
 ### Task 1: Migration 0005, profile capture, watch baselines
+
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
 
 **Files:**
 - Create: `dealfinder/migrations/0005_profiles_and_alerts.sql`
@@ -147,6 +165,8 @@ git commit -m "feat(alerts): profiles from the verified email claim, alert log, 
 
 ### Task 2: `notify.py`, the Resend sender
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `dealfinder/notify.py`
 - Test: `tests/test_notify.py`
@@ -213,6 +233,8 @@ git commit -m "feat(alerts): Resend notifier with idempotency keys and one-click
 
 ### Task 3: Signed unsubscribe links and routes
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `dealfinder/unsubscribe.py`
 - Modify: `dealfinder/serve.py` (`GET /unsubscribe`, `POST /unsubscribe`, `PATCH /account`)
@@ -278,6 +300,8 @@ git commit -m "feat(alerts): signed unsubscribe links, RFC 8058 one-click POST, 
 
 ### Task 4: The alert rule and the email
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `dealfinder/alert_email.py`
 - Test: `tests/test_alert_email.py`
@@ -289,7 +313,7 @@ git commit -m "feat(alerts): signed unsubscribe links, RFC 8058 one-click POST, 
   - `@dataclass(frozen=True) class AlertItem: kind: str; title: str; price: float; url: str; baseline: float | None; target: float | None; query: str | None`
   - `render_alert_email(to: str, items: list[AlertItem], *, unsubscribe_url: str, checked_at: datetime, idempotency_key: str, mode: str = "live") -> Email`
   - Subject: `Price drop: {title} is now ${price:.2f}` for one price-drop item, `DealFinder: {n} price alerts` otherwise.
-  - Body, html and text alike: each item with its price. A drop says "down from ${baseline:.2f} when you started watching" in `live` mode, and "at or below your target of ${target:.2f}" in `check` mode, with no other comparison. The body also carries `WATCH_REMOVAL_NOTE = "If Best Buy stops listing an item for about 2.5 days, we remove it from your watchlist."` (Plan 2's purge drops rows unchecked for 47 h). Then the attribution "Prices from Best Buy" linking `https://www.bestbuy.com`, the stale note `STALE_PRICE_NOTE = "Prices change, so check the store before you buy."` with the checked time in UTC, a "Why you got this" line, the manage link `https://deals.cloudcodetree.com/watchlist`, and the unsubscribe link.
+  - Body, html and text alike: each item with its price. A drop says "down from ${baseline:.2f} when you started watching" in `live` mode, and "at or below your target of ${target:.2f}" in `check` mode, with no other comparison. The body also carries `WATCH_REMOVAL_NOTE = "If Best Buy stops listing an item for about 2 days, we remove it from your watchlist."` (Plan 2's purge drops rows unchecked for 47 h). Then the attribution "Prices from Best Buy" linking `https://www.bestbuy.com`, the stale note `STALE_PRICE_NOTE = "Prices change, so check the store before you buy."` with the checked time in UTC, a "Why you got this" line, the manage link `https://deals.cloudcodetree.com/watchlist`, and the unsubscribe link.
   - Rendering is pure and deterministic. A retry must produce the same payload, because Resend rejects a reused key with a different body.
 
 - [ ] **Step 1: Write the failing tests**
@@ -342,6 +366,8 @@ git commit -m "feat(alerts): drop rule on our own observed baseline; determinist
 
 ### Task 5: `run_alerts`, the job
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `dealfinder/alerts.py`
 - Modify: `dealfinder/jobs.py` (register `alerts`)
@@ -356,7 +382,7 @@ git commit -m "feat(alerts): drop rule on our own observed baseline; determinist
   - `python -m dealfinder.jobs alerts` runs it. The job exits 1, and Plan 3's wrapper pings `fail`, on an exception or when sends were attempted and none succeeded. Deferral alone is not a failure.
 - Algorithm (the order matters, so it is fixed here):
   1. **Retry.** Batches with status `pending` older than 10 min and younger than 23 h are re-rendered from `payload` and resent with key `dealfinder-alerts/<batch_id>`. Pending batches older than 23 h become `failed`, plus a Sentry warning. Resend's dedup window is 24 h.
-  2. **Re-price.** Collect distinct watched `offer_id`s whose source passes `licensing.may_store` (Best Buy only, since eBay rows are never stored or watched) and call `lookup` once with their SKUs. `lookup_skus` raises on any failure and never returns a partial result. On a raise, touch no row, re-raise, and let the job ping `fail`. The next run catches up. For each SKU found, update `dealfinder.offers` (`price`, `fetched_at = now`) and every watchlist row for it (`last_price`, `last_checked_at = now`, `title`, `url`). That refresh is what keeps watched rows inside the 72-hour rule. A SKU absent from a successful lookup is counted in `missing` and left alone. Plan 2's purge (`margin_s=13*3600`) removes watch rows unchecked for 59 h, so this daily run must refresh every watched row.
+  2. **Re-price.** Collect distinct watched `offer_id`s whose source passes `licensing.may_store` (Best Buy only, since eBay rows are never stored or watched) and call `lookup` once with their SKUs. `lookup_skus` raises on any failure and never returns a partial result. On a raise, touch no row, re-raise, and let the job ping `fail`. The next run catches up. For each SKU found, update `dealfinder.offers` (`price`, `fetched_at = now`) and every watchlist row for it (`last_price`, `last_checked_at = now`, `title`, `url`). That refresh is what keeps watched rows inside the 72-hour rule. A SKU absent from a successful lookup is counted in `missing` and left alone. Plan 2's purge (`margin_s=25*3600`) removes watch rows unchecked for 47 h, so this daily run must refresh every watched row.
   3. **Candidates.** Price drops: rows where `should_alert(baseline_price, new_price, target_price, mode=shop.verdict_mode())`. Saved searches: call `search(q)` once per distinct query. A match is a result with `price <= max_price` when `max_price` is set, else a result with `verdict == "deal"`. At most 3 matches per saved search.
   4. **Filter.** Drop users with no profile or `alerts_enabled = false`. Drop items whose `dedupe_hash = sha256(f"{kind}|{item_key}|{price_cents}")` already exists for that user. `item_key` is the `offer_id`, or `<search_id>:<offer_id>` for saved searches.
   5. **Send.** The budget is `ALERT_DAILY_CAP` minus the batches sent since 00:00 UTC. Users are taken in `user_id` order until the budget is spent. The rest count as `deferred_users` and get no rows, so the next run derives them again. Per user, insert all item rows as `pending` with one `batch_id` and commit. Then render, send, and record the result:
@@ -466,6 +492,8 @@ git commit -m "feat(alerts): daily re-price + digest emails, idempotent, capped,
 ---
 
 ### Task 6: Alert history retention
+
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
 
 **Files:**
 - Modify: `dealfinder/retention.py` (Plan 2)
@@ -876,7 +904,7 @@ git add infra/resend.tf && git commit -m "infra(dns): Resend sending records for
   12. "Contact"
 - `how-we-rank.md` must contain, under any heading Plan 4 chose, "no paid placement", "eBay", the seller's "was" price never used as a reference, `Prices change, so check the store before you buy.`, and an "AI-written text" section. The shopper page has none, and the lab's Ask answers are labelled. Add only what is missing.
 - The same stale-price sentence appears on the shopper results, every deal page and every email (Task 4).
-- Plan 4's watchlist page shows `If Best Buy stops listing an item for about 2.5 days, we remove it from your watchlist.` under its heading. That page is `frontend/src/pages/WatchlistPage.tsx`.
+- Plan 4's watchlist page shows `If Best Buy stops listing an item for about 2 days, we remove it from your watchlist.` under its heading. That page is `frontend/src/pages/WatchlistPage.tsx`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -898,7 +926,7 @@ test("the watchlist says when a watch is removed", async ({ page }) => {
   await signedIn(page, { sub: "u-1", email: "a@b.com", token: "t" });
   await stubApi(page, { watchlist: { count: 0, items: [] } });
   await page.goto("/watchlist");
-  await expect(page.getByText("If Best Buy stops listing an item for about 2.5 days, we remove it from your watchlist.")).toBeVisible();
+  await expect(page.getByText("If Best Buy stops listing an item for about 2 days, we remove it from your watchlist.")).toBeVisible();
 });
 ```
 

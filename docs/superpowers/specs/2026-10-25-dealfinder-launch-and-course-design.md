@@ -1,6 +1,7 @@
 # DealFinder: public launch + finishing the "Become a Full-Stack AI Engineer" course
 
 **Date:** 2026-10-25
+**Amended:** 2026-10-27. The launch ships without Best Buy (§2).
 **Status:** Ready for owner approval
 **Research behind every claim here:** `docs/superpowers/plans/2026-10-25-dealfinder-launch-research.md`
 **Repos:** product = `github.com/cloudcodetree/tutorial-dealfinder` (local `~/Development/tutorial-dealfinder`, HEAD `20b3fd5`); course = this repo (`app/tutorials/(article)/dealfinder-part-NN/page.draft.mdx`, all 37 held).
@@ -34,6 +35,7 @@ The owner wants two things, in this order:
 | Live data | **Verdicts only where store terms allow.** At launch that is Best Buy only. eBay listings appear in their own box with no verdict. RapidAPI shopping, Amazon, Shopify stores and iTunes are off. |
 | Hosting | **Google Cloud Run free tier, with deal pages served static from Cloudflare.** |
 | If Best Buy can't carry verdicts | Verdicts move to a **"check a deal"** mode: the shopper types a product and price and gets the verdict. Best Buy search still runs, without verdicts. |
+| Best Buy key (2026-10-27) | **Launch without Best Buy for now.** The key registered on 2026-07-02 is still pending, and Best Buy's contact form is the only route. The launch front page is Check a deal, plus the lab. Live search, deal pages, the watchlist, saved searches and price alerts wait for a key and ship as a follow-up. Plan 2's Best Buy code stays. Production runs with no Best Buy key and `DEALFINDER_VERDICT_MODE=check`. |
 | Teaching snapshot | **Kept** as the teaching and training data, **minus the image URLs**, which are removed from the committed file and the lab. |
 | Supabase | **DealFinder shares the site's `cct-demos` project**: one sign-in across cloudcodetree.com and DealFinder, $0. The free plan's two active slots are taken by `homestead-finder` and `cct-demos`. |
 | Payments lesson (P34) | **Stripe in test mode**: real code, committed and tested, never switched on in the live product. |
@@ -47,6 +49,8 @@ The owner wants two things, in this order:
 - G4. The "Under the hood" lab runs the real pipeline, eval and model views.
 - G5. Every launch-gate item in `ROADMAP.md` is real (enforced in the request path and tested), not demo-depth. The current state of each is in research §1. The gate is first rewritten to match this design: affiliate compliance is removed while revenue is skipped; cookie consent becomes "required only if a non-essential cookie is ever added; none at launch"; async/horizontal becomes "heavy work in scheduled jobs, capped horizontal scaling, no queue at launch"; cost documentation covers the cloud components.
 - G6. The monthly bill is $0, proven by a full month of GCP and Cloudflare billing reports.
+
+> **Amended 2026-10-27 (§2, Best Buy key).** G1, G2 and G3 wait for a Best Buy key. Until then the launch goal is: anyone can check a price at `deals.cloudcodetree.com` with no sign-up and get a fair-price verdict from the price model, and the lab runs live. G4, G5 and G6 stand.
 
 **Course**
 - G7. Every lesson's code, quoted output and screenshots are generated from the companion repo at that lesson's step, and CI fails when they drift.

@@ -7,6 +7,13 @@ and every plan that consumes it.
 **Spec:** `docs/superpowers/specs/2026-10-25-dealfinder-launch-and-course-design.md`
 **Plan 1:** `docs/superpowers/plans/2026-10-25-dealfinder-p1-identity-and-data.md`
 
+## Launch without Best Buy (owner decision, 2026-10-27)
+
+Best Buy has not issued an API key, so the launch ships without Best Buy data. The names below stay reserved and keep their meaning. They return as written in a follow-up once a key arrives.
+
+- **Deferred:** the `/deal/<slug>`, `/sitemap.xml` and `/robots.txt` rows of the URL map, the R2 bucket `dealfinder-pages` and the Worker's `PAGES` binding, both Cloud Scheduler jobs and their health checks, the R2, email and alert secrets (`CLOUDFLARE_R2_TOKEN`, `RESEND_API_KEY`, `UNSUBSCRIBE_SECRET`, `HEALTHCHECK_PAGES_URL`, `HEALTHCHECK_ALERTS_URL`), the Best Buy logo, and the front-end routes `/watchlist` and `/saved`.
+- **At launch:** `/` and `/check` serve Check a deal. `/robots.txt` comes from `frontend/dist`. Production sets `DEALFINDER_SOURCES=BestBuy` with no `BESTBUY_API_KEY`, so the source is off, and `DEALFINDER_VERDICT_MODE=check`. The lab hides sign-in while no live source is on.
+
 ## Repos and branches
 
 - Product: `~/Development/tutorial-dealfinder` (GitHub `cloudcodetree/tutorial-dealfinder`).

@@ -14,6 +14,23 @@
 
 **Repo and branch:** `~/Development/tutorial-dealfinder`, branch `feat/launch-p4-frontend`, cut from `origin/main` after Plan 3 merges. If Plan 3 is not merged yet, stack on its branch. Line numbers below are from `origin/main` at `20b3fd5`. Plans 1-3 shift them, so locate code by the function or element named.
 
+## Launch without Best Buy (owner decision, 2026-10-27)
+
+Best Buy has not issued an API key, so production has no live store data. The launch front page is Check a deal, plus the lab. The deferred tasks stay written as they are and run as a follow-up once a key arrives.
+
+**Deferred, do not execute now:**
+- Task 4, the search page.
+- Task 6, sign-in, watchlist and saved searches. Sign-in only unlocks those features (spec §6.3), so the shopper front end has no sign-in at launch.
+
+**Trims to the tasks that run:**
+- **Global Constraints and Review Focus.** The eBay box, logo, `regular_price` and result-order constraints wait with Task 4. Review Focus items 1, 2 and 4 wait. Item 3 keeps only its Task 5 half, and item 5 keeps only its 375 px half.
+- **Owner setup.** Both items wait. Nothing shows Best Buy data, and nothing signs in from the shopper front end.
+- **Task 1.** `GET /lab` adds `<meta name="live-data" content="on">` when any source from `live_sources.enabled_sources()` is available, else `content="off"`. While it is off, the `deals`, `stream` and `watchlist` modes show "Live store data is off until DealFinder has a Best Buy API key." with a link to `/`, and the header hides Sign in. Pin it with `test_lab_marks_live_data_off_without_a_source` in `tests/test_lab.py`: with no source available, the meta reads `off`.
+- **Task 3.** `api.ts` keeps `Verdict`, `CheckResponse`, `PublicConfig`, `ApiError`, `checkDeal` and `getConfig`. The search, watch and saved functions and types wait. Routes: `/` and `/check` both render `CheckPage`, then `/how-we-rank`, `/privacy` and `*`. `Layout` has no sign-in slot. Its footer note reads "Verdicts come from a price model trained on a fixed July 2026 snapshot, so its fair prices may be out of date. Check the store before you buy. Any AI-written text here is labeled AI-written." Fixtures: `CHECK_DEAL`, `CHECK_UNKNOWN_CATEGORY` and `CONFIG` only. Add `frontend/public/robots.txt`, disallowing `/api/` and `/lab`.
+- **Task 5.** This task creates `VerdictBadge.tsx` exactly as Task 4 defines it. It deletes `DealBadge.tsx`, and the old `ResultCard.tsx` and `SearchBar.tsx` once nothing imports them. `CheckPage` is the front page, under the heading "Check a deal". `/config.json` does not gain `verdictMode` yet, because no page reads it. `Attribution` is not built. The `check mode leads with the form` test waits with Task 4.
+- **Task 7.** `how-we-rank.md` states what runs at launch. There is one signal, the distance from our price model's fair price. The model is trained per category on the fixed July 2026 snapshot, and a product it cannot place gets no verdict. There is no paid placement, and the seller's "was" price is never used. No live store results are shown yet. `privacy.md` drafts only launch facts: checking a price needs no account, nothing you type is stored, and the front end sets no cookies.
+- **Task 8.** `live.spec.ts` drives the check form against the real backend. A known model returns one of the four badge tokens, and an unknown product returns none. The axe and 375 px runs cover `/`, `/how-we-rank`, `/privacy` and a 404.
+
 ## Plan sequence (this is Plan 4)
 
 1. Identity and data foundation.
@@ -328,6 +345,8 @@ git commit -m "feat(frontend): router shell, contract API client, /api proxy, mo
 
 ### Task 4: The shopper search page
 
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
+
 **Files:**
 - Create: `frontend/src/pages/SearchPage.tsx`, `frontend/src/components/VerdictBadge.tsx`, `frontend/src/components/PriceTag.tsx`, `frontend/src/components/EbayBox.tsx`, `frontend/src/components/Attribution.tsx`, `frontend/src/components/AiLabel.tsx`
 - Rewrite: `frontend/src/components/ResultCard.tsx`, `frontend/src/components/SearchBar.tsx`
@@ -523,6 +542,8 @@ git commit -m "feat(frontend): check-a-deal mode; the page leads with it when ve
 ---
 
 ### Task 6: Sign-in, watchlist and saved searches
+
+> **Deferred (2026-10-27):** waits for a Best Buy API key. See "Launch without Best Buy" at the top of this plan.
 
 **Files:**
 - Rewrite: `frontend/src/lib/supabase.ts`, `frontend/src/components/Auth.tsx`
