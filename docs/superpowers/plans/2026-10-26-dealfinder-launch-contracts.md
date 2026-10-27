@@ -97,7 +97,8 @@ The deals Worker (`edge/` in the companion, Worker name `dealfinder-edge`, Plan 
   }],
   "ebay": {"enabled": true, "note": "Listings from eBay. Not compared or rated.",
            "items": [{"id": "ebay-…", "title": "…", "price": 180.0, "currency": "USD", "url": "…", "condition": "Used", "image_url": "…"}]},
-  "attribution": [{"source": "BestBuy", "text": "Prices and product data from Best Buy", "url": "https://www.bestbuy.com", "logo": "bestbuy"}]
+  "attribution": [{"source": "BestBuy", "text": "Prices and product data from Best Buy", "url": "https://www.bestbuy.com", "logo": "bestbuy"}],
+  "degraded": false
 }
 ```
 
@@ -105,7 +106,11 @@ The deals Worker (`edge/` in the companion, Worker name `dealfinder-edge`, Plan 
   In `check` mode every `results[].verdict`, `fair`, `residual_frac`, `basis` and `pct_under_median` is `null`, the top-level
   `median_price` is `null`, and the front end leads with the check form.
 - `results[].slug` is `null` for a row without a SKU. Only course-only dev sources produce those.
-- `aggregate()` results also carry `timed_out: list[str]`, the sources that hit `DEALFINDER_SOURCE_TIMEOUT_S`.
+- `aggregate()` results also carry `timed_out: list[str]`, the sources that hit `DEALFINDER_SOURCE_TIMEOUT_S`, and
+  `benched: list[str]`, the sources skipped while their breaker cools down.
+- `degraded` is `true` when a store timed out, failed or was benched, so the results may be incomplete. A degraded
+  anonymous response is sent `Cache-Control: no-store`, never the edge's `public, max-age=300`. `/ranked` and the
+  `/search/stream` `done` event carry the same `attribution` list, and both null their median in `check` mode.
 - `verdict` is one of `deal | fair | overpriced | suspicious | null`. Only sources whose policy allows verdicts get one.
 - `regular_price` is display-only. It is never a reference price in any signal.
 - `ebay.enabled` is `false` and `items` is `[]` when eBay keys or production access are missing.
@@ -116,9 +121,9 @@ The deals Worker (`edge/` in the companion, Worker name `dealfinder-edge`, Plan 
 | Module | Plan | Public names |
 |---|---|---|
 | `dealfinder/licensing.py` | 2 | `SourcePolicy`, `POLICIES`, `LAUNCH_SOURCES`, `source_key(source) -> str`, `policy_for(source) -> SourcePolicy \| None`, `may_verdict(source) -> bool`, `may_store(source) -> bool`, `may_embed(source) -> bool`, `may_comingle(source) -> bool`. An unknown source is denied everything. |
-| `dealfinder/live_sources.py` | 2 | `enabled_sources(names: str \| None = None) -> list` (env `DEALFINDER_SOURCES`, comma list, unset = all course sources except eBay), `EBAY: EbaySource` (`is_sandbox`, env `DEALFINDER_EBAY_ALLOW_SANDBOX`), `BestBuySource.lookup_skus(skus: list[str]) -> dict[str, Product]`, which **raises** when a lookup fails, so a failure is never read as "item gone" |
-| `dealfinder/shop.py` | 2 | `score_offers(offers, median) -> list[dict]`, `shop_search(q, k=12) -> dict`, `ebay_box(q, limit=6) -> dict`, `check_deal(title, price) -> dict`, `offer_slug(title, sku) -> str`, `verdict_mode() -> str` |
-| `dealfinder/retention.py` | 2, 5 | `purge_expired(now=None, url=None, margin_s=13 * 3600) -> dict[str, int]` (Plan 5 adds the keys `alert_payloads` and `alert_log`); CLI `python -m dealfinder.retention`. The margin covers the 12 h purge interval, so the effective Best Buy cut-off is 59 h, not 72 h. |
+| `dealfinder/live_sources.py` | 2 | `enabled_sources(names: str \| None = None) -> list` (env `DEALFINDER_SOURCES`, comma list, unset = all course sources except eBay; with `DEALFINDER_ENV=production` an unset list or a `launch=False` source raises), `EBAY: EbaySource` (`is_sandbox`, env `DEALFINDER_EBAY_ALLOW_SANDBOX`), `BestBuySource.lookup_skus(skus: list[str]) -> dict[str, Product]`, which **raises** `RuntimeError` when a lookup fails (no key, a network error, a non-200 batch), so a failure is never read as "item gone" |
+| `dealfinder/shop.py` | 2 | `score_offers(offers, median) -> list[dict]`, `shop_search(q, k=12) -> dict`, `ebay_box(q, limit=6) -> dict`, `attribution_for(rows) -> list[dict]`, `check_deal(title, price) -> dict`, `offer_slug(title, sku) -> str`, `verdict_mode() -> str` |
+| `dealfinder/retention.py` | 2, 5 | `purge_expired(now=None, url=None, margin_s=25 * 3600) -> dict[str, int]` (Plan 5 adds the keys `alert_payloads` and `alert_log`); CLI `python -m dealfinder.retention`. The margin covers two 12 h purge intervals plus an hour, so a Best Buy row is gone before 72 h even when one run fails: the effective cut-off is 47 h. |
 | `dealfinder/settings.py` | 3 | `is_production() -> bool` (`DEALFINDER_ENV == "production"`), `load_secrets() -> None` (reads one JSON env var `DEALFINDER_SECRETS_JSON`, never overrides a set var) |
 | `dealfinder/ratelimit.py` | 3 | per-instance limiter keyed on `CF-Connecting-IP` |
 | `dealfinder/pages.py` | 3 | `render_deal_page(item, *, built_at, logo=False) -> str`, `render_sitemap(slugs, *, built_at) -> str`, `build_pages(queries, report=None) -> dict[str, str]`, `publish(pages, store, healthy=True, now=None) -> dict`, `PageStore`, `R2PageStore`, `DirPageStore` |
@@ -138,9 +143,9 @@ The deals Worker (`edge/` in the companion, Worker name `dealfinder-edge`, Plan 
 
 Both jobs ping `HEALTHCHECK_PAGES_URL` / `HEALTHCHECK_ALERTS_URL` with `start`, then `ok` or `fail`.
 
-Freshness rules both jobs honor: tracked Best Buy items and watched SKUs are refreshed well inside the 59 h purge
+Freshness rules both jobs honor: tracked Best Buy items and watched SKUs are refreshed well inside the 47 h purge
 cut-off. `last_checked_at` and `fetched_at` are updated only after a successful lookup, never after a failed one.
-A watch whose item stopped refreshing for 59 h is deleted by the purge.
+A watch whose item stopped refreshing for 47 h is deleted by the purge, so a watch survives about one failed daily re-price.
 No cron runs on GitHub Actions.
 
 ## Secrets

@@ -776,6 +776,15 @@ Merging the PR and applying `0003` and `0004` to the shared Supabase project eac
 
 ---
 
+## Changes made during execution
+
+The final review changed four interfaces later plans consume. The contracts file has the current values:
+- The retention margin is 25 h, a 47 h Best Buy cut-off, so one failed purge run still keeps rows under 72 h.
+  Task 8's 58 h / 60 h examples became 46 h / 48 h.
+- `/search` gains `degraded`. A degraded anonymous response is never edge-cached.
+- `lookup_skus` raises `RuntimeError` with no key instead of returning `{}`.
+- In production, `enabled_sources` raises unless `DEALFINDER_SOURCES` names only launch sources.
+
 ## Owner setup
 
 Each item is tried first without the owner. Ask only after quoting the failure.
