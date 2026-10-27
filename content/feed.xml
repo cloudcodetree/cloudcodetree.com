@@ -10,7 +10,123 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 27 Oct 2026 04:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 27 Oct 2026 20:04:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Multi-Agent Workflow Has No Cost Controls — Set max_budget_usd Per Subagent and Route Simple Tasks to a Cheaper Model]]></title>
+    <link>https://code.claude.com/docs/en/agent-sdk/subagents</link>
+    <guid isPermaLink="false">2026-10-27-07-per-subagent-budget-cap-model-routing-haiku</guid>
+    <pubDate>Tue, 27 Oct 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Set max_budget_usd per subagent to hard-cap spend and pass model: "haiku" for simple tasks — Haiku runs at roughly 1/15th the per-token cost of Sonnet, per Anthropic's pricing.]]></description>
+    <content:encoded><![CDATA[**Every parallel subagent in a Claude Code SDK workflow inherits your session's model and runs until done — two parameters add hard cost controls without touching your orchestration logic.**
+
+When a workflow fans out to 20 subagents, each one doing research or summarization at Sonnet rates, the bill is proportional to all of them finishing. Without explicit caps, a single misbehaving subagent can loop; without model routing, a subagent that just needs to classify "yes or no" pays the same rate as one reasoning through a complex migration.
+
+```typescript
+const results = await parallel(
+  tasks.map(t => () =>
+    agent(t.prompt, {
+      max_budget_usd: 0.05,                                       // hard stop per subagent
+      model: t.complex ? "claude-sonnet-4-6" : "claude-haiku-5-5",
+      label: `task:${t.id}`,
+    })
+  )
+)
+```
+
+**`max_budget_usd`**: The SDK tracks input + output token cost and terminates the subagent when the cap is reached, returning whatever it has accumulated. It is a hard stop, not a warning. Size conservatively for extraction or formatting tasks (these are predictable), more generously for reasoning or research (these are not). A subagent that hits its cap mid-task returns a partial result — that outcome should be handled by the caller.
+
+**Model routing**: `claude-haiku-5-5` runs at roughly 1/15th the per-token cost of Sonnet, per Anthropic's published pricing. For classification, extraction, summarization, or boolean checks, Haiku delivers comparable output quality. Pass `model` per subagent based on task complexity rather than one model across the entire workflow.
+
+**Permission prompt multiplication**: A fan-out of 20 subagents each needing to run a shell command prompts 20 times. Pre-approve read-only Bash operations with a `PreToolUse` hook so the workflow runs unattended:
+
+```json
+// .claude/settings.json — allow read-only shell ops inside subagents
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{"type": "command", "command": "bash .claude/hooks/auto-approve-reads.sh"}]
+    }]
+  }
+}
+```
+
+The hook script exits 0 (allow) for read-only commands and exits 1 (block + prompt) for anything else.
+
+One real limit: the spend cap does not distinguish between per-token cost and per-API-call overhead. A subagent that makes many short calls can exhaust its cap faster than one making fewer long calls. Calibrate caps against a sample run before setting them in production.
+
+**Sources:** [Subagents in the Claude Code SDK](https://code.claude.com/docs/en/agent-sdk/subagents), [Hooks](https://code.claude.com/docs/en/agent-sdk/hooks), [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Embedding Search Scans Every Vector on Every Query — FAISS's Two-Index Trade-off Cuts That to a Fixed Cluster Search]]></title>
+    <link>https://github.com/facebookresearch/faiss/wiki/Getting-started</link>
+    <guid isPermaLink="false">2026-10-27-08-faiss-indexflatl2-ivfflat-nprobe-in-memory-similarity-search</guid>
+    <pubDate>Tue, 27 Oct 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Vectors</category>
+    <category>Embeddings</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[IndexFlatL2 gives exact nearest-neighbor search with zero training; IndexIVFFlat partitions vectors into cells and searches only nprobe of them — trade a fraction of recall for speed.]]></description>
+    <content:encoded><![CDATA[**FAISS's two indexes trade recall for speed: IndexFlatL2 scans every vector (exact, no training); IndexIVFFlat partitions into cells and searches nprobe of them (approximate, fast).**
+
+**What you'll be able to do after this:** Build an in-memory vector similarity index with FAISS — from exact search for small collections to cell-partitioned approximate search for millions of vectors — and understand the one parameter (`nprobe`) that controls the recall/speed trade-off.
+
+- **IndexFlatL2** computes distance from the query to every vector in the index. Recall is always 100%; cost scales linearly with collection size. Correct choice up to ~100k vectors.
+- **IndexIVFFlat** partitions the space into `nlist` Voronoi cells at training time and assigns each vector to its nearest cell. At query time it searches only the nearest `nprobe` cells. Typical result at `nprobe=10` with `nlist=256`: 95–99% recall at a fraction of the brute-force cost.
+- **The `nprobe` dial**: higher = more recall, more compute. Start with `nprobe=10` and benchmark against a ground-truth set before setting a production value.
+
+**Walk-through:**
+
+```python
+import faiss
+import numpy as np
+
+# 50,000 embeddings at 768 dimensions (e.g. from sentence-transformers)
+d = 768
+n = 50_000
+rng = np.random.default_rng(42)
+vecs = rng.random((n, d)).astype("float32")  # FAISS requires float32
+
+# ── Exact search (IndexFlatL2) ──────────────────────────────────────────────
+flat = faiss.IndexFlatL2(d)
+flat.add(vecs)                          # no training required
+D, I = flat.search(vecs[:5], k=3)      # top-3 nearest neighbors
+
+# ── Approximate search (IndexIVFFlat) ──────────────────────────────────────
+nlist = 256          # cells; rule of thumb: sqrt(n) to 4*sqrt(n)
+quantizer = faiss.IndexFlatL2(d)       # coarse quantizer assigns vectors to cells
+ivf = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
+
+assert not ivf.is_trained
+ivf.train(vecs)                        # required: learns cell centroids from data
+ivf.add(vecs)
+
+ivf.nprobe = 10                        # search 10 of 256 cells; tune for recall
+D_ivf, I_ivf = ivf.search(vecs[:5], k=3)
+
+# ── Save / reload ───────────────────────────────────────────────────────────
+faiss.write_index(ivf, "index.faiss")
+loaded = faiss.read_index("index.faiss")
+```
+
+**When FAISS fits:** FAISS is pure in-process RAM — no server, no HTTP calls, no schema. It is the right tool for a prototype, a batch pipeline that rebuilds the index on every run, or a service where the full vector set fits in memory. Once the collection grows past available RAM, you need live updates, or you need metadata filtering (e.g. "only documents tagged topic:rag"), reach for Qdrant, Chroma, or pgvector instead — each of which was covered in earlier posts in this series.
+
+Install: `pip install faiss-cpu` (CPU-only); `faiss-gpu` for GPU acceleration on CUDA hardware.
+
+**Sources:** [FAISS Getting Started](https://github.com/facebookresearch/faiss/wiki/Getting-started), [PyImageSearch: Vector Search with FAISS — ANN Explained](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/), [Pinecone FAISS Tutorial](https://pinecone.io/learn/faiss-tutorial)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Monitor Commands Were Silently No-Ops on Bedrock and Vertex — v2.1.307 Fixes That and Brings Cross-Session Messaging to Enterprise Deployments]]></title>
@@ -6435,115 +6551,8 @@ Claude Code also applies prompt caching to CLAUDE.md files. After the first tool
 **Sources:** [Give Claude context: CLAUDE.md — Anthropic Support](https://support.claude.com/en/articles/14553240-give-claude-context-claude-md-and-better-prompts) · [Steering Claude Code: when to use CLAUDE.md, skills, hooks, and subagents — Anthropic](https://www.claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more) · [Subdirectory CLAUDE.md mechanics — ClaudeFa.st](https://claudefa.st/blog/guide/mechanics/subdirectory-claude-md)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Vector Retriever Scores Documents Independently of the Query — A Cross-Encoder Reranks the Pool by Attending to Both at Once]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-01-cross-encoder-reranking-two-stage-rag-retrieval</link>
-      <guid isPermaLink="false">2026-10-10-01-cross-encoder-reranking-two-stage-rag-retrieval</guid>
-      <pubDate>Sat, 10 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <category>Building AI Products</category>
-      <description>A cross-encoder scores query-document pairs together, not separately — retrieve 20-50 candidates with your vector index, then rerank them to put the genuinely most relevant chunks first.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** Add a reranking step to your RAG pipeline so the context window gets the most-relevant chunks — not just the ones with the best cosine similarity.
-
-**Why vector retrieval alone misses things**
-
-Bi-encoders (sentence-transformers, OpenAI embeddings) compress each document into a fixed vector at index time and score it against a query vector at search time. That single dot product captures broad semantic similarity but misses nuanced query–document interaction. A chunk that uses different phrasing from the query often scores lower than one that repeats the query's exact words without actually answering it.
-
-**Three things to understand**
-
-1. **Cross-encoders process query and document together.** A model like `cross-encoder/ms-marco-MiniLM-L6-v2` takes `[query, document]` concatenated as one input, runs full self-attention across both texts, and outputs a relevance score. Because each query changes the score, documents cannot be pre-encoded — cross-encoders are only used for reranking, never for first-stage retrieval.
-
-2. **Retrieve wide, rerank narrow.** A typical two-stage setup: retrieve the top 20–50 results with your vector index (fast), then rerank with the cross-encoder and pass the top 3–5 to the LLM. The cross-encoder sees a small pool, so latency stays manageable.
-
-3. **Two practical model families.** `cross-encoder/ms-marco-MiniLM-L6-v2` (sentence-transformers) is lightweight and fast — the default for most pipelines. `BAAI/bge-reranker-large` is slower and more accurate; worth the cost when retrieval quality is the bottleneck. Cohere Rerank is the hosted API option if you'd rather not run a model locally.
-
-**Steps (sentence-transformers)**
-
-```python
-from sentence_transformers import SentenceTransformer, CrossEncoder
-
-# First stage: vector retrieval (replace with your actual retriever)
-bi_encoder = SentenceTransformer('BAAI/bge-base-en-v1.5')
-# ... retrieve top 25 candidate chunks from your index into `candidates`
-
-# Second stage: cross-encoder reranker
-reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L6-v2')
-pairs = [(query, chunk['text']) for chunk in candidates]
-scores = reranker.predict(pairs)
-
-# Sort descending; take the top 5 for context
-reranked = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
-top_5 = [chunk for _, chunk in reranked[:5]]
-```
-
-**Limits:** Cross-encoders add latency proportional to pool size. Scoring 50 candidates with `bge-reranker-large` on a CPU can add 300–800 ms per request. Keep the reranker pool to 50 or fewer candidates and measure before deploying. If you need a hosted option with no local model, Cohere Rerank charges per query on a separate billing line, so factor that into cost projections.
-
-The DeepLearning.AI "Advanced Retrieval for AI with Chroma" course (free, ~1 hr) works through this exact pattern against a live Chroma database — it is the fastest hands-on starting point for seeing the before-and-after improvement.
-
-**Sources:** [Advanced Retrieval for AI — DeepLearning.AI](https://learn.deeplearning.ai/courses/advanced-retrieval-for-ai) · [Reranking in RAG Pipelines — Renumics / Towards Data Science](https://renumics.com/blog/reranking-in-rag-pipelines/) · [BGE Reranker Tutorial — bge-model.com](https://bge-model.com/tutorial/5_Reranking/5.1.html) · [Mastering RAG: How to Select a Reranking Model — Galileo](https://rungalileo.io/blog/mastering-rag-how-to-select-a-reranking-model)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[One `models` List Gives Your Agent Provider-Level Fallback — OpenRouter Routes to the Next Entry When the Primary Rate-Limits or Goes Down]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-09-09-openrouter-models-fallback-provider-routing</link>
-      <guid isPermaLink="false">2026-10-09-09-openrouter-models-fallback-provider-routing</guid>
-      <pubDate>Fri, 09 Oct 2026 20:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description>OpenRouter's models list falls back to the next provider automatically on rate limits, downtime, or context errors — one base_url change, two lines of config, no retry code.</description>
-      <content:encoded><![CDATA[**One `models` list in the request body turns your agent's "provider is down" into an automatic retry on the next provider — no error-handling code required.**
-
-Your agent calls one provider and either gets a response or throws. When the primary hits a rate limit or returns a 529, the call fails and it's your code's problem. OpenRouter puts a routing layer in front of models from Anthropic, OpenAI, Google, Mistral, Meta, and others behind a single OpenAI-compatible endpoint. Point your existing SDK at it, add a priority-ordered `models` list, and provider failover becomes a config change instead of error-handling logic.
-
-**Setup**
-
-Replace your `base_url` and API key:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="<your-openrouter-key>",
-)
-```
-
-Model IDs follow a `provider/model-name` convention — the full catalog is at [openrouter.ai/models](https://openrouter.ai/models).
-
-**Adding a fallback chain**
-
-Pass `models` as an ordered list via `extra_body` (the standard way to send OpenRouter-specific fields through the OpenAI SDK):
-
-```python
-response = client.chat.completions.create(
-    model="anthropic/claude-sonnet-4-6",
-    messages=[{"role": "user", "content": "..."}],
-    extra_body={
-        "models": [
-            "anthropic/claude-sonnet-4-6",   # primary
-            "openai/gpt-4o",                  # first fallback
-            "google/gemini-flash-2.5",        # second fallback
-        ]
-    },
-)
-print(response.model)   # reports which provider actually served
-```
-
-Fallback fires automatically on: rate limits, provider downtime, context-length validation errors, and moderation flags. The `response.model` field tells you which entry responded. The `x-openrouter-cost` response header gives you the per-request cost, which matters because billing goes to whichever model served the call.
-
-**Limits worth knowing:** The same model string does not guarantee identical outputs across providers — system prompt handling, tool-call quirks, and context limits vary between Anthropic-native and providers serving the same model via Bedrock or other intermediaries. Test your fallback targets explicitly before relying on them in production. If fallbacks fire frequently to more expensive models, costs can drift without warning; OpenRouter itself does not cap spend. The Anthropic Messages API path (`/api/v1/messages`) uses a separate `fallbacks` array capped at three entries, incompatible with the `models` list above.
-
-**Sources:** [OpenRouter routing docs](https://openrouter.ai/docs/guides/routing) · [OpenRouter model fallbacks](https://openrouter.ai/docs/guides/routing/model-fallbacks) · [DataCamp OpenRouter tutorial](https://www.datacamp.com/tutorial/openrouter) · [Agno: increase reliability with OpenRouter failover](https://www.agno.com/changelog/increase-reliability-with-openrouter-failover-and-dynamic-model-routing)]]></content:encoded>
-    </item>
-
+    
+    
             
     
     
