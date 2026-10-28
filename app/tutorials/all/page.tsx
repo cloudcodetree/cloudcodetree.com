@@ -6,7 +6,8 @@ export const metadata: Metadata = {
   title: 'All Tutorials · CloudCodeTree',
   description: 'Every released CloudCodeTree tutorial as an individual card — RAG, embeddings, fine-tuning, agents, and more.',
   alternates: {
-    canonical: 'https://cloudcodetree.com/tutorials/all/',
+    // Same view as /tutorials/ now; kept for old links and ?series= deep links.
+    canonical: 'https://cloudcodetree.com/tutorials/',
     types: { 'application/rss+xml': 'https://cloudcodetree.com/tutorials/feed.xml' },
   },
   openGraph: {

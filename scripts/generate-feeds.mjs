@@ -243,7 +243,7 @@ ${(t.tags || []).map((tag) => `    <category>${cdata(tag)}</category>`).join('\n
     { loc: `${SITE}/`, lastmod: newest, priority: '1.0' }, // home = AI News blog
     ...topics.map((t) => ({ loc: `${SITE}/ai-news/topic/${t.slug}/`, lastmod: newest, priority: '0.5' })),
     { loc: `${SITE}/tutorials/`, priority: '0.8' },
-    { loc: `${SITE}/tutorials/all/`, priority: '0.7' },
+    { loc: `${SITE}/tutorials/courses/`, priority: '0.7' },
     ...tutTopics.map((t) => ({ loc: `${SITE}/tutorials/topic/${t.slug}/`, priority: '0.5' })),
     ...tutorialSlugs.map((s) => ({ loc: `${SITE}/tutorials/${s}/`, priority: '0.7' })),
     { loc: `${SITE}/projects/`, priority: '0.8' },

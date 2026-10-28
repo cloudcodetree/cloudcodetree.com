@@ -19,7 +19,8 @@ export const metadata: Metadata = {
 };
 
 export default function TutorialsPage() {
-  // Newest first (descending order), mirroring the AI News blog.
-  const ordered = [...tutorials].sort((a, b) => b.order - a.order);
-  return <TutorialsList tutorials={ordered} seriesTotals={allSeriesTotals()} />;
+  // Every lesson as its own card by default; the per-course carousel view
+  // lives at /tutorials/courses/. Ascending (course order) like /tutorials/all/.
+  const ordered = [...tutorials].sort((a, b) => a.order - b.order);
+  return <TutorialsList tutorials={ordered} seriesTotals={allSeriesTotals()} variant="all" />;
 }

@@ -12,7 +12,7 @@ test('tutorial topics filter courses and link to their own static landing pages 
     || (process.env.PLAYWRIGHT_BASE_URL?.includes('beta.cloudcodetree.com') ?? false);
   let privateRequests = 0;
   page.on('request', (request) => { if (request.url().includes('.supabase.co')) privateRequests++; });
-  await page.goto('/tutorials/');
+  await page.goto('/tutorials/courses/');
   await expect(page.getByRole('heading', { name: /Become a full-stack AI engineer/ })).toHaveCount(preview ? 1 : 0);
   expect((await request.get('/tutorials/dealfinder-part-01/')).status()).toBe(preview ? 200 : 404);
   if (preview) await expect(page.getByRole('status')).toContainText('BETA PREVIEW');
@@ -37,6 +37,15 @@ test('tutorial topics filter courses and link to their own static landing pages 
   expect(merged.ok()).toBe(true);
   expect(await merged.text()).toContain('Tutorials ·');
   expect(privateRequests).toBe(0);
+});
+
+test('the tutorials landing lists every lesson and links to the course view', async ({ page }) => {
+  await page.goto('/tutorials/');
+  await expect(page.getByRole('heading', { name: 'All tutorials', exact: true })).toBeVisible();
+  await expect(page.locator(`main a[href="/tutorials/${slug}/"]`).first()).toBeVisible();
+  await page.getByRole('link', { name: 'Browse by course →', exact: true }).click();
+  await expect(page).toHaveURL(/\/tutorials\/courses\/$/);
+  await expect(page.getByRole('heading', { name: 'Tutorials', exact: true })).toBeVisible();
 });
 
 test('tutorial search, pagination and layout preferences survive reload', async ({ page }) => {
