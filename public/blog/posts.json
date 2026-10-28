@@ -1,5 +1,62 @@
 [
   {
+    "id": "2026-10-28-02-claude-code-safety-event-otel-permission-governance",
+    "title": "Your Claude Code Session Doesn't Show You Which Permission Rules Are Firing — `claude_code.safety_event` Puts Every Block Into Your OTel Trace",
+    "excerpt": "claude_code.safety_event (Oct 21 changelog) fires on every tool call a permission rule, hook, auto mode, or sandbox blocks or prompts — attributes include category, rule_source, grant_scope, and ci…",
+    "author": "Claude Code Tree",
+    "date": "10-28-2026",
+    "publishedAt": "2026-10-28T04:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-10-28-02-claude-code-safety-event-otel-permission-governance",
+    "content": "**Every tool call Claude Code blocks or prompts now emits a `claude_code.safety_event` OpenTelemetry span — the Oct 21 changelog addition that closes the governance gap between \"we have rules\" and \"we know what they're doing.\"**\n\nWithout this, a team deploying Claude Code through Bedrock or Vertex with a managed settings file had no visibility into which rules were actually triggering — or whether auto mode's classifier was being too conservative. They saw Claude stop or ask; they did not see what stopped it.\n\nThe new span fires on every blocked or prompted tool call and carries four key attributes:\n\n- **`category`**: `permission_rule` (a deny/ask rule outside managed settings), `managed_policy` (from managed settings), `auto_mode` (the classifier decided), `hook` (a hook returned an error or deny), or `sandbox` (sandboxing blocked the call)\n- **`rule_source`**: which settings file the triggering rule came from — useful when rules merge from user, project, and managed layers\n- **`grant_scope`**: for prompted calls, whether the user approved once or for the full session\n- **`circuit_breaker`**: for built-in safety checks, the check name — `dangerousRemoval`, `outsideReadsBlocked`, `claudeSettingsFile`, etc.\n\n**Correlating to the tool call**: match the `tool_use_id` on the safety event to the `claude_code.tool_decision` span for that call. `tool_decision` now also carries `classifier_verdict` and `permission_mode`, so you can distinguish auto mode blocks from explicit rules.\n\n**Three practical uses:**\n\n1. **Governance audit**: count events by `category` and `rule_source` over a day. If `managed_policy` events are sparse, your org-level rules may not be covering what people actually do.\n2. **Auto mode tuning**: if `auto_mode` events dominate your blocked calls, the classifier is blocking more than your explicit rules do. Check `classifier_category` (requires `OTEL_LOG_TOOL_DETAILS=1` to include) to see what the classifier named.\n3. **Per-session debugging**: a developer whose session is unusually slow can look for unexpected `hook` or `permission_rule` events in the trace waterfall.\n\n**Limits**: Not every refused call emits a safety event — calls rejected before a `tool_use_id` is assigned have none. The standard OTEL exporter environment variables are ignored in repo-scoped settings files; configure them in managed or personal settings instead. And `classifier_category` is redacted by default; `OTEL_LOG_TOOL_DETAILS=1` exposes it, but also logs more sensitive decision context, so enable it deliberately.\n\n**Sources:** [Claude Code changelog — Oct 21 `claude_code.safety_event` entry](https://code.claude.com/docs/en/changelog) · [Monitoring and observability docs](https://code.claude.com/docs/en/monitoring-usage) · [Observability with OpenTelemetry](https://code.claude.com/docs/en/agent-sdk/observability)"
+  },
+  {
+    "id": "2026-10-28-01-vllm-0-32-0-breaking-changes-python-311-cors-cascade",
+    "title": "vLLM v0.32.0 Raises the Floor to Python 3.11 and Locks Down CORS Origins — Check These Three Breaking Changes Before Upgrading",
+    "excerpt": "vLLM v0.32.0 (Oct 18, 814 commits) drops Python 3.10, restricts default CORS to same-origin, and removes cascade attention — three things to audit before running pip install --upgrade vllm.",
+    "author": "Claude Code Tree",
+    "date": "10-28-2026",
+    "publishedAt": "2026-10-28T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Self-Hosting",
+      "LLM",
+      "Building AI Products"
+    ],
+    "readTime": 1,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://github.com/vllm-project/vllm/releases/tag/v0.32.0",
+    "content": "**vLLM v0.32.0 shipped October 18 with 814 commits from 363 contributors. Three of them break existing deployments without an obvious error at startup.**\n\n**Python 3.11 minimum.** Python 3.10 support is dropped. If your container image pins `python:3.10` — or inherits it from a base image — the package install may succeed but C-extension bindings will likely crash at import time. Audit your Dockerfile before upgrading the package.\n\n**Default CORS restricted to same-origin.** vLLM's built-in HTTP server previously accepted cross-origin requests by default. v0.32.0 tightens the default to same-origin only. If your frontend or API gateway calls the vLLM endpoint from a different origin and relied on the open default, add `--allowed-origins \"*\"` (or your specific origins) explicitly to the serve command.\n\n**Cascade attention removed.** The `--use-cascade-attention` flag still parses without error in v0.32.0 — it is silently a no-op. The flag is scheduled for full removal in v0.33.0. Remove it from start scripts now to avoid a hard error on the next upgrade.\n\n**Why it matters:** Python 3.11 is required for the next generation of vLLM's C extensions; projects still on 3.10 need a base-image update before the package upgrade.\n\n**Sources:** [vLLM v0.32.0 release notes](https://github.com/vllm-project/vllm/releases/tag/v0.32.0)"
+  },
+  {
+    "id": "2026-10-28-03-rag-from-scratch-langchain-indexing-retrieval-generation-freecodecamp",
+    "title": "Your RAG Pipeline Is Four Separate Systems You've Never Seen Working Together — Lance Martin's Free freeCodeCamp Course Builds All of Them in One Notebook",
+    "excerpt": "A free 2.5-hour course by a LangChain engineer (Lance Martin, freeCodeCamp, Apr 2024) builds a complete RAG pipeline — loader, splitter, embedder, vector store, retriever, generator — with runnable…",
+    "author": "Claude Code Tree",
+    "date": "10-28-2026",
+    "publishedAt": "2026-10-28T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Embeddings",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://www.youtube.com/watch?v=sVcwVQRHIc8",
+    "content": "**What you'll be able to do after this:** build and understand a complete RAG pipeline — document loader, text splitter, embedding model, vector store, retriever, and generator — and explain where each component can fail.\n\n**The resource:** [Learn RAG From Scratch — Python AI Tutorial from a LangChain Engineer](https://www.youtube.com/watch?v=sVcwVQRHIc8) (Lance Martin, freeCodeCamp.org, April 2024, 2 h 33 min). Companion notebooks: [github.com/langchain-ai/rag-from-scratch](https://github.com/langchain-ai/rag-from-scratch).\n\n**Three things you'll walk away with:**\n- How a document becomes a retrievable chunk: `DocumentLoader` → `RecursiveCharacterTextSplitter` → embedding model → vector store upsert\n- How a query becomes retrieved context: embed the question → cosine similarity search → retrieve the k most relevant chunks\n- How context becomes a grounded answer: build a prompt that concatenates the query + retrieved chunks → call the LLM → understand where generation ends and hallucination begins\n\n**To run the companion notebooks locally:**\n```bash\ngit clone https://github.com/langchain-ai/rag-from-scratch\ncd rag-from-scratch\npip install -U langchain langchain-openai langchain-chroma chromadb\n# set OPENAI_API_KEY, then open part 1 in Jupyter\n# or upload notebooks directly to Google Colab\n```\n\nThe course continues into advanced techniques — MultiQuery, RAG Fusion, HyDE, Adaptive RAG, RAPTOR, and ColBERT. The foundations section (parts 1–4) is the place to start; the later parts build on a working baseline pipeline.\n\n**Limit**: the notebooks use OpenAI embeddings and GPT-4, so there is a real API cost even at small scale. For a fully local, zero-cost run: swap `OpenAIEmbeddings` for `OllamaEmbeddings` (model `nomic-embed-text` or `all-minilm`) and `ChatOpenAI` for `ChatOllama` — the pipeline structure is identical; only the provider changes.\n\n**Sources:** [Learn RAG From Scratch — freeCodeCamp.org on YouTube](https://www.youtube.com/watch?v=sVcwVQRHIc8) · [Companion notebooks — github.com/langchain-ai/rag-from-scratch](https://github.com/langchain-ai/rag-from-scratch)"
+  },
+  {
     "id": "2026-10-27-07-per-subagent-budget-cap-model-routing-haiku",
     "title": "Your Multi-Agent Workflow Has No Cost Controls — Set max_budget_usd Per Subagent and Route Simple Tasks to a Cheaper Model",
     "excerpt": "Set max_budget_usd per subagent to hard-cap spend and pass model: \"haiku\" for simple tasks — Haiku runs at roughly 1/15th the per-token cost of Sonnet, per Anthropic's pricing.",

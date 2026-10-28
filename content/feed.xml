@@ -10,7 +10,107 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 27 Oct 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 28 Oct 2026 04:07:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code Session Doesn't Show You Which Permission Rules Are Firing — `claude_code.safety_event` Puts Every Block Into Your OTel Trace]]></title>
+    <link>https://cloudcodetree.com/ai-news/2026-10-28-02-claude-code-safety-event-otel-permission-governance</link>
+    <guid isPermaLink="false">2026-10-28-02-claude-code-safety-event-otel-permission-governance</guid>
+    <pubDate>Wed, 28 Oct 2026 04:07:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[claude_code.safety_event (Oct 21 changelog) fires on every tool call a permission rule, hook, auto mode, or sandbox blocks or prompts — attributes include category, rule_source, grant_scope, and circuit_breaker.]]></description>
+    <content:encoded><![CDATA[**Every tool call Claude Code blocks or prompts now emits a `claude_code.safety_event` OpenTelemetry span — the Oct 21 changelog addition that closes the governance gap between "we have rules" and "we know what they're doing."**
+
+Without this, a team deploying Claude Code through Bedrock or Vertex with a managed settings file had no visibility into which rules were actually triggering — or whether auto mode's classifier was being too conservative. They saw Claude stop or ask; they did not see what stopped it.
+
+The new span fires on every blocked or prompted tool call and carries four key attributes:
+
+- **`category`**: `permission_rule` (a deny/ask rule outside managed settings), `managed_policy` (from managed settings), `auto_mode` (the classifier decided), `hook` (a hook returned an error or deny), or `sandbox` (sandboxing blocked the call)
+- **`rule_source`**: which settings file the triggering rule came from — useful when rules merge from user, project, and managed layers
+- **`grant_scope`**: for prompted calls, whether the user approved once or for the full session
+- **`circuit_breaker`**: for built-in safety checks, the check name — `dangerousRemoval`, `outsideReadsBlocked`, `claudeSettingsFile`, etc.
+
+**Correlating to the tool call**: match the `tool_use_id` on the safety event to the `claude_code.tool_decision` span for that call. `tool_decision` now also carries `classifier_verdict` and `permission_mode`, so you can distinguish auto mode blocks from explicit rules.
+
+**Three practical uses:**
+
+1. **Governance audit**: count events by `category` and `rule_source` over a day. If `managed_policy` events are sparse, your org-level rules may not be covering what people actually do.
+2. **Auto mode tuning**: if `auto_mode` events dominate your blocked calls, the classifier is blocking more than your explicit rules do. Check `classifier_category` (requires `OTEL_LOG_TOOL_DETAILS=1` to include) to see what the classifier named.
+3. **Per-session debugging**: a developer whose session is unusually slow can look for unexpected `hook` or `permission_rule` events in the trace waterfall.
+
+**Limits**: Not every refused call emits a safety event — calls rejected before a `tool_use_id` is assigned have none. The standard OTEL exporter environment variables are ignored in repo-scoped settings files; configure them in managed or personal settings instead. And `classifier_category` is redacted by default; `OTEL_LOG_TOOL_DETAILS=1` exposes it, but also logs more sensitive decision context, so enable it deliberately.
+
+**Sources:** [Claude Code changelog — Oct 21 `claude_code.safety_event` entry](https://code.claude.com/docs/en/changelog) · [Monitoring and observability docs](https://code.claude.com/docs/en/monitoring-usage) · [Observability with OpenTelemetry](https://code.claude.com/docs/en/agent-sdk/observability)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[vLLM v0.32.0 Raises the Floor to Python 3.11 and Locks Down CORS Origins — Check These Three Breaking Changes Before Upgrading]]></title>
+    <link>https://github.com/vllm-project/vllm/releases/tag/v0.32.0</link>
+    <guid isPermaLink="false">2026-10-28-01-vllm-0-32-0-breaking-changes-python-311-cors-cascade</guid>
+    <pubDate>Wed, 28 Oct 2026 04:06:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Self-Hosting</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[vLLM v0.32.0 (Oct 18, 814 commits) drops Python 3.10, restricts default CORS to same-origin, and removes cascade attention — three things to audit before running pip install --upgrade vllm.]]></description>
+    <content:encoded><![CDATA[**vLLM v0.32.0 shipped October 18 with 814 commits from 363 contributors. Three of them break existing deployments without an obvious error at startup.**
+
+**Python 3.11 minimum.** Python 3.10 support is dropped. If your container image pins `python:3.10` — or inherits it from a base image — the package install may succeed but C-extension bindings will likely crash at import time. Audit your Dockerfile before upgrading the package.
+
+**Default CORS restricted to same-origin.** vLLM's built-in HTTP server previously accepted cross-origin requests by default. v0.32.0 tightens the default to same-origin only. If your frontend or API gateway calls the vLLM endpoint from a different origin and relied on the open default, add `--allowed-origins "*"` (or your specific origins) explicitly to the serve command.
+
+**Cascade attention removed.** The `--use-cascade-attention` flag still parses without error in v0.32.0 — it is silently a no-op. The flag is scheduled for full removal in v0.33.0. Remove it from start scripts now to avoid a hard error on the next upgrade.
+
+**Why it matters:** Python 3.11 is required for the next generation of vLLM's C extensions; projects still on 3.10 need a base-image update before the package upgrade.
+
+**Sources:** [vLLM v0.32.0 release notes](https://github.com/vllm-project/vllm/releases/tag/v0.32.0)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your RAG Pipeline Is Four Separate Systems You've Never Seen Working Together — Lance Martin's Free freeCodeCamp Course Builds All of Them in One Notebook]]></title>
+    <link>https://www.youtube.com/watch?v=sVcwVQRHIc8</link>
+    <guid isPermaLink="false">2026-10-28-03-rag-from-scratch-langchain-indexing-retrieval-generation-freecodecamp</guid>
+    <pubDate>Wed, 28 Oct 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Embeddings</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[A free 2.5-hour course by a LangChain engineer (Lance Martin, freeCodeCamp, Apr 2024) builds a complete RAG pipeline — loader, splitter, embedder, vector store, retriever, generator — with runnable notebooks.]]></description>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** build and understand a complete RAG pipeline — document loader, text splitter, embedding model, vector store, retriever, and generator — and explain where each component can fail.
+
+**The resource:** [Learn RAG From Scratch — Python AI Tutorial from a LangChain Engineer](https://www.youtube.com/watch?v=sVcwVQRHIc8) (Lance Martin, freeCodeCamp.org, April 2024, 2 h 33 min). Companion notebooks: [github.com/langchain-ai/rag-from-scratch](https://github.com/langchain-ai/rag-from-scratch).
+
+**Three things you'll walk away with:**
+- How a document becomes a retrievable chunk: `DocumentLoader` → `RecursiveCharacterTextSplitter` → embedding model → vector store upsert
+- How a query becomes retrieved context: embed the question → cosine similarity search → retrieve the k most relevant chunks
+- How context becomes a grounded answer: build a prompt that concatenates the query + retrieved chunks → call the LLM → understand where generation ends and hallucination begins
+
+**To run the companion notebooks locally:**
+```bash
+git clone https://github.com/langchain-ai/rag-from-scratch
+cd rag-from-scratch
+pip install -U langchain langchain-openai langchain-chroma chromadb
+# set OPENAI_API_KEY, then open part 1 in Jupyter
+# or upload notebooks directly to Google Colab
+```
+
+The course continues into advanced techniques — MultiQuery, RAG Fusion, HyDE, Adaptive RAG, RAPTOR, and ColBERT. The foundations section (parts 1–4) is the place to start; the later parts build on a working baseline pipeline.
+
+**Limit**: the notebooks use OpenAI embeddings and GPT-4, so there is a real API cost even at small scale. For a fully local, zero-cost run: swap `OpenAIEmbeddings` for `OllamaEmbeddings` (model `nomic-embed-text` or `all-minilm`) and `ChatOpenAI` for `ChatOllama` — the pipeline structure is identical; only the provider changes.
+
+**Sources:** [Learn RAG From Scratch — freeCodeCamp.org on YouTube](https://www.youtube.com/watch?v=sVcwVQRHIc8) · [Companion notebooks — github.com/langchain-ai/rag-from-scratch](https://github.com/langchain-ai/rag-from-scratch)]]></content:encoded>
+    <media:content url="https://i.ytimg.com/vi/sVcwVQRHIc8/maxresdefault.jpg" medium="image"/>
+    <media:thumbnail url="https://i.ytimg.com/vi/sVcwVQRHIc8/maxresdefault.jpg"/>
+  </item>
 
   <item>
     <title><![CDATA[Your Multi-Agent Workflow Has No Cost Controls — Set max_budget_usd Per Subagent and Route Simple Tasks to a Cheaper Model]]></title>
@@ -6451,106 +6551,9 @@ Both are opt-in at the organization level: Enterprise administrators enable them
 **Sources:** [Anthropic adds live dashboards and editable animations to Claude — Runtime Wire](https://runtimewire.com/article/anthropic-claude-dashboards-motion-beta) · [Claude Dashboards and Motion — The New Stack](https://thenewstack.io/claude-dashboards-data-motion/)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your .claude/settings.json Can Intercept Every Tool Call — Exit Code 2 Blocks the Action and Sends Claude the Rejection Reason]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-04-claude-code-hooks-pretooluse-posttooluse-block-autoformat</link>
-      <guid isPermaLink="false">2026-10-10-04-claude-code-hooks-pretooluse-posttooluse-block-autoformat</guid>
-      <pubDate>Sat, 10 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Claude Code hooks intercept every tool call: PreToolUse blocks dangerous commands (exit code 2 sends the reason back to Claude), PostToolUse runs side effects like auto-formatting or tests after a successful call.</description>
-      <content:encoded><![CDATA[**Claude Code hooks intercept every tool call in the agentic loop — before or after execution. Exit code 2 blocks the action and feeds your rejection message back to Claude as context.**
-
-Hooks live in `.claude/settings.json` at the project or user level. Each entry names an event, optional tool matchers, and a command to run. Two events cover most automation needs:
-
-- **`PreToolUse`** — runs before the tool executes. Exit code `2` blocks the call and sends your script's stderr to Claude; Claude sees the message and can reconsider or try something else. Any other non-zero exit logs an error without blocking.
-- **`PostToolUse`** — runs after a successful call. Use it for side effects: auto-format on file writes, run tests after a Bash command, update a changelog entry.
-
-**Matchers** limit which tools trigger a hook (case-sensitive). `Edit|Write` fires only on file writes. Without a matcher, the hook fires on every tool call of that event type.
-
-**Three patterns worth setting up:**
-
-1. **Block `.env` edits.** Wire a PreToolUse hook with matcher `Write` that exits 2 if the path contains `.env`. Claude gets a message explaining why and can find another approach — no more accidental key rewrites.
-
-2. **Auto-format on save.** A PostToolUse hook matching `Edit|Write` runs your formatter against the file path (available in the env vars the hook receives). No more "Claude forgot to format" reruns.
-
-3. **Secret scan before commit.** A PreToolUse hook on `Bash` matching `git commit` runs your secret-detection script and exits 2 on a hit — Claude sees the flagged diff and won't proceed with the key in the tree.
-
-**Limit:** hooks run synchronously in the agentic loop. A slow script (a network call, a large file scan) stalls every matching tool call. Keep PreToolUse hooks fast; move expensive checks to PostToolUse where they don't block forward progress.
-
-**Sources:** [Claude Code hooks reference — official docs](https://code.claude.com/docs/en/hooks) · [10 Claude Code Hooks to Automate Your Workflow](https://ssojet.com/blog/claude-code-hooks) · [The complete guide to Claude Code hooks — MLOps Community](https://mlops.community/blog/the-complete-guide-to-claude-code-hooks-automating-your-ai-coding-workflow)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic's Oct 8 Usage Policy Update Bans Fake-Account Pipelines and Adds the First Explicit Rules for Physical-World Autonomous Agents]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-03-anthropic-2026-usage-policy-deceptive-campaigns-autonomous-agents</link>
-      <guid isPermaLink="false">2026-10-10-03-anthropic-2026-usage-policy-deceptive-campaigns-autonomous-agents</guid>
-      <pubDate>Sat, 10 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Policy</category>
-      <category>Agents</category>
-      <description>Anthropic's 2026 Usage Policy update (effective Nov 12) bans orchestrated fake-account networks and adds the first explicit safety rules for physical-world autonomous agents.</description>
-      <content:encoded><![CDATA[**Anthropic's Oct 8 usage policy update bans fake-account pipelines and adds the first explicit rules for physical-world autonomous agents — effective November 12.**
-
-Three changes that matter for developers working with the Claude API:
-
-**Deceptive campaigns** — orchestrated networks of fake accounts, fabricated news sites, and influence operations are now explicitly prohibited. Any pipeline that generates fictitious coordinated content — automated persona posting, synthetic comment farms — falls under this clause.
-
-**Physical autonomy** — a new section requires hardware agents (robots, drones, OT systems) to include specified safety controls before taking autonomous physical action. First time Anthropic has written policy specifically for physical-world agents.
-
-**Surveillance limits** — Claude cannot recommend who law enforcement should investigate, and tracking individuals without their consent is now banned.
-
-On the same day, Anthropic also launched the [Cyber Mission](https://anthropic.com/news/anthropic-cyber-mission) — a Critical Infrastructure Defense Program giving vetted security researchers access to pre-release models for OT/ICS threat research — and committed [$150M to federal AI-for-science work](https://anthropic.com/news/genesis-mission-commitment) at NASA, NIH, and NSF. Neither program has opened broad access yet.
-
-Limit: the policy describes enforcement only as Claude ending conversations; no other consequences are specified.
-
-**Why it matters:** the fake-account pipeline ban draws a clear API boundary for content automation; the physical-autonomy rules preview where compliance requirements for agentic hardware will land.
-
-**Sources:** [Anthropic 2026 Usage Policy update](https://anthropic.com/news/2026-usage-policy-update) · [CryptoBriefing coverage](https://cryptobriefing.com/anthropic-usage-policy-abusive-behavior-claude/) · [Anthropic Cyber Mission](https://anthropic.com/news/anthropic-cyber-mission)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Subdirectory Has Different Rules — Put a CLAUDE.md There and Claude Code Loads It Only When It Works in That Folder]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-02-claude-md-hierarchy-subdirectory-monorepo-context</link>
-      <guid isPermaLink="false">2026-10-10-02-claude-md-hierarchy-subdirectory-monorepo-context</guid>
-      <pubDate>Sat, 10 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description>Subdirectory CLAUDE.md files load on demand — only when Claude reads files in that folder. Split a bloated root file into per-service files to give each part of your monorepo its own rules.</description>
-      <content:encoded><![CDATA[**Put database rules in `packages/db/CLAUDE.md` and React conventions in `apps/web/CLAUDE.md` — Claude Code loads each only when it works in that directory, so a session touching only the API never loads the UI rules.**
-
-In a monorepo with an API service, a web app, and a shared database package, every session currently loads your entire root CLAUDE.md — the SQL migration conventions, the React component rules, the API auth patterns — even if you're only touching a single service. Subdirectory CLAUDE.md files fix this by loading lazily.
-
-Claude Code loads CLAUDE.md files in this order:
-
-1. **`~/.claude/CLAUDE.md`** (global) — applies across all your projects.
-2. **Project root `CLAUDE.md` or `.claude/CLAUDE.md`** — applies for this repo.
-3. **Subdirectory `CLAUDE.md`** — loaded on demand when Claude reads a file in that folder.
-
-The subdirectory file is not loaded at startup. It fills context when Claude actually opens a file in that directory. A session that stays in `apps/api/` never loads `apps/web/CLAUDE.md`.
-
-**What to put where:**
-
-- **Root (keep to ~100–200 lines):** project-wide rules — git commit conventions, the security model, which paths to never modify, the single build command, the team's code review bar.
-- **`apps/api/CLAUDE.md`:** the API's stack specifics — schema validation library, auth patterns, migration tooling, error-shape conventions.
-- **`apps/web/CLAUDE.md`:** frontend framework rules, component library conventions, file naming, the design token source of truth.
-- **`packages/db/CLAUDE.md`:** migration tooling, table/column naming conventions, which tables are write-protected by RLS and must not be modified directly.
-
-**One limit to know:** subdirectory files are additive, not replacements. Claude loads the root AND the subdirectory file when both apply. If they give conflicting rules on the same topic, the subdirectory file wins — but the conflict is silent. Keep the root file focused on cross-cutting concerns to avoid contradiction.
-
-Claude Code also applies prompt caching to CLAUDE.md files. After the first tool call in a directory, that subdirectory file is cached for the session — the context cost of adding a subdirectory file is paid once, not on every tool call.
-
-**Sources:** [Give Claude context: CLAUDE.md — Anthropic Support](https://support.claude.com/en/articles/14553240-give-claude-context-claude-md-and-better-prompts) · [Steering Claude Code: when to use CLAUDE.md, skills, hooks, and subagents — Anthropic](https://www.claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more) · [Subdirectory CLAUDE.md mechanics — ClaudeFa.st](https://claudefa.st/blog/guide/mechanics/subdirectory-claude-md)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
             
