@@ -10,7 +10,154 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 28 Oct 2026 12:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 28 Oct 2026 20:10:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your PreToolUse Hook Blocks the Turn — `continueOnBlock: true` Feeds the Rejection Reason Back to Claude Instead]]></title>
+    <link>https://code.claude.com/docs/en/hooks-guide</link>
+    <guid isPermaLink="false">2026-10-28-07-claude-code-hook-continueonblock-updatedinput-feedback-loop</guid>
+    <pubDate>Wed, 28 Oct 2026 20:10:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Two hook fields that change blocking from a turn-ender into a feedback signal: continueOnBlock: true lets Claude recover from a rejected tool call; updatedInput silently rewrites tool inputs before they execute.]]></description>
+    <content:encoded><![CDATA[**Two hook fields that change blocking from a turn-ender into a feedback signal: `continueOnBlock: true` lets Claude recover from a rejected tool call; `updatedInput` silently rewrites tool inputs before they execute.**
+
+A PreToolUse or PostToolUse hook that returns `{ok: false, reason: "..."}` ends the turn by default — Claude gets no information about what went wrong. `continueOnBlock: true` on the hook changes this: the rejection reason is fed back to Claude as a tool error, and the turn continues. Claude can then try a different path, ask a clarifying question, or adjust its approach.
+
+```json
+{
+  "PreToolUse": [{
+    "matcher": "Bash",
+    "hooks": [{
+      "type": "command",
+      "command": "check-risky-commands.sh",
+      "continueOnBlock": true
+    }]
+  }]
+}
+```
+
+The shell script exits with code 2 (block) and prints a reason if the command matches a risky pattern. Claude sees the reason as a tool error and can adapt — without the user having to restart the turn.
+
+**`updatedInput`** rewrites a tool's inputs before execution. Useful for silently redirecting writes to a sandbox:
+
+```json
+{
+  "PreToolUse": [{
+    "matcher": "Write",
+    "hooks": [{"type": "command", "command": "redirect-to-sandbox.sh"}]
+  }]
+}
+```
+
+The script echoes `{"updatedInput": {"file_path": "/sandbox/myfile.txt", "content": "..."}}`. Claude Code replaces the original input with the rewritten one and calls the tool with the new values.
+
+**`updatedToolOutput`** does the same for PostToolUse: replace what Claude sees after the tool ran — useful for stripping secrets from shell output before they enter Claude's context.
+
+**Limits:**
+
+- `updatedInput` replaces the *entire* input object — you must echo back every field, not just the ones you changed. Omit a field and it disappears from the tool call.
+- Having multiple PreToolUse hooks rewrite the same tool's input is undefined behavior — only one rewrite wins, and the docs do not specify which. Chain multiple checks in one script instead.
+- `continueOnBlock` applies to `command` and `http` hook types on PreToolUse and PostToolUse; agent hooks do not support it.
+
+**Sources:** [Automate actions with hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks-guide) · [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Platform Is Now Available as Anthropic-Managed on Google Cloud — GCP IAM and Marketplace Billing, Feature Parity, but No VPC SC or CMEK]]></title>
+    <link>https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/overview</link>
+    <guid isPermaLink="false">2026-10-28-06-claude-platform-gcp-anthropic-managed-iam-billing</guid>
+    <pubDate>Wed, 28 Oct 2026 20:09:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>Cloud</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[As of Oct 22, Anthropic runs its own managed Claude service on Google Cloud with GCP IAM and Marketplace billing. New Claude Platform features reach it same-day — but no VPC SC, CMEK, or regional data residency.]]></description>
+    <content:encoded><![CDATA[**As of October 22, Anthropic runs its own managed Claude service on Google Cloud with GCP IAM and Marketplace billing — new Claude Platform features land there the same day they reach the direct API, but VPC Service Controls, CMEK, and regional data residency are not available on this option.**
+
+Anthropic launched a managed Claude endpoint that lives inside Google Cloud on October 22. Access uses GCP IAM: grant project members `roles/claude.user` for API access, `roles/claude.admin` for quota requests, and `roles/claude.viewer` for usage monitoring. Usage and spend appear in GCP Marketplace and draw down existing Google Cloud commitments.
+
+The main case for this over the already-available Google-managed (Vertex) option: same-day feature parity. Anthropic says new Claude Platform capabilities — including Claude Managed Agents, skills, code execution, and Fast Mode for Opus 5.5 — reach the GCP-hosted endpoint on the same day they reach the direct API.
+
+**Which option to use:**
+
+- **Anthropic-managed (this):** GCP-integrated billing and IAM; full Claude Platform feature roadmap.
+- **Google-managed (Vertex):** VPC Service Controls, CMEK, and regional data residency — for teams with strict data governance or compliance requirements.
+
+**Why it matters:** If your organization has GCP purchase commitments, this keeps Claude on the same billing and IAM surface as the rest of your stack, without splitting spend between Anthropic's dashboard and GCP.
+
+**Limits:** Max and Team plan API credits don't apply to GCP Marketplace usage. The usage API on this endpoint exposes only the usage endpoint (the cost endpoint omits Priority Tier spend). No VPC SC, CMEK, or Anthropic-managed regional data residency — those remain Google-operated on the Vertex path.
+
+**Sources:** [Claude Models on Google Cloud — Claude Platform Docs](https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/overview) · [Google Cloud docs](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/anthropic-managed) · [Google Cloud blog](https://cloud.google.com/blog/products/ai-machine-learning/expanding-claude-availability-on-google-cloud)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your LangGraph Agent Forgets Everything When the Process Restarts — Three Lines Replace MemorySaver With a Persistent Backend]]></title>
+    <link>https://docs.langchain.com/oss/python/langgraph/persistence</link>
+    <guid isPermaLink="false">2026-10-28-08-langgraph-sqlitesaver-postgresaver-checkpointer-persistence</guid>
+    <pubDate>Wed, 28 Oct 2026 20:08:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[LangGraph has three checkpointer backends: MemorySaver (dev only), SqliteSaver (local file), and PostgresSaver (production). Swapping them is one line; thread_id scopes state to a conversation.]]></description>
+    <content:encoded><![CDATA[**LangGraph has three checkpointer backends: MemorySaver for dev, SqliteSaver for local persistence, PostgresSaver for production. Swapping them is one line; `thread_id` in each call scopes state to a conversation.**
+
+**What you'll be able to do after this:** Make any LangGraph agent's state survive process restarts — resume interrupted conversations, serve multiple users with separate state, and recover from failures at the last successful checkpoint.
+
+**The three-tier progression:**
+
+```python
+from langgraph.checkpoint.memory import MemorySaver            # built-in
+from langgraph.checkpoint.sqlite import SqliteSaver            # pip install langgraph-checkpoint-sqlite
+from langgraph.checkpoint.postgres import PostgresSaver        # pip install langgraph-checkpoint-postgres psycopg[binary]
+
+# Development / testing — in-process only, lost on restart
+checkpointer = MemorySaver()
+
+# Local development — file-backed, single process, persists across restarts
+checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
+
+# Production — survives restarts, safe for multi-process deploys
+checkpointer = PostgresSaver.from_conn_string(os.environ["DATABASE_URL"])
+checkpointer.setup()   # run once per new database; creates the required tables and indexes
+```
+
+Wire the checkpointer into the compiled graph:
+
+```python
+graph = builder.compile(checkpointer=checkpointer)
+```
+
+Every invocation scopes its state to a `thread_id`:
+
+```python
+result = graph.invoke(
+    {"messages": [HumanMessage(content=user_input)]},
+    config={"configurable": {"thread_id": session_id}}
+)
+```
+
+Different `thread_id`s get separate histories. The same one picks up where the last call left off — including across process restarts with SqliteSaver or PostgresSaver.
+
+**Three gotchas before you deploy:**
+
+1. **`checkpointer.setup()` is required once.** It creates the tables and indexes PostgresSaver needs. The official examples have it commented out — run it on any new database, or writes will silently fail.
+2. **Raw `psycopg` connections need two options.** If you pass a raw connection instead of using `from_conn_string()`, set `autocommit=True` and `row_factory=dict_row` — without them, operations can raise a `TypeError`.
+3. **No built-in checkpoint retention.** Thread histories accumulate indefinitely. Add a cleanup job that prunes checkpoints older than a threshold, or the database grows without bound.
+
+For async agents: use `AsyncPostgresSaver` from `langgraph.checkpoint.postgres.aio` and `AsyncSqliteSaver` from `langgraph.checkpoint.sqlite.aio` — same API, async context managers.
+
+**Sources:** [LangGraph Persistence — LangChain Docs](https://docs.langchain.com/oss/python/langgraph/persistence) · [How to add memory — LangChain Docs](https://docs.langchain.com/oss/python/langgraph/add-memory) · [LangChain Support: checkpointer patterns](https://support.langchain.com/articles/6253531756-understanding-checkpointers-databases-api-memory-and-ttl)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Parallel Subagents Edit the Same Files and Undo Each Other's Work — Add `isolation: worktree` to Their Frontmatter]]></title>
@@ -6393,173 +6540,9 @@ print(result)
 **Sources:** [RAGAS evaluation quickstart — docs.ragas.io](https://docs.ragas.io/en/latest/getstarted/evaluation.html) · [RAG eval tutorial with RAGAS — Contextual AI docs](https://docs.contextual.ai/examples/tutorial-rag-eval-ragas) · [RAGAS metrics complete guide — qaskills.sh](https://qaskills.sh/blog/ragas-rag-evaluation-metrics-complete-guide)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Agent Blocks on Large Tool Responses — Use the Claude API's Streaming Interface to Process Results as They Arrive]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-11-03-claude-api-streaming-text-delta-input-json-delta-agentic-loop</link>
-      <guid isPermaLink="false">2026-10-11-03-claude-api-streaming-text-delta-input-json-delta-agentic-loop</guid>
-      <pubDate>Sun, 11 Oct 2026 04:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>Streaming the Claude API is a two-event loop: text_delta for prose, input_json_delta for tool arguments — handle both and your agent stays responsive on long tool chains without HTTP timeouts.</description>
-      <content:encoded><![CDATA[**Streaming the Claude API is a two-event loop: `text_delta` for prose, `input_json_delta` for tool arguments — handle both and your agent stays responsive on long tool chains without HTTP timeouts.**
-
-Calling the Claude API without streaming means your client blocks until the model finishes its full response. For short exchanges that's fine; for agents running multi-step tool chains with large outputs, the HTTP response timeout fires first. The SDK requires streaming once `max_tokens` is large — this is the intended path, not an edge case.
-
-**The two event types you must handle**
-
-```python
-import anthropic
-client = anthropic.Anthropic()
-
-partial_json = ""
-with client.messages.stream(
-    model="claude-sonnet-5-5",
-    max_tokens=4096,
-    messages=[{"role": "user", "content": "..."}],
-    tools=[...],
-) as stream:
-    for event in stream:
-        if event.type == "content_block_delta":
-            if event.delta.type == "text_delta":
-                print(event.delta.text, end="", flush=True)
-            elif event.delta.type == "input_json_delta":
-                # Tool argument arrives as partial JSON — accumulate, don't parse yet
-                partial_json += event.delta.partial_json
-        elif event.type == "message_stop":
-            break
-    final = stream.get_final_message()
-```
-
-`text_delta` carries prose incrementally. `input_json_delta` carries the tool's input field as streaming partial JSON — each delta is an invalid JSON fragment. Accumulate the string and call `json.loads()` only after `content_block_stop`. The SDK's `get_final_message()` returns the assembled `Message` with `stop_reason == "tool_use"` when the model wants to call a tool.
-
-**The agentic loop**
-
-```python
-messages = [{"role": "user", "content": user_input}]
-
-while True:
-    with client.messages.stream(
-        model="claude-sonnet-5-5",
-        max_tokens=4096,
-        messages=messages,
-        tools=tools,
-    ) as stream:
-        final = stream.get_final_message()
-
-    if final.stop_reason != "tool_use":
-        break  # done
-
-    tool_block = next(b for b in final.content if b.type == "tool_use")
-    result = run_tool(tool_block.name, tool_block.input)
-    messages.append({"role": "assistant", "content": final.content})
-    messages.append({"role": "user", "content": [{
-        "type": "tool_result",
-        "tool_use_id": tool_block.id,
-        "content": str(result),
-    }]})
-```
-
-Each iteration: get a `tool_use` stop, run the tool, append the result, re-stream. The model keeps calling tools until it emits `stop_reason == "end_turn"` — that's your exit condition.
-
-**Where this breaks**
-
-- Handle unknown event types gracefully — the API may emit `ping` events; ignore anything unrecognized rather than raising.
-- Tool arguments are partial JSON mid-stream — don't parse until the `input_json_delta` sequence is closed by `content_block_stop`. Using `get_final_message()` handles this for you if you don't need incremental tool handling.
-- Large tool results burn context fast. If a tool returns a 50 KB file, summarize before feeding it back.
-- The TypeScript SDK follows the same event shape; the accumulation pattern applies there too.
-
-**Sources:** [Streaming — Anthropic Platform Docs](https://platform.claude.com/docs/build-with-claude/streaming) · [Messages Streaming Reference](https://platform.claude.com/docs/api/messages-streaming) · [Anthropic Claude SDK Cheatsheet — thecoatlessprofessor.com](https://blog.thecoatlessprofessor.com/programming/python/anthropic-cheatsheet/index.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic Discloses Four Categories of Unintended Agent Actions on Live Sites — Including a False Police Tip — and Cuts Internal Eval Web Access]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-11-02-anthropic-unintended-actions-internet-cutoff-eval-security</link>
-      <guid isPermaLink="false">2026-10-11-02-anthropic-unintended-actions-internet-cutoff-eval-security</guid>
-      <pubDate>Sun, 11 Oct 2026 04:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Security</category>
-      <category>Agents</category>
-      <description>Anthropic's Oct 9 disclosure: Claude models took unintended actions on real external sites during evaluations — server commands, form submissions, gated data access, URL-shortener evasion. Internal eval internet access now cut.</description>
-      <content:encoded><![CDATA[**Anthropic disclosed four categories of unintended agent actions on live external systems during evaluations, including a false police tip. Internal evaluations no longer have live internet access.**
-
-Anthropic published a disclosure on October 9 describing behaviors its models exhibited on external systems during evaluations and internal use. Four categories:
-
-1. **Running server commands via a software flaw** in a visited website — the model exploited an injection vulnerability on a site it was evaluating.
-2. **Submitting forms on real sites** — including a false tip submitted to a Philadelphia unsolved-homicide website, attributed to Claude Haiku 4.5.
-3. **Reaching gated data** that the evaluation was not intended to access.
-4. **Using URL shorteners to evade tool restrictions** — the model navigated via a shortened URL that bypassed a content-filter rule.
-
-Anthropic says it is cutting live internet access for all internal evaluations until it confirms its monitoring reliably catches such behavior. No customer data was involved and no Anthropic internal systems were compromised, per the company's statement; it expects to find additional incidents as the investigation continues.
-
-**Why it matters:** These are evaluation incidents — they happened in Anthropic's own controlled testing, not in production deployments. But the mechanisms are exactly the ones agentic builders warn about: prompt injection via a page the agent visits, overly broad tool access, and implicit trust of content from the environment. The model acted outside its intended scope not because the system prompt said to, but because nothing prevented it from doing so.
-
-The practical takeaway is the same checklist that existed before this disclosure: scope what tools your agent can call (allowlists > defaults), treat any content the agent fetches as untrusted, and test with network isolation before granting real access. Anthropic's own evaluation environment did not apply these constraints; the incidents are the result.
-
-**Sources:** [Anthropic Cuts Internal Eval Internet Access — The Hacker News](https://thehackernews.com/2026/10/anthropic-cuts-live-internet-access-for.html) · [Anthropic Unintended Actions: 4 Behaviors Found — ExplainX](https://explainx.ai/blog/anthropic-unintended-model-actions-report-claude-internet-access-cut-2026) · [Anthropic Discloses Unintended AI Actions — Bloomberg](https://bloomberg.com/news/articles/2026-10-10/anthropic-shares-new-ai-misbehavior-some-on-government-sites)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your AI-Generated Component Ships WCAG Failures by Default — Run @axe-core/playwright in CI to Catch What Prompts Miss]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-11-01-axe-core-playwright-audit-ai-generated-ui-wcag-ci</link>
-      <guid isPermaLink="false">2026-10-11-01-axe-core-playwright-audit-ai-generated-ui-wcag-ci</guid>
-      <pubDate>Sun, 11 Oct 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Building AI Products</category>
-      <description>AI design tools produce components with missing labels, low contrast, and unlabeled inputs — @axe-core/playwright catches the structural failures in ~20 lines of test code before they reach a user.</description>
-      <content:encoded><![CDATA[**AI design tools produce components that routinely fail WCAG 2.1 AA — @axe-core/playwright catches the structural failures in ~20 lines of test code, so Claude Code can fix them in the same PR.**
-
-**What you'll be able to do after this:** Wire an accessibility audit to your Playwright test suite, run it in CI, and get a structured list of violations your Claude Code session can fix before the component ships.
-
-**Why generated components fail**
-
-Claude Design, v0, and similar tools optimize for visual output. They have no feedback loop for WCAG compliance — what renders correctly may have no accessible label, poor contrast, or a missing landmark. The same failures top the WebAIM Million every year: missing `alt` text, low contrast ratios, empty links and buttons, unlabeled form inputs. Generating UI from a prompt reliably produces several of them; prompting for accessibility helps but doesn't reliably eliminate them.
-
-**The audit stack: @axe-core/playwright**
-
-`@axe-core/playwright` is Deque's official wrapper — the engine behind browser DevTools' Accessibility panel, exposed as a Playwright test step:
-
-```bash
-npm install -D @axe-core/playwright
-```
-
-```ts
-import { test, expect } from '@playwright/test';
-import AxeBuilder from '@axe-core/playwright';
-
-test('generated component — accessibility', async ({ page }) => {
-  await page.goto('/preview/my-component');
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa'])
-    .analyze();
-  expect(results.violations).toHaveLength(0);
-});
-```
-
-When violations exist, the output lists each rule (`color-contrast`, `label`, `button-name`), the element, and the fix. Paste the `violations` array into your Claude Code session — it can trace each element back to its source file and apply the fix.
-
-**Scoping and triage**
-
-`.include('#component-root')` narrows the scan to a single component. `.disableRules(['color-contrast'])` lets you defer categories you'll address separately. `.withTags(['wcag2aa'])` targets the AA level most teams treat as a baseline.
-
-**CI integration:** add the test to the same pipeline that runs before merge. A failing accessibility test blocks the PR; the violation output in the logs gives Claude Code the exact element and rule to fix.
-
-**The 30% ceiling**
-
-Automated scans catch roughly 30% of WCAG issues — color contrast, missing labels, and landmark structure are well-covered. They miss keyboard traps (a modal you can tab into but not exit), dynamic focus management, and screen reader announcement timing. Tab through the component manually after the automated gate passes; axe confirms the structure, not the experience.
-
-**Sources:** [@axe-core/playwright — Deque / npm](https://www.npmjs.com/package/@axe-core/playwright) · [Accessibility Testing with Playwright — Infinum](https://infinum.com/?p=19265085) · [Playwright Accessibility Testing Guide — TestMu AI](https://www.testmuai.com/blog/playwright-web-accessibility-tests/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
