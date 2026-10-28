@@ -10,7 +10,94 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 28 Oct 2026 04:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 28 Oct 2026 12:12:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Parallel Subagents Edit the Same Files and Undo Each Other's Work — Add `isolation: worktree` to Their Frontmatter]]></title>
+    <link>https://code.claude.com/docs/en/worktrees</link>
+    <guid isPermaLink="false">2026-10-28-04-claude-code-subagent-isolation-worktree-frontmatter</guid>
+    <pubDate>Wed, 28 Oct 2026 12:12:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Set isolation: worktree in .claude/agents/<name>.md frontmatter to give each subagent a private git checkout; parallel sessions write separate file trees and can't overwrite each other.]]></description>
+    <content:encoded><![CDATA[**Set `isolation: worktree` in `.claude/agents/<name>.md` to give each subagent invocation a private git checkout; parallel sessions write to separate file trees and can't overwrite each other.**
+
+When two or more subagents run on the same repo at the same time, they share the same working tree. One agent's file changes overwrite another's — whichever runs second wins, silently discarding the first agent's edits. The problem scales with how many files your subagents touch.
+
+The fix is one frontmatter field. Open `.claude/agents/<name>.md` and add:
+
+```yaml
+---
+name: refactorer
+description: Refactors a module in isolation
+isolation: worktree
+---
+```
+
+Claude Code provisions each invocation in its own git worktree: a separate checkout branched from your default branch. The two sessions see different file trees and cannot collide.
+
+**Three things to know:**
+
+1. **Base branch defaults to your repo's default branch.** If you need the subagent to see your local uncommitted changes, set `worktree.baseRef: "head"` in your session settings. Without it, the worktree branches from origin/main (or equivalent), so any unmerged local edits are invisible to it.
+
+2. **Agent teams don't use worktrees.** The experimental agent teams feature doesn't isolate teammates in worktrees — partition the work so each teammate owns a different set of files instead.
+
+3. **Cleanup is automatic.** A worktree with no changes is removed when the subagent exits. One with changes stays on disk until a periodic sweep can remove it without losing work; you don't need to clean up manually.
+
+You can also ask Claude verbally — "use worktrees for your agents" — without editing any frontmatter. The frontmatter version persists the behavior for every future invocation of that agent.
+
+**Sources:** [Run parallel sessions with worktrees — Claude Code Docs](https://code.claude.com/docs/en/worktrees) · [Create custom subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Git Worktrees with Claude Code — Better Stack](https://betterstack.com/community/guides/ai/git-worktrees-claude/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Vector Store Returns the Documents That Mention Your Query — A Cross-Encoder Scores Pairs to Find the Ones That Actually Answer It]]></title>
+    <link>https://www.deeplearning.ai/courses/advanced-retrieval-for-ai</link>
+    <guid isPermaLink="false">2026-10-28-05-cross-encoder-reranking-sentence-transformers-two-stage-rag</guid>
+    <pubDate>Wed, 28 Oct 2026 12:11:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Two-stage RAG: vector search retrieves the top 20-50 candidates, then a CrossEncoder scores each (query, doc) pair to surface the 5-10 that truly answer the query.]]></description>
+    <content:encoded><![CDATA[**Two-stage RAG: fast vector search retrieves 20–50 candidates, then a cross-encoder scores each (query, document) pair to surface the 5–10 that genuinely answer the query.**
+
+**What you'll be able to do after this:** take the candidates your vector store returns, rerank them against the query using a cross-encoder, and cut the noise before the LLM ever sees the context.
+
+**Three things to take away:**
+
+- A bi-encoder embeds query and document independently — fast for full-corpus search, but blind to the relationship between them. A cross-encoder sees both together, so it scores true relevance rather than vector proximity.
+- The two-stage pipeline resolves the tradeoff: vector search for recall (retrieve top 20–50), cross-encoder for precision (rerank to top 5–10), then generate.
+- Every query runs the full model over each candidate pair with no caching between queries. At N=50 on CPU, expect 200–500ms of reranking latency on top of retrieval — keep stage-1 N small and use batching for production.
+
+**Running it with sentence-transformers:**
+
+```python
+from sentence_transformers import CrossEncoder
+
+model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+# candidates: list of strings from your vector store's top-N results
+pairs = [(query, doc) for doc in candidates]
+scores = model.predict(pairs)          # shape: (len(candidates),)
+
+ranked = sorted(zip(scores, candidates), reverse=True)
+top_k  = [doc for _, doc in ranked[:5]]
+```
+
+`cross-encoder/ms-marco-MiniLM-L-6-v2` is the standard English starting point (~22M parameters, fast for small batches). For multilingual use or higher accuracy, `BAAI/bge-reranker-v2-m3` is the common upgrade — it supports multiple languages but runs slower per pair.
+
+**What it costs you:** the CrossEncoder has no vector index — it runs inference on every (query, doc) pair on each request. There is no pre-computation shortcut. For N > a few hundred, the latency becomes the bottleneck; batch-process pairs and run on GPU to stay practical.
+
+**Anchor resource:** [Cross-Encoder Re-Ranking — Advanced Retrieval for AI with Chroma, DeepLearning.AI (free, ~1h)](https://learn.deeplearning.ai/courses/advanced-retrieval-for-ai/lesson/5/cross-encoder-re-ranking) — lesson 5 builds the two-stage retriever end to end in a runnable notebook.
+
+**Sources:** [Advanced Retrieval for AI — DeepLearning.AI](https://www.deeplearning.ai/courses/advanced-retrieval-for-ai) · [CrossEncoder reranker — LangChain docs](https://docs.langchain.com/oss/python/integrations/document_transformers/cross_encoder_reranker) · [cross-encoder models — Hugging Face](https://huggingface.co/cross-encoder) · [RAG Complete Tutorial Part 4: Reranking — GopenAI](https://blog.gopenai.com/rag-complete-tutorial-part-04-f89f5c076744)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Session Doesn't Show You Which Permission Rules Are Firing — `claude_code.safety_event` Puts Every Block Into Your OTel Trace]]></title>
@@ -6473,84 +6560,8 @@ Automated scans catch roughly 30% of WCAG issues — color contrast, missing lab
 **Sources:** [@axe-core/playwright — Deque / npm](https://www.npmjs.com/package/@axe-core/playwright) · [Accessibility Testing with Playwright — Infinum](https://infinum.com/?p=19265085) · [Playwright Accessibility Testing Guide — TestMu AI](https://www.testmuai.com/blog/playwright-web-accessibility-tests/)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Agent Is a Black Box Until You Add Tracing — LangSmith Shows Every LLM Call, Tool Invocation, and Latency in One Timeline]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-06-langsmith-tracing-llm-agent-observability-debugging</link>
-      <guid isPermaLink="false">2026-10-10-06-langsmith-tracing-llm-agent-observability-debugging</guid>
-      <pubDate>Sat, 10 Oct 2026 20:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>Two env vars turn your agent into a traceable timeline of LLM calls, tool uses, and latencies — inspect, compare, and debug any run. Free tier: 5,000 traces/month.</description>
-      <content:encoded><![CDATA[**Two env vars turn your agent into a traceable timeline of LLM calls, tool uses, and latencies — inspect, compare, and debug any run.**
-
-**What you'll be able to do after this:** See exactly what your agent sent to the model, what tools it called, in what order, how long each step took, and where the chain broke — without adding debug prints or re-running manually.
-
-- **What tracing captures:** every model call (prompt + completion), every tool invocation and its return value, token counts per step, and wall-clock latency. Runs are stored as a tree: one root trace, child spans for each agent step.
-- **Framework-agnostic setup:** LangSmith works with LangChain, LangGraph, or plain Python. For LangChain/LangGraph agents, tracing is automatic once the env vars are set — no decorator needed. For custom code, wrap your OpenAI/Anthropic client or decorate functions with `@traceable`.
-- **Offline evaluation loop:** Once traces exist, you can build an evaluation dataset from real runs, apply scorers, and compare before vs. after a prompt change — the same UI covers dev debugging and production regression checks.
-
-**Setup (three lines, any framework):**
-
-```bash
-export LANGSMITH_API_KEY=lsv2_...   # from smith.langchain.com
-export LANGSMITH_TRACING=true
-```
-
-For LangChain/LangGraph agents, that's it — all LLM calls and tool invocations are captured automatically. For custom Python code using any SDK:
-
-```python
-from langsmith.wrappers import wrap_openai
-from openai import OpenAI
-
-client = wrap_openai(OpenAI())   # all calls now traced automatically
-```
-
-For a standalone function you want to appear as a named span:
-
-```python
-from langsmith import traceable
-
-@traceable
-def run_agent_step(query: str) -> str:
-    # LLM or tool calls here; LangSmith captures input and output
-    ...
-```
-
-After the first run, open `smith.langchain.com` and navigate to your project. You'll see a tree: the root span shows total tokens and latency; child spans show each tool call and model call individually.
-
-**Where this breaks:** LangSmith's free Personal plan covers 5,000 traces/month with 14-day retention — a busy agent in CI hits the limit quickly. Trace data is sent to LangChain's hosted servers, which matters if your agent processes sensitive content (a self-hosted option is available on paid plans). The `@traceable` decorator and `wrap_openai` import paths are confirmed in the official docs, but verify the version you're installing matches, as the SDK naming changed in late 2024.
-
-**Sources:** [How to Trace and Monitor AI Agents with LangSmith — freeCodeCamp](https://www.freecodecamp.org/news/how-to-trace-and-monitor-ai-agents-with-langsmith/) · [LangSmith Explained: Debugging and Evaluating LLM Agents — DigitalOcean](https://www.digitalocean.com/community/tutorials/langsmith-debudding-evaluating-llm-agents) · [LangSmith Observability how-to guides — LangChain docs](https://docs.smith.langchain.com/how_to_guides/tracing) · [LangSmith Essentials course — LangChain Academy (via i-programmer)](https://www.i-programmer.info/news/105-artificial-intelligence/18638-langchain-academys-langsmith-essentials-course.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic's Oct 8 Product Drop Also Shipped Live Dashboards and AI-Generated MP4s — Both in Beta, Both Admin-Gated]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-10-05-anthropic-claude-dashboards-motion-beta-admin-gated</link>
-      <guid isPermaLink="false">2026-10-10-05-anthropic-claude-dashboards-motion-beta-admin-gated</guid>
-      <pubDate>Sat, 10 Oct 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Developer Tools</category>
-      <description>Anthropic also shipped Claude Dashboards (live charts from plain-language data questions, all paid plans) and Claude Motion (text-to-MP4, Team and Enterprise only) in beta on Oct 8.</description>
-      <content:encoded><![CDATA[**Anthropic's Oct 8 announcement week included two new beta features that didn't surface in most coverage: live data dashboards and text-to-MP4 video generation, both admin-gated.**
-
-**Claude Dashboards** (beta, all paid plans) lets users ask a natural-language question about a connected data source and get a live chart in response — aimed at reducing "write a quick chart for X" requests that end up as one-off tickets. **Claude Motion** (beta, Team and Enterprise only) takes a text description plus optional chart data and exports an MP4, useful for async status updates or presentations.
-
-Both are opt-in at the organization level: Enterprise administrators enable them under Organization settings before any team member can access them. Anthropic has not published accuracy or reliability benchmarks for either feature as of launch.
-
-**What it doesn't cover:** Neither Dashboards nor Motion is accessible via API — they're Claude UI features only, so they can't be embedded in an application or pipeline. Motion is unavailable on Pro and Max plans. If your team isn't on a paid plan, neither feature is accessible.
-
-**Why it matters:** If you manage a team deployment, you now control whether these features appear for your team — which means you also get to decide whether they're a useful layer or something that changes your team's expectations of what Claude is for.
-
-**Sources:** [Anthropic adds live dashboards and editable animations to Claude — Runtime Wire](https://runtimewire.com/article/anthropic-claude-dashboards-motion-beta) · [Claude Dashboards and Motion — The New Stack](https://thenewstack.io/claude-dashboards-data-motion/)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
