@@ -10,7 +10,132 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 29 Oct 2026 12:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 29 Oct 2026 20:07:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your LoRA Adapter Disappears When the Colab Session Closes — `model.push_to_hub()` Persists It to HuggingFace in Two Lines]]></title>
+    <link>https://huggingface.co/docs/peft/main/en/quicktour</link>
+    <guid isPermaLink="false">2026-10-29-07-peft-push-to-hub-lora-adapter-huggingface-share-persist</guid>
+    <pubDate>Thu, 29 Oct 2026 20:06:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[PEFT's push_to_hub() uploads only the adapter weights — often under 50 MB — not the full base model. AutoPeftModel.from_pretrained() reconstructs the full model at load time from the adapter and the base model's Hub weights.]]></description>
+    <content:encoded><![CDATA[**PEFT's `model.push_to_hub()` saves only the adapter weights — often under 50 MB instead of gigabytes — and `AutoPeftModel.from_pretrained()` reconstructs the full model at load time.**
+
+**What you'll be able to do after this:**
+- Persist a fine-tuned LoRA adapter from a Colab session to HuggingFace Hub so it survives the runtime closing
+- Share just the adapter (not the 7B base weights) with your team or load it in a different environment
+- Reload the full fine-tuned model in a single line from any machine that has Hub access
+
+---
+
+After a QLoRA training run, the trained adapter lives in memory (or in `/tmp`). The Colab session will eventually disconnect. The common mistake is to forget the upload step until after the runtime is gone.
+
+**Path 1: Adapter-only upload (PEFT model object)**
+
+```python
+from peft import AutoPeftModelForCausalLM
+
+# model is your PeftModelForCausalLM (the object returned by get_peft_model or loaded via PEFT)
+model.push_to_hub("your-username/llama-3-lora-finetune")
+tokenizer.push_to_hub("your-username/llama-3-lora-finetune")
+```
+
+This uploads `adapter_config.json` and `adapter_model.safetensors` — typically 10–100 MB depending on `r` and `target_modules`. The base model weights stay on Hub under their original repo.
+
+**Loading it back:**
+
+```python
+from peft import AutoPeftModelForCausalLM
+
+model = AutoPeftModelForCausalLM.from_pretrained(
+    "your-username/llama-3-lora-finetune",
+    torch_dtype="auto",
+    device_map="auto",
+)
+```
+
+PEFT resolves the base model automatically from `adapter_config.json`'s `base_model_name_or_path` field and downloads it from Hub if not cached.
+
+**Path 2: Upload the merged model**
+
+If you've already called `merge_and_unload()` (the full weights are in memory), push the merged model directly:
+
+```python
+merged = model.merge_and_unload()
+merged.save_pretrained("./merged-model")       # local fallback
+merged.push_to_hub("your-username/llama-3-finetuned-merged")
+tokenizer.push_to_hub("your-username/llama-3-finetuned-merged")
+```
+
+The merged upload is the full model size (7B ≈ 14 GB in bf16). Use Path 1 for sharing; use Path 2 when you want a self-contained deployment artifact.
+
+**Limits to know:**
+- A Hub write token is required (`huggingface_hub.login(token="hf_...")` or `huggingface-cli login`). Hub tokens are scoped: a "read" token cannot push.
+- Private repos require a Pro account or an Organization with private model capacity. Public uploads are unlimited.
+- `adapter_config.json` records the original base model ID — if the recipient does not have that base model licensed (e.g. Llama 3 gated access), `AutoPeftModelForCausalLM.from_pretrained()` will fail on the base model download. Adapter-only sharing is not a license workaround.
+- Large merged models (>10 GB) benefit from `--lfs-migrate` chunking if you hit Git LFS push timeouts.
+
+**Sources:** [PEFT quicktour — huggingface.co/docs/peft](https://huggingface.co/docs/peft/main/en/quicktour), [Share a model — huggingface.co/docs/transformers](https://huggingface.co/docs/transformers/en/model_sharing), [Fine-tune SmolLM on synthetic data (community walkthrough, David Berenstein) — huggingface.co/blog](https://huggingface.co/blog/davidberenstein1957/fine-tune-a-smollm-on-synthetic-data-of-llm) (end-to-end pipeline including the Hub push step)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Headless Claude Code Run Has Full Write Access When You Only Needed Read — `--allowedTools` Scopes the Tool Palette Before the First Call]]></title>
+    <link>https://code.claude.com/docs/en/headless</link>
+    <guid isPermaLink="false">2026-10-29-06-claude-code-allowedtools-headless-scoped-permissions-ci</guid>
+    <pubDate>Thu, 29 Oct 2026 20:07:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Pass --allowedTools Read,Glob,Bash to a headless Claude Code run and every unlisted tool fails immediately — no permission prompt, no silent file edit. Scoped entries like Bash(npm test:*) restrict individual commands.]]></description>
+    <content:encoded><![CDATA[**Pass `--allowedTools Read,Glob,Bash` to any headless run and Claude Code rejects every unlisted tool call immediately — no permission prompt, no accidental file edit, no waiting on approval in CI.**
+
+When you use Claude Code in headless mode (`-p` / `--print`), it has the same tool access as an interactive session by default. A CI analysis step, a code-review pass, or a documentation audit might call `Edit` or `Write` when you only wanted reads. In non-interactive mode there is no "ask" prompt — the action simply runs.
+
+**The flag:**
+
+```bash
+# Analysis only: Claude can read and run commands, but cannot write files
+claude --allowedTools "Read,Glob,Bash" \
+       --print "Find the three files with the most TODO comments and report them."
+```
+
+If Claude tries to call `Write` or `Edit`, the call fails immediately with a permission error that Claude sees as a tool result and can reason about (it will not retry silently).
+
+**Scoped tool names** lock Claude down even further — each entry is `ToolName(allowed-prefix:*)`:
+
+```bash
+# Can only run npm test and git log, nothing else in Bash
+claude --allowedTools "Read,Glob,Bash(npm test:*),Bash(git log:*)" \
+       --print "Run tests and summarise any new failures vs the last commit."
+```
+
+The prefix match is a prefix, not a glob — `Bash(npm:*)` allows `npm test`, `npm run build`, etc., but not `rm`.
+
+**Common patterns:**
+
+| Use case | `--allowedTools` value |
+|---|---|
+| Read-only audit / code review | `Read,Glob` |
+| Test runner + log reader | `Bash(npm test:*),Bash(jest:*),Read,Glob` |
+| Git analysis only | `Bash(git:*),Read,Glob` |
+| Full analysis, no writes | `Read,Glob,Bash` |
+
+**Limits:**
+- Every tool the task needs must be explicitly listed. A missing tool fails the call; Claude reports the failure and may abort the task entirely rather than working around it.
+- `--allowedTools` is a whitelist, not a transformer — you cannot use it to redirect a tool call to a different tool.
+- Tool names are case-sensitive (`Read` not `read`; `Bash` not `bash`).
+- MCP tools are referenced by their server-prefixed names: `mcp__github__get_file_contents`, not `get_file_contents`.
+
+**Sources:** [Headless mode reference — code.claude.com/docs/en/headless](https://code.claude.com/docs/en/headless), [Claude Code CLI flags — code.claude.com/docs/en/cli-reference](https://code.claude.com/docs/en/cli-reference), [OWASP LLM Top 10: LLM06 Excessive Agency](https://genai.owasp.org/llmrisk/llm06-excessive-agency/) (the principle behind least-privilege tool grants)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Agent Polls for Completion With Sleep Loops — Monitor Streams Every Background Process Line as a Live Event Instead]]></title>
@@ -6479,102 +6604,8 @@ effort: low
 **Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [Claude Code subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents), [HumanLayer — sub-agent models and effort](https://docs.humanlayer.com/reference/subagent-models)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Claude Code Gains Plugin-Modifiable Core Behavior, a Watchdog Side Agent, and Haiku 5.5 as Its Default Model]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-02-claude-code-mods-you-should-know-haiku-5-5-default</link>
-      <guid isPermaLink="false">2026-10-12-02-claude-code-mods-you-should-know-haiku-5-5-default</guid>
-      <pubDate>Mon, 12 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>Claude Code v2.1.287-293: Mods let plugins intercept and rewrite tool calls; You Should Know adds an opt-in watchdog agent; Haiku 5.5 with 1M context is now the default model.</description>
-      <content:encoded><![CDATA[**Mods let plugins intercept and rewrite tool calls; You Should Know adds an opt-in watchdog side agent; Haiku 5.5 (1M context) is the new default — three Claude Code updates from October 1–7.**
-
-**Claude Mods (v2.1.287, October 1)** extends the plugin system beyond tool-adding: a mod can draw a pane above the prompt, install a slash command that runs immediately, and intercept or rewrite a tool call before Claude executes it. Mods are JavaScript or TypeScript functions that run inside Claude Code with your local permissions. They are not sandboxed.
-
-The built-in **"You Should Know" mod** (`cc-plugin-you-should-know@builtin`) is the first example of the pattern: a side agent watches your session and surfaces things you or Claude might miss, displayed above the prompt. Disabled by default; requires telemetry on:
-
-```
-/plugin enable cc-plugin-you-should-know@builtin
-```
-
-**Haiku 5.5 as default (v2.1.293, October 7):** Claude Code now uses Haiku 5.5 as its default model, which carries a 1M-token context window. Coding tasks that previously required splitting across sessions can now run in a single context window. Check which model your session uses with `/model`.
-
-**Why it matters:** Mods open a new class of Claude Code tooling — plugins that sit between Claude and the tools it calls, not just alongside them. The 1M default context is a practical improvement for any multi-file or large-codebase task.
-
-**Limits:** Mods run unsandboxed — review what a mod does before installing from a marketplace. You Should Know adds latency (a side agent runs on every turn). Your organization's model allowlist may not include Haiku 5.5; verify with `/model` before relying on it.
-
-**Why it matters for this reader:** the Mods architecture makes pre-tool-call hooks first-class — you can now build a mod that checks a destructive operation against your policy before Claude runs it.
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [Claude Code Mods overview — havoptic.com](https://www.havoptic.com/releases/claude-code/2026/10)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Agent Executes Irreversible Steps Without Asking — LangGraph's `interrupt()` Freezes the Graph, Persists State, and Resumes on Your Signal]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-01-langgraph-interrupt-human-in-the-loop-approval-gate</link>
-      <guid isPermaLink="false">2026-10-12-01-langgraph-interrupt-human-in-the-loop-approval-gate</guid>
-      <pubDate>Mon, 12 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>LangGraph's interrupt() pauses a graph mid-node, checkpoints all state, and returns a payload to your caller. Command(resume=...) picks up exactly where it stopped — no restart needed.</description>
-      <content:encoded><![CDATA[**`interrupt()` freezes a LangGraph node mid-run, persists the graph state automatically, and resumes via `Command(resume=...)` exactly where it stopped — no restart, no lost context.**
-
-**What you'll be able to do after this:** add an approval gate to any node in a LangGraph agent so risky operations — file writes, external API calls, emails — pause and wait for explicit confirmation before executing.
-
-**Three things to know first:**
-
-1. `interrupt(payload)` raises inside a node, checkpointing the full graph state; your caller receives `payload` and can show it to a human
-2. `Command(resume=response)` restarts from the interrupted node — `interrupt()` returns `response`, so the node can branch on it
-3. A checkpointer is required; without one, `interrupt()` raises a `ValueError`. Use `MemorySaver` for dev, `PostgresSaver` for production
-
-**Working example:**
-
-```python
-from langgraph.graph import StateGraph, MessagesState
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.types import interrupt, Command
-
-def review_before_send(state: MessagesState) -> MessagesState:
-    draft = state["messages"][-1].content
-    # Pause and hand the draft to a human
-    decision = interrupt({"draft": draft, "action": "approve_or_edit"})
-    if decision.get("action") == "edit":
-        return {"messages": [{"role": "assistant", "content": decision["text"]}]}
-    return state  # approved, continue as-is
-
-builder = StateGraph(MessagesState)
-builder.add_node("review", review_before_send)
-# ... wire the rest of your graph
-graph = builder.compile(checkpointer=MemorySaver())
-
-config = {"configurable": {"thread_id": "draft-42"}}
-
-# First invoke — runs until interrupt, returns the payload
-result = graph.invoke({"messages": [...]}, config)
-# result["__interrupt__"][0].value == {"draft": "...", "action": "approve_or_edit"}
-
-# Human reviews; resume the graph
-final = graph.invoke(Command(resume={"action": "approve"}), config)
-```
-
-**In production:** replace `MemorySaver` with `AsyncPostgresSaver` — the in-process saver loses state on server restart or across instances.
-
-**Limits:**
-- LangGraph does not expire interrupted threads automatically; implement a TTL or cleanup job yourself
-- Any code before `interrupt()` in the same node re-runs on resume — make it idempotent or move side effects after the call
-- `MemorySaver` is per-process and per-session; use `AsyncPostgresSaver` for concurrent production workloads
-- The interrupt payload must be JSON-serializable
-
-**Sources:** [LangGraph interrupts — official docs](https://docs.langchain.com/oss/python/langgraph/interrupts), [Making it easier to build human-in-the-loop agents (LangChain blog)](https://blog.langchain.com/making-it-easier-to-build-human-in-the-loop-agents-with-interrupt), [Human-in-the-loop with LangGraph walkthrough](https://rentierdigital.xyz/blog/human-in-the-loop-langgraph)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
