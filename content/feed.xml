@@ -10,7 +10,127 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 29 Oct 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 29 Oct 2026 12:15:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code Agent Polls for Completion With Sleep Loops — Monitor Streams Every Background Process Line as a Live Event Instead]]></title>
+    <link>https://code.claude.com/docs/en/tools-reference</link>
+    <guid isPermaLink="false">2026-10-29-04-claude-code-monitor-tool-background-process-stream-events</guid>
+    <pubDate>Thu, 29 Oct 2026 12:15:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[The Monitor tool runs a command and delivers each stdout line back as a separate notification — the agent reacts to test failures or deploy completions in real time instead of polling with sleep loops.]]></description>
+    <content:encoded><![CDATA[**The Monitor tool feeds each stdout line from a background command back as a separate notification — the agent reacts to completions and failures without sleep loops, polling Bash calls, or missed intermediate output.**
+
+When a Claude Code workflow kicks off a long-running task — a test suite, a deploy script, a server start — the common pattern is `Bash("sleep 10 && check-status.sh")`. It fires after an arbitrary wait, misses output emitted between checks, and costs a round-trip per poll. A missed failure message means the agent retries unnecessarily; an early check means it runs the command again before the first finishes.
+
+**Monitor replaces polling with a direct event stream.** It runs a command and delivers each stdout line back as its own notification in the conversation transcript. The agent reads each line and decides: keep watching, stop the task, or trigger a follow-up.
+
+```bash
+# Watch a test suite as it runs — react on each line
+Monitor("pnpm test --reporter=verbose 2>&1")
+# Notifications arrive live:
+#   "✓ auth.spec.ts (5 tests passed)"
+#   "✗ billing.spec.ts FAILED: timeout after 5000ms"
+# The agent calls TaskStop(task_id) the moment it sees the failure
+```
+
+**WebSocket sources** — for dev servers or event buses, pass a `ws://` URL and each incoming message becomes a notification:
+
+```bash
+Monitor("ws://localhost:3000/events")
+```
+
+**Plugin monitors** — declare a background watcher in your plugin's manifest and it starts automatically when the plugin activates:
+
+```json
+"monitors": [{"command": "node scripts/watch-ci.mjs", "label": "CI watch"}]
+```
+
+**Limits:**
+- Default timeout: 300 s. Configurable up to 1800 s; requests above that are capped at the maximum.
+- Monitors are session-scoped — background tasks and monitors do not carry over on session resume.
+- WebSocket watches require a separate permission approval from command watches.
+- **Oct 23, 2026:** Monitor now works when Claude Code is deployed through AWS Bedrock, Google Vertex AI, and Azure Foundry — previously it was limited to direct API sessions and claude.ai/code.
+
+Stop an active monitor with `TaskStop(task_id)` once the agent has seen what it needs.
+
+**Sources:** [Tools reference — code.claude.com/docs/en/tools-reference](https://code.claude.com/docs/en/tools-reference) · [Changelog Oct 23 — code.claude.com/docs/en/changelog](https://code.claude.com/docs/en/changelog)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Local Model Dev Loop Has No HTTP Endpoint — `llama-server` Turns Any GGUF Into a Local OpenAI-Compatible API in One Command]]></title>
+    <link>https://www.mintlify.com/ggml-org/llama.cpp/api/rest/overview</link>
+    <guid isPermaLink="false">2026-10-29-05-llama-cpp-server-gguf-local-openai-api-http</guid>
+    <pubDate>Thu, 29 Oct 2026 12:14:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>Local AI</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Run `llama-server -m model.gguf` and get a localhost:8080 OpenAI-compatible endpoint — point your existing openai Python client at it with base_url changed and no API key needed.]]></description>
+    <content:encoded><![CDATA[**Run `llama-server -m model.gguf --port 8080` and your existing OpenAI client works against a local model by changing `base_url` to `http://localhost:8080/v1` and setting `api_key="none"`.**
+
+**What you'll be able to do after this:** run any GGUF-format quantized model as a local HTTP server, iterate on prompts and tool-calling without API credit meters or internet access, and reuse your existing `openai` Python client unchanged — except for one parameter.
+
+## Install and start the server
+
+```bash
+# macOS
+brew install llama.cpp
+
+# Ubuntu — build from source
+git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build --config Release -j$(nproc)
+cp build/bin/llama-server /usr/local/bin/
+
+# Download a quantized GGUF from HuggingFace
+huggingface-cli download bartowski/Llama-3.1-8B-Instruct-GGUF   --include "Llama-3.1-8B-Instruct-Q4_K_M.gguf"   --local-dir ./models
+
+# Start the server
+llama-server -m ./models/Llama-3.1-8B-Instruct-Q4_K_M.gguf   --host 127.0.0.1 --port 8080   --ctx-size 8192   --n-gpu-layers 99      # push all layers to VRAM; 0 = CPU-only
+```
+
+## Point your OpenAI client at it
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="none"   # llama-server accepts any non-empty string
+)
+
+response = client.chat.completions.create(
+    model="any",     # server ignores this — uses the loaded model
+    messages=[{"role": "user", "content": "Explain RAG in one sentence."}]
+)
+print(response.choices[0].message.content)
+```
+
+The server also accepts tool definitions and returns structured outputs — useful for testing your agent's tool-calling logic locally before sending to a hosted model.
+
+## Three flags that matter
+
+| Flag | Default | What to change |
+|---|---|---|
+| `--ctx-size` | 4096 | Match your actual use case; larger needs more VRAM/RAM |
+| `--n-gpu-layers` | 0 (CPU) | `-ngl 99` to push all layers to GPU |
+| `--parallel` | 1 | Set `--parallel 4` if your code makes concurrent requests |
+
+## Limits vs Ollama
+
+llama.cpp server is more direct but less managed than Ollama: you download and reference GGUF files manually, there is no model registry or pull command, and single-threaded generation queues requests unless you set `--parallel`. Ollama is easier for day-to-day use; llama.cpp server is better when you want finer control over context size, GPU offload layers, or you're scripting server startup in CI.
+
+RAM budget: Q4_K_M on an 8 B model needs ~5 GB; a 70 B model at Q4 needs ~40 GB. Do not expose `--host 0.0.0.0` on an untrusted network — there is no built-in authentication.
+
+**Sources:** [llama.cpp REST API reference — ggml.ai](https://www.mintlify.com/ggml-org/llama.cpp/api/rest/overview) · [Starting with llama.cpp — Open WebUI docs](https://docs.openwebui.com/getting-started/quick-start/starting-with-llama-cpp) · [llama-server tutorial — Arm Learning Path](https://learn.arm.com/learning-paths/servers-and-cloud-computing/llama-cpu/llama-server)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Subagent Starts Fresh Every Session — Add `memory: project` to Its Frontmatter and Claude Code Creates a Persistent Memory Directory]]></title>
@@ -6456,97 +6576,8 @@ final = graph.invoke(Command(resume={"action": "approve"}), config)
     </item>
 
     
-    <item>
-      <title><![CDATA[GitHub Copilot Adds Local Agent Sandboxing at No Extra Cost and a Purpose-Built Secret Detection Model]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-11-07-github-copilot-local-sandbox-ga-secret-detection-model</link>
-      <guid isPermaLink="false">2026-10-11-07-github-copilot-local-sandbox-ga-secret-detection-model</guid>
-      <pubDate>Sun, 11 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Security</category>
-      <category>Building AI Products</category>
-      <description>GitHub Copilot local agent sandboxing hit GA (Oct 9, no added fee for Pro/Business/Enterprise); a purpose-built model now scans for leaked secrets; Claude Haiku 5.5 is now a Copilot model choice.</description>
-      <content:encoded><![CDATA[**Three GitHub Copilot updates this week: local agent sandboxing reached GA at no extra charge, a purpose-built secret detection model is live, and Claude Haiku 5.5 joined the model picker.**
-
-**Local agent sandboxing GA (Oct 9).** Agent actions that previously ran directly on your filesystem now execute inside a sandbox by default — available in Copilot CLI, VS Code, and the Copilot app for Pro/Pro+/Business/Enterprise plans with no added cost. The Copilot CLI `/model` command can now list and select models from a local Ollama instance, routing completions to on-prem models without leaving the terminal.
-
-**Purpose-built secret detection model (Oct 7).** GitHub shipped a dedicated model for detecting leaked secrets in code. AI-flagged alerts are integrated into GitHub Advanced Security and remain free. Two opt-in features coming later — push protection triggered by the new model and a `/security-review` Copilot command — will consume AI Credits; both are off by default.
-
-**Claude Haiku 5.5 in Copilot.** Haiku 5.5 is now selectable in GitHub Copilot for Pro/Pro+/Business/Enterprise users.
-
-**Why it matters:** The local sandbox GA is the most immediately actionable change: Copilot agent mode now runs tool calls in a sandbox by default, reducing blast radius from a mistaken file deletion or command without any configuration required. For teams using GitHub Advanced Security, the secret detection model adds a model-based scan pass on top of the existing pattern-based scanner at no extra cost.
-
-**Sources:** [GitHub Copilot weekly releases Oct 5](https://github.blog/changelog/2026-10-09-github-copilot-weekly-releases-october-5/) · [GitHub purpose-built model for leaked secret detection](https://github.blog/changelog/2026-10-07-purpose-built-model-for-leaked-secret-detection/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your LLM Eval Run Costs Twice as Much as It Should — The Anthropic Message Batches API Cuts Per-Token Cost 50% for Async Workloads]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-11-08-anthropic-message-batches-api-eval-async-50-percent</link>
-      <guid isPermaLink="false">2026-10-11-08-anthropic-message-batches-api-eval-async-50-percent</guid>
-      <pubDate>Sun, 11 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Best Practices</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>client.beta.messages.batches.create() submits up to 10,000 requests at half the real-time per-token cost — right for eval suites, bulk document processing, and CI test data generation.</description>
-      <content:encoded><![CDATA[**`client.beta.messages.batches.create()` submits up to 10,000 requests at half the real-time per-token cost — the right tool for eval suites, bulk document processing, and CI test data generation that can wait minutes to hours for results.**
-
-Any workload that is large, doesn't need an immediate response, and runs off the critical path qualifies: eval runs, bulk summarization, test-case generation, embedding preprocessing. Anthropic quotes a 50% reduction vs. standard input/output rates — verify it holds for your specific model and token mix before rearchitecting around it.
-
-**The pattern in three steps:**
-
-**1. Create the batch:**
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-batch = client.beta.messages.batches.create(requests=[
-    {
-        "custom_id": f"eval-{i}",
-        "params": {
-            "model": "claude-sonnet-5-5",
-            "max_tokens": 256,
-            "messages": [{"role": "user", "content": prompt}]
-        }
-    }
-    for i, prompt in enumerate(eval_prompts)
-])
-print(batch.id)  # msgbatch_...
-```
-
-**2. Poll until complete:**
-```python
-import time
-while True:
-    batch = client.beta.messages.batches.retrieve(batch.id)
-    if batch.processing_status == "ended":
-        break
-    time.sleep(60)  # batches take minutes to hours; don't poll faster
-```
-
-**3. Stream results:**
-```python
-for result in client.beta.messages.batches.results(batch.id):
-    if result.result.type == "succeeded":
-        print(result.custom_id, result.result.message.content[0].text)
-    else:
-        print(result.custom_id, "failed:", result.result.error)
-```
-
-**Takeaways:**
-- Up to 10,000 requests per batch; results stream by `custom_id` when processing ends
-- Batches time out after 24 hours; any requests still processing at that point expire
-- No streaming within a batch request — each request returns a full response object
-
-**Limits:** batches are not for latency-sensitive paths — processing takes minutes to hours, not seconds. Not all models support the Batches endpoint; check the model's feature page before assuming support. Error handling is per-request: a single malformed request fails silently in the results stream unless you explicitly check every result's `.result.type`. The 50% rate reduction is Anthropic's own figure; run a comparison on your actual workload before assuming it.
-
-**Sources:** [Message Batches — Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/message-batches) · [Anthropic Python SDK — message_batches](https://github.com/anthropics/anthropic-sdk-python) · [Structured output, validation and batch — wasilzafar.com](https://www.wasilzafar.com/pages/series/ai-app-dev-xtreme/ai-app-dev-sdk-anthropic-part11-structured-output.html)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
