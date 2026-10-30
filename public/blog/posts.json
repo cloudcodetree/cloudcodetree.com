@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-10-30-04-subagent-effort-param-agent-tool-cost-complexity",
+    "title": "Every Subagent in Your Workflow Runs at the Same Effort Level Whether It's Doing a Simple Lookup or a Complex Synthesis — The `effort:` Parameter Matches Cost to Task",
+    "excerpt": "Claude Code v2.1.292 adds per-call effort control for subagents — set effort: 'low' on routine lookups and save the full reasoning budget for synthesis steps that actually need it.",
+    "author": "Claude Code Tree",
+    "date": "10-30-2026",
+    "publishedAt": "2026-10-30T12:20:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/agent-sdk/agents",
+    "content": "**Every subagent in a workflow inherits the session's effort level by default — set `effort:` per-call to run lookups cheap and reserve the reasoning budget for synthesis steps.**\n\nWhen you fan out subagents in a Claude Code workflow, they all inherit the session's effort level. If your session runs at `high`, the agent doing a simple schema check burns the same compute budget as the one writing an architectural analysis. Claude Code v2.1.292 added per-call control.\n\n**The resolution order** (highest precedence wins):\n1. `CLAUDE_CODE_EFFORT_LEVEL` env var — session-wide override\n2. `effort:` on the `Agent` tool call — per-call override\n3. Agent definition's `effort:` field in `.claude/agents/<name>.md` frontmatter — per-type default\n4. Session effort level — the fallback\n\n**In practice** — a two-phase pipeline with differentiated effort:\n\n```javascript\n// Phase 1: cheap parallel checks\nconst verdicts = await parallel(\n  candidates.map(c => () =>\n    agent(`Does ${c.name} match the schema? Return {match: bool}`, {\n      effort: \"low\",   // boolean check — no nuanced reasoning needed\n      schema: VERDICT_SCHEMA,\n    })\n  )\n)\n\nconst matches = candidates.filter((_, i) => verdicts[i].match)\n\n// Phase 2: expensive synthesis only on what passed\nconst report = await agent(\n  `Summarise the ${matches.length} matching candidates and recommend next steps`,\n  { effort: \"high\" }   // full reasoning budget for the decision output\n)\n```\n\n**For CI pipelines**, set `CLAUDE_CODE_EFFORT_LEVEL=medium` in the environment to cap costs across the whole run. Accept that very complex tasks may occasionally need a manual rerun at higher effort.\n\n**The limit:** `effort: \"low\"` cuts the reasoning budget and can miss edge cases or subtleties a `medium` or `high` run would catch. Use it only for tasks with a clear correct/incorrect output — format validation, schema checks, simple lookups. Tasks requiring judgment about ambiguous inputs should stay at `medium` or higher.\n\n**Sources:** [Claude Code Agent tool reference](https://code.claude.com/docs/en/agent-sdk/agents) · [Subagent effort control — community guide](https://wmedia.es/es/tips/claude-code-subagentes-effort-bajo) · [Claude Code v2.1.292 release notes](https://aiweekly.co/alerts/claude-code-21302-turns-on-fork-subagents-in-sdk-and-apps)"
+  },
+  {
+    "id": "2026-10-30-03-gguf-quantize-llama-cpp-convert-hf-q4km",
+    "title": "You Download GGUF Weights From Someone Else's Compression Run Because Converting Your Own Looks Complicated — Two llama.cpp Commands Turn Any HuggingFace Checkpoint Into Q4_K_M in 20 Minutes",
+    "excerpt": "Convert any HuggingFace checkpoint to a 4-bit GGUF for local use: convert_hf_to_gguf.py → llama-quantize Q4_K_M → Ollama. Three commands, no GPU needed for the quantization step.",
+    "author": "Claude Code Tree",
+    "date": "10-30-2026",
+    "publishedAt": "2026-10-30T12:19:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "Local AI",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md",
+    "content": "**You download GGUF weights from someone else's compression run because converting a model yourself looks complicated — `convert_hf_to_gguf.py` and `llama-quantize` do it in three commands.**\n\n**What you'll be able to do after this:** Convert any HuggingFace model checkpoint — including your own fine-tuned ones — to a 4-bit GGUF file, then run it with Ollama or llama-server without waiting for someone else to cut a release.\n\n**Three things worth knowing before you start:**\n\n1. **Q4_K_M is the right default.** The K-quant series uses per-block scale factors, averaging ~4.5 bits/weight rather than a hard 4 bits. Compared to legacy Q4_0, it scores measurably better on benchmarks at the same file size. Q8_0 halves full-precision size with nearly lossless quality but doubles Q4_K_M's file size — save it for models you're actively evaluating, not deploying.\n\n2. **Budget 3–4× the target model's final GGUF size in temporary disk space.** The pipeline keeps the original weights, an F16 intermediate, and the final GGUF on disk at the same time. For a 7B model the F16 intermediate alone is ~14 GB.\n\n3. **Conversion needs no GPU.** `llama-quantize` runs on CPU and finishes in 5–15 minutes for a 7B model. You only need a GPU if you want to run inference afterward.\n\n**The recipe (Qwen2.5-3B as example — works for any supported architecture):**\n\n```bash\n# 1. Build llama.cpp\ngit clone https://github.com/ggml-org/llama.cpp && cd llama.cpp\ncmake -B build && cmake --build build --config Release -j$(nproc)\n\n# 2. Download from HuggingFace\npip install huggingface_hub\nhuggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir ../Qwen2.5-3B\n\n# 3. Convert to F16 GGUF (keep this — re-quantize to other formats without re-downloading)\npython3 convert_hf_to_gguf.py ../Qwen2.5-3B   --outfile ../Qwen2.5-3B-f16.gguf --outtype f16\n\n# 4. Quantize to Q4_K_M\n./build/bin/llama-quantize   ../Qwen2.5-3B-f16.gguf   ../Qwen2.5-3B-Q4_K_M.gguf Q4_K_M\n\n# 5a. Run directly\n./build/bin/llama-cli -m ../Qwen2.5-3B-Q4_K_M.gguf -p \"Hello\" -n 128\n\n# 5b. Register with Ollama and run via its API\nprintf 'FROM ../Qwen2.5-3B-Q4_K_M.gguf\n' > Modelfile\nollama create qwen2.5-3b-q4 -f Modelfile && ollama run qwen2.5-3b-q4\n```\n\n**The limit that matters:** `convert_hf_to_gguf.py` handles most transformer architectures, but Mixture-of-Experts models (Mixtral, DeepSeek-MoE) need `--split-max-tensors` and convert more slowly. Check the [llama.cpp issues](https://github.com/ggml-org/llama.cpp/issues) for your architecture before starting a large download. If conversion errors with \"type not supported\", try `--outtype bf16` first. Quantization degrades reasoning tasks more than factual recall — test on your actual workload before switching a production pipeline.\n\n**Sources:** [llama.cpp quantize README](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md) · [llama.cpp imatrix README](https://github.com/ggml-org/llama.cpp/blob/master/tools/imatrix/README.md) · [Quantizing LLMs with llama.cpp — practitioner walk-through](https://medium.com/@dogucuburak/quantizing-llms-with-llama-cpp-6eb9f48d1819)"
+  },
+  {
     "id": "2026-10-30-02-cc-plugin-you-should-know-builtin-mod-side-agent-proactive-flag",
     "title": "Claude Code Works Through Long Tasks Without Volunteering What It Noticed Along the Way — `cc-plugin-you-should-know@builtin` Adds a Side Agent That Flags Those Observations",
     "excerpt": "A built-in, off-by-default Claude Code mod adds a background side agent that surfaces missed observations above your prompt during long sessions — one command to enable, no configuration needed.",

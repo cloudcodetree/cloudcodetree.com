@@ -10,7 +10,114 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 30 Oct 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 30 Oct 2026 12:20:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Every Subagent in Your Workflow Runs at the Same Effort Level Whether It's Doing a Simple Lookup or a Complex Synthesis — The `effort:` Parameter Matches Cost to Task]]></title>
+    <link>https://code.claude.com/docs/en/agent-sdk/agents</link>
+    <guid isPermaLink="false">2026-10-30-04-subagent-effort-param-agent-tool-cost-complexity</guid>
+    <pubDate>Fri, 30 Oct 2026 12:20:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Claude Code v2.1.292 adds per-call effort control for subagents — set effort: 'low' on routine lookups and save the full reasoning budget for synthesis steps that actually need it.]]></description>
+    <content:encoded><![CDATA[**Every subagent in a workflow inherits the session's effort level by default — set `effort:` per-call to run lookups cheap and reserve the reasoning budget for synthesis steps.**
+
+When you fan out subagents in a Claude Code workflow, they all inherit the session's effort level. If your session runs at `high`, the agent doing a simple schema check burns the same compute budget as the one writing an architectural analysis. Claude Code v2.1.292 added per-call control.
+
+**The resolution order** (highest precedence wins):
+1. `CLAUDE_CODE_EFFORT_LEVEL` env var — session-wide override
+2. `effort:` on the `Agent` tool call — per-call override
+3. Agent definition's `effort:` field in `.claude/agents/<name>.md` frontmatter — per-type default
+4. Session effort level — the fallback
+
+**In practice** — a two-phase pipeline with differentiated effort:
+
+```javascript
+// Phase 1: cheap parallel checks
+const verdicts = await parallel(
+  candidates.map(c => () =>
+    agent(`Does ${c.name} match the schema? Return {match: bool}`, {
+      effort: "low",   // boolean check — no nuanced reasoning needed
+      schema: VERDICT_SCHEMA,
+    })
+  )
+)
+
+const matches = candidates.filter((_, i) => verdicts[i].match)
+
+// Phase 2: expensive synthesis only on what passed
+const report = await agent(
+  `Summarise the ${matches.length} matching candidates and recommend next steps`,
+  { effort: "high" }   // full reasoning budget for the decision output
+)
+```
+
+**For CI pipelines**, set `CLAUDE_CODE_EFFORT_LEVEL=medium` in the environment to cap costs across the whole run. Accept that very complex tasks may occasionally need a manual rerun at higher effort.
+
+**The limit:** `effort: "low"` cuts the reasoning budget and can miss edge cases or subtleties a `medium` or `high` run would catch. Use it only for tasks with a clear correct/incorrect output — format validation, schema checks, simple lookups. Tasks requiring judgment about ambiguous inputs should stay at `medium` or higher.
+
+**Sources:** [Claude Code Agent tool reference](https://code.claude.com/docs/en/agent-sdk/agents) · [Subagent effort control — community guide](https://wmedia.es/es/tips/claude-code-subagentes-effort-bajo) · [Claude Code v2.1.292 release notes](https://aiweekly.co/alerts/claude-code-21302-turns-on-fork-subagents-in-sdk-and-apps)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[You Download GGUF Weights From Someone Else's Compression Run Because Converting Your Own Looks Complicated — Two llama.cpp Commands Turn Any HuggingFace Checkpoint Into Q4_K_M in 20 Minutes]]></title>
+    <link>https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md</link>
+    <guid isPermaLink="false">2026-10-30-03-gguf-quantize-llama-cpp-convert-hf-q4km</guid>
+    <pubDate>Fri, 30 Oct 2026 12:19:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>Local AI</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Convert any HuggingFace checkpoint to a 4-bit GGUF for local use: convert_hf_to_gguf.py → llama-quantize Q4_K_M → Ollama. Three commands, no GPU needed for the quantization step.]]></description>
+    <content:encoded><![CDATA[**You download GGUF weights from someone else's compression run because converting a model yourself looks complicated — `convert_hf_to_gguf.py` and `llama-quantize` do it in three commands.**
+
+**What you'll be able to do after this:** Convert any HuggingFace model checkpoint — including your own fine-tuned ones — to a 4-bit GGUF file, then run it with Ollama or llama-server without waiting for someone else to cut a release.
+
+**Three things worth knowing before you start:**
+
+1. **Q4_K_M is the right default.** The K-quant series uses per-block scale factors, averaging ~4.5 bits/weight rather than a hard 4 bits. Compared to legacy Q4_0, it scores measurably better on benchmarks at the same file size. Q8_0 halves full-precision size with nearly lossless quality but doubles Q4_K_M's file size — save it for models you're actively evaluating, not deploying.
+
+2. **Budget 3–4× the target model's final GGUF size in temporary disk space.** The pipeline keeps the original weights, an F16 intermediate, and the final GGUF on disk at the same time. For a 7B model the F16 intermediate alone is ~14 GB.
+
+3. **Conversion needs no GPU.** `llama-quantize` runs on CPU and finishes in 5–15 minutes for a 7B model. You only need a GPU if you want to run inference afterward.
+
+**The recipe (Qwen2.5-3B as example — works for any supported architecture):**
+
+```bash
+# 1. Build llama.cpp
+git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build --config Release -j$(nproc)
+
+# 2. Download from HuggingFace
+pip install huggingface_hub
+huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir ../Qwen2.5-3B
+
+# 3. Convert to F16 GGUF (keep this — re-quantize to other formats without re-downloading)
+python3 convert_hf_to_gguf.py ../Qwen2.5-3B   --outfile ../Qwen2.5-3B-f16.gguf --outtype f16
+
+# 4. Quantize to Q4_K_M
+./build/bin/llama-quantize   ../Qwen2.5-3B-f16.gguf   ../Qwen2.5-3B-Q4_K_M.gguf Q4_K_M
+
+# 5a. Run directly
+./build/bin/llama-cli -m ../Qwen2.5-3B-Q4_K_M.gguf -p "Hello" -n 128
+
+# 5b. Register with Ollama and run via its API
+printf 'FROM ../Qwen2.5-3B-Q4_K_M.gguf
+' > Modelfile
+ollama create qwen2.5-3b-q4 -f Modelfile && ollama run qwen2.5-3b-q4
+```
+
+**The limit that matters:** `convert_hf_to_gguf.py` handles most transformer architectures, but Mixture-of-Experts models (Mixtral, DeepSeek-MoE) need `--split-max-tensors` and convert more slowly. Check the [llama.cpp issues](https://github.com/ggml-org/llama.cpp/issues) for your architecture before starting a large download. If conversion errors with "type not supported", try `--outtype bf16` first. Quantization degrades reasoning tasks more than factual recall — test on your actual workload before switching a production pipeline.
+
+**Sources:** [llama.cpp quantize README](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md) · [llama.cpp imatrix README](https://github.com/ggml-org/llama.cpp/blob/master/tools/imatrix/README.md) · [Quantizing LLMs with llama.cpp — practitioner walk-through](https://medium.com/@dogucuburak/quantizing-llms-with-llama-cpp-6eb9f48d1819)]]></content:encoded>
+  </item>
+
 
   <item>
     <title><![CDATA[Claude Code Works Through Long Tasks Without Volunteering What It Noticed Along the Way — `cc-plugin-you-should-know@builtin` Adds a Side Agent That Flags Those Observations]]></title>
@@ -6475,140 +6582,8 @@ Maximum nesting depth: orchestrator (depth 1) → worker (depth 2) → sub-worke
 **Sources:** [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [Sandboxing docs](https://code.claude.com/docs/en/sandboxing) · [RFC 2697 — Token Bucket algorithm (IETF)](https://datatracker.ietf.org/doc/html/rfc2697)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Fine-Tune Trains 1% of the Model's Parameters — LoRA Splits Each Target Weight Into Two Low-Rank Matrices and Trains Only Those]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-07-lora-peft-adapter-loraconfig-get-peft-model-fine-tuning</link>
-      <guid isPermaLink="false">2026-10-12-07-lora-peft-adapter-loraconfig-get-peft-model-fine-tuning</guid>
-      <pubDate>Mon, 12 Oct 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <category>Building AI Products</category>
-      <description>LoRA freezes pretrained weights and trains only two low-rank matrices per layer. Pick rank, alpha, and target_modules; five lines of PEFT code apply it to any transformer.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** freeze a pretrained model, attach trainable low-rank adapter matrices with five lines of PEFT code, and merge them back into the base model for deployment with no inference overhead.
-
-A full fine-tune updates every weight in the model. At 7B parameters that is manageable on a consumer GPU; at 70B it requires a server cluster. LoRA's observation is that the **weight update** during fine-tuning — the difference between fine-tuned and pretrained weights — is low-rank in practice. Instead of updating ΔW directly, you approximate it as two small matrices:
-
-```
-ΔW ≈ B × A,  where A ∈ ℝ^(r×d), B ∈ ℝ^(d×r), r ≪ d
-```
-
-For a 4096×4096 attention projection with r=8: two matrices of 8×4096 — 65,536 trainable parameters instead of 16.7M. The [Hu et al. LoRA paper](https://arxiv.org/abs/2106.09685) reports a ~10,000× reduction in trainable parameters for GPT-3-scale models, with **zero added inference latency** because the adapter can be merged back into the base weights after training.
-
-**Three numbers you choose:**
-
-| Setting | What it controls |
-|---|---|
-| `r` (rank) | Dimensionality of the low-rank space. 4–8 for simple adaptation; 16–64 for complex tasks or larger models |
-| `lora_alpha` | Scaling factor for the LoRA contribution (equivalent to `lora_alpha / r`). Start at 2× `r` as a rule of thumb |
-| `target_modules` | Which weight matrices to adapt. `"all-linear"` is the safe default; targeting only `q_proj, v_proj` is lighter but may miss behavior |
-
-**Apply it in five lines:**
-
-```python
-from peft import LoraConfig, get_peft_model
-
-config = LoraConfig(r=8, lora_alpha=16, target_modules="all-linear", lora_dropout=0.05)
-model = get_peft_model(base_model, config)
-model.print_trainable_parameters()
-# trainable params: 3,407,872 || all params: 6,742,609,920 || trainable%: 0.051
-```
-
-Train with any standard PyTorch loop or TRL's `SFTTrainer`. After training, merge the adapter for zero-overhead inference:
-
-```python
-merged = model.merge_and_unload()  # adapter weights folded in; no separate overhead at inference
-```
-
-**Limits:** LoRA works well for behavioral adaptation — instruction-following, domain vocabulary, style — because those updates are genuinely low-rank. Tasks that require memorizing factual knowledge not in the base model need more data or a higher `r`; at high enough `r` you lose most of the memory benefit over full fine-tuning. Also, `merge_and_unload()` is permanent: the resulting checkpoint is a new base model, not an adapter you can remove.
-
-The [HuggingFace LLM Course chapter on LoRA](https://huggingface.co/learn/llm-course/chapter11/4) walks through the full training loop including `SFTTrainer` configuration and a worked Llama fine-tune example. The companion [smol-course unit](https://huggingface.co/learn/smol-course/unit1/3a) covers hotswapping multiple adapters — loading adapter A, switching to adapter B without reloading the base model — which is useful when you maintain specialized variants of the same base.
-
-**Sources:** [HuggingFace LLM Course — LoRA (chapter 11/4)](https://huggingface.co/learn/llm-course/chapter11/4) · [PEFT docs — LoRA reference](https://huggingface.co/docs/peft/v0.20.0/package_reference/lora) · [HuggingFace smol-course — LoRA and PEFT](https://huggingface.co/learn/smol-course/unit1/3a) · [Hu et al. LoRA paper (arxiv)](https://arxiv.org/abs/2106.09685)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your MCP Server Only Has Tools — Resources and Prompts Are the Other Half of the Protocol]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-05-mcp-resources-prompts-context-templates-sdk</link>
-      <guid isPermaLink="false">2026-10-12-05-mcp-resources-prompts-context-templates-sdk</guid>
-      <pubDate>Mon, 12 Oct 2026 12:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>MCP has three server primitives: Tools (actions), Resources (context data via URI), and Prompts (reusable message templates). Resources and Prompts take about 20 lines to add alongside existing tools.</description>
-      <content:encoded><![CDATA[**MCP has three server primitives — Tools, Resources, and Prompts. Building only Tools is like building a REST API with only POST routes.**
-
-The [earlier post on MCP Tools](https://cloudcodetree.com/ai-news/2026-10-04-01-build-mcp-server-typescript-sdk-tools-zod-stdio) showed how to expose functions the model can call. Two more primitives handle different responsibilities:
-
-- **Resources** — context data the host app injects into the model's context: files, database records, config payloads. Modeled as URIs, equivalent to a REST GET. Designed to be read-only with no side effects.
-- **Prompts** — named, parameterized message templates the user (or the host app) selects before a conversation. Pre-fill a system instruction, set a workflow role, or wrap a multi-step task in a reusable invocation.
-
-**Adding a Resource** (TypeScript SDK)
-
-```typescript
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
-
-const server = new McpServer({ name: "docs-server", version: "1.0.0" });
-
-// Static resource — same content every request
-server.resource("app-config", "config://app/current", async (uri) => ({
-  contents: [{ uri: uri.href, mimeType: "application/json",
-    text: JSON.stringify({ maxRetries: 3, timeout: 30 }) }]
-}));
-
-// Templated resource — URI parameter resolved at read time
-server.resource(
-  "user-profile",
-  new ResourceTemplate("users://{userId}/profile", { list: undefined }),
-  async (uri, { userId }) => ({
-    contents: [{ uri: uri.href, mimeType: "application/json",
-      text: await fetchUserProfile(userId) }]
-  })
-);
-```
-
-Claude resolves `users://42/profile` when `resources/read` is called with that URI. The host app calls `resources/list` first to enumerate what's available.
-
-**Adding a Prompt**
-
-```typescript
-server.prompt(
-  "code-review",
-  { language: z.string() },
-  ({ language }) => ({
-    messages: [{
-      role: "user",
-      content: {
-        type: "text",
-        text: `Review the following ${language} code for correctness, security, and style.
-Flag anything that would fail a production review.`
-      }
-    }]
-  })
-);
-```
-
-The host surfaces `code-review` to the user. On selection, it pre-fills context before the conversation starts. Arguments validate through Zod the same as Tool inputs.
-
-**When to reach for each primitive**
-
-| Use case | Primitive |
-|---|---|
-| Call an external API, run a query, execute an action | Tool |
-| Inject a file, config doc, or DB record as context | Resource |
-| Pre-fill a multi-turn workflow with a reusable template | Prompt |
-
-**One real limit**: Resources are polled, not pushed. A resource that changes frequently — live logs, real-time prices — won't push updates between model turns. The app re-reads it on each turn. If you need live data streaming into the conversation, use a Tool with a streaming or websocket response instead.
-
-**Sources:** [MCP TypeScript SDK v2 docs](https://ts.sdk.modelcontextprotocol.io/v2/) · [MCP spec — Resources](https://spec.modelcontextprotocol.io/specification/basic/resources/) · [MCP spec — Prompts](https://spec.modelcontextprotocol.io/specification/basic/prompts/) · [SDK runnable examples — simpleStreamableHttp server](https://github.com/modelcontextprotocol/typescript-sdk/tree/main/src/examples/server)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
