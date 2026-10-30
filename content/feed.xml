@@ -10,7 +10,148 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 29 Oct 2026 20:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 30 Oct 2026 04:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Claude Code Works Through Long Tasks Without Volunteering What It Noticed Along the Way — `cc-plugin-you-should-know@builtin` Adds a Side Agent That Flags Those Observations]]></title>
+    <link>https://code.claude.com/docs/en/plugins/mods/overview</link>
+    <guid isPermaLink="false">2026-10-30-02-cc-plugin-you-should-know-builtin-mod-side-agent-proactive-flag</guid>
+    <pubDate>Fri, 30 Oct 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[A built-in, off-by-default Claude Code mod adds a background side agent that surfaces missed observations above your prompt during long sessions — one command to enable, no configuration needed.]]></description>
+    <content:encoded><![CDATA[**A built-in Claude Code mod adds a background side agent that flags observations you might have missed — things it noticed but wasn't asked about. One command to enable, no configuration.**
+
+Claude Code doesn't interrupt a running task to surface a concern it noticed while doing something else. If it spots a constraint conflict or a pattern that may cause trouble later, it typically finishes what it was asked and moves on — you get the result but not the flag.
+
+`cc-plugin-you-should-know` is a built-in mod that adds a background side agent to every session. While Claude works on a long task, the side agent rereads the conversation and posts a note above your prompt when it finds something worth flagging — an instruction from earlier that the current approach may violate, an assumption that no longer holds, a pattern it noticed that wasn't the subject of any specific ask.
+
+Enable it:
+
+```
+/plugin enable cc-plugin-you-should-know@builtin
+```
+
+Disable it:
+
+```
+/plugin disable cc-plugin-you-should-know@builtin
+```
+
+Or manage from the Installed tab of `/plugin`.
+
+**What it sees — and doesn't.** The side agent has no tools. No file reads, no shell access, no ability to affect what Claude does next. Its only input is the conversation thread. It catches things visible in that thread: a constraint you set at the start that a later step quietly ignored, an instruction your latest request contradicts, something you said you wanted that the current approach abandoned. For anything that requires reading the filesystem or running a command, it won't catch what hasn't been told to it.
+
+**Real limits to know before you enable it.** On a long, dense session it runs a separate model request each turn — added latency and token cost proportional to your context length. The mod is off by default precisely for this reason. It's designed for interactive long sessions, not headless or CI runs where you want minimal overhead. Requires Claude Code v2.1.287+. Built-in mods are not blocked by `--safe-mode` or `disableAllHooks` — worth noting if you restrict third-party plugins for security, since this one cannot be turned off at the org level.
+
+**Sources:** [Mods overview — code.claude.com](https://code.claude.com/docs/en/plugins/mods/overview) · [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Claude App Returns Text When the Question Needs a Live Lookup — Tool Use Gives Claude a Typed JSON Schema, Gets a `tool_use` Block Back, and Lets Your Code Handle the Rest]]></title>
+    <link>https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/implement-tool-use</link>
+    <guid isPermaLink="false">2026-10-30-01-claude-tool-use-json-schema-tool-result-five-step-loop</guid>
+    <pubDate>Fri, 30 Oct 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Define a function with a JSON Schema, pass it as tools[], handle the tool_use response block, run your code, return a tool_result — Claude then finishes its answer. Every Claude-based agent uses this five-step loop.]]></description>
+    <content:encoded><![CDATA[**Define a function with a JSON Schema, pass it as `tools[]`, check `stop_reason == "tool_use"`, run your function, send a `tool_result` — Claude finishes its answer. Five steps, every agent app uses this loop.**
+
+**What you'll be able to do after this:**
+- Wire any Python function into a Claude conversation so Claude calls it when a question needs live data or computation
+- Implement the full `tool_use` → `tool_result` round-trip without guessing about message format
+- Control call behavior: require a specific tool, require any tool, or let Claude decide with `tool_choice`
+
+---
+
+Claude's Messages API returns text by default. Tool use (function calling) adds a richer exchange: you describe functions with JSON Schema and pass them as `tools`. When Claude decides a function is needed, it returns a `tool_use` block instead of (or before) its text. Your code runs the function and sends back a `tool_result`. Claude uses that result to finish the answer.
+
+Every Claude-based agent — whether it queries a database, calls an API, runs a shell command, or routes to another service — is built on this loop.
+
+**Step 1 — Define a tool with a JSON Schema:**
+
+```python
+tools = [{
+    "name": "get_weather",
+    "description": "Get the current weather for a city",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "location": {
+                "type": "string",
+                "description": "City and state, e.g. 'Austin, TX'"
+            },
+            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
+        },
+        "required": ["location"]
+    }
+}]
+```
+
+**Step 2 — Make the first request with `tools` attached:**
+
+```python
+import anthropic
+client = anthropic.Anthropic()
+msg1 = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=[{"role": "user", "content": "What's the weather in Austin right now?"}]
+)
+```
+
+**Step 3 — Check whether Claude called a tool:**
+
+```python
+if msg1.stop_reason == "tool_use":
+    call = next(b for b in msg1.content if b.type == "tool_use")
+    # call.name == "get_weather"
+    # call.input == {"location": "Austin, TX"}
+    # call.id == "toolu_01..."
+```
+
+**Step 4 — Run your function and send the result back:**
+
+```python
+    result = fetch_weather(call.input["location"], call.input.get("unit", "fahrenheit"))
+
+    msg2 = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=1024,
+        tools=tools,
+        messages=[
+            {"role": "user",      "content": "What's the weather in Austin right now?"},
+            {"role": "assistant", "content": msg1.content},
+            {"role": "user",      "content": [{
+                "type":        "tool_result",
+                "tool_use_id": call.id,
+                "content":     result
+            }]}
+        ]
+    )
+    print(msg2.content[0].text)
+    # "It's currently 72°F and partly cloudy in Austin."
+```
+
+**Controlling when Claude calls tools.** Default `tool_choice={"type": "auto"}` lets Claude decide. `{"type": "any"}` requires at least one call this turn. `{"type": "tool", "name": "get_weather"}` forces that specific function. `{"type": "none"}` passes tools for reference only — Claude won't call them.
+
+**The limit that catches people first.** The example above handles one tool call per turn. A real task may need several — Claude calls a function, you return the result, it calls another. Loop until `msg.stop_reason == "end_turn"`. The SDK's `ToolRunner` (available in beta via `client.beta.messages.tool_runner`) handles this loop automatically if you pass a Python callable alongside each tool definition, which removes the message-building bookkeeping entirely.
+
+Add `strict: True` to the tool definition to get guaranteed schema-conformant inputs from Claude, preventing malformed calls from reaching your function at the cost of some extra prompt tokens.
+
+**Sources:** [Tool use overview — docs.anthropic.com](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Implement tool use — docs.anthropic.com](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/implement-tool-use)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your LoRA Adapter Disappears When the Colab Session Closes — `model.push_to_hub()` Persists It to HuggingFace in Two Lines]]></title>
@@ -6468,142 +6609,8 @@ The host surfaces `code-review` to the user. On selection, it pre-fills context 
 **Sources:** [MCP TypeScript SDK v2 docs](https://ts.sdk.modelcontextprotocol.io/v2/) · [MCP spec — Resources](https://spec.modelcontextprotocol.io/specification/basic/resources/) · [MCP spec — Prompts](https://spec.modelcontextprotocol.io/specification/basic/prompts/) · [SDK runnable examples — simpleStreamableHttp server](https://github.com/modelcontextprotocol/typescript-sdk/tree/main/src/examples/server)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Postgres Database Is Already a Vector Store — Enable pgvector and You Are One CREATE INDEX Away from Semantic Search]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-04-pgvector-supabase-vecs-python-vector-store</link>
-      <guid isPermaLink="false">2026-10-12-04-pgvector-supabase-vecs-python-vector-store</guid>
-      <pubDate>Mon, 12 Oct 2026 12:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Vectors</category>
-      <category>Embeddings</category>
-      <category>Building AI Products</category>
-      <description>pgvector adds a vector column type and cosine similarity operators to Postgres. Supabase's vecs Python client manages collections, upserts embeddings, and queries them in four lines — with a free Colab to run live.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** Add durable, queryable vector storage to any Postgres database — including your existing Supabase project — without a separate vector database service.
-
-**Three things to understand**
-
-1. **pgvector extends Postgres with a `vector` column type and similarity operators.** `<=>` is cosine distance; `<->` is Euclidean. Add a `CREATE INDEX … USING hnsw` to turn brute-force scans into approximate nearest-neighbor queries that stay fast past a million rows.
-
-2. **Supabase enables it with one dashboard click.** Database → Extensions → search "vector" → enable. From there, `CREATE TABLE docs (id bigserial primary key, embedding vector(384));` is all the schema you need.
-
-3. **The `vecs` Python client wraps collections, upsert, and query.** It manages the table schema behind a simple API, auto-creates an HNSW index on first `create_index()` call, and returns matched records with metadata filters.
-
-**Steps (Supabase + vecs)**
-
-Install:
-```bash
-pip install vecs sentence-transformers
-```
-
-Connect and create a collection:
-```python
-import vecs, os
-
-# get the connection URI from Supabase → Settings → Database → Connection string
-# use the POOLER string (port 6543) if running from Colab — Colab blocks IPv6
-vx = vecs.create_client(os.environ["SUPABASE_DB_URL"])
-docs = vx.get_or_create_collection(name="docs", dimension=384)
-```
-
-Upsert embeddings:
-```python
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer("all-MiniLM-L6-v2")  # 384-dim, runs on CPU
-
-records = [
-    ("doc-1", model.encode("pgvector adds cosine similarity to Postgres").tolist(),
-     {"source": "intro"}),
-    ("doc-2", model.encode("HNSW index: built incrementally, 2-5x more RAM than IVFFlat").tolist(),
-     {"source": "docs"}),
-]
-docs.upsert(records=records)
-docs.create_index()  # builds HNSW; idempotent if called twice
-```
-
-Query:
-```python
-query_vec = model.encode("How does Postgres handle vector search?").tolist()
-
-results = docs.query(
-    data=query_vec,
-    limit=3,
-    filters={"source": {"$eq": "docs"}},  # metadata filter applied pre-scan
-    include_metadata=True,
-)
-# → [("doc-2", 0.08, {"source": "docs"}), ...]
-```
-
-**Run this in 15 minutes:** Supabase's [Hello World Colab notebook](https://supabase.com/docs/guides/ai/quickstarts/hello-world) walks through the full workflow against a free Supabase project — no local setup required.
-
-**Why pgvector over an in-process store**
-
-FAISS (covered [earlier in this series](https://cloudcodetree.com/ai-news/2026-10-05-04-faiss-ivf-hnsw-index-types-ann-in-process)) disappears on process exit and rebuilds on restart. pgvector lives in Postgres: vectors survive reboots, share a connection pool with your application data, and sit behind your existing row-level security and backups. The tradeoff is that managed Postgres adds network overhead — for a batch job that only ever runs locally, an in-process store is faster.
-
-**Limits worth knowing**
-
-- **Filtered queries can return fewer rows than `limit`.** The HNSW index scans a neighborhood and stops when it has enough candidates; a tight metadata filter may leave fewer qualifying rows than requested. Increase `hnsw.ef_search` (default 40) when high recall matters more than latency.
-- **2,000-dimension cap.** Postgres/pgvector supports up to 2,000 dimensions per vector. Models that produce ≥ 3,072-dim vectors (OpenAI's text-embedding-3-large at full resolution, for example) need PCA or MRL reduction before storage.
-- **IVFFlat requires data first.** Unlike HNSW, IVFFlat needs rows present at index-creation time to find cluster centers. Build it after you've loaded a representative sample, not on an empty table.
-
-**Sources:** [pgvector: Embeddings and vector similarity — Supabase Docs](https://supabase.com/docs/guides/database/extensions/pgvector) · [Vecs Python client — Supabase Docs](https://supabase.com/docs/guides/ai/vecs-python-client) · [Hello World Colab — Supabase AI Quickstarts](https://supabase.com/docs/guides/ai/quickstarts/hello-world) · [HNSW vs IVFFlat: index types in PostgresML](https://postgresml.org/blog/hnsw-vs-ivfflat-vector-indexes-in-postgresml)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Parallel Subagents Don't All Need the Same Reasoning Budget — The Agent Tool's `effort` Field Right-Sizes Thinking Intensity Across a Workflow]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-03-claude-code-agent-effort-field-subagent-right-size</link>
-      <guid isPermaLink="false">2026-10-12-03-claude-code-agent-effort-field-subagent-right-size</guid>
-      <pubDate>Mon, 12 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Claude Code's new Agent tool effort field lets you set reasoning intensity per subagent — low for parallel searches, high for synthesis — without changing the main session.</description>
-      <content:encoded><![CDATA[**Pass `effort: "low"` to parallel searchers and `effort: "high"` to the synthesis step — each subagent runs at its natural reasoning depth without changing the main session's settings.**
-
-A subagent launched with the Agent tool runs at the session's default effort level, which is right for hard analysis but wasteful for well-defined tasks like scanning files, summarizing a doc, or fetching known facts. Claude Code added an `effort` field to the Agent tool in v2.1.292 (October 6, 2026), so you can set reasoning intensity per launch.
-
-**Fan-out with tiered effort** (in a Workflow script):
-
-```javascript
-// Three parallel searches at low effort
-const findings = await parallel([
-  () => agent("Find all TODOs in src/", { effort: "low", label: "search-todos" }),
-  () => agent("List uses of deprecated APIs", { effort: "low", label: "search-deprecated" }),
-  () => agent("Check package.json for outdated deps", { effort: "low", label: "check-deps" }),
-])
-
-// One synthesis agent at high effort
-const report = await agent(
-  "Synthesize these into a prioritized action plan:
-" + JSON.stringify(findings),
-  { effort: "high", label: "synthesize" }
-)
-```
-
-The same field works in a custom subagent definition's YAML frontmatter:
-
-```yaml
----
-model: inherit
-effort: low
----
-```
-
-**Resolution order:** per-call `effort` overrides the definition's frontmatter, which overrides the session's effort level. Neither can override the `CLAUDE_CODE_EFFORT_LEVEL` environment variable — if your CI sets that env var, per-call overrides won't pierce it. Run `/tasks` to see the effort level applied to each active subagent alongside its model, which is the fastest way to confirm settings are working as expected.
-
-**Limits:**
-- `effort` controls thinking intensity only; it does not change the model (use `model: "haiku"` for that)
-- "low" effort may skip subtle edge cases or require more precise task wording — best for well-defined, verifiable queries
-- Available effort levels may be constrained by your organization's model allowlist; check before writing effort levels into CI automation
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [Claude Code subagents](https://docs.anthropic.com/en/docs/claude-code/sub-agents), [HumanLayer — sub-agent models and effort](https://docs.humanlayer.com/reference/subagent-models)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
