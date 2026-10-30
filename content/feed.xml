@@ -10,7 +10,133 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 30 Oct 2026 12:20:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 30 Oct 2026 20:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your LangGraph Agent Runs Risky Tool Calls Without Asking — `interrupt()` Pauses the Graph, Saves State, and Resumes After the Human Responds]]></title>
+    <link>https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/</link>
+    <guid isPermaLink="false">2026-10-30-06-langgraph-interrupt-command-human-approval-gate</guid>
+    <pubDate>Fri, 30 Oct 2026 20:05:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[LangGraph's interrupt() halts any node mid-execution, persists state via a checkpointer, and resumes when you call Command(resume=value) — gate only the tool calls you can't undo.]]></description>
+    <content:encoded><![CDATA[**LangGraph's `interrupt()` halts any node mid-execution, persists state via a checkpointer, and resumes when you call `Command(resume=value)` — gate only the tool calls you can't undo.**
+
+An autonomous agent that can read files, write code, and call APIs will eventually need a pause before it does something irreversible — push to main, delete a database record, send an email. LangGraph's `interrupt()` handles this: it serializes the full graph state, returns control to your application, and continues from the exact same point once you supply a decision.
+
+**Minimal working example:**
+```python
+from langgraph.graph import StateGraph, MessagesState
+from langgraph.types import interrupt, Command
+from langgraph.checkpoint.memory import MemorySaver
+
+def call_tool_node(state):
+    action = state["messages"][-1].tool_calls[0]
+    if action["name"] == "write_production_db":
+        decision = interrupt({"action": action, "risk": "production write"})
+        if decision != "approve":
+            return {"messages": [{"role": "tool", "content": "Cancelled by reviewer",
+                                  "tool_call_id": action["id"]}]}
+    # ... execute the tool ...
+    return {...}
+
+builder = StateGraph(MessagesState)
+builder.add_node("call_tool", call_tool_node)
+# ... add remaining nodes and edges ...
+graph = builder.compile(checkpointer=MemorySaver())
+
+# First run — pauses at interrupt()
+config = {"configurable": {"thread_id": "my-task"}}
+result = graph.invoke({"messages": [...]}, config=config)
+# result["__interrupt__"] describes what was paused and why
+
+# Human reviews, then resumes
+final = graph.invoke(Command(resume="approve"), config=config)
+```
+
+**Three things that trip people up:**
+
+1. **The checkpointer is required.** `interrupt()` serializes state to the checkpoint store. Without `MemorySaver` (dev) or `PostgresSaver` (prod), `Command(resume=)` has nothing to resume from and the graph restarts from scratch.
+
+2. **Reuse the exact same `thread_id` on resume.** A different thread id begins a new graph run, not a continuation of the interrupted one.
+
+3. **Gate only the calls you can't undo.** Interrupting every tool call turns a useful automation into an approval queue. Identify the truly destructive actions (writes, sends, deletes) and let reads and lookups pass unblocked.
+
+**What you can't do:** `interrupt()` inside a parallel fan-out (multiple concurrent edges) is currently unsupported — you'd need to gate before the fan-out, not inside it.
+
+**Sources:** [Interrupts and Commands in LangGraph — DEV Community](https://dev.to/jamesbmour/interrupts-and-commands-in-langgraph-building-human-in-the-loop-workflows-4ngl) · [Building a human-in-the-loop approval gate — Machine Learning Mastery](https://machinelearningmastery.com/building-a-human-in-the-loop-approval-gate-for-autonomous-agents/) · [Human-in-the-Loop Patterns — LangGraph docs](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your RAG Pipeline Has No Objective Quality Signal — RAGAS Scores Context Recall, Faithfulness, and Precision in One Call and Points to Whether Your Retriever or Generator Is the Problem]]></title>
+    <link>https://docs.ragas.io/en/stable/getstarted/rag_eval/</link>
+    <guid isPermaLink="false">2026-10-30-05-ragas-evaluate-rag-context-recall-faithfulness-pipeline</guid>
+    <pubDate>Fri, 30 Oct 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Claude Code Tree</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[RAGAS scores your RAG pipeline on four metrics using an LLM judge — and the combination of scores points directly to whether your retriever or generator is the problem.]]></description>
+    <content:encoded><![CDATA[**RAGAS scores your RAG pipeline on four metrics in one call — and the combination tells you whether a low score is your retriever's problem or your generator's.**
+
+After building a RAG pipeline, "it seems to work" is the only quality signal you have until users complain. RAGAS fixes that with four metrics, each measured by an LLM judge against your retrieved context and final answer:
+
+| Metric | What it measures | Ground truth needed? |
+|---|---|---|
+| **Context recall** | Did the retriever return enough of what the question needed? | Yes |
+| **Context precision** | Did the retrieved chunks stay on-topic, or did noise get through? | No |
+| **Faithfulness** | Does the answer stick to the retrieved context, or is the model adding unsupported claims? | No |
+| **Answer relevancy** | Does the answer actually address the question? | No |
+
+**Why all four matter together.** High precision + low faithfulness → your retriever is fine, your generator is hallucinating. Low context recall → the evidence never arrived, so the answer can't be correct regardless of the generator. The combination directs the fix.
+
+**Install and run:**
+```bash
+pip install ragas langchain-anthropic
+```
+
+```python
+from ragas import evaluate, EvaluationDataset, SingleTurnSample
+from ragas.metrics import LLMContextRecall, Faithfulness, LLMContextPrecisionWithoutReference
+from langchain_anthropic import ChatAnthropic
+from ragas.llms import LangchainLLMWrapper
+
+judge = LangchainLLMWrapper(ChatAnthropic(model="claude-sonnet-4-5"))
+
+samples = [
+    SingleTurnSample(
+        user_input="What storage does Chroma use by default?",
+        retrieved_contexts=[
+            "Chroma uses in-memory storage by default. "
+            "Pass a path to PersistentClient to keep data on disk."
+        ],
+        response="Chroma stores data in memory by default.",
+        reference="Chroma uses in-memory storage by default.",  # needed for LLMContextRecall
+    ),
+]
+dataset = EvaluationDataset(samples=samples)
+result = evaluate(
+    dataset,
+    metrics=[LLMContextRecall(), Faithfulness(), LLMContextPrecisionWithoutReference()],
+    llm=judge,
+)
+print(result)  # {'context_recall': 1.0, 'faithfulness': 1.0, 'context_precision': 1.0}
+```
+
+Build your eval set from real user queries where you know the correct answer. Run it after every retrieval change — chunk size, embedding model, reranker threshold — to catch regressions before users do.
+
+**The costs.** Context recall makes one judge call per sample; faithfulness makes two. A 100-sample eval set costs 300 LLM API calls. Price the eval set before committing to a judge model choice. The more critical limit: **hold the judge model and version fixed across every run you compare.** Swapping the judge changes the scores — not the pipeline — and the numbers become meaningless across runs.
+
+**What RAGAS can't catch:** whether your chunking strategy preserves enough context (that's a pre-retrieval problem), and whether the ground-truth references you wrote are actually correct (garbage in, garbage out).
+
+**Sources:** [Evaluate a simple RAG system — docs.ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/) · [RAG Evaluation with RAGAS — DataCamp](https://www.datacamp.com/tutorial/rag-evaluation-with-ragas) · [Ragas: how to measure your RAG pipeline — DEV Community](https://dev.to/m_t_ramkrushna/ragas-how-to-actually-measure-your-rag-pipeline-faithfulness-context-precisionrecall-relevancy-26)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Every Subagent in Your Workflow Runs at the Same Effort Level Whether It's Doing a Simple Lookup or a Complex Synthesis — The `effort:` Parameter Matches Cost to Task]]></title>
@@ -6459,129 +6585,9 @@ The test I wrote is in __tests__/token.test.ts.
 **Sources:** [morphllm.com — Claude Code /compact guide](https://morphllm.com/claude-code-compact) · [Claude Code auto-compact behavior — morphllm.com](https://www.morphllm.com/claude-code-auto-compact) · [Claude Code context management — sfeir.com](https://institute.sfeir.com/en/claude-code/claude-code-context-management/cheatsheet/)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[FAISS Has No Native Persistence and pgvector Needs Postgres — Chroma's PersistentClient Gives You a Local Vector Store in One pip install]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-13-01-chroma-persistent-client-local-vector-store-rag-prototype</link>
-      <guid isPermaLink="false">2026-10-13-01-chroma-persistent-client-local-vector-store-rag-prototype</guid>
-      <pubDate>Tue, 13 Oct 2026 04:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Vectors</category>
-      <category>Embeddings</category>
-      <category>Building AI Products</category>
-      <description>chromadb.PersistentClient(path="./db") writes an embedded vector store to a directory — no server, no schema migration. Good for local RAG prototypes before committing to hosted infrastructure.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** run a local vector similarity search that survives process restarts — a portable RAG prototype that works without a cloud account or a running server, and migrates to pgvector or Qdrant when you're ready to scale.
+    
 
-The vector store landscape has three natural tiers:
-
-| Tier | Example | Persistence | Server? |
-|---|---|---|---|
-| In-process, no persistence | FAISS | No native disk write | No |
-| Embedded, persistent | **Chroma** | Directory on disk | No |
-| Server-backed | pgvector, Qdrant | Database/cluster | Yes |
-
-Chroma sits in the middle. Use it when you need more than FAISS's rebuild-every-restart but aren't ready to spin up Postgres or a vector DB server for a prototype.
-
-**Setup:**
-
-```python
-pip install chromadb
-```
-
-```python
-import chromadb
-
-# Data persists to ./my_rag_db across process restarts
-client = chromadb.PersistentClient(path="./my_rag_db")
-
-# get_or_create_collection is idempotent — safe to call on every startup
-collection = client.get_or_create_collection(name="docs")
-```
-
-The default embedding function uses `sentence-transformers/all-MiniLM-L6-v2` locally (downloaded on first use). No API key required.
-
-**Adding documents:**
-
-```python
-collection.add(
-    documents=[
-        "Chroma embeds text automatically using the collection's embedding function.",
-        "FAISS requires you to supply pre-computed embeddings as numpy arrays.",
-        "pgvector stores vectors in a Postgres column; you need the pg_vector extension."
-    ],
-    ids=["doc-1", "doc-2", "doc-3"]  # must be unique strings
-)
-```
-
-Duplicate IDs raise an error. Use `collection.upsert(...)` when updating existing documents.
-
-**Querying:**
-
-```python
-results = collection.query(
-    query_texts=["how does Chroma handle embeddings?"],
-    n_results=2
-)
-# results["documents"][0]  — matched doc strings
-# results["distances"][0]  — L2 or cosine distances (lower = closer)
-# results["ids"][0]        — matched ids
-```
-
-**Switching to a better embedding model:**
-
-Pass a custom `embedding_function` at creation time and again every time you call `get_or_create_collection` — Chroma verifies it matches what the collection was created with:
-
-```python
-from chromadb.utils.embedding_functions import HuggingFaceEmbeddingFunction
-
-hf_ef = HuggingFaceEmbeddingFunction(
-    api_key="YOUR_HF_TOKEN",
-    model_name="sentence-transformers/all-mpnet-base-v2"
-)
-collection = client.get_or_create_collection(name="docs", embedding_function=hf_ef)
-```
-
-**One real limit:** Chroma is a single-process embedded database — not designed for concurrent writes from multiple processes or for collections above a few million documents. When you hit either constraint, migrate to Qdrant (local Docker) or pgvector (Postgres + `CREATE EXTENSION vector`). The query API is similar enough that the swap costs one abstraction layer, not a rewrite.
-
-**Sources:** [Chroma docs — PersistentClient](https://docs.trychroma.com/guides) · [Chroma docs — create/get/delete collections](https://docs.trychroma.com/docs/collections/create-get-delete) · [DataCamp Chroma tutorial](https://www.datacamp.com/tutorial/chromadb-tutorial-step-by-step-guide)]]></content:encoded>
-    </item>
-
-
-    <item>
-      <title><![CDATA[Your Claude Code Overnight Run Will Exhaust Its WebSearch Budget Unless You Tune the Refill Rate First]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-12-06-claude-code-websearch-refill-subagent-concurrency-budget-controls</link>
-      <guid isPermaLink="false">2026-10-12-06-claude-code-websearch-refill-subagent-concurrency-budget-controls</guid>
-      <pubDate>Mon, 12 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Claude Code now refills its WebSearch budget at 100 calls/hour instead of ending at a hard 200-call wall. Three env vars control the limits before you kick off a long autonomous run.</description>
-      <content:encoded><![CDATA[**Claude Code's WebSearch budget is now a leaky bucket, not a wall — but only if you let it refill.**
-
-As of Claude Code v2.1.292 (October 6), the per-session WebSearch limit changed from a hard 200-call ceiling to a **token-bucket pattern**: the budget refills at 100 calls per hour. For an overnight research sweep, codebase audit, or batch document processing run, that means search calls won't suddenly fail at call 201 — as long as your throughput stays within the hourly refill rate.
-
-**Three settings to review before a long autonomous run:**
-
-`CLAUDE_CODE_WEB_SEARCH_REFILLS_PER_HOUR` (default: `100`)
-Controls how quickly the budget refills. Set to `0` to turn off refilling and revert to a predictable hard cap — useful in CI where you want deterministic resource usage.
-
-`CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` (default: `20`)
-Maximum subagents running simultaneously. Fan-out workflows that spawn many parallel workers may need this raised; sequential pipelines benefit from keeping it low to make session behavior easier to debug.
-
-`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` (default: `3`)
-Maximum nesting depth: orchestrator (depth 1) → worker (depth 2) → sub-worker (depth 3). Raising past 3 increases coordination complexity quickly; behavior beyond 3 levels is less tested in production.
-
-**For network-sensitive production deployments**, add `"sandbox.network.strictAllowlist": true` to `.claude/settings.json`. Sandboxed shell commands will then be denied for any host not on the `allowedDomains` list, rather than prompting (requires v2.1.219+). It fails closed, so test your `allowedDomains` list in staging before enabling it in production.
-
-**One real limit:** The refill applies to interactive terminal sessions, but headless runs (`claude -p`) and subagent-spawned searches count against the same session counter. A large fan-out of parallel subagents each doing web searches can exhaust the bucket faster than it refills. For those workloads, raising `CLAUDE_CODE_WEB_SEARCH_REFILLS_PER_HOUR` above 100 — or switching subagents to use curated document retrieval instead of open web search — is the more effective control.
-
-**Sources:** [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [Sandboxing docs](https://code.claude.com/docs/en/sandboxing) · [RFC 2697 — Token Bucket algorithm (IETF)](https://datatracker.ietf.org/doc/html/rfc2697)]]></content:encoded>
-    </item>
-
+    
     
     
     
