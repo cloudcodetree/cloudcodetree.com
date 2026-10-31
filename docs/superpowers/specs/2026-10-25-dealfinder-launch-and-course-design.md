@@ -1,7 +1,7 @@
 # DealFinder: public launch + finishing the "Become a Full-Stack AI Engineer" course
 
 **Date:** 2026-10-25
-**Amended:** 2026-10-27. The launch ships without Best Buy (§2).
+**Amended:** 2026-10-27. The launch ships without Best Buy (§2). 2026-10-31: staging host until launch (§2).
 **Status:** Ready for owner approval
 **Research behind every claim here:** `docs/superpowers/plans/2026-10-25-dealfinder-launch-research.md`
 **Repos:** product = `github.com/cloudcodetree/tutorial-dealfinder` (local `~/Development/tutorial-dealfinder`, HEAD `20b3fd5`); course = this repo (`app/tutorials/(article)/dealfinder-part-NN/page.draft.mdx`, all 37 held).
@@ -36,6 +36,7 @@ The owner wants two things, in this order:
 | Hosting | **Google Cloud Run free tier, with deal pages served static from Cloudflare.** |
 | If Best Buy can't carry verdicts | Verdicts move to a **"check a deal"** mode: the shopper types a product and price and gets the verdict. Best Buy search still runs, without verdicts. |
 | Best Buy key (2026-10-27) | **Launch without Best Buy for now.** The key registered on 2026-07-02 is still pending, and Best Buy's contact form is the only route. The launch front page is Check a deal, plus the lab. Live search, deal pages, the watchlist, saved searches and price alerts wait for a key and ship as a follow-up. Plan 2's Best Buy code stays. Production runs with no Best Buy key and `DEALFINDER_VERDICT_MODE=check`. |
+| Staging host (2026-10-31) | **Before launch the product runs only on `deals.beta.cloudcodetree.com`**, noindexed, as Worker `dealfinder-edge-staging`. `deals.cloudcodetree.com` has no DNS record until the launch plan adds a production environment. The first deploy had put the unfinished dev UI on the launch hostname, reachable by anyone. |
 | Teaching snapshot | **Kept** as the teaching and training data, **minus the image URLs**, which are removed from the committed file and the lab. |
 | Supabase | **DealFinder shares the site's `cct-demos` project**: one sign-in across cloudcodetree.com and DealFinder, $0. The free plan's two active slots are taken by `homestead-finder` and `cct-demos`. |
 | Payments lesson (P34) | **Stripe in test mode**: real code, committed and tested, never switched on in the live product. |

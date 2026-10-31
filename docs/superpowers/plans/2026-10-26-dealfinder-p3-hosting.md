@@ -14,6 +14,8 @@
 
 **Repo and branch:** companion `~/Development/tutorial-dealfinder`, branch `feat/launch-p3-hosting`, cut from `origin/main` after Plan 2 merges, else stacked on `feat/launch-p2-*`. Task 7 is in the site repo `~/Development/cloudcodetree.com`, branch `feat/deals-infra` from `origin/main`.
 
+> **Amended 2026-10-31 (owner):** the product runs on `deals.beta.cloudcodetree.com` until launch, as Worker `dealfinder-edge-staging`. Where this plan names `deals.cloudcodetree.com` for the Worker's custom domain, the CI smoke check or a live check, read the beta host. See "Staging host until launch" in the contracts file. Done in companion commit `f828554`.
+
 ## Launch without Best Buy (owner decision, 2026-10-27)
 
 Best Buy has not issued an API key, so the launch runs with no Best Buy data. Nothing in this plan builds, schedules or serves deal pages yet. The deferred tasks stay written as they are. When a key arrives they run on their own branch, and the trims below are undone.

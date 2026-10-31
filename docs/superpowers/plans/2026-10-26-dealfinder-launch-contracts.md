@@ -14,6 +14,14 @@ Best Buy has not issued an API key, so the launch ships without Best Buy data. T
 - **Deferred:** the `/deal/<slug>`, `/sitemap.xml` and `/robots.txt` rows of the URL map, the R2 bucket `dealfinder-pages` and the Worker's `PAGES` binding, both Cloud Scheduler jobs and their health checks, the R2, email and alert secrets (`CLOUDFLARE_R2_TOKEN`, `RESEND_API_KEY`, `UNSUBSCRIBE_SECRET`, `HEALTHCHECK_PAGES_URL`, `HEALTHCHECK_ALERTS_URL`), the Best Buy logo, and the front-end routes `/watchlist` and `/saved`.
 - **At launch:** `/` and `/check` serve Check a deal. `/robots.txt` comes from `frontend/dist`. Production sets `DEALFINDER_SOURCES=BestBuy` with no `BESTBUY_API_KEY`, so the source is off, and `DEALFINDER_VERDICT_MODE=check`. The lab hides sign-in while no live source is on.
 
+## Staging host until launch (owner decision, 2026-10-31)
+
+- Every deploy before launch goes to Worker `dealfinder-edge-staging` on `deals.beta.cloudcodetree.com`. `edge/wrangler.jsonc` holds only that config, and no file in it names the launch host, so CI cannot reach it either.
+- `deals.cloudcodetree.com` has no DNS record. The launch plan adds `env.production` to `edge/wrangler.jsonc` with that custom domain and the Worker name `dealfinder-edge`, which exists today with no domain.
+- In Plans 4-6, a live check, drill or browser demo that names `deals.cloudcodetree.com` runs against `https://deals.beta.cloudcodetree.com` until launch. Names that are fixed at launch keep the launch host: the email sender, the Resend domain, and `PUBLIC_ORIGIN` in production. Staging sets its own `PUBLIC_ORIGIN`.
+- The Supabase auth allowlist adds `https://deals.beta.cloudcodetree.com/**` before any sign-in ships, and the launch host at launch.
+- The Worker's search cache key includes the host, because beta and production share the zone's cache.
+
 ## Repos and branches
 
 - Product: `~/Development/tutorial-dealfinder` (GitHub `cloudcodetree/tutorial-dealfinder`).
