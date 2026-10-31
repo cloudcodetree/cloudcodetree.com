@@ -10,7 +10,197 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 31 Oct 2026 12:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 31 Oct 2026 20:12:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude App Receives Descriptions of Images It Has Never Seen — Pass a URL or Base64 Source Block for Direct Pixel-Level Analysis]]></title>
+    <link>https://docs.anthropic.com/en/docs/build-with-claude/vision</link>
+    <guid isPermaLink="false">2026-10-31-05-claude-sdk-vision-image-url-base64-file-analysis</guid>
+    <pubDate>Sat, 31 Oct 2026 20:12:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>VLM</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Pass images to the Messages API as URL or base64 content blocks; use the Files API when the same image recurs across turns.]]></description>
+    <content:encoded><![CDATA[**Your Claude app is responding to "describe this image" with text that shows it never saw the image. Add an image source block to the content array and Claude analyses the actual pixels.**
+
+**What you'll be able to do after this:** Send any image — a screenshot, diagram, chart, or document page — directly to the Claude Messages API from a URL, a local file, or the Files API for reuse.
+
+- Three source types cover every case: **URL** (`{"type":"url","url":"…"}`) for images already on the web with no authentication required; **base64** for local files or dynamically generated images; **file_id** via the Files API when the same image appears across multiple turns or requests — upload once, reference many times
+- Limits that bite: URL source must be a public URL (basic auth, signed URLs, and redirect chains often fail silently); base64 images must fit in the request body (practical limit ~5 MB before encoding overhead); total images per request are capped at 20 standard or up to 100 with long-context; Claude can't read PDFs via the image API — use the document source type for PDF pages
+- Image tokens count against your context window — a 1568×1568 image costs ~1600 tokens; resize large screenshots to 1568 px on the long edge before sending to keep inference costs predictable
+
+**Walk-through:**
+
+```python
+import anthropic, base64, pathlib
+
+client = anthropic.Anthropic()
+
+# 1. URL source — fastest path for images already on the web
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "url",
+                    "url": "https://example.com/architecture-diagram.png"
+                }
+            },
+            {"type": "text", "text": "List any single points of failure you see."}
+        ]
+    }]
+)
+print(response.content[0].text)
+
+# 2. Base64 source — for local files and generated images
+img_bytes = pathlib.Path("screenshot.png").read_bytes()
+img_b64   = base64.standard_b64encode(img_bytes).decode()
+
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=1024,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": img_b64
+                }
+            },
+            {"type": "text", "text": "List accessibility issues you see."}
+        ]
+    }]
+)
+
+# 3. Files API — upload once, reuse across requests
+with open("company-logo.png", "rb") as f:
+    file_obj = client.beta.files.upload(
+        file=("company-logo.png", f, "image/png")
+    )
+
+# reference by file_id — no repeated base64 overhead
+response = client.messages.create(
+    model="claude-opus-5-5",
+    max_tokens=512,
+    messages=[{
+        "role": "user",
+        "content": [
+            {
+                "type": "image",
+                "source": {"type": "file", "file_id": file_obj.id}
+            },
+            {"type": "text", "text": "Does this logo read clearly at 32×32 px?"}
+        ]
+    }]
+)
+```
+
+**The limits that matter:**
+
+- Supported formats: JPEG, PNG, GIF, WebP — not SVG, not TIFF
+- Max image size: 8000×8000 pixels or 20 MB (5 MB on Bedrock)
+- URL source fails silently when the server returns a redirect, an auth challenge, or a non-image content-type — use base64 when you aren't certain the URL is stable and public
+- The Files API (`client.beta.files`) is in beta; the `betas=["files-api-2025-04-14"]` header is required for the upload call but not for the reference
+
+**Sources:** [Claude Vision documentation](https://docs.anthropic.com/en/docs/build-with-claude/vision) · [Files API reference](https://docs.anthropic.com/en/docs/build-with-claude/files)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Single Agent Does Everything Itself Until Context Balloons — A LangGraph Supervisor Delegates via Tool Calls to Specialist Workers That Each See Their Own Slice]]></title>
+    <link>https://langchain-ai.github.io/langgraph/tutorials/multi_agent/agent_supervisor/</link>
+    <guid isPermaLink="false">2026-10-31-06-langgraph-supervisor-tool-calling-specialist-workers</guid>
+    <pubDate>Sat, 31 Oct 2026 20:11:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <media:content url="https://img.youtube.com/vi/KAwiykWkQ5Q/maxresdefault.jpg" medium="image" />
+    <media:thumbnail url="https://img.youtube.com/vi/KAwiykWkQ5Q/maxresdefault.jpg" />
+    <description><![CDATA[Wire a LangGraph supervisor that hands off tasks to specialist workers via tool calls; each worker sees only its own message slice, keeping context tight.]]></description>
+    <content:encoded><![CDATA[**Your single ReAct agent handles everything — and at some point its context fills with every prior sub-task and it starts confusing its own steps. A supervisor that delegates via tool calls gives each specialist its own clean context window.**
+
+**What you'll be able to do after this:** Build a multi-agent graph where a supervisor routes tasks to specialist workers by calling tools; each worker sees only its own input, not the accumulated history of every prior delegation.
+
+- A supervisor is a `create_react_agent` that treats each worker as a **tool** — it calls `transfer_to_researcher(query)` or `transfer_to_writer(draft)` rather than invoking the workers directly, which means the LLM decides when and how to delegate
+- Each worker is a compiled sub-graph or a plain Python function; wrapping it as a `@tool` is the only coupling point — change the worker internals without touching the supervisor
+- Three limits to build around: workers cannot see each other's state directly (the supervisor relays); the supervisor loops until `END` is reached (add `recursion_limit` to the config); and graph state is in-memory only — add a LangGraph checkpointer if you need persistence across requests
+
+**Walk-through:**
+
+```python
+from langchain_anthropic import ChatAnthropic
+from langchain_core.tools import tool
+from langgraph.prebuilt import create_react_agent
+
+llm = ChatAnthropic(model="claude-opus-5-5")
+
+# --- specialist workers (each gets its own message slice) ---
+
+def _run_researcher(query: str) -> str:
+    agent = create_react_agent(llm, tools=[])   # add web-search tools here
+    result = agent.invoke({"messages": [{"role": "user", "content": query}]})
+    return result["messages"][-1].content
+
+def _run_writer(request: str) -> str:
+    agent = create_react_agent(llm, tools=[])
+    result = agent.invoke({"messages": [{"role": "user", "content": request}]})
+    return result["messages"][-1].content
+
+# --- expose workers as tools so the supervisor can call them ---
+
+@tool
+def transfer_to_researcher(query: str) -> str:
+    """Research a topic and return a summary of findings."""
+    return _run_researcher(query)
+
+@tool
+def transfer_to_writer(request: str) -> str:
+    """Draft or refine a piece of text given the request."""
+    return _run_writer(request)
+
+# --- supervisor: a react agent that calls the worker tools ---
+
+supervisor = create_react_agent(
+    llm,
+    tools=[transfer_to_researcher, transfer_to_writer],
+)
+
+# --- run it ---
+result = supervisor.invoke(
+    {
+        "messages": [{
+            "role": "user",
+            "content": "Research the pros and cons of vector DBs vs graph DBs for RAG, then write a two-paragraph comparison."
+        }]
+    },
+    config={"recursion_limit": 20},
+)
+print(result["messages"][-1].content)
+```
+
+**Patterns that help in practice:**
+
+- **Narrow tool docstrings** drive good delegation — the supervisor reads the docstring to decide which tool to call, so "Research a topic and return findings" outperforms "call researcher"
+- **Add a `FINISH` tool** that returns the final answer, so the supervisor can signal completion explicitly rather than relying on `END` propagation
+- **Parallel workers** require a different topology — if your workers can run concurrently, look at `langgraph-swarm` (fan-out/fan-in) rather than serial tool-call delegation
+- **State isolation is a feature** — each `create_react_agent` call gets a fresh `MessagesState`; if a worker needs shared context (a database schema, a user profile), pass it explicitly in the tool argument string
+
+**Sources:** [LangGraph multi-agent supervisor tutorial](https://langchain-ai.github.io/langgraph/tutorials/multi_agent/agent_supervisor/) · [LangGraph prebuilt reference](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Every Fine-Tuning Walkthrough Opens With `load_dataset('tatsu-lab/alpaca')` — Format Your Own Pairs as Alpaca or Messages JSONL and Push Them to the Hub in Three Steps]]></title>
@@ -6494,103 +6684,8 @@ One limit: each teammate still needs to have the server's runtime available loca
 **Sources:** [MCP in Claude Code — Anthropic Docs](https://code.claude.com/docs/en/mcp) · [Claude Code MCP Server Configuration Guide — Glama](https://glama.ai/mcp/servers/@marc-shade/universal-ai-chat/blob/3d65574a888705c4f462b8331a186f0721e0e115/docs/claude-code-mcp-docs.md)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Agent Generates Generic Colors Because It Has No Token Vocabulary — Style Dictionary Compiles Your DTCG JSON Into CSS Custom Properties Claude Code Can Read]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-13-07-style-dictionary-design-tokens-css-variables-claude-code</link>
-      <guid isPermaLink="false">2026-10-13-07-style-dictionary-design-tokens-css-variables-claude-code</guid>
-      <pubDate>Tue, 13 Oct 2026 20:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Design-to-Code</category>
-      <category>Claude Design</category>
-      <category>Building AI Products</category>
-      <description>Style Dictionary reads your design tokens in DTCG JSON and emits CSS custom properties your CLAUDE.md points to — so every session uses your color scale, not a generic one.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** Set up a Style Dictionary build step so Claude Code uses your color scale, type scale, and spacing — not generic Tailwind defaults — when generating components.
-
-**Three things to know first:**
-- Style Dictionary reads your tokens in the W3C DTCG JSON format and emits CSS custom properties (or Tailwind config, or both), keeping component generation locked to your system
-- One line in CLAUDE.md tells every session where the compiled token file lives; without it, Claude Code guesses from context and falls back on defaults
-- The DTCG Community Group format is still a draft (not a W3C Recommendation), but Figma, Tokens Studio, and Style Dictionary all speak it, making it the practical interop point today
-
-**Setup (5 steps):**
-
-1. Install: `npm install --save-dev style-dictionary`
-
-2. Create `tokens/brand.tokens.json`:
-```json
-{
-  "color": {
-    "primary":    { "$type": "color",     "$value": "#3B82F6" },
-    "text":       { "$type": "color",     "$value": "#111827" },
-    "surface":    { "$type": "color",     "$value": "#F9FAFB" }
-  },
-  "spacing": {
-    "4":  { "$type": "dimension", "$value": "1rem" },
-    "8":  { "$type": "dimension", "$value": "2rem" }
-  },
-  "fontFamily": {
-    "base": { "$type": "fontFamily", "$value": "Inter, system-ui, sans-serif" }
-  }
-}
-```
-
-3. Create `style-dictionary.config.json`:
-```json
-{
-  "source": ["tokens/**/*.tokens.json"],
-  "platforms": {
-    "css": {
-      "transformGroup": "css",
-      "prefix": "ds",
-      "buildPath": "src/styles/",
-      "files": [{ "destination": "tokens.css", "format": "css/variables" }]
-    }
-  }
-}
-```
-
-4. Run `npx style-dictionary build` → generates `src/styles/tokens.css` with `--ds-color-primary: #3B82F6;`, `--ds-spacing-4: 1rem;`, etc.
-
-5. Add to CLAUDE.md:
-```
-Design tokens: src/styles/tokens.css
-Use these CSS custom properties for all component colors, spacing, and typography.
-Do not use raw hex values or Tailwind's default color palette.
-```
-
-**One real limit:** Style Dictionary adds a build step. Without automation, `tokens.css` drifts from `tokens.json` when designs update. Add a prebuild script: `"prebuild": "style-dictionary build"` so the CSS regenerates before every deploy. If you export tokens from Figma, the loop is: Figma export → `tokens.json` → `npx style-dictionary build` → Claude Code reads `tokens.css`.
-
-**Sources:** [Style Dictionary docs — styledictionary.com](https://styledictionary.com) · [Stop AI from Ignoring Your Design Tokens: DTCG + AGENTS.md Workflow — atomize.tools](https://atomize.tools/blog/figma-design-tokens-vibe-coding/) · [Design Tokens for AI Coding: CLAUDE.md Rules — techarion.com](https://techarion.com/blog/design-tokens-claude-md-rules-stop-generic-ai-ui)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic Reports New Distillation Defenses — If You Generate Synthetic Training Data From Claude, Know the Line]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-13-06-anthropic-distillation-defenses-synthetic-data-warning</link>
-      <guid isPermaLink="false">2026-10-13-06-anthropic-distillation-defenses-synthetic-data-warning</guid>
-      <pubDate>Tue, 13 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Fine-Tuning</category>
-      <category>Security</category>
-      <category>Building AI Products</category>
-      <description>Anthropic published new distillation defenses Oct 12, reporting 90-99% reduction in extractable reasoning data. The line for engineers: task-specific labeled data generation is not what these defenses target.</description>
-      <content:encoded><![CDATA[**Anthropic published new distillation defenses October 12; if you generate synthetic training data from Claude at scale, know which patterns trigger the classifiers — and which don't.**
-
-[Anthropic's new research post](https://anthropic.com/research/distillation-defenses) reports model- and API-level safeguards that reduce the reasoning data distillation campaigns can extract by roughly 90–99%, per Anthropic's own early measurements. Context: Anthropic's September 2026 threat report ([Betterstack summary](https://betterstack.com/community/guides/ai/anthropic-threat-report-2026/)) described seven AI labs running campaigns totaling 190 million exchanges — Alibaba's lab alone contributing 151 million — characterized as wholesale attempts to reproduce Claude's general-purpose reasoning in a smaller model.
-
-The defenses target coordinated multi-account extraction, chain-of-thought elicitation at volume, and patterns consistent with training a competing general model. They do not target standard API use.
-
-**The engineering line:** generating task-specific labeled data — classification labels, Q&A pairs, structured outputs for your own downstream fine-tune — is not what these defenses are for, as long as you use a single legitimate account and are not trying to replicate Claude's general capabilities. Anthropic's usage policy prohibits training a competing general model from Claude outputs; task-specific fine-tuning for your own application is a different thing.
-
-**Why it matters:** If you scale up a synthetic data pipeline against the Claude API, the new behavioral classifiers will be watching. Keep volume proportionate to the task, stay on one account, and document the purpose.
-
-**Sources:** [Strengthening our defenses against distillation attacks — Anthropic](https://anthropic.com/research/distillation-defenses) · [Anthropic September 2026 Threat Report — Betterstack](https://betterstack.com/community/guides/ai/anthropic-threat-report-2026/)]]></content:encoded>
-    </item>
-
+    
+    
 
     
     
