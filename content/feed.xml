@@ -10,7 +10,186 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 31 Oct 2026 20:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 01 Nov 2026 04:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Generate Three Rough Directions in Claude Design Before Writing a Line of Code — The Comparison Becomes the Constraint Brief Your Claude Code Session Needs]]></title>
+    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
+    <guid isPermaLink="false">2026-11-01-04-claude-design-explore-directions-spec-brief</guid>
+    <pubDate>Sun, 01 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Generating three architecturally distinct directions in Claude Design before coding externalizes layout and hierarchy choices. The comparison note becomes the constraint brief Claude Code needs to generate on-brand, on-spec components.]]></description>
+    <content:encoded><![CDATA[**TL;DR: Three design directions from Claude Design in 15 minutes surface layout and hierarchy conflicts you'd otherwise discover in code — and the comparison produces a constraint brief Claude Code can act on directly.**
+
+When you jump straight to implementation, you commit to implicit decisions — layout, information density, interaction model — without ever examining them. A short exploration in Claude Design, before any code is written, externalizes those choices and makes them negotiable.
+
+**What you'll be able to do after this:**
+- Generate three architecturally distinct directions for a feature from a single brief
+- Extract the surviving decisions as a constraint brief
+- Pass that brief to Claude Code and get components that stay within the chosen system
+
+**The workflow**
+
+Write a brief — 3–5 lines: what the feature does, who uses it, the one job it needs to do well, and the constraints (existing component library, color system, target screen sizes). In Claude Design (or a Claude artifact), ask for three distinct directions, not variations of one:
+
+> "Generate three distinct UI directions for [feature brief]. Make them architecturally different — different information hierarchy, different interaction model, not just different colors. Label each by its tradeoff: e.g., 'dense / scannable', 'guided / linear', 'ambient / low-interrupt'."
+
+Once you have three, write a comparison note: what each gets right, what it sacrifices, where each breaks. **That comparison is the spec.** The decisions that survive — "we need scannable density; primary action in one tap; use our existing Card and Button primitives" — become the constraint brief.
+
+Hand that brief directly to Claude Code:
+
+> "You're building [feature]. Constraints: [surviving list]. Components available: [library]. Generate the component tree starting with the container layout."
+
+The exploration took 15 minutes; the brief took five; Claude Code works from a concrete spec rather than a vague description.
+
+**Limits**: Claude Design explores layouts and hierarchy well but has no knowledge of your existing components unless you describe them. Generated directions tend toward clean, low-density layouts — if density matters, prompt for it explicitly. This workflow is strongest before the first line of code, not during iteration on something already built.
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [CLAUDE.md context file — code.claude.com](https://code.claude.com/docs/en/claude-md) · [Design Sprint methodology — designsprintkit.withgoogle.com](https://designsprintkit.withgoogle.com/methodology/overview)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Whole Workflow Runs at Session Effort Because There's No Per-Process Override — CLAUDE_CODE_SUBAGENT_EFFORT and CLAUDE_CODE_DISABLE_ULTRATHINK Ship in v2.1.316]]></title>
+    <link>https://code.claude.com/docs/en/model-config</link>
+    <guid isPermaLink="false">2026-11-01-03-cc-subagent-effort-ultrathink-disable-v2-1-316</guid>
+    <pubDate>Sun, 01 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[v2.1.316 ships two cost controls: CLAUDE_CODE_SUBAGENT_EFFORT sets a process-level default effort for all subagents; CLAUDE_CODE_DISABLE_ULTRATHINK removes the keyword-triggered extended thinking for managed installs.]]></description>
+    <content:encoded><![CDATA[**TL;DR: Claude Code v2.1.316 (Oct 31) ships two cost-control env vars — `CLAUDE_CODE_SUBAGENT_EFFORT` caps subagent effort at the process level, and `CLAUDE_CODE_DISABLE_ULTRATHINK` removes the keyword shortcut for managed or unattended installs.**
+
+**CLAUDE_CODE_SUBAGENT_EFFORT**
+
+Before v2.1.316, every subagent inherited the parent session's effort level. A session running at `xhigh` for complex reasoning also spawned file-read subagents at `xhigh` — paying full-effort inference for tasks that don't need it. Setting `CLAUDE_CODE_SUBAGENT_EFFORT` in the environment overrides that default for all subagents in the process:
+
+```bash
+# In your CI environment or .env:
+CLAUDE_CODE_SUBAGENT_EFFORT=medium   # low | medium | high | xhigh | max
+```
+
+The parent session still runs at whatever effort you specified there. Only subagents change. Useful for: unattended CI runs where the orchestrator needs max context but workers do scoped, well-defined tasks; shared team installations where you want a cost ceiling by default.
+
+**CLAUDE_CODE_DISABLE_ULTRATHINK**
+
+`ultrathink` typed in a prompt triggers extended thinking at xhigh effort for that turn. It's a useful interactive shortcut but can fire accidentally in managed installs when a user pastes a log, a commit message, or a doc that happens to contain the word. Setting `CLAUDE_CODE_DISABLE_ULTRATHINK=1` disables the keyword trigger entirely — extended thinking is still available via the session `effort` setting, just not via this shortcut.
+
+```bash
+CLAUDE_CODE_DISABLE_ULTRATHINK=1
+```
+
+**Limit:** `CLAUDE_CODE_SUBAGENT_EFFORT` is a default, not a ceiling — a subagent's own `effort:` frontmatter or an explicit `effort` parameter in an Agent tool call still takes precedence. Use it to lower the floor on un-configured subagents, not to cap carefully tuned ones.
+
+**Timing:** Opus 4.8 Fast Mode retires November 30. If you have workflows that rely on fast-mode costs, now is the right time to audit effort settings and migrate to Opus 5.5 before the deadline.
+
+**Sources:** [Claude Code 2.1.316: subagent effort becomes a setting, ultrathink gets a kill switch — dev.to/piekwerk](https://dev.to/piekwerk/claude-code-21316-subagent-effort-becomes-a-setting-ultrathink-gets-a-kill-switch-and-opus-16e) · [Claude Code model config — code.claude.com](https://code.claude.com/docs/en/model-config) · [clauding.de v2.1.316 walkthrough](https://clauding.de/en/posts/claude-code-2-1-316-ultrathink-subagent-effort/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Gemini 4 Carbon Tops the AI Index; Anthropic Sets November 30 for Sonnet 4.5 and Opus 4.8 Fast Mode]]></title>
+    <link>https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/</link>
+    <guid isPermaLink="false">2026-11-01-02-gemini-4-carbon-frontier-sonnet-opus-nov30-retirement</guid>
+    <pubDate>Sun, 01 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Google's Gemini 4 Carbon ranks #1 on the AI Index but has no confirmed public API date. Anthropic retires Sonnet 4.5 and Opus 4.8 Fast Mode on November 30 — check your model strings today.]]></description>
+    <content:encoded><![CDATA[**TL;DR: Google's new top model tops the benchmark tables but isn't publicly accessible via API yet; Anthropic's November 30 retirement deadline is 30 days out.**
+
+**Gemini 4 Carbon**
+
+Google DeepMind [announced Gemini 4 Carbon](https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/) on October 28. It ranks #1 on the Artificial Analysis Intelligence Index v5.0 (score: 59) and leads Google's published cyber benchmarks (SEC-bench Pro 88.2%, ExploitGym 54.8%, CWE-bench 71.0% — Google's own figures, not independently verified). On FrontierSWE 2 its 61.2% coding score trails Opus 5.5 at 62.3%, so the gap with Anthropic on code isn't closed. API pricing is listed at $2/$10 per million input/output tokens, but [VentureBeat reports](https://venturebeat.com/technology/google-unveils-gemini-4-carbon-retaking-the-worlds-no-1-spot-on-updated-harder-benchmarks-but-access-is-limited) the public API endpoint isn't yet available and no date has been announced.
+
+**Why it matters:** Carbon is on the developer path (AI Studio preview + Fairwind cybersecurity program), but wait for a confirmed public API before updating your routing configs.
+
+**Anthropic: November 30 retirements**
+
+Two changes take effect November 30 on Anthropic's API: **Opus 4.8 Fast Mode** is removed (requests return an error with no fallback), and **Claude Sonnet 4.5** retires entirely. Anthropic's recommended migrations per the [release notes](https://platform.claude.com/docs/en/release-notes/overview):
+- Opus 4.8 fast → **Opus 5.5** (standard or fast mode)
+- Sonnet 4.5 → **Sonnet 5.5**
+
+Hardcoded model IDs in eval harnesses, CI prompts, and routing configs are the most common source of surprise outages when retirements land. Thirty days is a comfortable audit window; November 29 is not.
+
+**Why it matters:** A `grep -r "claude-sonnet-4-5\|claude-opus-4-8" .` in your codebase today takes thirty seconds; a 3am pager at the end of the month takes longer.
+
+**Sources:** [Gemini 4 Carbon announcement — blog.google](https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/) · [Gemini 4 Carbon API access unclear — venturebeat.com](https://venturebeat.com/technology/google-unveils-gemini-4-carbon-retaking-the-worlds-no-1-spot-on-updated-harder-challenges-but-access-is-limited) · [Anthropic release notes — platform.claude.com](https://platform.claude.com/docs/en/release-notes/overview)]]></content:encoded>
+    <media:content url="https://storage.googleapis.com/deepmind-media/gemini/gemini-4-carbon-header.jpg" medium="image" />
+    <media:thumbnail url="https://storage.googleapis.com/deepmind-media/gemini/gemini-4-carbon-header.jpg" />
+  </item>
+
+  <item>
+    <title><![CDATA[Your Vector Store Uses the Same HNSW Parameters as a Tutorial Project — Three Numbers Control Recall and Latency at Production Scale]]></title>
+    <link>https://github.com/pgvector/pgvector#hnsw</link>
+    <guid isPermaLink="false">2026-11-01-01-hnsw-m-ef-construction-pgvector-qdrant-vector-index-tuning</guid>
+    <pubDate>Sun, 01 Nov 2026 04:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Vectors</category>
+    <category>Embeddings</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[HNSW's m, ef_construction, and query ef are the three parameters that determine whether your vector search finds the right results and how fast it answers. Here's what each does and how to tune them in pgvector and Qdrant.]]></description>
+    <content:encoded><![CDATA[**TL;DR: HNSW's default parameters are tuned for small demo datasets — at production scale, three numbers (`m`, `ef_construction`, and query `ef`) control whether your vector search finds the right documents and how quickly it returns.**
+
+**What you'll be able to do after this:**
+- Understand what each HNSW parameter actually controls
+- Set `m` and `ef_construction` at index-build time to match your corpus size and accuracy requirement
+- Tune query `ef` in production to trade recall for latency
+
+**What HNSW actually does**
+
+Hierarchical Navigable Small World is a graph-based approximate nearest neighbor index. At build time, each vector is linked to its nearest neighbors across multiple layers. At query time, the search starts at an entry point and walks the graph, keeping the `ef` best candidates it has seen, stopping when no better neighbor can be found.
+
+**The three parameters**
+
+- **`m`** (connections per node, default: 16): higher `m` means a denser graph, better recall, and faster search — but more memory. `m=16` works well up to ~100K vectors. For corpora over 1M documents, consider `m=24–32`. Memory scales roughly as `O(m × n)`.
+- **`ef_construction`** (build-time candidate list size, default varies 64–128): higher means a higher-quality graph and better recall at query time — but a slower index build. It has no effect at query time. 128 is a reasonable starting point; 200–300 for high-accuracy requirements.
+- **`ef` (query-time candidate list, default varies)**: the live recall/latency dial. Higher `ef` → better recall, slower queries. Requires `ef >= top_k`; a common starting point is `ef = 2 × top_k`.
+
+**In pgvector:**
+
+```sql
+-- Create index with custom parameters
+CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops)
+WITH (m = 16, ef_construction = 128);
+
+-- Tune query ef per session or globally
+SET hnsw.ef_search = 100;
+```
+
+**In Qdrant:**
+
+```python
+client.create_collection(
+    collection_name="docs",
+    vectors_config=VectorParams(size=768, distance=Distance.COSINE),
+    hnsw_config=HnswConfigDiff(
+        m=16,
+        ef_construct=128,
+        full_scan_threshold=10000  # below this size, use exact search
+    )
+)
+# At query time, pass ef via SearchParams
+client.query_points(
+    "docs", query=query_vector,
+    search_params=models.SearchParams(hnsw_ef=100)
+)
+```
+
+**Limits**: Doubling `m` roughly doubles index memory — profile before scaling up. HNSW tuning can't fix a retrieval problem caused by bad chunking or wrong embedding model; get those right first. And `ef_construction` is a build-time setting — you can't change it without re-indexing.
+
+**Sources:** [pgvector HNSW documentation — github.com/pgvector/pgvector](https://github.com/pgvector/pgvector#hnsw) · [Qdrant HNSW optimization guide — qdrant.tech](https://qdrant.tech/documentation/guides/optimize/) · [HNSW explained — pinecone.io/learn](https://www.pinecone.io/learn/series/faiss/hnsw/)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude App Receives Descriptions of Images It Has Never Seen — Pass a URL or Base64 Source Block for Direct Pixel-Level Analysis]]></title>
@@ -6445,245 +6624,11 @@ Available since Claude Code v2.1.139 (May 2026).
 **Sources:** [Background agents — Claude Code Docs](https://code.claude.com/docs/en/background-agents) · [Claude agents command — claude.ai/code](https://claude.ai/code)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your PDF Loader Flattens Tables Into Noise — Docling Preserves Structure Before Your RAG Chunks It]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-03-docling-langchain-pdf-table-structure-rag</link>
-      <guid isPermaLink="false">2026-10-14-03-docling-langchain-pdf-table-structure-rag</guid>
-      <pubDate>Wed, 14 Oct 2026 12:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>A naive PDF loader serializes every table as whitespace-separated text. Docling (IBM Research, MIT-licensed) reads the PDF’s actual grid, encodes cells in Markdown table syntax, and preserves reading order — so your chunker splits at semantic boundaries, not mid-table.</description>
-      <content:encoded><![CDATA[**A naive PDF loader turns every table into whitespace-separated text. Docling reads the PDF’s actual grid, encodes cells in Markdown table format, and preserves reading order — so your chunker splits at semantic boundaries, not through a half-eaten table.**
+    
+    
+    
 
-The gap shows up immediately on a financial report. A standard `PyPDFLoader` gives a wall of numbers with whitespace where columns were. Ask a RAG chain to compare Q3 to Q2 and it will almost certainly hallucinate. Docling gives you:
-
-```
-| Quarter | Revenue | Operating Margin |
-|---------|---------|-----------------|
-| Q3 2024 | $4.2B   | 18.4%           |
-| Q2 2024 | $3.9B   | 17.1%           |
-```
-
-The downstream embedding sees a structured unit instead of scattered tokens.
-
-**Install:**
-
-```bash
-pip install langchain-docling
-```
-
-**Two ways to chunk:**
-
-```python
-from langchain_docling import DoclingLoader
-from langchain_docling.loader import ExportType
-
-# Option 1: DOC_CHUNKS — Docling owns the chunking (recommended for mixed docs)
-loader = DoclingLoader(
-    file_path="annual_report.pdf",
-    export_type=ExportType.DOC_CHUNKS,
-)
-docs = loader.load()
-# Each doc is one semantic chunk: a heading, a paragraph, a table row-set
-
-# Option 2: MARKDOWN — export the whole doc, then split yourself
-loader = DoclingLoader(
-    file_path="annual_report.pdf",
-    export_type=ExportType.MARKDOWN,
-)
-docs = loader.load()
-# docs[0].page_content is a single Markdown string — apply your own TextSplitter
-```
-
-`DOC_CHUNKS` is the better default: Docling’s internal chunker respects section boundaries and keeps table rows together. The `MARKDOWN` path is useful when you want to control chunk size with `RecursiveCharacterTextSplitter`.
-
-**Drop it into a standard RAG chain:**
-
-```python
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain_openai import ChatOpenAI
-
-docs = DoclingLoader(file_path="report.pdf", export_type=ExportType.DOC_CHUNKS).load()
-vectorstore = FAISS.from_documents(docs, OpenAIEmbeddings())
-
-qa = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(model="gpt-4o-mini"),
-    retriever=vectorstore.as_retriever(),
-)
-answer = qa.invoke("What was the operating margin in Q3?")
-```
-
-The retriever fetches the table chunk, not a blob of numbers.
-
-**Limits to know:**
-- CPU-intensive locally — the PDF converter does real layout analysis. For batch pipelines, run it offline and cache the chunked output; don’t call it inline at query time.
-- Scanned PDFs (image-only) require OCR and produce lower-quality output than digital PDFs. Docling includes an optional OCR path: `pip install "docling[ocr]"`.
-- DOCX, HTML, PPTX, and Markdown are also supported with the same `DoclingLoader` API.
-
-**Sources:** [LangChain Docling integration — python.langchain.com](https://python.langchain.com/docs/integrations/document_loaders/docling) · [Docling GitHub — github.com/DS4SD/docling](https://github.com/DS4SD/docling) · [DataCamp Docling tutorial](https://www.datacamp.com/tutorial/docling)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your CI Pipeline Can Call Claude Code and Exit — `-p` Puts It in Non-Interactive Mode and a Script Gets a Response Without a TTY]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-02-claude-code-print-flag-noninteractive-ci-subprocess</link>
-      <guid isPermaLink="false">2026-10-14-02-claude-code-print-flag-noninteractive-ci-subprocess</guid>
-      <pubDate>Wed, 14 Oct 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Add -p (or --print) to any claude command and it reads the prompt, responds, and exits — no TTY, no REPL. Three output formats; json mode includes total_cost_usd for spend tracking.</description>
-      <content:encoded><![CDATA[**Add `-p` to any `claude` command and Claude Code reads the prompt, responds, and exits with code 0 — no TTY, no interactive REPL, no hanging CI job.**
-
-The default `claude` command opens the interactive session. That is the wrong mode for a shell script. The `-p` flag (alias `--print`) switches it:
-
-```bash
-# Summarize the last 10 commits
-git log --oneline -10 | claude -p "Summarize these commits in one sentence each"
-
-# Review a diff for obvious bugs (stdin cap: 10 MB)
-claude -p "Review this diff for obvious bugs" < changes.diff
-```
-
-**Output formats** — pass `--output-format` to control what comes back:
-
-| Format | What you get |
-|---|---|
-| `text` | Plain text (default) |
-| `json` | A JSON object with `result`, `cost_usd`, and per-model breakdown |
-| `stream-json` | Newline-delimited events — useful for streaming integrations |
-
-The `json` mode is worth adding to any CI step that runs Claude: `total_cost_usd` appears alongside the result so you can track spend per job without a separate billing query.
-
-**CI hardening checklist:**
-
-```bash
-# --bare skips local config; ANTHROPIC_API_KEY must be set in the environment
-claude --bare -p "Check CHANGELOG.md for breaking changes" < CHANGELOG.md
-
-# Cap iterations and spend in a single command
-claude --bare -p "Fix the type errors in this file" \
-  --allowedTools "Edit,Read,Bash(tsc:*)" \
-  --max-turns 5 \
-  --max-budget-usd 0.10 \
-  < broken.ts
-```
-
-**Two limits to know:**
-- Stdin is capped at 10 MB. For larger inputs, write to a temp file and pass the path in the prompt instead of piping.
-- `-p` bypasses the workspace trust dialog — only run it in directories your pipeline controls.
-
-**Sources:** [Headless mode — Claude Code Docs](https://code.claude.com/docs/en/headless) · [What is the --print flag in Claude Code — ClaudeLog](https://claudelog.com/faqs/what-is-print-flag-in-claude-code) · [CLI flags reference — mintlify.com/VineeTagarwaL-code](https://www.mintlify.com/VineeTagarwaL-code/claude-code/reference/commands/cli-flags)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your OpenAI Client Is Already a Fireworks AI Client — Set base_url to api.fireworks.ai and 100+ Open Models Are Two Lines Away]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-01-fireworks-ai-openai-compatible-hosted-inference</link>
-      <guid isPermaLink="false">2026-10-14-01-fireworks-ai-openai-compatible-hosted-inference</guid>
-      <pubDate>Wed, 14 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description>Fireworks AI serves 100+ open models through an OpenAI-compatible endpoint. Set base_url and api_key, use the accounts/fireworks/models/ ID format, and know the silent context-truncation default.</description>
-      <content:encoded><![CDATA[**Your existing `openai` Python client calls Fireworks AI with two changes: set `base_url` to `https://api.fireworks.ai/inference/v1` and supply a Fireworks API key — no GPU required.**
-
-**What you'll be able to do after this:**
-- Call Llama 3.1, DeepSeek V3.1, Kimi K2, and Qwen3 through the same client you already use for OpenAI
-- Switch models by changing one string — useful for cost/quality comparisons in evals
-- Use Fireworks' embeddings and function-calling endpoints through the same interface
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://api.fireworks.ai/inference/v1",
-    api_key="fw-your-api-key",          # from fireworks.ai dashboard
-)
-
-response = client.chat.completions.create(
-    model="accounts/fireworks/models/llama-v3p1-70b-instruct",
-    messages=[{"role": "user", "content": "..."}]
-)
-print(response.choices[0].message.content)
-```
-
-The `accounts/fireworks/models/` prefix is the one unfamiliar piece. Every model ID takes that form — find the exact slug in the Fireworks [Model Library](https://fireworks.ai/models). Common picks: `deepseek-v3p1`, `kimi-k2-instruct`, `qwen3-235b-a22b`.
-
-**Three things that differ from OpenAI:**
-
-1. **Model ID prefix.** The `accounts/fireworks/models/` path is required on every call; the OpenAI SDK does not auto-complete or validate it.
-2. **Silent context truncation.** When a request exceeds the context limit, Fireworks truncates silently by default rather than returning an error. Add `extra_body={"context_length_exceeded_behavior": "error"}` to the call if you want an explicit failure.
-3. **Capability varies by model.** Chat completions, embeddings, and function calling all work, but not on every model — check the model card before assuming structured output or tool use is available.
-
-Fireworks also exposes a [Responses API with MCP support (beta)](https://fireworks.ai/blog/response-api), which layers tool invocation over the same endpoint — a forward pointer for agentic pipelines once it stabilises.
-
-The [Serverless Quickstart](https://docs.fireworks.ai/getting-started/quickstart) has runnable snippets for the Fireworks SDK, the OpenAI SDK, the Anthropic SDK, and curl.
-
-**Sources:** [Serverless Quickstart — Fireworks AI Docs](https://docs.fireworks.ai/getting-started/quickstart) · [OpenAI Compatibility — Fireworks AI Docs](https://docs.fireworks.ai/tools-sdks/openai-compatibility) · [Fireworks AI provider — Mastra AI](https://mastra.ai/models/v1/providers/fireworks-ai)]]></content:encoded>
-    </item>
-
-
-    <item>
-      <title><![CDATA[One Committed .mcp.json Gives Your Whole Team the Same MCP Servers — No Manual Setup Per Machine]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-13-08-mcp-json-project-scope-team-shared-servers</link>
-      <guid isPermaLink="false">2026-10-13-08-mcp-json-project-scope-team-shared-servers</guid>
-      <pubDate>Tue, 13 Oct 2026 20:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>MCP</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Commit .mcp.json to your project root and every teammate's Claude Code session loads the same MCP servers automatically — use ${VAR} expansion for secrets, never literal tokens.</description>
-      <content:encoded><![CDATA[**Commit `.mcp.json` to your project root and every Claude Code session your team opens gets the same MCP servers — no per-machine `claude mcp add` required.**
-
-Claude Code resolves MCP servers from three scopes: user-level (`~/.claude/mcp.json`), project-level (`.mcp.json` at the repo root), and session-level flags. Project-level is the only scope you can commit to version control and share across the team.
-
-```json
-{
-  "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"],
-      "type": "stdio"
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "type": "stdio",
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      }
-    }
-  }
-}
-```
-
-**Key details:**
-
-- **`${VAR}` syntax for secrets.** Environment variables expand at runtime so a literal API token never lands in git. Document which variables to export in your `.env.example`.
-- **First-use approval gate.** When a teammate opens the repo for the first time, Claude Code prompts them to approve the project-scoped servers before they load. This is an intentional security checkpoint — do not use `--allowedTools` to bypass it.
-- **Scope precedence.** If a user-scoped server has the same name, the project-scoped entry wins. This lets the repo pin a specific MCP server version while individuals keep personal defaults.
-
-**When to commit `.mcp.json`:** do it when the team needs a shared tool — a Playwright server for browser testing, an internal data-access server, a project-specific API wrapper. Avoid committing servers that only make sense for one person, or servers requiring user-specific credentials baked in beyond `${VAR}` expansion.
-
-One limit: each teammate still needs to have the server's runtime available locally (e.g., Node.js installed for `npx` commands). The committed config handles discovery; it does not handle dependencies.
-
-**Sources:** [MCP in Claude Code — Anthropic Docs](https://code.claude.com/docs/en/mcp) · [Claude Code MCP Server Configuration Guide — Glama](https://glama.ai/mcp/servers/@marc-shade/universal-ai-chat/blob/3d65574a888705c4f462b8331a186f0721e0e115/docs/claude-code-mcp-docs.md)]]></content:encoded>
-    </item>
-
+    
     
     
 
