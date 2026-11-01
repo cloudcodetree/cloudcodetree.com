@@ -10,7 +10,65 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 01 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 01 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Formatter Isn't Running After Claude Code Edits — A PostToolUse Hook With a Write|Edit Matcher Calls Prettier, Black, or gofmt Automatically]]></title>
+    <link>https://docs.anthropic.com/en/docs/claude-code/hooks</link>
+    <guid isPermaLink="false">2026-11-01-05-post-tool-use-hook-auto-format-prettier-black</guid>
+    <pubDate>Sun, 01 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[A PostToolUse hook with a Write|Edit matcher in .claude/settings.json runs your formatter silently after every Claude Code edit — no manual step, no style drift accumulating across a session.]]></description>
+    <content:encoded><![CDATA[**A `PostToolUse` hook in `.claude/settings.json` with a `Write|Edit` matcher runs your formatter automatically after every Claude Code edit — no manual step, no style drift accumulating across a session.**
+
+Claude Code writes syntactically correct code but doesn't know about your project's formatter. After a session touching 20 files, a batch `prettier --write .` at commit time rewrites the diff in ways that mix real changes with noise, obscuring what actually moved.
+
+A `PostToolUse` hook fixes this at the source. Add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "command",
+        "command": "bash .claude/hooks/autoformat.sh"
+      }]
+    }]
+  }
+}
+```
+
+The script reads the edited file path from stdin (Claude Code passes the full tool JSON there) and dispatches by extension:
+
+```bash
+#!/usr/bin/env bash
+FILE=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
+[[ -z "$FILE" ]] && exit 0
+
+case "$FILE" in
+  *.ts|*.tsx|*.js|*.jsx|*.json|*.css)
+    npx prettier --write "$FILE" 2>/dev/null || true ;;
+  *.py)
+    ruff format "$FILE" 2>/dev/null || true ;;
+  *.go)
+    gofmt -w "$FILE" 2>/dev/null || true ;;
+esac
+```
+
+The `|| true` on every branch is deliberate. A `PostToolUse` hook can't block or revert the edit — it already ran. A non-zero exit sends formatter error output into Claude's context, which turns a missing `.prettierrc` into a stream of complaints on every edit. Silencing formatter failures keeps the loop clean; real style issues will surface in CI.
+
+Supabase's `studio` repo committed exactly this pattern — a `format_and_lint.sh` hook that reads stdin with `jq`, runs Prettier, then `eslint --fix` on TypeScript files. Their implementation is a useful reference for the stdin parsing and multi-tool chaining.
+
+**What doesn't work here:** `PostToolUse` hooks run synchronously, so budget around 5 seconds. Running `eslint .` (the whole project) instead of `eslint "$FILE"` (only the changed file) will visibly slow every single edit. Target only the changed file. If you need to veto a write before it happens — not just clean it up after — that's a `PreToolUse` hook, not a `PostToolUse` one.
+
+**Sources:** [Claude Code hooks — docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code/hooks) · [Practical hook configs — morphllm.com](https://www.morphllm.com/claude-code-hooks-examples) · [Supabase hooks commit — git.adamlamers.com](https://git.adamlamers.com/PublicArchive/supabase/commit/48e0b0c5592ffa80a6b95849430be2233d36120b)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Generate Three Rough Directions in Claude Design Before Writing a Line of Code — The Comparison Becomes the Constraint Brief Your Claude Code Session Needs]]></title>
@@ -6571,59 +6629,7 @@ New designs created in Claude already live as artifacts. The migration path brin
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Background Claude Code Sessions Keep Running After You Close the Terminal — `claude agents` Lists Every Session’s State Across All Your Projects]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-04-claude-agents-background-sessions-fleet-view</link>
-      <guid isPermaLink="false">2026-10-14-04-claude-agents-background-sessions-fleet-view</guid>
-      <pubDate>Wed, 14 Oct 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Run `claude agents` in any terminal. You get a live table of every background session — project, status, and task — whether you’re currently in that directory or not. Attach with `o`, kill with `k`.</description>
-      <content:encoded><![CDATA[**Run `claude agents` and you get a table of every Claude Code session currently active or waiting across every project on your machine — not just the one in your current terminal.**
-
-Without it, background sessions are invisible. You know you started one; you don’t know if it’s still running, already done, or waiting on input. The longer a background task runs, the harder it is to remember which project spawned it.
-
-**Open the Agent View:**
-
-```bash
-claude agents
-```
-
-The table shows:
-
-| Column | What it means |
-|--------|---------------|
-| `status` | `running` / `waiting` / `done` / `error` |
-| `project` | Absolute path of the working directory |
-| `task` | First line of the prompt (or the session description) |
-| `duration` | Wall-clock time since the session started |
-
-**Keyboard controls:**
-
-| Key | Action |
-|-----|--------|
-| `o` | Attach to that session (opens its transcript) |
-| `k` | Kill the session |
-| `↑` / `↓` | Navigate rows |
-| `q` | Quit the agent view |
-
-**When it’s useful:**
-
-A common pattern is `claude --background "run the full test suite and fix any failures"` and then switching to another terminal. Without the Agent View you’d have to find the tmux pane or the log file. With it, a quick `claude agents` tells you it’s still running, and `o` drops you into the live output stream.
-
-**Two things to know:**
-- Sessions spawned in a different shell or tmux window are included — the view is machine-wide, not shell-scoped.
-- The Agent View is a TUI (terminal UI). It does not persist state between invocations; once you quit and a session ends, it is removed from the list. The transcript is still in `~/.claude/projects/`.
-
-Available since Claude Code v2.1.139 (May 2026).
-
-**Sources:** [Background agents — Claude Code Docs](https://code.claude.com/docs/en/background-agents) · [Claude agents command — claude.ai/code](https://claude.ai/code)]]></content:encoded>
-    </item>
-
+    
     
     
     
