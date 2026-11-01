@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-01-07-claude5-context-engineering-skills-tools-replace-rules",
+    "title": "Your CLAUDE.md Still Has 400 Lines of Rules a Claude 5 Model Doesn't Need — Move Knowledge to Skills, Replace Instructions With Tools, Keep Only Gotchas",
+    "excerpt": "For Claude 5 models, Anthropic reports cutting over 80% of Claude Code's built-in system prompt. Your CLAUDE.md should follow: move rules to skills, replace instructions with tools, keep only gotchas.",
+    "author": "Chris Harper",
+    "date": "11-01-2026",
+    "publishedAt": "2026-11-01T20:05:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models",
+    "content": "**For Claude 5 models, Anthropic (per its July 2026 guidance) reports cutting over 80% of Claude Code's built-in system prompt — replacing explicit rules with model judgment. Your CLAUDE.md should follow the same pattern.**\n\n**Three shifts that improve Claude Code sessions immediately:**\n\n**1. Replace rules with judgment.** Your CLAUDE.md likely has lines like \"Always add error handling for API calls\" or \"Never use `var` in TypeScript.\" Opus 5 and Sonnet 5 already apply these conventions correctly without being told. Writing them as rules wastes tokens and, worse, forces the model to pattern-match against rules rather than think. Run this audit and move or delete every match:\n\n```bash\n# Find rule candidates to move out of CLAUDE.md:\ngrep -nE \"^[-*] (Always|Never|Do not|Make sure|Use .* for)\" CLAUDE.md\n```\n\n**2. Move knowledge to skills; keep only gotchas in the root CLAUDE.md.** A skill at `.claude/skills/testing/SKILL.md` loads only when Claude is doing testing work. A 400-line root CLAUDE.md loads into every turn — including the ones where you are fixing a Worker with no relation to testing. Per the Anthropic guidance, target the root under ~80 lines:\n\n```\n# CLAUDE.md — keep this file to things that would surprise a senior engineer:\n#   gotchas, non-obvious constraints, unusual build steps\n#\n# Move out:\n#   testing conventions  → @.claude/skills/testing/\n#   API patterns         → @.claude/skills/api/\n#   architecture rules   → @docs/claude/architecture.md\n```\n\n**3. Give Claude a tool instead of an instruction.** \"Check the design system before choosing colors\" is always-on context that often gets ignored mid-session. A tool that reads `design-tokens.json` on demand is better — Claude calls it when it needs color values and skips it otherwise. If information only matters sometimes, it belongs in a lazily loaded tool, not always-on context.\n\n**Limits:** This calibration is for the Claude 5 family (Opus 5, Sonnet 5, Haiku 5, Fable 5.1). On Claude 4 models (Sonnet 4.5, Opus 4.8), explicit rules still provide measurable guidance — the capability level is the prerequisite. Reduce your CLAUDE.md gradually: remove a section, run real sessions, verify behavior before removing the next.\n\n**Sources:** [The new rules of context engineering for Claude 5 generation models — claude.com](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) · [Context Engineering for Coding Agents — martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html) · [Claude Code memory — code.claude.com](https://code.claude.com/docs/en/memory)"
+  },
+  {
+    "id": "2026-11-01-06-claude-design-export-bundle-claude-code-component-handoff",
+    "title": "The Claude Design Export Bundle Carries the Component Map But Not Your API — One Line Before the Handoff Prompt Points Claude Code to Your Actual Components",
+    "excerpt": "The Claude Design handoff bundle contains a component map and design tokens but not your component API. One priming sentence before the bundle prompt points Claude Code to your actual library inste…",
+    "author": "Chris Harper",
+    "date": "11-01-2026",
+    "publishedAt": "2026-11-01T20:04:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux",
+    "content": "**The export bundle carries your component map and design tokens — one sentence in the handoff prompt tells Claude Code which library to use instead of defaulting to shadcn.**\n\n**What you'll be able to do after this:**\n- Get the Claude Design export bundle into Claude Code and prime it to use your component library\n- Understand what the bundle contains (and what it deliberately omits)\n- Know when to go back to Claude Design vs. when to iterate in Claude Code\n\n---\n\nWhen you click Export → \"Hand off to Claude Code\" in Claude Design, the bundle contains:\n- A machine-readable component structure (which elements are containers, buttons, cards, lists)\n- Color tokens, typography, and spacing values used in the design\n- Layout hierarchy and component states you specified\n- A README and a pre-written prompt to paste into Claude Code\n\n**What the bundle does not contain:** your component library's API. Claude Code knows a `Button[primary]` belongs here, but it has no idea whether your button is `<Button variant=\"primary\">`, `<PrimaryButton>`, or `<btn class=\"btn-primary\">`. Without a hint, it defaults to whatever library it associates with your stack.\n\n**One sentence closes that gap.** Before pasting the bundle prompt, add:\n\n```\nImplement this design using the existing React components in src/components/.\nDo not introduce any new component library or install new packages.\nFor unfamiliar component names, check src/components/index.ts.\n```\n\n**The handoff flow:**\n\n1. Complete the design canvas in Claude Design (a full viewport, not a sketch).\n2. Click Export → \"Hand off to Claude Code.\"\n3. Open Claude Code at your repo root.\n4. Paste your component-library sentence, then paste the bundle prompt Claude Design generated.\n5. Claude Code downloads the bundle, reads the component map and tokens, and starts implementing.\n\n**When to go back to Claude Design:** when layout, information hierarchy, or the interaction model needs to change. When only implementation details need adjustment — correct props, event handlers, responsive variants — stay in the editor. The fastest convergence happens when each tool handles the layer it understands.\n\n**Limits:** The bundle URL is temporary; download the `.zip` for long-lived work. Even with the priming sentence, Claude Code cannot infer your component prop names or variant signature — review generated prop usage against your actual interface. The handoff works best from a linked codebase (connect it in Claude Design settings) so the canvas has already tried to match your tokens.\n\n**Sources:** [Using Claude Design for prototypes and UX — claude.com](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design → Claude Code handoff guide — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)"
+  },
+  {
     "id": "2026-11-01-05-post-tool-use-hook-auto-format-prettier-black",
     "title": "Your Formatter Isn't Running After Claude Code Edits — A PostToolUse Hook With a Write|Edit Matcher Calls Prettier, Black, or gofmt Automatically",
     "excerpt": "A PostToolUse hook with a Write|Edit matcher in .claude/settings.json runs your formatter silently after every Claude Code edit — no manual step, no style drift accumulating across a session.",

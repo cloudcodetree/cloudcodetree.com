@@ -10,7 +10,102 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 01 Nov 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 01 Nov 2026 20:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your CLAUDE.md Still Has 400 Lines of Rules a Claude 5 Model Doesn't Need — Move Knowledge to Skills, Replace Instructions With Tools, Keep Only Gotchas]]></title>
+    <link>https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models</link>
+    <guid isPermaLink="false">2026-11-01-07-claude5-context-engineering-skills-tools-replace-rules</guid>
+    <pubDate>Sun, 01 Nov 2026 20:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[For Claude 5 models, Anthropic reports cutting over 80% of Claude Code's built-in system prompt. Your CLAUDE.md should follow: move rules to skills, replace instructions with tools, keep only gotchas.]]></description>
+    <content:encoded><![CDATA[**For Claude 5 models, Anthropic (per its July 2026 guidance) reports cutting over 80% of Claude Code's built-in system prompt — replacing explicit rules with model judgment. Your CLAUDE.md should follow the same pattern.**
+
+**Three shifts that improve Claude Code sessions immediately:**
+
+**1. Replace rules with judgment.** Your CLAUDE.md likely has lines like "Always add error handling for API calls" or "Never use `var` in TypeScript." Opus 5 and Sonnet 5 already apply these conventions correctly without being told. Writing them as rules wastes tokens and, worse, forces the model to pattern-match against rules rather than think. Run this audit and move or delete every match:
+
+```bash
+# Find rule candidates to move out of CLAUDE.md:
+grep -nE "^[-*] (Always|Never|Do not|Make sure|Use .* for)" CLAUDE.md
+```
+
+**2. Move knowledge to skills; keep only gotchas in the root CLAUDE.md.** A skill at `.claude/skills/testing/SKILL.md` loads only when Claude is doing testing work. A 400-line root CLAUDE.md loads into every turn — including the ones where you are fixing a Worker with no relation to testing. Per the Anthropic guidance, target the root under ~80 lines:
+
+```
+# CLAUDE.md — keep this file to things that would surprise a senior engineer:
+#   gotchas, non-obvious constraints, unusual build steps
+#
+# Move out:
+#   testing conventions  → @.claude/skills/testing/
+#   API patterns         → @.claude/skills/api/
+#   architecture rules   → @docs/claude/architecture.md
+```
+
+**3. Give Claude a tool instead of an instruction.** "Check the design system before choosing colors" is always-on context that often gets ignored mid-session. A tool that reads `design-tokens.json` on demand is better — Claude calls it when it needs color values and skips it otherwise. If information only matters sometimes, it belongs in a lazily loaded tool, not always-on context.
+
+**Limits:** This calibration is for the Claude 5 family (Opus 5, Sonnet 5, Haiku 5, Fable 5.1). On Claude 4 models (Sonnet 4.5, Opus 4.8), explicit rules still provide measurable guidance — the capability level is the prerequisite. Reduce your CLAUDE.md gradually: remove a section, run real sessions, verify behavior before removing the next.
+
+**Sources:** [The new rules of context engineering for Claude 5 generation models — claude.com](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) · [Context Engineering for Coding Agents — martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html) · [Claude Code memory — code.claude.com](https://code.claude.com/docs/en/memory)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[The Claude Design Export Bundle Carries the Component Map But Not Your API — One Line Before the Handoff Prompt Points Claude Code to Your Actual Components]]></title>
+    <link>https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux</link>
+    <guid isPermaLink="false">2026-11-01-06-claude-design-export-bundle-claude-code-component-handoff</guid>
+    <pubDate>Sun, 01 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[The Claude Design handoff bundle contains a component map and design tokens but not your component API. One priming sentence before the bundle prompt points Claude Code to your actual library instead of shadcn defaults.]]></description>
+    <content:encoded><![CDATA[**The export bundle carries your component map and design tokens — one sentence in the handoff prompt tells Claude Code which library to use instead of defaulting to shadcn.**
+
+**What you'll be able to do after this:**
+- Get the Claude Design export bundle into Claude Code and prime it to use your component library
+- Understand what the bundle contains (and what it deliberately omits)
+- Know when to go back to Claude Design vs. when to iterate in Claude Code
+
+---
+
+When you click Export → "Hand off to Claude Code" in Claude Design, the bundle contains:
+- A machine-readable component structure (which elements are containers, buttons, cards, lists)
+- Color tokens, typography, and spacing values used in the design
+- Layout hierarchy and component states you specified
+- A README and a pre-written prompt to paste into Claude Code
+
+**What the bundle does not contain:** your component library's API. Claude Code knows a `Button[primary]` belongs here, but it has no idea whether your button is `<Button variant="primary">`, `<PrimaryButton>`, or `<btn class="btn-primary">`. Without a hint, it defaults to whatever library it associates with your stack.
+
+**One sentence closes that gap.** Before pasting the bundle prompt, add:
+
+```
+Implement this design using the existing React components in src/components/.
+Do not introduce any new component library or install new packages.
+For unfamiliar component names, check src/components/index.ts.
+```
+
+**The handoff flow:**
+
+1. Complete the design canvas in Claude Design (a full viewport, not a sketch).
+2. Click Export → "Hand off to Claude Code."
+3. Open Claude Code at your repo root.
+4. Paste your component-library sentence, then paste the bundle prompt Claude Design generated.
+5. Claude Code downloads the bundle, reads the component map and tokens, and starts implementing.
+
+**When to go back to Claude Design:** when layout, information hierarchy, or the interaction model needs to change. When only implementation details need adjustment — correct props, event handlers, responsive variants — stay in the editor. The fastest convergence happens when each tool handles the layer it understands.
+
+**Limits:** The bundle URL is temporary; download the `.zip` for long-lived work. Even with the priming sentence, Claude Code cannot infer your component prop names or variant signature — review generated prop usage against your actual interface. The handoff works best from a linked codebase (connect it in Claude Design settings) so the canvas has already tried to match your tokens.
+
+**Sources:** [Using Claude Design for prototypes and UX — claude.com](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design → Claude Code handoff guide — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)]]></content:encoded>
+  </item>
+
 
   <item>
     <title><![CDATA[Your Formatter Isn't Running After Claude Code Edits — A PostToolUse Hook With a Write|Edit Matcher Calls Prettier, Black, or gofmt Automatically]]></title>
@@ -6547,88 +6642,8 @@ Qdrant applies filters inside HNSW traversal rather than as a post-filter scan, 
       <media:thumbnail url="https://img.youtube.com/vi/kbdpE514qSY/maxresdefault.jpg" />
     </item>
 
-    <item>
-      <title><![CDATA[Your Workflow Script's `agent()` Calls Inherit the Wrong Model Default — `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` Targets the Workflow Layer Independently]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-06-claude-code-workflow-subagent-model-env-var</link>
-      <guid isPermaLink="false">2026-10-14-06-claude-code-workflow-subagent-model-env-var</guid>
-      <pubDate>Wed, 14 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <category>Building AI Products</category>
-      <description>Set CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=haiku in your settings env block to route every agent() Workflow script call to a cheaper model without touching your teammates or ad-hoc subagents.</description>
-      <content:encoded><![CDATA[**Set `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=<model>` in your settings env block to route every `agent()` call in a Workflow script to a specific model — ad-hoc subagents and teammates are unaffected.**
-
-Claude Code v2.1.296 (October 9, 2026) added this variable to give Workflow script agents their own model tier, separate from `CLAUDE_CODE_SUBAGENT_MODEL` which applies to all subagents.
-
-**The three-variable model hierarchy:**
-
-| Variable | Scope |
-|---|---|
-| `CLAUDE_CODE_SUBAGENT_MODEL` | Fallback for all subagents, teammates, and workflow agents with no explicit model set |
-| `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` | Overrides the above, but only for `agent()` calls made by the Workflow tool |
-| `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` | Forces `CLAUDE_CODE_SUBAGENT_MODEL` to override every subagent's frontmatter |
-
-**When this matters:** if your Workflow scripts run batch tasks — parallel audits, search sweeps, test scaffolding — that don't need the main model's reasoning depth, pin them to `haiku` without affecting your interactive teammates:
-
-```json
-// ~/.claude/settings.json
-{
-  "env": {
-    "CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL": "haiku"
-  }
-}
-```
-
-Or export before a session:
-
-```bash
-export CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL=haiku
-claude  # teammates and ad-hoc subagents: unaffected
-        # Workflow script agent() calls: use haiku
-```
-
-**Precedence:** a per-`agent()` `model:` parameter or the called subagent's frontmatter model field overrides this variable. It's a fallback for workflow agents with nothing more specific set — which covers most real-world usage.
-
-**Also in v2.1.296:** `autoCompactWindow` was added to subagent frontmatter so individual subagents can compact earlier than the main session's context window. The field is confirmed in the changelog but its exact value syntax is not yet fully documented in the official sub-agents reference — check [`code.claude.com/docs/en/sub-agents`](https://code.claude.com/docs/en/sub-agents) before deploying it; a misspelled frontmatter field fails silently without a warning.
-
-**Limits:** `CLAUDE_CODE_WORKFLOW_SUBAGENT_MODEL` only targets agents launched by the Workflow tool. Teammates and ad-hoc subagents created outside a workflow script still follow `CLAUDE_CODE_SUBAGENT_MODEL` or their own frontmatter. Setting both variables lets you differentiate three tiers: the Workflow layer, the general subagent default, and per-definition overrides.
-
-**Sources:** [Claude Code changelog v2.1.296 — code.claude.com](https://code.claude.com/docs/en/changelog), [Model configuration — Claude Code Docs](https://code.claude.com/docs/en/model-config), [v2.1.296 write-up — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261010-cc-updates-v2-1-296/)
-]]></content:encoded>
-      <media:content url="https://i.ytimg.com/vi/Us8VY8c7ZvI/hqdefault.jpg" medium="image" />
-      <media:thumbnail url="https://i.ytimg.com/vi/Us8VY8c7ZvI/hqdefault.jpg" />
-    </item>
-
-    <item>
-      <title><![CDATA[The Standalone Claude Design Site (claude.ai/design) Closes December 14 — Migrate Your Design Systems via the Artifacts Page Before Then]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-14-05-claude-design-standalone-closing-dec-14</link>
-      <guid isPermaLink="false">2026-10-14-05-claude-design-standalone-closing-dec-14</guid>
-      <pubDate>Wed, 14 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <description>claude.ai/design shuts down December 14, 2026. Migrate your design systems to artifacts via the Artifacts page in Claude before the deadline. Non-private systems become org-visible on Team/Enterprise plans after migration.</description>
-      <content:encoded><![CDATA[**Anthropic's standalone Claude Design site (claude.ai/design) closes December 14, 2026 — migrate your design systems to artifacts before then.**
-
-New designs created in Claude already live as artifacts. The migration path brings existing standalone design systems into that same store.
-
-**To migrate:** open Claude at claude.ai, go to the Artifacts page, and look for the migration banner or the Claude Design menu. Your originals stay accessible in the standalone site until closure, so you can verify the result before the deadline.
-
-**Gotcha on Team and Enterprise plans:** migrated design systems that aren't marked private become visible to every member of your organization. Check the sharing setting before migrating anything that was implicitly private. On Free, Pro, and Max plans nothing is shared automatically.
-
-**If your Claude Code workflow uses `/design-sync` or a committed `designtoken.md`**, the design tokens themselves live in your repo and aren't affected — but any automation step that re-exports from claude.ai/design by URL will need updating after December 14.
-
-**Why it matters:** two months sounds comfortable, but a large shared design system can take hours to verify post-migration, and the Team/Enterprise sharing change is worth catching before the deadline rather than after.
-
-**Sources:** [Migrate from standalone Claude Design to Claude — support.claude.com](https://support.claude.com/en/articles/17440474)
-]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
