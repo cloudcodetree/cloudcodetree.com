@@ -130,6 +130,13 @@ export function buildSnippets({ refs, steps, read, strictLessons = [] }) {
   return { version: 1, repo: REPO, branch: 'course', steps: sorted(steps), snippets: sorted(snippets), outputs: sorted(outputs) };
 }
 
+/** A problem for each locked step whose commit the course branch no longer contains. */
+export function unreachableSteps(steps, isAncestor) {
+  return Object.entries(steps)
+    .filter(([, { sha }]) => !isAncestor(sha))
+    .map(([nn, { sha }]) => `step ${nn} commit ${sha.slice(0, 7)} is not on the course branch: run node scripts/sync-course-snippets.mjs --update-lock`);
+}
+
 export const serialize = (file) => `${JSON.stringify(file, null, 2)}\n`;
 
 /** "<section> <key>: added|removed|changed" for every entry that differs between two snippet files. */
@@ -217,10 +224,15 @@ function main(argv) {
   const refs = collectRefs(readLessons());
   let steps = committed.steps;
   let read = () => null;
-  if (refs.length || flags.has('--update-lock')) {
+  if (refs.length || Object.keys(steps).length || flags.has('--update-lock')) {
     const repo = companion(explicit);
     if (flags.has('--update-lock')) steps = readLock(repo);
     ensureCommits(repo, steps);
+    // A rewritten course branch leaves the old commits fetchable by SHA, so ancestry
+    // is what shows a lock pointing at code no branch contains. Runs no companion code.
+    const tip = courseRef(repo);
+    const off = unreachableSteps(steps, (sha) => git(repo, ['merge-base', '--is-ancestor', sha, tip]) !== null);
+    if (off.length) throw new CourseSyncError(off);
     read = (sha, file) => git(repo, ['show', `${sha}:${file}`]);
   }
   const strictLessons = flags.has('--strict') ? readTutorials().filter((t) => t.series === SERIES).map((t) => t.slug) : [];

@@ -22,7 +22,12 @@ const SNIPPETS = 'content/course/snippets.json';
 const SCREENS = 'public/tutorials/screens';
 const PYTHON = process.env.PYTHON ?? 'python3';
 // Task 3's clean env (course/tools/capture.py BASELINE and KEEP).
-const BASELINE = { TZ: 'UTC', LC_ALL: 'C.UTF-8', PYTHONHASHSEED: '0', COLUMNS: '100', NO_COLOR: '1', DEALFINDER_ENABLE_PAID_SOURCES: '0' };
+// PYTHON_DOTENV_DISABLED: the step's worktree sits inside this checkout, and load_dotenv()
+// searches parent directories, so without it the step would read this repo's .env.
+const BASELINE = {
+  TZ: 'UTC', LC_ALL: 'C.UTF-8', PYTHONHASHSEED: '0', COLUMNS: '100', NO_COLOR: '1', DEALFINDER_ENABLE_PAID_SOURCES: '0',
+  PYTHON_DOTENV_DISABLED: '1',
+};
 
 export const RING_CSS = '[data-course-ring]{outline:3px solid #f59f00 !important;outline-offset:3px !important;border-radius:6px}';
 
@@ -33,6 +38,11 @@ export function parseSteps(arg, lock) {
   const ids = [...new Set(arg.split(','))].sort();
   for (const id of ids) if (!lock[id]) throw new Error(`step ${id} is not in ${SNIPPETS}`);
   return ids;
+}
+
+/** The highlight selectors that matched no element. A shot with any is not the lesson's screen. */
+export function missingHighlights(selectors, counts) {
+  return selectors.filter((_, i) => counts[i] === 0);
 }
 
 /** The env the step's server runs in: the capture baseline, the venv first on PATH, no keys. */
@@ -101,10 +111,18 @@ async function shootStep(nn, step, repo, port, results) {
         const page = await context.newPage();
         await page.goto(origin + shot.route);
         await page.waitForSelector(shot.ready, { timeout: 30_000 });
+        const counts = [];
         for (const sel of shot.highlight) {
-          await page.$$eval(sel, (els) => els.forEach((el) => el.setAttribute('data-course-ring', '')));
+          counts.push(await page.$$eval(sel, (els) => {
+            els.forEach((el) => el.setAttribute('data-course-ring', ''));
+            return els.length;
+          }));
         }
+        const missing = missingHighlights(shot.highlight, counts);
+        if (missing.length) throw new Error(`highlight matched nothing: ${missing.join(', ')}`);
         await page.addStyleTag({ content: RING_CSS });
+        // Web fonts settle layout; the two frames let the ring paint.
+        await page.evaluate(() => document.fonts.ready);
         await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
         const png = await page.screenshot({ fullPage: shot.full_page, mask: shot.mask.map((sel) => page.locator(sel)) });
         const abs = path.join(ROOT, out);

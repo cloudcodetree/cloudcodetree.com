@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CourseSyncError, buildSnippets, collectRefs, diffSnippets, serialize } from './sync-course-snippets.mjs';
+import { CourseSyncError, buildSnippets, collectRefs, diffSnippets, serialize, unreachableSteps } from './sync-course-snippets.mjs';
 
 const SHA = 'a'.repeat(40);
 const LOCK = { '01': { sha: SHA, lesson: 'dealfinder-part-01', subject: 'step-01: data layer' } };
@@ -108,5 +108,17 @@ describe('diffSnippets', () => {
       'outputs 01:pytest: added',
     ]);
     expect(diffSnippets(a, structuredClone(a))).toEqual([]);
+  });
+});
+
+describe('unreachableSteps', () => {
+  it('flags a locked step commit the course branch no longer contains', () => {
+    // A fixup rebase moves step-01; the old commit stays fetchable by SHA, so only
+    // ancestry shows the lesson now quotes code from no branch.
+    const steps = { '01': { sha: 'a'.repeat(40) }, '02': { sha: 'b'.repeat(40) } };
+    expect(unreachableSteps(steps, (sha) => sha.startsWith('a'))).toEqual([
+      'step 02 commit bbbbbbb is not on the course branch: run node scripts/sync-course-snippets.mjs --update-lock',
+    ]);
+    expect(unreachableSteps(steps, () => true)).toEqual([]);
   });
 });

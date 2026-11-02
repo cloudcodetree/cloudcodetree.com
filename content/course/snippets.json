@@ -4,12 +4,20 @@
   "branch": "course",
   "steps": {
     "01": {
-      "sha": "2c1f477c3b97db18c9a99362526b3d4afaeb7ab5",
+      "sha": "77478fb2483f86489ab20e329c6551958b80ea92",
       "lesson": "dealfinder-part-01",
       "subject": "step-01: Data layer, normalization & the snapshot"
     }
   },
   "snippets": {
+    "01:course/examples/01_raw_brands.py": {
+      "lang": "python",
+      "text": "# Part 1: the raw `brand` field, straight from the frozen snapshot.\nfrom dealfinder.snapshot import load_snapshot\n\nitems = load_snapshot(\"data/snapshots/electronics-2026-07.json\")\nprint(len(items))\n\nfor item in items[:8]:\n    print(repr(item[\"brand\"]))"
+    },
+    "01:course/examples/01_title_brand.py": {
+      "lang": "python",
+      "text": "# Part 1: title_brand() against the hero cast.\nfrom dealfinder.features import title_brand\n\ncases = [\n    (\"Sony WH-1000XM5 Wireless Headphones\", \"Sony\"),\n    (\"COWIN E7 Active Noise Cancelling Headphones\", \"Cowin\"),\n    (\"Bose QuietComfort 45 Bluetooth Wireless Over Ear Headphones\", \"Bose\"),\n    # Longest match first: Soundcore, Anker's audio line, wins over Anker.\n    (\"Anker Soundcore Q20i Active Noise Cancelling Headphones\", \"Soundcore\"),\n]\nfor title, expected in cases:\n    result = title_brand(title)\n    status = \"✓\" if result == expected else \"✗\"\n    print(f\"{status} '{result}' from: {title[:55]}\")"
+    },
     "01:dealfinder/features.py#title-brand": {
       "lang": "python",
       "text": "def title_brand(title: str) -> str | None:\n    \"\"\"Extract the true manufacturer from a listing title, or None if unknown.\n\n    Tries the known-brand vocabulary first (greedy, longest match), falling back\n    to the first title token when it looks like a proper brand name. This is the\n    normalization the raw ``brand`` field can't give us — see module docstring.\n    \"\"\"\n    if not title:\n        return None\n    for canonical, pat in _BRAND_PATTERNS:\n        if pat.search(title):\n            return canonical\n    # Fallback: first token if it's capitalized/alnum and not a generic word.\n    first = title.strip().split()[0] if title.strip().split() else \"\"\n    first = first.strip(\".,\")\n    if first and first[0].isalpha() and first[:1].isupper() and len(first) > 1:\n        return first\n    return None"
@@ -34,6 +42,14 @@
   "outputs": {
     "01:pytest": {
       "text": "$ python -m pytest tests/test_part01.py -v -p no:cacheprovider\n======================================= test session starts ========================================\nplatform <python, os>\nrootdir: .\nconfigfile: pyproject.toml\nplugins: <installed plugins>\ncollecting ... collected 6 items\n\ntests/test_part01.py::test_snapshot_count PASSED                                             [ 16%]\ntests/test_part01.py::test_brand_field_is_retailer_polluted PASSED                           [ 33%]\ntests/test_part01.py::test_hero_query_median_is_pinned PASSED                                [ 50%]\ntests/test_part01.py::test_xm5_cross_retailer_offers_are_both_kept PASSED                    [ 66%]\ntests/test_part01.py::test_exact_duplicate_collapses_to_cheapest PASSED                      [ 83%]\ntests/test_part01.py::test_deal_pct_outliers_are_unsanitized PASSED                          [100%]\n\n======================================== 6 passed in <t>s =========================================",
+      "manual": null
+    },
+    "01:raw-brands": {
+      "text": "$ python course/examples/01_raw_brands.py\n270\n'Walmart - COWIN'\n\"Kohl's\"\n'mountainlifestyle.ca'\n'Walmart - OEM ACCESSORIES'\n'Target'\n'Target'\n'Target'\n'costco.com'",
+      "manual": null
+    },
+    "01:title-brand": {
+      "text": "$ python course/examples/01_title_brand.py\n✓ 'Sony' from: Sony WH-1000XM5 Wireless Headphones\n✓ 'Cowin' from: COWIN E7 Active Noise Cancelling Headphones\n✓ 'Bose' from: Bose QuietComfort 45 Bluetooth Wireless Over Ear Headph\n✓ 'Soundcore' from: Anker Soundcore Q20i Active Noise Cancelling Headphones",
       "manual": null
     }
   }

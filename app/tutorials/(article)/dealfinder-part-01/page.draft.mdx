@@ -154,29 +154,15 @@ All six live as one `KEY=value` line each in the companion's `.env` (gitignored)
 
 ## The brand field lie: 154 of 270 rows hold the retailer
 
-Load the full snapshot and count how many `brand` values are retailer strings rather than manufacturer names:
+Load the full snapshot and look at the raw `brand` field of the first eight rows. The script is `course/examples/01_raw_brands.py` in the companion:
 
-```python
-from dealfinder.snapshot import load_snapshot
-
-items = load_snapshot("data/snapshots/electronics-2026-07.json")
-print(len(items))   # 270
-
-# Sample the raw brand field
-for item in items[:8]:
-    print(repr(item["brand"]))
+```python include="course/examples/01_raw_brands.py"
 ```
 
+```text output="raw-brands"
 ```
-'Costco'
-'Macy’s'
-'Walmart - COWIN'
-'Target'
-'mountainlifestyle.ca'
-'Anker'
-'Sony'
-'Best Buy'
-```
+
+Not one of those eight is a manufacturer. Every one is a store, a store's domain, or a store's listing for another seller.
 
 Of the 270 rows, **154 have a `brand` value that is a retailer string** — a marketplace name, a store URL fragment, or a vendor bundle like "Walmart - COWIN". Only the remaining 116 happen to carry the actual manufacturer. Using `brand` directly in a price model or brand-tier ranking would poison the features for more than half the data.
 
@@ -193,31 +179,17 @@ The fix: extract the true manufacturer from the `title`, where it reliably lives
 ```python include="dealfinder/features.py#title-brand"
 ```
 
-No LLM. No API call. One short function of deterministic regex. Verify it against the hero cast:
+No LLM. No API call. One short function of deterministic regex. Verify it against the hero cast with `course/examples/01_title_brand.py`:
 
-```python
-from dealfinder.features import title_brand
-
-cases = [
-    ("Sony WH-1000XM5 Wireless Headphones", "Sony"),
-    ("COWIN E7 Active Noise Cancelling Headphones", "Cowin"),
-    ("Bose QuietComfort 45 Bluetooth Wireless Over Ear Headphones", "Bose"),
-    ("Anker Soundcore Q20i Active Noise Cancelling Headphones", "Anker"),
-]
-for title, expected in cases:
-    result = title_brand(title)
-    status = "✓" if result == expected else "✗"
-    print(f"{status} '{result}' from: {title[:55]}")
+```python include="course/examples/01_title_brand.py"
 ```
 
-```
-✓ 'Sony' from: Sony WH-1000XM5 Wireless Headphones
-✓ 'Cowin' from: COWIN E7 Active Noise Cancelling Headphones
-✓ 'Bose' from: Bose QuietComfort 45 Bluetooth Wireless Over Ear He
-✓ 'Anker' from: Anker Soundcore Q20i Active Noise Cancelling Headph
+```text output="title-brand"
 ```
 
-Once you have the true manufacturer, `brand_tier()` maps it to a price-tier rank (1–4): Sony and Bose are tier 4 flagships; Anker is tier 2 value. That tier is one of the three features the price model learns from in Part 3.
+The Anker title returns `Soundcore`, not `Anker`. That is longest match first at work: "Soundcore", Anker's audio line, is the longer name in the title. Either is a step up from the raw field, which for the snapshot's Q20i row says "Kohl's".
+
+In Part 3, a `brand_tier()` function maps the true manufacturer to a price-tier rank (1–4): Sony and Bose are tier 4 flagships, Anker and Soundcore tier 2 value. That tier is one of the three features the price model learns from.
 
 ---
 
@@ -240,7 +212,7 @@ Recognizing that these two *are* the same product — despite different retailer
 
 <DedupMerge />
 
-When an exact duplicate *is* collapsed, the drop is logged, not silent — so you can audit which listings were merged and why. That auditability matters more than it seems: in Part 9 the cosine-dedup pass (threshold 0.90) runs the same keep-cheapest logic at embedding distance to merge cases like this Sony pair, and the log is what lets you catch false positives before they hide a real offer.
+When an exact duplicate *is* collapsed, `ingest` keeps the cheaper row and drops the other without a record. That is safe here, because the two rows are identical. It stops being safe in Part 9, where the cosine-dedup pass (threshold 0.90) runs the same keep-cheapest logic at embedding distance to merge cases like this Sony pair. That is why Part 9 adds an audit log: it lets you catch a false positive before it hides a real offer.
 
 ---
 
@@ -373,6 +345,14 @@ Every assertion passes against the committed snapshot. If you have regenerated t
 
 **What you should have now:** the 270-item, normalized, deduped snapshot loaded into a running DealFinder — a clean typed `Product` catalog the rest of the course builds on.
 
+**Run the checkpoint.** From the companion's root:
+
+```bash
+make check STEP=01
+```
+
+It runs this part's tests against your code and prints a ✓ line when everything this lesson built is in place. A failure names the test that broke. Compare your code with `git diff step-01` to find the difference.
+
 **How to test it, in the running product.** Start the app and confirm the data layer is live:
 
 ```bash
@@ -399,7 +379,7 @@ After this part, DealFinder is already showable. Open [http://localhost:8000/lab
   lookFor="the status line reads “7 of 270 rows shown · 154 of 270 carry a retailer in their brand field”. Six of the seven Sony rows have a retailer in the raw brand column, ringed: Target twice, costco.com, Macy's and Best Buy twice. The brand-from-title column reads Sony on every row. Only the WH-1000XM6 row, sold by Sony itself, has a raw brand that agrees. The WH-1000XM5 appears twice, at $162.97 and $248.00: the two offers dedup keeps."
 />
 
-The demo line for a colleague: *"every row is a real July-2026 listing; the store put its own name in the brand field on 154 of 270 of them, and a short regex over the title gets the real maker back."* Everything in the screenshot runs offline from the committed snapshot, so your screen should match this capture exactly.
+The demo line for a colleague: *"every row is a real July-2026 listing; the store put its own name in the brand field on 154 of 270 of them, and a short regex over the title gets the real maker back."* Everything in the screenshot runs offline from the committed snapshot, so your screen shows the same rows and numbers as this capture. Fonts can differ by operating system.
 
 - **Part 2 — How LLMs actually work:** before wiring a model into DealFinder, you need the literacy: tokenization, embeddings, attention, and sampling — illustrated with electronics examples drawn from the 11 snapshot categories you just established.
 - **Part 3 — Is it a good deal? Median vs. model:** opens by loading `electronics-2026-07.json` and immediately hits the naive-median failure mode the `deal_pct` outliers in this part foreshadow. The −3785% outlier and the $46 Bose QuietComfort 45 that reads as 72% below median are the motivation for the price model. You froze the data; Part 3 shows why the naive signal on that data is broken.

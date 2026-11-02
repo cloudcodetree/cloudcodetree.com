@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSteps, shotEnv } from './shoot-course.mjs';
+import { missingHighlights, parseSteps, shotEnv } from './shoot-course.mjs';
 
 const LOCK = { '01': { sha: 'a'.repeat(40), lesson: 'dealfinder-part-01' }, '02': { sha: 'b'.repeat(40), lesson: 'dealfinder-part-02' } };
 
@@ -23,11 +23,21 @@ describe('shotEnv', () => {
     expect(shotEnv({ needs_db: false }, base, '/w/.venv')).toEqual({
       PATH: '/w/.venv/bin:/usr/bin', HOME: '/h', VIRTUAL_ENV: '/w/.venv',
       TZ: 'UTC', LC_ALL: 'C.UTF-8', PYTHONHASHSEED: '0', COLUMNS: '100', NO_COLOR: '1', DEALFINDER_ENABLE_PAID_SOURCES: '0',
+      PYTHON_DOTENV_DISABLED: '1',
     });
   });
 
   it('passes DATABASE_URL only when the step needs a database, and requires it then', () => {
     expect(shotEnv({ needs_db: true }, base, '/w/.venv').DATABASE_URL).toBe('postgresql://x');
     expect(() => shotEnv({ needs_db: true, id: '05' }, { PATH: '/usr/bin' }, '/w/.venv')).toThrow(/step 05 needs a database: set DATABASE_URL/);
+  });
+});
+
+describe('missingHighlights', () => {
+  it('names every highlight selector that matched nothing', () => {
+    // An error screen has no rows, so a shot whose ring finds nothing is not the lesson's screen.
+    expect(missingHighlights(['.a', '.b', '.c'], [2, 0, 0])).toEqual(['.b', '.c']);
+    expect(missingHighlights(['.a'], [1])).toEqual([]);
+    expect(missingHighlights([], [])).toEqual([]);
   });
 });
