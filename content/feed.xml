@@ -10,7 +10,94 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 02 Nov 2026 12:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 02 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Generated Components Use Tailwind Defaults When Your Design System Lives in a File Claude Code Has Never Seen — A CLAUDE.md Reference Puts Your Tokens in Every Session]]></title>
+    <link>https://code.claude.com/docs/en/core-concepts/memory</link>
+    <guid isPermaLink="false">2026-11-02-08-design-token-spec-claudemd-context-component-generation</guid>
+    <pubDate>Mon, 02 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Design-to-Code</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Generated components drift from your design system because Claude Code's session starts without your token file. A docs/design-tokens.md + one CLAUDE.md line fixes the drift.]]></description>
+    <content:encoded><![CDATA[**Generated components drift from your design system because Claude Code's session starts without your token file. A `docs/design-tokens.md` + one CLAUDE.md line fixes the drift.**
+
+When you hand off a Claude Design export to Claude Code for landing in your codebase, the new components it generates for nearby features often drift: `blue-500` where your system says `primary-600`, generic spacing where your base-8 scale lives. The export brought the component structure; it didn't bring your token vocabulary.
+
+**Make your token spec readable**
+
+Create `docs/design-tokens.md` with your resolved values — not your Tailwind config, which Claude Code can't execute, but the computed output:
+
+```markdown
+## Colors
+- primary-600: #2563eb
+- primary-700: #1d4ed8
+- surface-0:   #ffffff
+- surface-1:   #f9fafb
+- neutral-800: #1f2937
+
+## Spacing (base-8)
+- space-1: 8px  space-2: 16px  space-3: 24px  space-4: 32px
+
+## Type scale
+- size-sm: 14px  size-base: 16px  size-lg: 18px  size-xl: 20px
+- font-sans: "Inter", system-ui
+```
+
+If your tokens go through a `withOpacity()` helper or custom Tailwind plugin, run `npx tailwindcss --input globals.css > resolved.css` and pull out the custom properties — that's what Claude Code can actually read.
+
+**Tell Claude Code where to look**
+
+Add one section to `CLAUDE.md`:
+
+```markdown
+## Design system
+Before generating any UI component, read docs/design-tokens.md.
+Use these tokens for all colors, spacing, and type — never inline Tailwind utilities not mapped here.
+```
+
+From this point, every generation request starts from your vocabulary, not training-data defaults.
+
+**Where it breaks down:** aliases (`--color-primary: var(--color-brand-base)`) can resolve incompletely — Claude Code reads the spec, not your PostCSS pipeline. Flatten to hex/px values for reliability. The file also drifts if your design system evolves and you don't update it; treat it as a maintained artifact alongside your theme config.
+
+**Sources:** [Design Systems Collective: Using Claude Code as a design system designer](https://www.designsystemscollective.com/how-i-use-claude-code-agent-with-vs-code-as-a-design-system-designer-541e105c0c97), [claudify.tech: CLAUDE.md for Tailwind design systems](https://claudify.tech/blog/claude-code-tailwind), [combray.prose.sh: Capturing your design system for AI editors](https://combray.prose.sh/2025-11-28-design-system-capture-best-practices)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Anthropic Filed Its S-1 Last Week — The Prospectus Reports $16.3B H1 Revenue and 1,900 Enterprise API Customers; Going Public Changes the Economics for Everyone Building on Claude]]></title>
+    <link>https://anthropic.com/news/s1-sec</link>
+    <guid isPermaLink="false">2026-11-02-07-anthropic-s1-ipo-nasdaq-ant-api-platform</guid>
+    <pubDate>Mon, 02 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Policy</category>
+    <category>Frontier</category>
+    <description><![CDATA[Anthropic's October 26 S-1 shows $16.3B H1 revenue, 1,900+ enterprise API customers, and a Nasdaq listing as ANT. Going public changes how Anthropic makes pricing decisions.]]></description>
+    <content:encoded><![CDATA[**Anthropic's October 26 S-1 shows $16.3B H1 revenue, 1,900+ enterprise API customers, and a Nasdaq listing as ANT. Going public changes how Anthropic makes pricing decisions.**
+
+Anthropic filed its Form S-1 with the SEC on October 26, targeting a Nasdaq listing under the ticker **ANT**. Per the filing as reported, $16,286 million in H1 2026 revenue — roughly 14× the $1.2B in H1 2025 — with ~20% from two unnamed customers and more than 1,900 customers above the $1M/year mark.
+
+Three signals worth tracking as an API builder:
+
+**Platform continuity:** Access to public capital markets reduces reliance on strategic investment rounds from Amazon or Google to fund operations. That is a stability increase for the API.
+
+**Pricing trajectory:** Public companies answer to quarterly gross-margin targets in ways private ones don't. The aggressive free-tier expansions and new-customer discounts that fuel developer adoption become harder to sustain once earnings calls start. Watch the pricing-tier announcements in 2027 Q1.
+
+**Customer concentration:** ~20% of H1 revenue from two customers is a meaningful concentration; if either shrinks usage, Anthropic has less cushion to hold pricing flat.
+
+Net-loss figures vary widely across outlets — one reports $80.7B, another $109B. Do not quote either number without checking the actual [EDGAR filing](https://anthropic.com/news/s1-sec). The revenue growth figures are more consistent across sources.
+
+**Why it matters:** Anthropic's IPO path secures the platform long-term, but shareholder review of every pricing tier starts the moment the shares price — engineering teams depending on stable API costs should watch Q4 2026 pricing announcements closely.
+
+**Sources:** [Anthropic S-1 announcement](https://anthropic.com/news/s1-sec), [aiweekly coverage](https://aiweekly.co/alerts/anthropic-files-for-nasdaq-ipo-under-ant-h1-rev-163b), [Futurum analyst take](https://futurumgroup.com/insights/anthropic-files-for-ipo-looking-to-beat-openai-to-the-punch/), [DEV Community developer perspective](https://dev.to/max_quimby/anthropics-s1-what-a-965b-ipo-filing-changes-3egn)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Agent Waits to Be Summoned — Wire a Webhook to `claude -p` and Let Any External Event Trigger an Autonomous Response]]></title>
@@ -6608,86 +6695,8 @@ model = model.merge_and_unload()
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Regenerate in Claude Design or Edit in the Editor — Here Is the Decision Rule]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-15-08-claude-design-regenerate-vs-edit-decision-rule</link>
-      <guid isPermaLink="false">2026-10-15-08-claude-design-regenerate-vs-edit-decision-rule</guid>
-      <pubDate>Thu, 15 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <description>Regenerate when the change is structural or the component isn't in your codebase yet. Edit in the editor when it's already imported, your design system tokens are wired, and the change is a value, not a direction.</description>
-      <content:encoded><![CDATA[**Regenerate when the change is structural or the component isn't in your codebase yet. Edit in the editor when it's already imported, your design system tokens are wired, and the change is a value, not a direction.**
-
-After Claude Design hands off a component to Claude Code, you'll hit the same question on every iteration: go back to the canvas, or just fix it in the file? The wrong choice either costs you a regeneration that ignores everything Claude Code has done since import, or a local edit that starts diverging from the intended design without a clear boundary.
-
-**Regenerate in Claude Design when:**
-
-- The layout or interaction model is wrong — "the button placement is off" is a prompt; "change the button color to `#3b82f6`" is a line of code
-- The component isn't imported yet — the only canonical version is on the canvas, and you haven't committed to a direction
-- You need to compare two or three directions before picking one; the canvas generates variants; your editor doesn't
-- You're changing multiple canvas elements at once — regenerating updates the artboard atomically; patching three files by hand re-introduces drift
-
-**Edit in the editor when:**
-
-- The component is in your repo, Claude Code knows your design system tokens (via `designtoken.md` or `/design-sync`), and the change is one or two values — a spacing constant, a border radius, a color token swap
-- Regenerating would produce output that doesn't know your local overrides: production theme variables, your component library's prop API, custom breakpoints baked into your CSS
-- You're fixing a behavior bug, not a visual decision — Claude Design produces structure and appearance; logic and accessibility fixes belong in the editor where Claude Code can run and verify them
-
-**The boundary that keeps the two from fighting:**
-
-Use Claude Design for pre-commit direction and structure; use the editor for post-import values and behavior. A round trip back to the canvas is right for "I want a different layout." It is not a good loop for "fix the focus ring" on a component that's been in the repo for two days — the canvas has no visibility into what Claude Code changed after import, and each regeneration ignores that accumulated drift.
-
-**Limits:** Canvas edits in Claude Design (spacing sliders, inline tweaks, drag handles) look cheap but still route through the model and consume credits. For a single spacing change on a shipped component, editing the CSS token directly is faster and free. Also: the decision rule assumes you ran `/design-sync` or committed a `designtoken.md` — without that, Claude Code has no vocabulary for your tokens and regeneration and editing both produce generic output.
-
-**Sources:** [Claude Design handoff — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design June 2026 overhaul tested — mejba.me](https://www.mejba.me/claude-design-overhaul-june-2026-tested)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Long Session Goes Cold While You Take a Break — Idle Compaction in Claude Code Collapses It Before the Cache Expires]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-15-07-idle-compaction-disable-file-mentions-oct14</link>
-      <guid isPermaLink="false">2026-10-15-07-idle-compaction-disable-file-mentions-oct14</guid>
-      <pubDate>Thu, 15 Oct 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Claude Code now compacts your terminal session during idle time before your prompt cache expires, so returning from a break doesn't trigger a full re-encode. Also Oct 14: CLAUDE_CODE_DISABLE_FILE_MENTIONS for path-only @ mentions.</description>
-      <content:encoded><![CDATA[**Claude Code now compacts your terminal session automatically during idle time, before your prompt cache expires — so returning from a break doesn't trigger a full re-encode of a long conversation.**
-
-If you've worked a multi-hour session and stepped away for ten minutes, you've probably paid the cold-cache penalty on return: Claude re-encodes the full conversation history because the prompt cache expired while you were away. On a session that's grown to hundreds of thousands of tokens, that's a noticeable cost hit and a round-trip delay before your first response.
-
-**Idle compaction (Claude Code, October 14, 2026)** solves this automatically ([changelog](https://code.claude.com/docs/en/changelog)): when Claude Code detects you've been idle long enough for the cache to be at risk of expiring, it proactively compacts the conversation before you return. You come back to a compact, cache-warm session rather than a cold one.
-
-**What compaction preserves and what it loses:**
-- Keeps: decisions made, files modified, current task state, in-progress context
-- Loses: exact intermediate reasoning steps and detailed history of completed sub-tasks
-
-If you need the full history to debug a past decision, compact manually with `/compact` before stepping away so the summary is intentional. `/resume` lets you pick an earlier snapshot if you need to rewind.
-
-**Limit:** the idle timer threshold is not user-configurable yet. If you want compaction to happen at a specific moment — before a long build, at a deliberate checkpoint — `/compact` on demand is still the right tool. Idle compaction is the safety net, not the replacement.
-
-**Also October 14: `CLAUDE_CODE_DISABLE_FILE_MENTIONS`**
-
-Set this environment variable to `"1"` when your workflow uses @ file mentions in tool calls and you want Claude to receive the *path* rather than have the full file content injected inline. Useful in hooks or automation scripts where the downstream tool does its own file read and content injection would double the token spend:
-
-```json
-"env": {
-  "CLAUDE_CODE_DISABLE_FILE_MENTIONS": "1"
-}
-```
-
-When set, @ mentions pass the file path to Claude's file tools rather than inlining content — Claude can still read the file, it just doesn't get it automatically dumped into context.
-
-**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [How Claude Code manages long sessions — medium.com](https://medium.com/@pbellapu09/how-claude-code-manages-infinite-sessions-without-blowing-the-context-window-8bccb35387fe) · [Context buffer management — claudefa.st](https://claudefa.st/blog/guide/mechanics/context-buffer-management)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
