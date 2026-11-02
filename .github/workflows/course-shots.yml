@@ -1,0 +1,69 @@
+name: course-shots
+
+# Regenerate DealFinder lesson screenshots from each step's manifest, and open a PR
+# with the PNGs that really changed. GitHub shows image diffs in the PR, and the owner
+# approves there. A PR opened with GITHUB_TOKEN starts no other workflow; these PRs
+# change only images, so that is accepted.
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: 'Steps to shoot: all, or a list like 01,02'
+        required: true
+        default: all
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  shoot:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: pgvector/pgvector:0.7.0-pg16
+        env:
+          POSTGRES_USER: dealfinder
+          POSTGRES_PASSWORD: dealfinder
+          POSTGRES_DB: dealfinder
+        ports: [ '5432:5432' ]
+        options: >-
+          --health-cmd "pg_isready -U dealfinder"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      STEPS: ${{ inputs.steps }}
+      DATABASE_URL: postgresql://dealfinder:dealfinder@127.0.0.1:5432/dealfinder
+    steps:
+    - uses: actions/checkout@v7
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm exec playwright install --with-deps chromium
+    - name: Shoot
+      shell: bash
+      run: node scripts/shoot-course.mjs --steps "$STEPS" | tee "$RUNNER_TEMP/shots.log"
+    - name: Open a PR with the changed screenshots
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [ -z "$(git status --porcelain -- public/tutorials/screens)" ]; then
+          echo "no screenshot changed"
+          exit 0
+        fi
+        branch="course-shots/$GITHUB_RUN_ID"
+        title="course: regenerated screenshots (steps $STEPS)"
+        { echo "Written by course-shots run $GITHUB_RUN_ID:"; echo; grep '^written ' "$RUNNER_TEMP/shots.log" | sed 's/^/- /'; } > "$RUNNER_TEMP/body.md"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git switch -c "$branch"
+        git add public/tutorials/screens
+        git commit -m "$title"
+        git push origin "$branch"
+        gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"

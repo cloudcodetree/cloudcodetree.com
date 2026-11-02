@@ -149,18 +149,18 @@ export function diffSnippets(a, b) {
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────
-function git(repo, args) {
+export function git(repo, args) {
   const r = spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   return r.status === 0 ? r.stdout : null;
 }
 
-function mustGit(repo, args) {
+export function mustGit(repo, args) {
   const out = git(repo, args);
   if (out === null) throw new CourseSyncError([`git -C ${repo} ${args.join(' ')} failed`]);
   return out;
 }
 
-function companion(explicit) {
+export function companion(explicit) {
   if (explicit) return path.resolve(explicit);
   const local = path.join(ROOT, 'companions/dealfinder');
   if (existsSync(local)) return local;
@@ -188,7 +188,7 @@ function readLock(repo) {
   return Object.fromEntries(JSON.parse(r.stdout).map((s) => [s.id, { sha: s.sha, lesson: s.lesson, subject: s.subject }]));
 }
 
-function ensureCommits(repo, steps) {
+export function ensureCommits(repo, steps) {
   const missing = [];
   for (const [nn, { sha }] of Object.entries(steps)) {
     if (git(repo, ['cat-file', '-e', `${sha}^{commit}`]) !== null) continue;
