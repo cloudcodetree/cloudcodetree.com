@@ -10,7 +10,113 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 03 Nov 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 03 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[The Claude Design Export Bundle Tells Claude Code What It Looks Like, Not What It Calls — Add a 10-Line Wiring Brief to Tell It the Routes, API Endpoints, and State Layer]]></title>
+    <link>https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff</link>
+    <guid isPermaLink="false">2026-11-03-08-claude-design-export-wiring-brief-route-api-data-layer-handoff</guid>
+    <pubDate>Tue, 03 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>The Claude Design export bundle carries layout and styling but not routes, API calls, or state. A short wiring brief in your handoff prompt prevents Claude Code from inventing a data layer.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: The Claude Design export gives Claude Code structure and styling — add one short section naming the route, the data calls, and the state layer so Claude Code doesn't guess the parts it can't see.**
+
+The Claude Design export bundle carries what the tool knows: component layout, visual structure, design tokens, and styling. It does not carry what it can't see: which route the screen lives at, what API calls the components make, what state management layer you're using, or how the data flows between components.
+
+Without that information, Claude Code makes plausible guesses — and those guesses often create technical debt: a new `useState` where you use React Query, a hardcoded fetch URL that won't match your backend, or a component dropped at `/new-screen` when it belongs at `/settings/notifications`.
+
+**Add a wiring brief to your handoff prompt.** It doesn't need to be long:
+
+```
+Route: /settings/notifications
+Data: GET /api/user/notifications → { items: Notification[], unread: number }
+State: React Query, 2-min cache, mutation via PATCH /api/user/notifications/:id
+Parent: app/(authenticated)/settings/layout.tsx wraps with SettingsNav
+Auth: session already in context — no additional guard needed
+```
+
+Five lines prevent three common mistakes. Claude Code reads this and places the component on the right route, wires it to the right data hook, and doesn't invent a parallel fetch layer.
+
+**What to include in the wiring brief:**
+1. **Route** — the exact path, including dynamic segments
+2. **Data** — the API call(s) and their return shapes (a one-line JSON schema is enough)
+3. **State** — your state library and cache policy, so it uses the existing pattern
+4. **Parent layout** — which wrapper component this screen lives inside
+5. **Auth** — whether this route requires auth and how it's already handled
+
+**The limit:** Claude Design has no access to your running API or codebase structure, so it can't derive any of this automatically. The wiring brief is manual work now. Future versions may read this from codebase context, but today the gap is real and worth closing yourself.
+
+**Sources:** [Claude Design handoff workflow (dev.to)](https://dev.to/jangwook_kim_e31e7291ad98/claude-design-developer-guide-to-anthropics-prototyping-tool-1nc2) · [Without tokens in CLAUDE.md, Claude makes its own choices (memorylake.ai)](https://www.memorylake.ai/en/blogs/migrate-claude-design-to-claude-code) · [Claude Code Playbook handoff guide](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Edited Skill SKILL.md Needs a Session Restart to Take Effect — Run /reload-skills to Test Changes Without Closing the Session]]></title>
+    <link>https://dev.classmethod.jp/articles/claude-code-reload-skills/</link>
+    <guid isPermaLink="false">2026-11-03-07-claude-code-reload-skills-skill-hot-reload-dev-loop</guid>
+    <pubDate>Tue, 03 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Claude Code hot-reloads skills from .claude/skills/ without a restart. The /reload-skills command confirms which skills were added, modified, or removed in the current session.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Changes to `.claude/skills/<name>/SKILL.md` take effect without restarting; run `/reload-skills` for an explicit rescan that shows exactly which skills changed.**
+
+When you're writing a new skill or debugging an existing one, the old workflow was: edit the SKILL.md, close the session, restart, test. As of Claude Code v2.1.0, edits to `~/.claude/skills/` and `.claude/skills/` are hot-reloaded — the runtime picks them up automatically during normal message handling.
+
+The `/reload-skills` command (added in v2.1.152) makes this explicit: it rescans both skill directories immediately and prints a summary of loaded, added, and removed skills. Use it when you want confirmation that your edit was picked up, or when you've edited several skills at once.
+
+**Practical loop for skill development:**
+
+1. Create `.claude/skills/my-skill/SKILL.md` with the skill's instructions
+2. Test in the current session: invoke it and see what Claude does
+3. Edit SKILL.md to refine
+4. Run `/reload-skills` — confirm the update appears in the summary
+5. Test again, without restarting
+
+**One limit:** A brand-new *top-level* `skills/` directory (not yet inside `.claude/`) still requires a restart for Claude Code to discover it. Once a skill directory is known to the runtime, edits inside it hot-reload on the next message or `/reload-skills` call.
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [What is Skill Hot-Reload in Claude Code (ClaudeLog)](https://claudelog.com/faqs/what-is-skill-hot-reload-in-claude-code/) · [/reload-skills deep-dive, Classmethod blog](https://dev.classmethod.jp/articles/claude-code-reload-skills/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Agent Resends the Whole Conversation Every Turn — Anthropic's Message Threads Beta Sends Only New Messages per Request]]></title>
+    <link>https://platform.claude.com/docs/en/build-with-claude/message-threads.md</link>
+    <guid isPermaLink="false">2026-11-03-06-anthropic-message-threads-api-beta-agent-turn-latency</guid>
+    <pubDate>Tue, 03 Nov 2026 20:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Anthropic's message threads beta (Nov 2) lets agents send only new messages per turn instead of full history. Threads expire after 5 minutes and don't support Message Batches or token counting.</description>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Message threads beta (beta header `message-threads-2026-08-12`) lets your agent send only new messages each turn instead of the full history; Anthropic reports ~35% lower time to first token on large requests.**
+
+If your Claude agent sends the full `messages` array on every turn, you're re-transmitting and re-tokenizing the same context repeatedly. The new message threads beta changes this: add a `thread` parameter to your Messages API request, and the platform holds the conversation between turns. Each subsequent call sends only the new message, and the response includes a thread ID for the next turn.
+
+The feature shipped November 2 and is [documented at platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/message-threads.md). It's available on the Claude API, AWS Bedrock, Microsoft Foundry, and GCP. Claude Code already uses it by default for most sessions.
+
+**Limits to know before you use it:**
+
+- Threads expire 5 minutes after the last request — your app still needs its own conversation history as a replay source; the platform holds state, but you hold the record
+- Not eligible for zero data retention or HIPAA use cases
+- Doesn't support Message Batches or the token counting API
+- The ~35% faster time-to-first-token figure is Anthropic's own benchmark on large requests, not independently verified
+
+**Why it matters:** For agents running long multi-turn conversations, resending the full history is the dominant latency source on each turn. Threads move that cost off the critical path. Worth using in any agent harness where you're building the messages array manually — but keep your own copy: the thread expiry means the platform is not a durable conversation store.
+
+**Sources:** [Anthropic message threads docs](https://platform.claude.com/docs/en/build-with-claude/message-threads.md) · [The New Stack](https://thenewstack.io/anthropic-claude-message-threads/) · [Unite.ai coverage](https://www.unite.ai/anthropic-launches-message-threads-beta-for-long-running-agents/)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Slash Commands and Hooks Live in Three Separate READMEs Nobody Copies to New Repos — A Plugin Marketplace Bundle and `--scope project` Commit Them to `.claude/settings.json` for the Whole Team]]></title>
@@ -6449,163 +6555,9 @@ The system prompt is the only knob. Describe your domain in 1-2 sentences to dis
 For a complete walkthrough with relevance-grader nodes (checking document quality before generating), see the [LangGraph Adaptive RAG tutorial](https://langchain-ai.github.io/langgraph/tutorials/rag/langgraph_adaptive_rag/) and the [Mistral cookbook adaptation](https://docs.mistral.ai/resources/cookbooks/third_party-langchain-adaptive_rag_mistral).]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Vector Store Doesn't Know What "Recent" Means — LangChain SelfQueryRetriever Parses Metadata Conditions From Natural Language Before the Embedding Search Runs]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-08-self-query-retriever-langchain-llm-metadata-filter</link>
-      <guid isPermaLink="false">2026-10-16-08-self-query-retriever-langchain-llm-metadata-filter</guid>
-      <pubDate>Fri, 16 Oct 2026 20:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[SelfQueryRetriever wraps any vector store and uses an LLM to pull structured metadata filters from natural language queries. Declare your filterable fields, install lark, and date ranges and category conditions become first-class retrieval parameters.]]></description>
-      <content:encoded><![CDATA[**Your vector store treats every query as semantics — SelfQueryRetriever inserts an LLM parsing step that extracts metadata conditions from natural language and applies them as native store filters before the embedding comparison runs.**
-
-When a user asks "find internal docs about authentication from 2026," a standard retriever embeds the full string and returns the top-k semantically similar chunks — ignoring "internal" and "2026" entirely, because those are metadata conditions the embedding has no way to express. [LangChain's `SelfQueryRetriever`](https://python.langchain.com/docs/integrations/retrievers/self_query/qdrant_self_query) closes this gap: an LLM reads the question, extracts structured filter conditions, and passes them to the vector store's native filter mechanism before the ANN search runs.
-
-**What you'll be able to do after this:** route date ranges, category labels, access tiers, or any indexed payload field from natural language into the retrieval step without writing filter syntax by hand.
-
-## Setup (Qdrant + LangChain)
-
-```bash
-pip install langchain langchain-qdrant lark
-```
-
-```python
-from langchain_qdrant import QdrantVectorStore
-from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain_core.structured_query import AttributeInfo
-from langchain_anthropic import ChatAnthropic
-
-metadata_field_info = [
-    AttributeInfo(
-        name="source",
-        description="Document type: 'api-guide', 'changelog', or 'how-to'",
-        type="string",
-    ),
-    AttributeInfo(
-        name="year",
-        description="Publication year as an integer",
-        type="integer",
-    ),
-    AttributeInfo(
-        name="tier",
-        description="Access tier — 'public' or 'internal'",
-        type="string",
-    ),
-]
-
-llm = ChatAnthropic(model="claude-haiku-5-5")   # cheap model; extraction only
-retriever = SelfQueryRetriever.from_llm(
-    llm=llm,
-    vectorstore=qdrant_store,
-    document_contents="Technical documentation chunks",
-    metadata_field_info=metadata_field_info,
-    verbose=True,       # logs the generated filter during dev
-    enable_limit=True,  # lets the LLM also set top-k from the query
-)
-
-docs = retriever.invoke("internal API guides from 2026")
-# LLM generates: Filter(must=[FieldCondition(tier='internal'),
-#                               FieldCondition(year>=2026)])
-# Qdrant applies this before the ANN scan — no pre-filter chunks reach scoring
-```
-
-## How the extraction works
-
-LangChain sends the query and your field descriptions to the LLM, which returns a structured JSON query object. A `lark`-powered parser converts it to a `StructuredQuery`; a store-specific translator converts that into the vector store's native syntax — Qdrant `Filter`, Chroma `where` dict, Pinecone metadata filter. You write field descriptions once; the translator handles the rest.
-
-## Limits
-
-- **LLM mis-extraction** on ambiguous or multi-condition queries: inspect the generated filter with `verbose=True` during development.
-- **Range filters require indexed payload fields** in Qdrant — call `create_payload_index()` on each field you intend to range-filter; an unindexed range falls back to a full scan and can time out on large collections.
-- **Extra latency:** one additional LLM call per query, roughly 100–300 ms and a small token cost.
-- **`lark` parse errors on malformed LLM output:** wrap the invoke in a try/except and fall back to plain similarity search in production.
-
-**Sources:** [LangChain SelfQueryRetriever with Qdrant — python.langchain.com](https://python.langchain.com/docs/integrations/retrievers/self_query/qdrant_self_query) · [Self-querying retrievers explained — elastic.co/search-labs](https://www.elastic.co/search-labs/blog/self-querying-retrievers) · [Qdrant payload filtering — qdrant.tech](https://qdrant.tech/documentation/search-patterns/vector-search-filtering/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[A Skill Is Not a Slash Command — It Loads Its Full Body Only When Invoked and Can Be Triggered Automatically When Claude Recognizes the Task]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-07-claude-code-skills-directory-auto-invocation</link>
-      <guid isPermaLink="false">2026-10-16-07-claude-code-skills-directory-auto-invocation</guid>
-      <pubDate>Fri, 16 Oct 2026 12:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-07-claude-code-skills-directory-auto-invocation.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-07-claude-code-skills-directory-auto-invocation.jpg" />
-      <description><![CDATA[Skills in .claude/skills/ keep their full body out of context until triggered — either by a slash command or automatically when Claude recognizes the task matches the skill's description. Only the one-line description is always loaded.]]></description>
-      <content:encoded><![CDATA[**Skills (`.claude/skills/<name>/SKILL.md`) keep their full body out of context until triggered — by a slash command or automatically when Claude's task matches the description. A deploy skill that never fires today costs zero tokens today.**
-
-You have probably used `.claude/commands/` for slash commands. A Skill is the richer version: it supports frontmatter for tool policies, model preferences, and a one-line description that Claude reads at session start to decide whether the task at hand matches.
-
-## The two-part loading model
-
-1. **Always in context:** the `description:` frontmatter field — one line, loaded at session start
-2. **On trigger only:** the full SKILL.md body — loaded when you run `/<name>` explicitly, or when Claude identifies the current task as matching the description and loads it automatically
-
-A skill that is never triggered today consumes nothing beyond its description line.
-
-## Setup
-
-```
-.claude/skills/deploy/SKILL.md
----
-description: Deploy the app to staging, run smoke tests, and report pass/fail.
-allowed_tools: Bash, Read
----
-Run these steps in order:
-1. `pnpm run build:staging`
-2. `pnpm run deploy:staging`
-3. `node scripts/smoke-test.mjs --origin https://beta.yoursite.com`
-Report each step's result and stop on first failure.
-```
-
-`claude /deploy` runs the exact workflow above. If you open a session and say "deploy to staging," Claude may load and run the skill without the slash command.
-
-## When to use Skills vs. Commands
-
-- **`.claude/commands/`** — a small prompt template with `$ARGUMENTS`; nothing fancy, always loads
-- **`.claude/skills/`** — a multi-step procedure with tool restrictions, optional frontmatter; loads only when invoked
-
-Namespace subfolders with a colon: `.claude/skills/testing/generate-tests/SKILL.md` → `/testing:generate-tests`.
-
-**Limit:** The `allowed_tools` / `disallowed_tools` frontmatter fields restrict what the skill can call, but exact syntax and support vary across versions — verify against [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills) before building security-critical guards into skills. For hard security boundaries (blocking a destructive command), use a `PreToolUse` hook instead — those run before any tool call, not just skill-triggered ones.
-
-**Sources:** [Steering Claude Code: skills, hooks, rules, subagents — claude.com/blog](https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more) · [Claude Code Skills vs Slash Commands vs Subagents — Towards AI](https://pub.towardsai.net/claude-code-skills-vs-slash-commands-vs-subagents-where-should-each-one-live-80bf1b846008) · [Stop Bloating CLAUDE.md: Where Workflows Actually Belong — Level Up Coding](https://levelup.gitconnected.com/stop-bloating-claude-md-where-your-claude-code-workflows-actually-belong-047112b85a02)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic and OpenAI Asked Their Independent Safety Evaluators to Accept Publication Review Rights — What That Means for Trusting Safety Ratings]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence</link>
-      <guid isPermaLink="false">2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence</guid>
-      <pubDate>Fri, 16 Oct 2026 12:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Best Practices</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-06-anthropic-openai-evaluator-publication-rights-independence.jpg" />
-      <description><![CDATA[A Reuters report (Oct 13) describes contract provisions giving Anthropic and OpenAI review and approval rights over findings their embedded safety evaluators publish — a structural limit on evaluator independence.]]></description>
-      <content:encoded><![CDATA[**A Reuters report (Oct 13) describes contract provisions giving Anthropic and OpenAI review and approval rights over research that independent safety evaluators publish — both companies say the review protects trade secrets, not results, but that distinction has not been independently audited.**
-
-Anthropic's first embedded evaluator, Accenture's Faculty practice, announced September 18, operates under these terms. Both companies say more evaluator partnerships are in progress.
-
-Both Anthropic and OpenAI say the review process is limited to flagging trade secrets, not suppressing unflattering findings. No external audit has yet verified that claim in practice.
-
-**Why it matters for operators:** Third-party safety evaluations of frontier models carry an asterisk while evaluator independence remains structurally limited. If you rely on published safety ratings — from METR, ARC-Evals, or embedded corporate partners — to decide whether to deploy Claude or GPT-4o in a high-stakes use case, the evaluating organization's independence from the lab is a relevant variable. Check whether the evaluator had unilateral publication rights before treating their rating as independent validation. For now, Anthropic's own [responsible scaling policy](https://www.anthropic.com/responsible-scaling-policy) and the METR pre-deployment assessments it references remain the most publicly documented safety claims from the company.
-
-**Sources:** [Anthropic, OpenAI sought control over evaluator publication rights — Reuters/letsdatascience.com](https://letsdatascience.com/blog/anthropic-openai-promised-evaluators-independence-contracts) · [Anthropic picks Accenture as first embedded evaluator — TechCrunch](https://techcrunch.com/2026/09/18/anthropics-first-embedded-evaluator-is-accenture/)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
 
     
