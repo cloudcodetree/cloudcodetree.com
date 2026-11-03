@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-03-04-claude-code-plugin-marketplace-project-scope-share-commands",
+    "title": "Your Claude Code Slash Commands and Hooks Live in Three Separate READMEs Nobody Copies to New Repos — A Plugin Marketplace Bundle and `--scope project` Commit Them to `.claude/settings.json` for the Whole Team",
+    "excerpt": "Install a Claude Code plugin at project scope and it writes to .claude/settings.json; commit that file and every teammate who trusts the repo gets the same slash commands, hooks, and MCP bindings.",
+    "author": "Chris Harper",
+    "date": "11-03-2026",
+    "publishedAt": "2026-11-03T12:05:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/plugins/install",
+    "content": "**A Claude Code plugin bundles slash commands, hooks, MCP configs, and subagent definitions into one installable unit; `--scope project` writes the install into `.claude/settings.json` so you commit it once and teammates get it when they trust the repo.**\n\nEvery project-specific Claude Code customization — the `/deploy` command, a `validate-blog.sh` PostToolUse hook, the Jira MCP config — currently lives in a file someone has to know about and manually copy to each repo. The plugin system changes that: a plugin is a directory with a `manifest.json` that bundles `commands/`, `hooks/`, `.mcp.json`, and `agents/` into a single installable unit. Install it at project scope and the entry lands in `.claude/settings.json`.\n\n**Three scopes — one matters for team distribution:**\n\n- `--scope user` (default): writes to `~/.claude/settings.json` — applies only to you\n- `--scope project`: writes to `.claude/settings.json` — commit it; teammates see it\n- `--scope local`: writes to `.claude/settings.local.json` — your override, not committed\n\n**How to set it up:**\n\nRegister a marketplace (any git repo with a `.claude-plugin/marketplace.json`):\n\n```\n/plugin marketplace add owner/plugin-repo\n```\n\nOr add `extraKnownMarketplaces` directly in `.claude/settings.json` for project-wide automatic registration — anyone who opens the repo gets the registry without a separate command.\n\nInstall a plugin at project scope:\n\n```\nclaude plugin install my-tools@my-marketplace --scope project\n```\n\nOr inside a session: `/plugin install my-tools@my-marketplace --scope project`.\n\nCommit `.claude/settings.json`. When a teammate opens the repo and trusts the folder, Claude Code prompts them to install the configured plugins.\n\n**What a plugin can bundle:**\n\n- `commands/` — slash command `.md` definitions\n- `hooks/` — shell scripts wired to tool lifecycle events (PreToolUse, PostToolUse, Stop, Notification)\n- `.mcp.json` — MCP server declarations scoped to the project\n- `agents/` — subagent CLAUDE.md configurations\n\n**Real limit before you reach for this:** Auto-install on trust requires teammates to confirm the folder trust prompt. An independent test from July 2026 (dev.classmethod.jp) found only a folder-trust confirmation — not a per-plugin dialog — but that behavior may vary by Claude Code version and org plugin policy. Verify against your org's settings before treating it as zero-friction rollout.\n\n**Sources:** [Plugin install docs — code.claude.com](https://code.claude.com/docs/en/plugins/install) · [How to use Claude Code plugins — dev.to/thryx](https://dev.to/thryx/how-to-use-claude-code-plugins-install-from-a-marketplace-or-build-your-own-574) · [Team distribution test — dev.classmethod.jp](https://dev.classmethod.jp/articles/claude-code-plugin-team-distribution/)"
+  },
+  {
+    "id": "2026-11-03-05-grpo-unsloth-reasoning-fine-tuning-gemma-lora-free-colab",
+    "title": "Your SFT-Fine-Tuned Model Gets Facts Right But Doesn't Show Its Work — GRPO on a Free Colab T4 Trains Any 1B+ Model to Reason Step-by-Step Using Format Rewards, No Labeled Answer Dataset Required",
+    "excerpt": "GRPO fine-tunes a model to reason step-by-step by rewarding format rather than correctness; the HuggingFace LLM Course Colab runs the full loop on Gemma 3 1B with Unsloth + LoRA on a free T4.",
+    "author": "Chris Harper",
+    "date": "11-03-2026",
+    "publishedAt": "2026-11-03T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Fine-Tuning",
+      "HuggingFace",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://huggingface.co/learn/llm-course/en/chapter12/6",
+    "content": "**GRPO (Group Relative Policy Optimization) fine-tunes a model to produce structured reasoning by rewarding format rather than answers — no labeled chain-of-thought dataset needed; the HuggingFace LLM Course exercise runs it on Gemma 3 1B with Unsloth + LoRA on a free Colab T4.**\n\n**What you'll be able to do after this:** Take a base or SFT-trained model and fine-tune it to produce structured `<reasoning>...</reasoning><answer>...</answer>` output before its final answers — without writing a labeled dataset of correct chain-of-thought. The reward functions score format, not content, so the model learns to externalise its thinking.\n\n**Three things to take away:**\n\n- GRPO is reinforcement learning without a separate reward model: the model generates multiple completions per prompt, your reward functions score them, and the update step pushes toward the higher-scoring half. You write the reward functions; they're plain Python.\n- Format rewards are the practical entry point: reward correct XML structure and penalise bare answers. The model learns the thinking structure and fills it in — you don't have to produce ground-truth reasoning traces.\n- Unsloth + QLoRA makes this feasible on free hardware: Gemma 3 1B at 4-bit loads in ~4 GB VRAM; a 3B model fits the same T4; the HuggingFace course exercise completes in under 30 minutes.\n\n**Walk-through (HuggingFace LLM Course, Chapter 12 Exercise 6):**\n\n```python\nfrom unsloth import FastLanguageModel\nmodel, tokenizer = FastLanguageModel.from_pretrained(\n    \"google/gemma-3-1b-it\",\n    max_seq_length=2048,\n    load_in_4bit=True,\n)\nmodel = FastLanguageModel.get_peft_model(model, r=32, lora_alpha=32)\n```\n\nDefine a reward function that scores XML format:\n\n```python\nimport re\n\ndef format_reward(completions, **kwargs):\n    pattern = r\"<reasoning>.*?</reasoning>\\s*<answer>.*?</answer>\"\n    return [0.5 if re.search(pattern, c, re.DOTALL) else 0.0\n            for c in completions]\n```\n\nPass it to `GRPOTrainer` from TRL:\n\n```python\nfrom trl import GRPOTrainer, GRPOConfig\n\ntrainer = GRPOTrainer(\n    model=model,\n    reward_funcs=[format_reward],\n    args=GRPOConfig(output_dir=\"grpo-output\", max_steps=200),\n    train_dataset=dataset,\n)\ntrainer.train()\nmodel.save_pretrained(\"grpo-reasoning-adapter\")\n```\n\nThe trainer generates N completions per prompt, scores each with `format_reward`, and updates toward the higher-scoring half. No labeled answers needed.\n\n**Limits to know before you start:** Unsloth requires a base model of at least 1.5B parameters — smaller models don't reliably generate thinking tokens. Format rewards also get gamed: check that the content inside the tags is coherent, not just structurally correct. If the model stops improving, the [Unsloth advanced notebook](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) uses partial-credit reward functions that are harder to game.\n\n**Sources:** [GRPO exercise — HuggingFace LLM Course Ch. 12.6](https://huggingface.co/learn/llm-course/en/chapter12/6) · [GRPO + LoRA docs — docs.unsloth.ai](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) · [Train your own reasoning model — Unsloth tutorial](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl/tutorial-train-your-own-reasoning-model-with-grpo) · [Gemma 3 GRPO walkthrough — youssefh.substack.com](https://youssefh.substack.com/p/gemma-3-reasoning-fine-tuning-with)"
+  },
+  {
     "id": "2026-11-03-03-claude-design-four-section-brief-constraints-upfront",
     "title": "You Spend Three Iterations Fixing the Same Constraint Because It Was in Your Head, Not the Brief — Four Sections That Prevent Claude Design From Regenerating Your Defaults",
     "excerpt": "Structure your Claude Design brief with four sections—goal, constraints, components, anti-patterns—and your system rules land in the spec before the first generation, not after it.",

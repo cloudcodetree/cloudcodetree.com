@@ -10,7 +10,128 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 03 Nov 2026 04:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 03 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code Slash Commands and Hooks Live in Three Separate READMEs Nobody Copies to New Repos — A Plugin Marketplace Bundle and `--scope project` Commit Them to `.claude/settings.json` for the Whole Team]]></title>
+    <link>https://code.claude.com/docs/en/plugins/install</link>
+    <guid isPermaLink="false">2026-11-03-04-claude-code-plugin-marketplace-project-scope-share-commands</guid>
+    <pubDate>Tue, 03 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Install a Claude Code plugin at project scope and it writes to .claude/settings.json; commit that file and every teammate who trusts the repo gets the same slash commands, hooks, and MCP bindings.]]></description>
+    <content:encoded><![CDATA[**A Claude Code plugin bundles slash commands, hooks, MCP configs, and subagent definitions into one installable unit; `--scope project` writes the install into `.claude/settings.json` so you commit it once and teammates get it when they trust the repo.**
+
+Every project-specific Claude Code customization — the `/deploy` command, a `validate-blog.sh` PostToolUse hook, the Jira MCP config — currently lives in a file someone has to know about and manually copy to each repo. The plugin system changes that: a plugin is a directory with a `manifest.json` that bundles `commands/`, `hooks/`, `.mcp.json`, and `agents/` into a single installable unit. Install it at project scope and the entry lands in `.claude/settings.json`.
+
+**Three scopes — one matters for team distribution:**
+
+- `--scope user` (default): writes to `~/.claude/settings.json` — applies only to you
+- `--scope project`: writes to `.claude/settings.json` — commit it; teammates see it
+- `--scope local`: writes to `.claude/settings.local.json` — your override, not committed
+
+**How to set it up:**
+
+Register a marketplace (any git repo with a `.claude-plugin/marketplace.json`):
+
+```
+/plugin marketplace add owner/plugin-repo
+```
+
+Or add `extraKnownMarketplaces` directly in `.claude/settings.json` for project-wide automatic registration — anyone who opens the repo gets the registry without a separate command.
+
+Install a plugin at project scope:
+
+```
+claude plugin install my-tools@my-marketplace --scope project
+```
+
+Or inside a session: `/plugin install my-tools@my-marketplace --scope project`.
+
+Commit `.claude/settings.json`. When a teammate opens the repo and trusts the folder, Claude Code prompts them to install the configured plugins.
+
+**What a plugin can bundle:**
+
+- `commands/` — slash command `.md` definitions
+- `hooks/` — shell scripts wired to tool lifecycle events (PreToolUse, PostToolUse, Stop, Notification)
+- `.mcp.json` — MCP server declarations scoped to the project
+- `agents/` — subagent CLAUDE.md configurations
+
+**Real limit before you reach for this:** Auto-install on trust requires teammates to confirm the folder trust prompt. An independent test from July 2026 (dev.classmethod.jp) found only a folder-trust confirmation — not a per-plugin dialog — but that behavior may vary by Claude Code version and org plugin policy. Verify against your org's settings before treating it as zero-friction rollout.
+
+**Sources:** [Plugin install docs — code.claude.com](https://code.claude.com/docs/en/plugins/install) · [How to use Claude Code plugins — dev.to/thryx](https://dev.to/thryx/how-to-use-claude-code-plugins-install-from-a-marketplace-or-build-your-own-574) · [Team distribution test — dev.classmethod.jp](https://dev.classmethod.jp/articles/claude-code-plugin-team-distribution/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your SFT-Fine-Tuned Model Gets Facts Right But Doesn't Show Its Work — GRPO on a Free Colab T4 Trains Any 1B+ Model to Reason Step-by-Step Using Format Rewards, No Labeled Answer Dataset Required]]></title>
+    <link>https://huggingface.co/learn/llm-course/en/chapter12/6</link>
+    <guid isPermaLink="false">2026-11-03-05-grpo-unsloth-reasoning-fine-tuning-gemma-lora-free-colab</guid>
+    <pubDate>Tue, 03 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[GRPO fine-tunes a model to reason step-by-step by rewarding format rather than correctness; the HuggingFace LLM Course Colab runs the full loop on Gemma 3 1B with Unsloth + LoRA on a free T4.]]></description>
+    <content:encoded><![CDATA[**GRPO (Group Relative Policy Optimization) fine-tunes a model to produce structured reasoning by rewarding format rather than answers — no labeled chain-of-thought dataset needed; the HuggingFace LLM Course exercise runs it on Gemma 3 1B with Unsloth + LoRA on a free Colab T4.**
+
+**What you'll be able to do after this:** Take a base or SFT-trained model and fine-tune it to produce structured `<reasoning>...</reasoning><answer>...</answer>` output before its final answers — without writing a labeled dataset of correct chain-of-thought. The reward functions score format, not content, so the model learns to externalise its thinking.
+
+**Three things to take away:**
+
+- GRPO is reinforcement learning without a separate reward model: the model generates multiple completions per prompt, your reward functions score them, and the update step pushes toward the higher-scoring half. You write the reward functions; they're plain Python.
+- Format rewards are the practical entry point: reward correct XML structure and penalise bare answers. The model learns the thinking structure and fills it in — you don't have to produce ground-truth reasoning traces.
+- Unsloth + QLoRA makes this feasible on free hardware: Gemma 3 1B at 4-bit loads in ~4 GB VRAM; a 3B model fits the same T4; the HuggingFace course exercise completes in under 30 minutes.
+
+**Walk-through (HuggingFace LLM Course, Chapter 12 Exercise 6):**
+
+```python
+from unsloth import FastLanguageModel
+model, tokenizer = FastLanguageModel.from_pretrained(
+    "google/gemma-3-1b-it",
+    max_seq_length=2048,
+    load_in_4bit=True,
+)
+model = FastLanguageModel.get_peft_model(model, r=32, lora_alpha=32)
+```
+
+Define a reward function that scores XML format:
+
+```python
+import re
+
+def format_reward(completions, **kwargs):
+    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
+    return [0.5 if re.search(pattern, c, re.DOTALL) else 0.0
+            for c in completions]
+```
+
+Pass it to `GRPOTrainer` from TRL:
+
+```python
+from trl import GRPOTrainer, GRPOConfig
+
+trainer = GRPOTrainer(
+    model=model,
+    reward_funcs=[format_reward],
+    args=GRPOConfig(output_dir="grpo-output", max_steps=200),
+    train_dataset=dataset,
+)
+trainer.train()
+model.save_pretrained("grpo-reasoning-adapter")
+```
+
+The trainer generates N completions per prompt, scores each with `format_reward`, and updates toward the higher-scoring half. No labeled answers needed.
+
+**Limits to know before you start:** Unsloth requires a base model of at least 1.5B parameters — smaller models don't reliably generate thinking tokens. Format rewards also get gamed: check that the content inside the tags is coherent, not just structurally correct. If the model stops improving, the [Unsloth advanced notebook](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) uses partial-credit reward functions that are harder to game.
+
+**Sources:** [GRPO exercise — HuggingFace LLM Course Ch. 12.6](https://huggingface.co/learn/llm-course/en/chapter12/6) · [GRPO + LoRA docs — docs.unsloth.ai](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) · [Train your own reasoning model — Unsloth tutorial](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl/tutorial-train-your-own-reasoning-model-with-grpo) · [Gemma 3 GRPO walkthrough — youssefh.substack.com](https://youssefh.substack.com/p/gemma-3-reasoning-fine-tuning-with)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[You Spend Three Iterations Fixing the Same Constraint Because It Was in Your Head, Not the Brief — Four Sections That Prevent Claude Design From Regenerating Your Defaults]]></title>
@@ -6485,169 +6606,9 @@ Both Anthropic and OpenAI say the review process is limited to flagging trade se
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[The Claude Design Export Is Static HTML — Here Is the Four-Step Prompt That Lands It as Working Components in Your Existing Next.js Codebase]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-05-claude-design-handoff-existing-codebase-prompt</link>
-      <guid isPermaLink="false">2026-10-16-05-claude-design-handoff-existing-codebase-prompt</guid>
-      <pubDate>Fri, 16 Oct 2026 12:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-05-claude-design-handoff-existing-codebase-prompt.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-05-claude-design-handoff-existing-codebase-prompt.jpg" />
-      <description><![CDATA[The Claude Design handoff bundle is static HTML, screenshots, and a spec README — Claude Code reads all of it but defaults to generic React without explicit constraints. Four constraints in your prompt close the gap.]]></description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** Take a Claude Design export and land it as working, idiomatic components in an existing Next.js/React project without overwriting your design system or generating redundant files.
+    
 
-**The three things to know going in:**
-
-1. The handoff bundle contains static HTML, component screenshots, and a machine-readable spec (spec.md) — Claude Code reads all of it, but without explicit constraints it defaults to generic React, not your existing component library.
-2. Four constraints in your Claude Code prompt reliably close the gap: name the bundle path, name your component library, point to your design tokens, and ask for a stub test.
-3. The main failure mode is Claude Code generating new components that shadow your existing ones — a one-line grep before the commit catches it.
-
-## The workflow
-
-After exporting from Claude Design (Export → Handoff to Claude Code), you have a folder — call it `design-export/` — containing `index.html`, `component-screenshots/`, and `spec.md`. Open Claude Code in your project root:
-
-```
-import design-export/ and convert the components to React.
-
-Constraints:
-- Use only components that already exist in src/components/ui/ — do not create new ones
-- Apply colors and spacing using tokens from src/styles/tokens.css only
-- Export each component as a named export from src/components/<ComponentName>.tsx
-- Add a stub test in src/components/__tests__/<ComponentName>.test.tsx
-
-Do NOT create utility files or helper hooks not already in src/lib/.
-```
-
-Then verify before committing:
-
-```bash
-# Catch any new components that shadow existing ones
-grep -r "from './" src/components/ | grep -v "__tests__"
-
-# Run your test suite
-pnpm test
-
-# Check each interactive state against screenshots
-open design-export/component-screenshots/
-```
-
-The most common failure: Claude Code creates a `Button.tsx` that shadows your existing `src/components/ui/Button.tsx`. Prevention is one line in the prompt: "Do not create any file that already exists in src/components/ui/." Catching it after: `ls src/components/ui/` and look for new files.
-
-## What the handoff bundle cannot tell Claude Code
-
-The spec.md describes visual properties well: layout, spacing, colors, and component states. It cannot convey behavioral logic that is not visible in a static design — form validation, API calls, authentication state, or error handling. Add a separate short spec for any logic that goes beyond rendering, or write those parts by hand.
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [From Prompt to Pull Request: Claude Design, Claude Code, GitHub — DEV Community](https://dev.to/bilelsalemdev/from-prompt-to-pull-request-using-claude-design-claude-code-and-github-together-3m00) · [Claude Design → Claude Code Handoff — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)
-]]></content:encoded>
-    </item>
-
-
-    <item>
-      <title><![CDATA[Your /design Session and Your Claude Code Session Start From Different Assumptions — A One-Page Component Brief Gives Both the Same Target]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-04-component-brief-design-code-shared-spec</link>
-      <guid isPermaLink="false">2026-10-16-04-component-brief-design-code-shared-spec</guid>
-      <pubDate>Fri, 16 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-04-component-brief-design-code-shared-spec.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-04-component-brief-design-code-shared-spec.jpg" />
-      <description><![CDATA[A component brief is a short markdown file with intent, props, states, design constraints, and acceptance criteria — pass it to both /design and Claude Code so both tools work from the same spec.]]></description>
-      <content:encoded><![CDATA[
-**TL;DR:** A one-page component brief — intent, props with types, visual states, design constraints, and done-when criteria — is the spec that both your `/design` session and your Claude Code session can actually use. Without it, they guess from different starting points and converge slowly.
-
-## The mismatch
-
-When you open a `/design` session, the tool defaults toward visual exploration: colors, spacing, states, hover effects. When you open Claude Code, it defaults toward wiring: props, interfaces, event handlers, integration. These are complementary instincts, but if they start from different assumptions about what the component is supposed to do, you spend the first quarter of each session re-establishing context the other session already has.
-
-A component brief solves this by writing the shared target once, up front, before either session opens.
-
-## What a component brief contains
-
-A brief is a short markdown file — typically 30–60 lines — with five sections:
-
-```markdown
-# ComponentName brief
-
-## Intent
-One sentence on what the component does and for whom.
-Example: A card that lets a logged-in reader save or unsave an article.
-
-## Props
-| Prop | Type | Required | Default | Notes |
-|------|------|----------|---------|-------|
-| articleId | string | yes | — | Stable ID, passed to the /api/engage endpoint |
-| isSaved | boolean | yes | — | Controlled; parent owns state |
-| onToggle | (id: string, saved: boolean) => void | yes | — | Parent handles optimistic update |
-| size | 'sm' \| 'md' | no | 'md' | Icon scales: 16px / 20px |
-
-## States
-- **Default (unsaved):** Bookmark outline icon, neutral fill, no label
-- **Saved:** Bookmark filled icon, accent fill (--color-accent-primary)
-- **Loading:** Icon replaced by 16px spinner, pointer-events: none
-- **Error:** Outline icon, error fill (--color-error), tooltip "Could not save"
-- **Disabled:** 40% opacity, pointer-events: none
-
-## Design constraints
-- Touch target: minimum 44×44px regardless of icon size
-- Color tokens only — no raw hex values
-- Meets WCAG 2.1 AA contrast (4.5:1) in both light and dark themes
-- No labels; icon must be aria-label'd "Save article" / "Unsave article"
-- Animation: 150ms ease-out on fill transition
-
-## Done when
-- [ ] All four states render correctly at both sizes
-- [ ] Keyboard navigable; Enter/Space toggles
-- [ ] Screen reader announces state change after toggle
-- [ ] Loading state prevents double-submission
-- [ ] Snapshot test covers default + saved
-```
-
-## Using the brief with /design
-
-Start the `/design` session by attaching or pasting the brief:
-
-```
-Read component-brief.md, then design the SaveButton component.
-Focus on the four states listed under States. Use the token names
-from Design constraints — do not invent color values.
-```
-
-The brief answers the questions `/design` would otherwise ask through iteration: which states matter, which tokens to use, what the touch target requirement is. The session can spend its time on the actual visual decisions — icon weight, animation easing, spacing — rather than scoping.
-
-## Using the brief with Claude Code
-
-Add the brief to Claude Code's context at session start:
-
-```
-I'm implementing the SaveButton component.
-The spec is in docs/component-briefs/save-button.md — read it first.
-```
-
-The prop table and state list become the component's TypeScript interface and the test matrix. The done-when criteria become the review checklist. The design constraints land directly in the CSS.
-
-## The brief as a review artifact
-
-A component brief doubles as a PR review tool. When the implementation is done, the done-when criteria are the exact items a reviewer checks — no translation needed between the spec and the diff.
-
-Keep briefs in `docs/component-briefs/` alongside the component, not in a separate design tool. The brief is code-adjacent documentation: it ages with the component and stays in the repository where both sessions can find it.
-
----
-
-*Sources: [Claude Code project docs](https://code.claude.com/docs/en/claude-md) (CLAUDE.md as shared context); [Storybook: Writing Stories](https://storybook.js.org/docs/writing-stories) (component API conventions); [WCAG 2.1 contrast requirements](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html).*
-]]></content:encoded>
-    </item>
-
+    
     
     
     
