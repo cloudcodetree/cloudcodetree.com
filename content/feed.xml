@@ -10,7 +10,162 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 02 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 03 Nov 2026 04:07:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[You Spend Three Iterations Fixing the Same Constraint Because It Was in Your Head, Not the Brief — Four Sections That Prevent Claude Design From Regenerating Your Defaults]]></title>
+    <link>https://support.claude.com/</link>
+    <guid isPermaLink="false">2026-11-03-03-claude-design-four-section-brief-constraints-upfront</guid>
+    <pubDate>Tue, 03 Nov 2026 04:07:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Structure your Claude Design brief with four sections—goal, constraints, components, anti-patterns—and your system rules land in the spec before the first generation, not after it.]]></description>
+    <content:encoded><![CDATA[**Structure your Claude Design brief with four sections—goal, constraints, components, and anti-patterns—and your constraints are in the spec before the first generation, not discovered after three iterations.**
+
+The common failure mode: you write "design a settings page" and spend three iterations correcting output because Claude Design used hardcoded `#3B82F6` instead of your `--color-primary`, a 12-column grid instead of your 8-column base, and wrapped everything in a sidebar you don't have. These corrections all lived in your head, not the brief.
+
+**The four-section format**
+
+Paste this into the Canvas description before the first generation:
+
+```
+## Goal
+One sentence — what the user does on this screen.
+Example: "User reviews and updates notification preferences across three channels."
+
+## Constraints
+Token names, grid spec, hard layout rules. Use exact names from your system.
+Example:
+  Colors: --color-primary #0D9488, --color-surface #111827, --color-border #374151
+  Grid: 8-column, 24px gutter, 16px page margin
+  Type: text-sm 14px, text-base 16px, font-sans (Inter)
+
+## Components
+What Claude Code will use during handoff. Name the ones you have; ban the ones you don't.
+Example: Card, Button variant='contained', TextField, Switch from our MUI theme.
+Do NOT use Grid2 — use Box with flexbox.
+
+## Anti-patterns
+The two or three things it keeps generating that don't belong.
+Example: No sidebar navigation. No purple. No full-bleed hero images.
+```
+
+**Why it works:** Claude Design reads the Canvas description before generating. Constraints in the description act as hard rails; anti-patterns flag deviations you've already seen. The first output still needs review, but the corrections shift from "wrong color, wrong grid, wrong nav" to fine-tuning alignment and spacing—changes that belong in the editor, not the canvas.
+
+**When to update it:** When you change your token file or component library and notice drift on a new generation, update the Constraints section. A brief that references stale variable names is worse than no brief—Claude Design may confidently generate to outdated names, and Claude Code picks those up in the handoff.
+
+**Real limit:** Complex layouts with many component interactions still drift, and components not in your brief's vocabulary can appear. The brief reduces iteration cycles; it does not eliminate them. For screens with more than five distinct component types, add a rough wire description to the Goal section alongside the task sentence—the additional layout signal matters.
+
+**Sources:** [Claude Design developer guide — dev.to](https://dev.to/jangwook_kim_e31e7291ad98/claude-design-developer-guide-to-anthropics-prototyping-tool-1nc2), [Anthropic Labs Claude Design onboarding — support.claude.com](https://support.claude.com/), [Practitioner first-look: Claude Design — jwatte.com](https://jwatte.com/blog/blog-claude-design-anthropic-labs/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Long Claude Code Session Degrades Silently as the Context Fills — Run `/compact` With a Preservation Hint Before Quality Drops, Not After]]></title>
+    <link>https://docs.anthropic.com/en/docs/claude-code/memory</link>
+    <guid isPermaLink="false">2026-11-03-02-claude-code-compact-context-window-hint-preserve</guid>
+    <pubDate>Tue, 03 Nov 2026 04:06:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Claude Code auto-compacts when the context fills, but /compact with a hint preserves what matters—file paths, known bugs, current task—instead of letting the model decide what to round off.]]></description>
+    <content:encoded><![CDATA[**Claude Code auto-compacts when the context window fills, but a manual `/compact` with a hint preserves what matters—modified file paths, known bugs, the current task—instead of letting the model decide what to round off.**
+
+When a session runs long—multiple files, several tool loops, accumulated debugging context—Claude Code auto-compacts at some point. The model writes a summary and discards the original messages. What it keeps and what it abstracts away is opaque.
+
+You can trigger compaction manually before that happens, and you can tell it what to preserve:
+
+```
+/compact keep all modified file paths, known bugs, and the current task list
+```
+
+The compactor includes what you named verbatim. Compare the two outcomes:
+
+Without a hint: *"We have been working on a Node.js project and making improvements."*
+
+With `keep all modified file paths, known bugs, and the current task list`:
+*"Modified: src/api/auth.ts, src/db/session.ts. Known bug: refresh token race condition on concurrent logins (not fixed). Current task: add rate limiting to /api/login."*
+
+**When to run it manually:**
+- Before shifting from a debugging phase to an implementation phase—the bug context needs to carry forward, but the diagnostic back-and-forth does not
+- When responses start hedging or re-asking questions you already answered
+- Proactively before the window fills, so you control the summary instead of auto-compact doing it at an arbitrary point
+
+**Real limit:** The summary is still a summary. A subtle multi-file interaction you spent 30 minutes tracing will be abstracted. Before compacting, drop the key insight into a comment in the relevant file, or add a note to CLAUDE.md—compaction preserves the map, not the terrain.
+
+`/clear` is better when you are starting a genuinely different task on a different part of the codebase—no prior context is useful, and compaction just carries noise forward.
+
+**Sources:** [Claude Code docs — Memory and context](https://docs.anthropic.com/en/docs/claude-code/memory), [Claude Code changelog (context compaction controls, v2.1.293)](https://code.claude.com/docs/en/changelog), [Anthropic: Steering Claude Code (June 2026)](https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Retrieved Chunks Are Half Irrelevant Text — Wrap Your Retriever in `ContextualCompressionRetriever` to Extract Only the Sentences That Answer the Query]]></title>
+    <link>https://python.langchain.com/docs/how_to/contextual_compression</link>
+    <guid isPermaLink="false">2026-11-03-01-contextual-compression-retriever-langchain-sentence-extract</guid>
+    <pubDate>Tue, 03 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[LangChain's ContextualCompressionRetriever strips irrelevant sentences from each retrieved chunk before they reach your answer model—pair k=10 for recall, let the compressor handle precision.]]></description>
+    <content:encoded><![CDATA[**LangChain's `ContextualCompressionRetriever` passes each retrieved chunk through an LLM that extracts only the relevant sentences, so your answer model gets 3 targeted sentences instead of 3 full paragraphs.**
+
+**What you'll be able to do after this:** Route retrieved documents through a compression step that strips the sentences unrelated to the query, reducing the noise in your answer model's context window without cutting recall.
+
+**Three things to take away:**
+- Compression trades latency for signal quality: one LLM call per retrieved document—use a Haiku-class model for the compressor, not Opus
+- `LLMChainExtractor` returns the relevant sentences; `LLMChainFilter` is binary—keep or drop the whole chunk
+- Set `k=10` on the base retriever to favor recall; let the compressor handle precision—this is the division of labor LangChain's own launch post describes
+
+**Walk-through**
+
+```python
+pip install langchain langchain-anthropic langchain-community chromadb
+```
+
+```python
+from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
+from langchain.retrievers.document_compressors import LLMChainExtractor
+from langchain_anthropic import ChatAnthropic
+from langchain_chroma import Chroma
+
+# Use a fast, cheap model for the compression pass—not your answer model
+llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
+compressor = LLMChainExtractor.from_llm(llm)
+
+base_retriever = Chroma(
+    collection_name="docs",
+    embedding_function=your_embedding_fn,
+).as_retriever(search_kwargs={"k": 10})
+
+compression_retriever = ContextualCompressionRetriever(
+    base_compressor=compressor,
+    base_retriever=base_retriever,
+)
+
+docs = compression_retriever.invoke("How do I configure the request timeout?")
+for doc in docs:
+    print(doc.page_content)  # 1–4 sentences, not a full chunk
+```
+
+Before compression, a question about a single config key returns chunks that mention it in three different contexts, each surrounded by unrelated setup steps. After compression, you get the sentences that state the value and explain it—and those are what the answer model reasons over.
+
+**Real limits:**
+- At one LLM call per retrieved document with `k=10`, that is 10 extra inference calls per query. LangChain runs them serially by default; use `ainvoke` if latency matters.
+- `LLMChainExtractor` can return an empty string if none of a chunk's sentences are relevant. Your downstream code must handle empty `page_content`.
+- The compressor can over-extract when chunks are dense—a sentence about timeouts might include the surrounding dependency context that the extractor drops. Watch for answers that are technically correct but miss the "why."
+
+**Sources:** [LangChain how-to: Contextual compression](https://python.langchain.com/docs/how_to/contextual_compression), [LangChain blog: Improving Document Retrieval with Contextual Compression](https://blog.langchain.com/improving-document-retrieval-with-contextual-compression)]]></content:encoded>
+  </item>
+
 
   <item>
     <title><![CDATA[Your Generated Components Use Tailwind Defaults When Your Design System Lives in a File Claude Code Has Never Seen — A CLAUDE.md Reference Puts Your Tokens in Every Session]]></title>
@@ -6493,208 +6648,9 @@ Keep briefs in `docs/component-briefs/` alongside the component, not in a separa
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Claude Code Starts Editing Before You've Agreed on the Approach — Shift+Tab Twice Puts It in Plan Mode: Research and Propose Before Touching a File]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-03-claude-code-plan-mode-propose-review-approve</link>
-      <guid isPermaLink="false">2026-10-16-03-claude-code-plan-mode-propose-review-approve</guid>
-      <pubDate>Fri, 16 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-03-claude-code-plan-mode-propose-review-approve.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-03-claude-code-plan-mode-propose-review-approve.jpg" />
-      <description><![CDATA[Pressing Shift+Tab twice switches Claude Code into plan mode — it reads and researches your codebase, outputs a complete implementation plan, and waits for your approval before making a single edit.]]></description>
-      <content:encoded><![CDATA[
-**TL;DR:** Claude Code's default behavior is to start editing as soon as it has enough to go on. Plan mode changes that: it reads, researches, and proposes before touching a file. Useful for refactors where the order of changes matters, or any task where you want to understand the full approach before files start changing.
-
-## What you'll be able to do
-
-Use plan mode to get a complete implementation plan — what will change, why, and in what order — before Claude Code writes a single byte. Review and adjust the plan, then approve to execute.
-
-## Three ways to enter plan mode
-
-**1. Keyboard shortcut (in an active session):** Press `Shift+Tab` twice in the Claude Code prompt. The status line shows `[plan mode]` when active.
-
-**2. Flag at startup:**
-```bash
-claude --permission-mode plan
-```
-
-**3. Default in `settings.json`** (so every session starts in plan mode):
-```json
-{
-  "defaultMode": "plan"
-}
-```
-
-## What happens in plan mode
-
-Claude Code reads your codebase normally but cannot write, edit, or run commands that modify state. It does its research — checking types, reading imports, tracing call sites — then outputs a structured plan:
-
-```
-Plan:
-1. Add `SaveButton` component to app/components/ — new file
-2. Update app/ai-news/[id]/page.tsx — import SaveButton, add to article header
-3. Update app/lib/types.ts — add isSaved to PostMeta type
-4. Add useArticleSave hook to app/lib/hooks/ — new file
-5. Update tests in __tests__/BlogPost.test.tsx — cover save state
-
-No files changed. Approve to begin, or edit this plan (Ctrl+G) before proceeding.
-```
-
-The plan is written to `~/.claude/plans/` so you can review it outside the terminal if needed.
-
-## Editing the plan before approving
-
-Press `Ctrl+G` to open the plan in your `$EDITOR`. You can:
-
-- Reorder steps (if a dependency order matters to you)
-- Remove steps you'll handle separately
-- Add a note about a constraint Claude Code might not have seen
-
-After saving, the session picks up the edited plan and executes it.
-
-## Re-entering plan mode mid-execution
-
-If you approve a plan and Claude Code's execution starts drifting from what you expected, you can re-enter plan mode mid-task: press `Shift+Tab` twice again. The session pauses, produces a revised plan for the remaining steps, and waits for re-approval.
-
-## When it's most useful
-
-Plan mode pays off on tasks with multiple interacting changes: a refactor that touches a shared type, a feature that adds both a hook and a UI component, or any change where the order of edits affects whether the build stays green between steps. For single-file changes or well-scoped additions, normal mode is faster.
-
----
-
-*Sources: [DataCamp: Claude Code Plan Mode](https://www.datacamp.com/tutorial/claude-code-plan-mode); [OpenReplay: Plan Mode for Complex Tasks](https://blog.openreplay.com/plan-mode-claude-code-complex-tasks/); [claudefa.st: Planning Modes](https://claudefa.st/docs/learn/mechanics/planning-modes).*
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Anthropic Updates Its Usage Policy Ahead of the November Midterms — The New 'Democratic Processes' Section Bans Voter Deception and Lifts the Blanket Political Targeting Ban]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-02-anthropic-usage-policy-democratic-processes-november</link>
-      <guid isPermaLink="false">2026-10-16-02-anthropic-usage-policy-democratic-processes-november</guid>
-      <pubDate>Fri, 16 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Best Practices</category>
-      <category>LLM</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-02-anthropic-usage-policy-democratic-processes-november.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-02-anthropic-usage-policy-democratic-processes-november.jpg" />
-      <description><![CDATA[Anthropic's revised usage policy, effective November 12, adds a "Do Not Undermine Democratic Processes" section banning voter deception while lifting the blanket ban on personalized political messaging for legitimate civic uses.]]></description>
-      <content:encoded><![CDATA[
-Anthropic has updated its usage policy with a new **"Do Not Undermine Democratic Processes"** section, taking effect **November 12, 2026** — two weeks before the US midterm elections. The update revises two earlier rules that had been in place since April.
-
-**What changed:**
-
-- **New ban:** Using Claude to generate voter-suppression content, spread disinformation about voting processes, or impersonate election officials is now explicitly prohibited.
-- **Ban lifted:** The prior blanket prohibition on personalized political messaging has been revised. Operators running civic-use applications — voter registration tools, legislative contact assistants, verified political organizations — are now permitted to use Claude for personalized outreach, subject to the operator agreement.
-- **Hardened rule:** "Election deception" (fabricating candidate statements, creating fake endorsements, generating misleading ballot information) is now a hard policy violation regardless of stated purpose.
-
-**Why it matters for operators:** If you run a Claude-powered product that touches political content in any form — a civic-engagement app, a news summarization tool, a community Q&A bot — November 12 is your review deadline. The updated policy draws a sharper line between permissible civic uses and prohibited election interference than the prior blanket rules did. Review your operator agreement and system prompt against the new section before then.
-
-The updated usage policy is at [anthropic.com/news/election-safeguards-update](https://www.anthropic.com/news/election-safeguards-update). The November 12 effective date was confirmed by AI Weekly.
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Fine-Tuning Script Manages Templates, Packing, and LoRA Separately — SFTTrainer Takes One `messages` Dataset and One Config to Handle All Three]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune</link>
-      <guid isPermaLink="false">2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune</guid>
-      <pubDate>Fri, 16 Oct 2026 04:02:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>HuggingFace</category>
-      <category>Building AI Products</category>
-      <media:content url="https://img.cloudcodetree.com/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-16-01-sfttrainer-messages-packing-lora-trl-fine-tune.jpg" />
-      <description><![CDATA[TRL's SFTTrainer accepts a messages-format dataset, auto-applies your model's chat template, packs examples per sequence, and takes a LoraConfig directly — trl sft --config config.yaml runs the whole pipeline without a training loop.]]></description>
-      <content:encoded><![CDATA[
-**TL;DR:** Instead of manually tokenizing conversations, applying chat templates, writing packing logic, and wiring LoRA yourself, you hand SFTTrainer a `messages`-format dataset and a config. It handles the rest. The `trl sft` CLI runs the entire pipeline from a single YAML file — no training loop to write.
-
-## What you'll be able to do
-
-Fine-tune a chat model on your own conversation data using the standard supervised fine-tuning pipeline: proper chat-template application, sequence packing for efficiency, and LoRA for parameter-efficient training — all from one config file.
-
-## The three things SFTTrainer handles for you
-
-**1. Chat template application.** If your dataset uses the `messages` format (a list of `{"role": ..., "content": ...}` dicts), SFTTrainer calls your model's tokenizer chat template automatically. No manual `apply_chat_template` call in your data pipeline.
-
-```jsonl
-{"messages": [{"role": "user", "content": "Summarize this article."}, {"role": "assistant", "content": "The article discusses..."}]}
-{"messages": [{"role": "user", "content": "Translate to French."}, {"role": "assistant", "content": "Voici la traduction..."}]}
-```
-
-**2. Sequence packing.** Setting `packing=True` in your config bins multiple short examples into each sequence up to `max_seq_length`, dramatically improving GPU utilization on datasets with variable-length conversations.
-
-**3. LoRA via peft_config.** Pass a `LoraConfig` object directly to `SFTTrainer` and it handles PEFT setup — no separate model wrapping step.
-
-## The full config
-
-```yaml
-# sft_config.yaml
-model_name_or_path: meta-llama/Llama-3.2-3B-Instruct
-dataset_name: your-org/your-dataset
-dataset_text_field: messages
-packing: true
-max_seq_length: 2048
-num_train_epochs: 3
-per_device_train_batch_size: 4
-gradient_accumulation_steps: 2
-learning_rate: 2.0e-4
-output_dir: ./sft-output
-```
-
-And a `peft_config.yaml` alongside it (or inline in the same config under `peft_config:`):
-
-```yaml
-peft_config:
-  peft_type: LORA
-  r: 16
-  lora_alpha: 32
-  lora_dropout: 0.05
-  target_modules: ["q_proj", "v_proj"]
-```
-
-## Running it
-
-```bash
-trl sft --config sft_config.yaml
-```
-
-That's the full training run. No script, no training loop, no manual collator setup.
-
-## Loading the result
-
-```python
-from peft import PeftModel
-from transformers import AutoModelForCausalLM
-
-base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-3B-Instruct")
-model = PeftModel.from_pretrained(base, "./sft-output")
-```
-
-Or merge the adapter weights into the base:
-
-```python
-model = model.merge_and_unload()
-```
-
-## Limits to know
-
-- **`assistant_only_loss`** (train only on assistant tokens) requires your chat template to mark assistant turns with `{% generation %}`. Without that tag in the template, the option silently trains on all tokens.
-- **Packing is incompatible with `DataCollatorForCompletionOnlyLM`** — if you need response-only loss with an older tokenizer that lacks `{% generation %}`, disable packing.
-- The `tokenizer` argument to `SFTTrainer` was renamed **`processing_class`** in recent TRL versions. If you hit a deprecation warning, switch to `processing_class=tokenizer`.
-
----
-
-*Sources: [HuggingFace TRL SFT Trainer docs](https://huggingface.co/docs/trl/main/en/sft_trainer); [TRL CLI docs](https://huggingface.co/docs/trl/main/en/clis); [Fine-tuning open AI models using Hugging Face TRL](https://youtu.be/cnGyyM0vOes) (Wietse Venema).*
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
