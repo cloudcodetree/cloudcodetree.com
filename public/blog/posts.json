@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-04-08-claude-api-independent-tool-calls-parallel-system-prompt",
+    "title": "Your Agent Runs Three Tool Calls Sequentially When They Could All Go in One Turn — One System Prompt Sentence Drops Latency to the Longest Single Call",
+    "excerpt": "Add \"issue independent tool calls together in one response turn\" to your system prompt and wall-clock latency drops from sum(T_i) to max(T_i) — no other code changes needed.",
+    "author": "Chris Harper",
+    "date": "11-04-2026",
+    "publishedAt": "2026-11-04T20:15:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.anthropic.com/en/docs/build-with-claude/tool-use",
+    "content": "**When tool calls are independent, one sentence in your system prompt batches them into a single turn — wall-clock latency drops from the sum of each call to the longest one.**\n\nYour agent fetches an account balance, today's exchange rate, and a user record in three sequential turns because Claude doesn't know they're independent. The pattern: Claude calls tool → you return a result → Claude calls the next tool. Three round-trips instead of one.\n\n**The fix — add this to your system prompt:**\n\n```\nWhen multiple tool calls are independent (no data dependency between them),\nissue them all in a single response turn as separate tool_use blocks.\n```\n\nClaude Code's own system prompt includes this instruction — that's why it batches file reads and directory listings in one turn. Add it to your own agent loops and Claude will start grouping independent reads.\n\n**Why it matters:**\n\nFor N independent calls with latencies T₁, T₂, T₃:\n- **Without batching:** T₁ + T₂ + T₃ + (round-trip overhead × 3)\n- **With batching:** max(T₁, T₂, T₃) + (round-trip overhead × 1)\n\nThree 300 ms tool calls: ~1.0 s → ~0.4 s per batch. Longer-running tools — database queries, external APIs — make this more dramatic.\n\n**When not to batch:** Tools with side effects or data dependencies must stay sequential — `create_account` then `fetch_account` is not safe to batch. Make dependencies explicit in your tool descriptions so Claude can reason about which calls can't be grouped. A description like \"Returns the account created in the previous step\" tells Claude those two calls are ordered.\n\n**One limit to check first:** Some agent SDKs and frameworks run a serial loop over `response.content` regardless of whether Claude issued multiple `tool_use` blocks in one turn. If your harness dispatches tools sequentially by design, the batching instruction shifts only where the latency sits — not how much there is. Verify your harness actually dispatches in parallel; see the [companion post on handling multiple tool_use blocks](/ai-news/2026-09-26-02-claude-parallel-tool-calls) for the execution-side code (asyncio.gather / Promise.all).\n\n**Sources:** [Anthropic tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Claude Code system prompt, community gist (Jan 2026)](https://gist.github.com/chigkim/1f37bb2be98d97c952fd79cbb3efb1c6)"
+  },
+  {
+    "id": "2026-11-04-07-css-design-tokens-dark-mode-claude-code",
+    "title": "Claude Code Writes `color: #2563eb` When You Wanted `var(--color-primary)` — Put Your Design Tokens in tokens.css and Reference It in CLAUDE.md",
+    "excerpt": "Define primitive + semantic CSS custom properties in tokens.css, reference it in CLAUDE.md, and every generated component inherits your dark mode without extra prompting.",
+    "author": "Chris Harper",
+    "date": "11-04-2026",
+    "publishedAt": "2026-11-04T20:14:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Design-to-Code",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://design.gitlab.com/product-foundations/design-tokens-technical-implementation",
+    "content": "**Claude Code generates hardcoded hex colors by default because it has no way to know your token names — a `tokens.css` file and four lines in `CLAUDE.md` fix that.**\n\n**What you'll be able to do after this:** Create a two-layer CSS custom property file, wire it into `CLAUDE.md`, and verify that every new component Claude Code generates uses `var(--color-primary)` and switches between light and dark with a single attribute flip on `<html>`.\n\n**Three takeaways:**\n- Two layers: *primitives* (`--blue-600: #2563eb`) and *semantic tokens* (`--color-primary: var(--blue-600)`). Components reference only the semantic layer, so dark mode overrides live in one place.\n- Light defaults on `:root`; dark overrides under `[data-theme=\"dark\"]` — `document.documentElement.setAttribute('data-theme', 'dark')` switches the whole app.\n- Four lines in `CLAUDE.md` tell Claude which file to reference and block hardcoded hex before it's written.\n\n**Walk-through:**\n\n**1. Create `src/styles/tokens.css`:**\n\n```css\n/* Primitives — raw values, never used directly in component CSS */\n:root {\n  --blue-600: #2563eb;\n  --blue-400: #60a5fa;\n  --grey-900: #111827;\n  --grey-100: #f3f4f6;\n  --white: #ffffff;\n}\n\n/* Semantic tokens — light defaults */\n:root {\n  --color-primary: var(--blue-600);\n  --color-surface: var(--white);\n  --color-text: var(--grey-900);\n  --color-border: var(--grey-100);\n}\n\n/* Dark overrides — semantic layer only */\n[data-theme=\"dark\"] {\n  --color-primary: var(--blue-400);\n  --color-surface: var(--grey-900);\n  --color-text: var(--grey-100);\n  --color-border: #374151;\n}\n```\n\n**2. Add to `CLAUDE.md`:**\n\n```markdown\n## Styling rules\n- Use CSS custom properties from `src/styles/tokens.css` for all colors.\n- Reference semantic tokens only: `--color-primary`, `--color-surface`,\n  `--color-text`, `--color-border`.\n- Never hardcode hex values or RGB in component CSS or JSX `style` props.\n```\n\n**3. Toggle dark mode in JS:**\n\n```js\ndocument.documentElement.setAttribute('data-theme', 'dark')\n```\n\n**4. Verify:** Ask Claude Code to generate a new button component. It should emit `color: var(--color-text)`, not `color: #111827`. If it still writes hex, add a one-line note: \"If you are about to write a hex color in CSS, stop and use a token instead.\"\n\n**Limits:** Existing components with hardcoded colors need a one-time migration. Claude Code won't auto-lint for violations — pair this setup with a [stylelint `color-no-hex` rule](https://stylelint.io/user-guide/rules/color-no-hex/) or a PostToolUse hook that runs stylelint on every `.css` write. The two-layer approach also requires consistent naming across your team; a stray `--primary-btn-bg: #2563eb` hardcoded in a component bypasses the dark override entirely.\n\n**Sources:** [GitLab design tokens implementation](https://design.gitlab.com/product-foundations/design-tokens-technical-implementation) · [MDN CSS custom properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties) · [CSS architecture at scale — tokens and custom properties](https://dev.to/sabrielagency/css-architecture-that-actually-scales-design-tokens-custom-properties-and-the-systems-that-hold-22n3)"
+  },
+  {
     "id": "2026-11-04-06-claude-api-prompt-caching-cache-control-ephemeral-system-prompt",
     "title": "Every Agent Loop Re-Encodes Your System Prompt Even When Nothing Changed — Add One `cache_control` Field and Skip That Cost on Every Subsequent Call",
     "excerpt": "Add cache_control: {\"type\": \"ephemeral\"} to your system prompt content block; the API caches that prefix and subsequent calls that reuse it bill at roughly 10% of full input token price, per Anthro…",

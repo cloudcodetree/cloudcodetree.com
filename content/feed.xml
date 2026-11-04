@@ -10,8 +10,124 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 04 Nov 2026 12:13:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 04 Nov 2026 20:15:00 +0000</lastBuildDate>
 
+
+
+  <item>
+    <title><![CDATA[Your Agent Runs Three Tool Calls Sequentially When They Could All Go in One Turn — One System Prompt Sentence Drops Latency to the Longest Single Call]]></title>
+    <link>https://docs.anthropic.com/en/docs/build-with-claude/tool-use</link>
+    <guid isPermaLink="false">2026-11-04-08-claude-api-independent-tool-calls-parallel-system-prompt</guid>
+    <pubDate>Wed, 04 Nov 2026 20:15:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Add "issue independent tool calls together in one response turn" to your system prompt and wall-clock latency drops from sum(T_i) to max(T_i) — no other code changes needed.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**When tool calls are independent, one sentence in your system prompt batches them into a single turn — wall-clock latency drops from the sum of each call to the longest one.**
+
+Your agent fetches an account balance, today's exchange rate, and a user record in three sequential turns because Claude doesn't know they're independent. The pattern: Claude calls tool → you return a result → Claude calls the next tool. Three round-trips instead of one.
+
+**The fix — add this to your system prompt:**
+
+```
+When multiple tool calls are independent (no data dependency between them),
+issue them all in a single response turn as separate tool_use blocks.
+```
+
+Claude Code's own system prompt includes this instruction — that's why it batches file reads and directory listings in one turn. Add it to your own agent loops and Claude will start grouping independent reads.
+
+**Why it matters:**
+
+For N independent calls with latencies T₁, T₂, T₃:
+- **Without batching:** T₁ + T₂ + T₃ + (round-trip overhead × 3)
+- **With batching:** max(T₁, T₂, T₃) + (round-trip overhead × 1)
+
+Three 300 ms tool calls: ~1.0 s → ~0.4 s per batch. Longer-running tools — database queries, external APIs — make this more dramatic.
+
+**When not to batch:** Tools with side effects or data dependencies must stay sequential — `create_account` then `fetch_account` is not safe to batch. Make dependencies explicit in your tool descriptions so Claude can reason about which calls can't be grouped. A description like "Returns the account created in the previous step" tells Claude those two calls are ordered.
+
+**One limit to check first:** Some agent SDKs and frameworks run a serial loop over `response.content` regardless of whether Claude issued multiple `tool_use` blocks in one turn. If your harness dispatches tools sequentially by design, the batching instruction shifts only where the latency sits — not how much there is. Verify your harness actually dispatches in parallel; see the [companion post on handling multiple tool_use blocks](/ai-news/2026-09-26-02-claude-parallel-tool-calls) for the execution-side code (asyncio.gather / Promise.all).
+
+**Sources:** [Anthropic tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Claude Code system prompt, community gist (Jan 2026)](https://gist.github.com/chigkim/1f37bb2be98d97c952fd79cbb3efb1c6)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code Writes `color: #2563eb` When You Wanted `var(--color-primary)` — Put Your Design Tokens in tokens.css and Reference It in CLAUDE.md]]></title>
+    <link>https://design.gitlab.com/product-foundations/design-tokens-technical-implementation</link>
+    <guid isPermaLink="false">2026-11-04-07-css-design-tokens-dark-mode-claude-code</guid>
+    <pubDate>Wed, 04 Nov 2026 20:14:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Define primitive + semantic CSS custom properties in tokens.css, reference it in CLAUDE.md, and every generated component inherits your dark mode without extra prompting.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Design-to-Code</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Claude Code generates hardcoded hex colors by default because it has no way to know your token names — a `tokens.css` file and four lines in `CLAUDE.md` fix that.**
+
+**What you'll be able to do after this:** Create a two-layer CSS custom property file, wire it into `CLAUDE.md`, and verify that every new component Claude Code generates uses `var(--color-primary)` and switches between light and dark with a single attribute flip on `<html>`.
+
+**Three takeaways:**
+- Two layers: *primitives* (`--blue-600: #2563eb`) and *semantic tokens* (`--color-primary: var(--blue-600)`). Components reference only the semantic layer, so dark mode overrides live in one place.
+- Light defaults on `:root`; dark overrides under `[data-theme="dark"]` — `document.documentElement.setAttribute('data-theme', 'dark')` switches the whole app.
+- Four lines in `CLAUDE.md` tell Claude which file to reference and block hardcoded hex before it's written.
+
+**Walk-through:**
+
+**1. Create `src/styles/tokens.css`:**
+
+```css
+/* Primitives — raw values, never used directly in component CSS */
+:root {
+  --blue-600: #2563eb;
+  --blue-400: #60a5fa;
+  --grey-900: #111827;
+  --grey-100: #f3f4f6;
+  --white: #ffffff;
+}
+
+/* Semantic tokens — light defaults */
+:root {
+  --color-primary: var(--blue-600);
+  --color-surface: var(--white);
+  --color-text: var(--grey-900);
+  --color-border: var(--grey-100);
+}
+
+/* Dark overrides — semantic layer only */
+[data-theme="dark"] {
+  --color-primary: var(--blue-400);
+  --color-surface: var(--grey-900);
+  --color-text: var(--grey-100);
+  --color-border: #374151;
+}
+```
+
+**2. Add to `CLAUDE.md`:**
+
+```markdown
+## Styling rules
+- Use CSS custom properties from `src/styles/tokens.css` for all colors.
+- Reference semantic tokens only: `--color-primary`, `--color-surface`,
+  `--color-text`, `--color-border`.
+- Never hardcode hex values or RGB in component CSS or JSX `style` props.
+```
+
+**3. Toggle dark mode in JS:**
+
+```js
+document.documentElement.setAttribute('data-theme', 'dark')
+```
+
+**4. Verify:** Ask Claude Code to generate a new button component. It should emit `color: var(--color-text)`, not `color: #111827`. If it still writes hex, add a one-line note: "If you are about to write a hex color in CSS, stop and use a token instead."
+
+**Limits:** Existing components with hardcoded colors need a one-time migration. Claude Code won't auto-lint for violations — pair this setup with a [stylelint `color-no-hex` rule](https://stylelint.io/user-guide/rules/color-no-hex/) or a PostToolUse hook that runs stylelint on every `.css` write. The two-layer approach also requires consistent naming across your team; a stray `--primary-btn-bg: #2563eb` hardcoded in a component bypasses the dark override entirely.
+
+**Sources:** [GitLab design tokens implementation](https://design.gitlab.com/product-foundations/design-tokens-technical-implementation) · [MDN CSS custom properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties) · [CSS architecture at scale — tokens and custom properties](https://dev.to/sabrielagency/css-architecture-that-actually-scales-design-tokens-custom-properties-and-the-systems-that-hold-22n3)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Every Agent Loop Re-Encodes Your System Prompt Even When Nothing Changed — Add One `cache_control` Field and Skip That Cost on Every Subsequent Call]]></title>
@@ -6362,109 +6478,8 @@ Press Enter on a result to attach to that session and read its output. Press Esc
       <media:thumbnail url="https://img.cloudcodetree.com/2026-10-18-03-agent-name-fleet-view-n-filter.jpg" />
     </item>
 
-    <item>
-      <title><![CDATA[Your Generated UI Passes the Prompt Test and Fails the Tab Key — Five Checks to Run Before the Claude Code Handoff]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-02-review-ai-generated-ui-five-checks-before-handoff</link>
-      <guid isPermaLink="false">2026-10-18-02-review-ai-generated-ui-five-checks-before-handoff</guid>
-      <pubDate>Sun, 18 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[AI-generated UI reliably passes its own prompt but fails four checks a browser reveals: 375px squeeze, states audit, spacing scan, and the "AI look" test. Run these before handing off to Claude Code.]]></description>
-      <content:encoded><![CDATA[**AI-generated UI almost always covers hover and skips focus-visible, breaks at 375px, mixes arbitrary spacing values, and has a hierarchy that treats every element equally — catch all four before the code lands in your repo.**
-
-**What you'll be able to do after this:** run a systematic five-point review on any Claude Design output — or any AI-generated UI — in about ten minutes, and know whether to fix it with a prompt, fix it in your editor, or send it back for regeneration.
-
-**Three things the automated tools already catch:**
-
-The [axe-core/Playwright CI pass](https://cloudcodetree.com/ai-news/2026-10-11-01-axe-core-playwright-audit-ai-generated-ui-wcag-ci) catches WCAG contrast failures and missing ARIA attributes. Your build lint catches syntax errors. These five checks are what survives both.
-
-## The five checks
-
-**1. The 375px squeeze test**
-
-Drag your browser window to 375px wide, or open DevTools device mode and select any small phone preset. AI-generated layouts are almost always desktop-biased: flex containers overflow, font sizes don't scale, touch targets collapse to unusable sizes.
-
-If it breaks here, the fix is almost always CSS — not a regeneration. Hand the component to Claude Code with: "Fix the layout so it works at 375px without horizontal scroll. Do not change the desktop layout."
-
-**2. The states audit**
-
-Press Tab through every focusable element on the page. For each button, link, and input, check:
-- **focus-visible**: is there a visible outline? Generated code covers `:hover` and almost never adds `:focus-visible`.
-- **disabled**: if the element has a disabled state in the design, does the generated code reflect it visually?
-- **loading/submitting**: forms especially — is there a loading state, or does the button just sit there while the request runs?
-
-Fix these in your editor, not in Claude Design. They're additive CSS and a handful of conditional classes, not structural changes.
-
-**3. The spacing scan**
-
-Open the browser inspector and click through three or four sections. Look at the raw `padding`, `margin`, and `gap` values. AI-generated UI almost always mixes arbitrary numbers — 13px, 22px, 37px — instead of a consistent scale.
-
-If your design system has spacing tokens, hand them to Claude Code: "Replace all inline spacing values in this component with these token values: 4/8/16/24/32px. If a value falls between two tokens, round down."
-
-**4. The hierarchy check**
-
-Stand back and ask: is the primary action the most visually prominent element on the page? Generated UI tends toward visual equality — every card, button, and label gets roughly the same weight. If your secondary CTA competes with the primary one, fix the button sizing and contrast before committing the code.
-
-**5. The "AI look" test**
-
-Ask: if you showed this to someone and said "AI made it," would they immediately believe you? Common tells: identical card grids with no visual variation, glassmorphism applied to every surface, icon-heavy navigation with thin labels, and copy that survived from the generation prompt ("Your compelling value proposition here").
-
-For structural issues (card grid sameness, layout defaults), regenerate in Claude Design with tighter constraints about visual hierarchy and variation. For surviving placeholder copy, fix it in the editor — it's faster than a regeneration loop.
-
-## When to regenerate vs. fix in your editor
-
-Checks 1 and 2 are almost always editor fixes: you're adding CSS properties and conditional classes that weren't generated, not changing the design intent. Checks 3, 4, and 5 are judgment calls: if the spacing inconsistency is pervasive, or the hierarchy is structurally wrong across the page, regeneration with a tighter prompt is faster than patching dozens of values by hand. If it's isolated, fix it in the editor and move on.
-
-**Limits:** this review catches what's visible in a browser. It does not catch logic bugs in generated JavaScript, data-binding issues, or API contract mismatches — those belong to your normal code review, not this pass.
-
-**Sources:** [AI-generated UI review checklist — snapcode.com](https://snapcode-micro-saas-web-de-ia-que-convie.onrender.com/blog/ai-code-generation-review-checklist) · [Evaluating AI-generated UI designs — Turing](https://www.turing.com/case-study/evaluating-ai-generated-ui-designs) · [Claude Code responsive audit — anthropic.com](https://www.anthropic.com/claude-explains/create-responsive-web-designs-efficiently-with-claude)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Pull Requests Can Now Get a Multi-Agent Review Pass Automatically — Claude Code Review Reaches GA for Team and Enterprise, Reviews Take 6-10 Minutes]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-01-claude-code-review-ga-team-enterprise-pr-workflow</link>
-      <guid isPermaLink="false">2026-10-18-01-claude-code-review-ga-team-enterprise-pr-workflow</guid>
-      <pubDate>Sun, 18 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Claude Code Review reached GA on Oct 15 for Team and Enterprise — reviews finish in 6-10 min per Anthropic, posts inline comments on logical bugs and security patterns. ZDR/HIPAA orgs excluded.]]></description>
-      <content:encoded><![CDATA[**Claude Code Review is GA on Team and Enterprise as of Oct 15 — the multi-agent PR reviewer that reads your diff plus surrounding file context is fast enough for a normal merge workflow, per Anthropic's own report of 6-10 minutes per review.**
-
-Claude Code Review is a separate feature from Claude Code itself. When a PR opens, it spawns a multi-agent session that reads the diff alongside the full context of the changed files, then posts inline comments on logical bugs, security patterns, documentation gaps, and test coverage holes. The multi-file context is the key difference from a diff-only linter: it can flag a bug introduced in one file because of an invariant defined in another.
-
-## What changed at GA
-
-Anthropic reports typical review time dropped from ~20 minutes in the research preview to 6-10 minutes. That's fast enough to sit in a normal PR merge workflow — you don't need to batch reviews or gate only on long-running PRs. Promotional review credits ($10,000 minimum) are available for eligible Enterprise organizations.
-
-## Enabling it
-
-Connect your GitHub organization in the Claude admin console (team.claude.com → Integrations → GitHub). Reviews fire automatically on new PRs once connected. Per-repo configuration allows you to set which branches trigger a review and which finding types are surfaced.
-
-## What it finds
-
-Multi-agent, specialized: one agent reads the PR, spawns focused sub-reviewers per concern area, then aggregates. During the research preview, Anthropic self-reported identifying over 500 vulnerabilities in open-source code. No independent comparison against Semgrep, CodeQL, or other SAST tools has been published, so treat that figure as directional rather than a benchmark.
-
-## Limits to know before enabling
-
-- **Not available for:** organizations with Zero Data Retention enabled, HIPAA configuration applied, or customer-managed encryption keys (CMEK). Check your org's compliance settings before announcing it to your team.
-- **Requires a Claude organization** even when developers reach Claude through AWS Bedrock, Google Cloud Vertex, or Microsoft Foundry — the review runs on Anthropic's infrastructure, not through the cloud provider's credential chain.
-- **Cost:** preview-era figures put reviews at roughly $15-25 each on token usage, scaling with PR size and complexity. Anthropic has not published GA-specific pricing, so verify current rates in the admin console before estimating costs.
-- **Not a test suite replacement:** Code Review reasons about intent and context, but it cannot run your tests or verify behavior. Treat its findings as a reviewer's suggestions, not a gate you fail blindly on.
-
-**Why it matters:** the speed improvement is what actually changes the workflow. A 20-minute review sits outside the normal PR review loop; a 6-10 minute review fits inside it. If your team already uses Claude Code for the work, adding the automated review pass requires connecting GitHub once — the findings arrive in the PR alongside your human reviewers.
-
-**Sources:** [Claude Code Review GA — Unite.ai](https://www.unite.ai/?p=486769) · [Claude Code Review blog post — anthropic](https://claude.com/blog/code-review) · [Code Review launch coverage — newsbytesapp.com](https://www.newsbytesapp.com/news/science/anthropic-launches-claude-code-review-for-teams-and-enterprise-users/tldr)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
