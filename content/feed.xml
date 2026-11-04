@@ -10,7 +10,152 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 04 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 04 Nov 2026 12:13:00 +0000</lastBuildDate>
+
+
+  <item>
+    <title><![CDATA[Every Agent Loop Re-Encodes Your System Prompt Even When Nothing Changed — Add One `cache_control` Field and Skip That Cost on Every Subsequent Call]]></title>
+    <link>https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching</link>
+    <guid isPermaLink="false">2026-11-04-06-claude-api-prompt-caching-cache-control-ephemeral-system-prompt</guid>
+    <pubDate>Wed, 04 Nov 2026 12:13:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Add cache_control: {"type": "ephemeral"} to your system prompt content block; the API caches that prefix and subsequent calls that reuse it bill at roughly 10% of full input token price, per Anthropic's pricing docs.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Add `cache_control: {"type": "ephemeral"}` to your system prompt content block; calls that hit the cache bill at roughly 10% of full input token price, per Anthropic's pricing documentation — but cache writes cost 125% of base input tokens, so the break-even is around two reuses.**
+
+If your agent runs many turns against the same system prompt — a tool list, a retrieved knowledge base, a large set of coding standards — you pay full input-token rates to re-encode that content on every single call. Prompt caching marks a prefix to be stored server-side so subsequent calls within the TTL window skip the encode.
+
+**Add a cache breakpoint:**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    system=[
+        {
+            "type": "text",
+            "text": "You are an expert code reviewer...
+
+[500+ lines of standards and examples]",
+            "cache_control": {"type": "ephemeral"}  # mark the prefix to cache
+        }
+    ],
+    messages=[{"role": "user", "content": "Review this PR diff: ..."}]
+)
+```
+
+The API caches everything up to and including that block. Calls within the TTL that share the same prefix up to that point are cache hits.
+
+**Extend to 1 hour:**
+
+```python
+"cache_control": {"type": "ephemeral", "ttl": "1h"}
+```
+
+The default TTL is 5 minutes. Use `"1h"` for agent loops or batch jobs with gaps between calls longer than 5 minutes.
+
+**Where it matters most:** long system prompts (tool catalogs, full coding standards, documents you prepend to every call), agent loops with many turns against the same context, batch jobs running the same system prompt across hundreds of inputs.
+
+**Real limits — these determine whether caching helps you at all:**
+
+- **Cache writes cost 125% of base input tokens, per Anthropic's pricing docs.** A prompt you use once or change every call costs *more* with caching enabled. Break-even is roughly two cache reads per write.
+- **Up to 4 `cache_control` breakpoints per request.** If you mark more, the system tracks the last 4; earlier ones go uncached.
+- **Minimum cacheable prefix varies by model** (per Anthropic's docs: 2,048 tokens for Sonnet and Opus, 1,024 for Haiku). Prefixes shorter than the minimum are accepted but not cached.
+- **Tool definitions count toward the cached prefix.** If your tool list changes between calls, the cache misses — even if the system prompt text is identical.
+- **The cache is per-API-key.** A second key with the same system prompt starts a cold cache.
+
+The practical test: if your system prompt is long enough to exceed the minimum and you reuse it across multiple turns in a session, caching pays. A single-turn script with a short system prompt does not benefit.
+
+**Sources:** [Prompt caching — Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) · [Cache breakpoint glossary — PromptLayer](https://www.promptlayer.com/glossary/cache-breakpoint) · [Anthropic prompt caching via proxy — Orq.ai](https://docs.orq.ai/docs/proxy/providers/anthropic/prompt-caching)
+]]></content:encoded>
+  </item>
+
+<item>
+    <title><![CDATA[Your Retriever Returns Every Document When You Asked for the High-Rated Ones — LangChain's SelfQueryRetriever Parses Structured Filters Out of Plain English Before the Vector Search Runs]]></title>
+    <link>https://python.langchain.com/docs/how_to/self_query</link>
+    <guid isPermaLink="false">2026-11-04-05-selfqueryretriever-langchain-metadata-filter-plain-english</guid>
+    <pubDate>Wed, 04 Nov 2026 12:12:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[SelfQueryRetriever calls an LLM to parse structured constraints from your query and passes them as a metadata pre-filter alongside the vector search — so "sci-fi films from 2020 rated above 8" becomes year>=2020, genre=sci-fi, rating>8 before retrieval.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**LangChain's `SelfQueryRetriever` calls an LLM to extract structured filters from your query string and passes them to the vector store as a pre-filter — "sci-fi films from 2020 rated above 8" automatically becomes a year>=2020, genre=sci-fi, rating>8 filter run alongside the semantic search.**
+
+**What you'll be able to do after this:**
+- Write natural-language queries that automatically filter by year, author, source, or any metadata field stored with your chunks
+- Avoid post-filtering (which can return fewer than k results) by pushing the filter into the vector store before retrieval
+- Handle queries that mix semantic content with structured constraints without custom parsing code
+
+The official how-to is at [python.langchain.com/docs/how_to/self_query](https://python.langchain.com/docs/how_to/self_query); the Chroma-specific walkthrough at [python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query](https://python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query) is runnable in a notebook.
+
+**Setup:**
+
+```bash
+pip install langchain langchain-chroma langchain-anthropic lark
+```
+
+The `lark` package is required to parse the LLM-generated filter expressions. The retriever raises a clear error if it is missing.
+
+**Build the retriever:**
+
+```python
+from langchain_chroma import Chroma
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.chains.query_constructor.schema import AttributeInfo
+from langchain_anthropic import ChatAnthropic
+
+# Documents must carry metadata when you embed them:
+# Document(page_content="...", metadata={"genre": "sci-fi", "year": 2020, "rating": 8.3})
+
+vectorstore = Chroma.from_documents(docs, embedding)
+
+metadata_field_info = [
+    AttributeInfo(name="genre",  description="Movie genre", type="string"),
+    AttributeInfo(name="year",   description="Release year as an integer", type="integer"),
+    AttributeInfo(name="rating", description="IMDB rating 1-10", type="float"),
+]
+
+llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
+retriever = SelfQueryRetriever.from_llm(
+    llm,
+    vectorstore,
+    "Movie summaries and ratings",
+    metadata_field_info,
+)
+```
+
+**Query in plain English:**
+
+```python
+# The retriever calls the LLM once to generate:
+#   filter={year: {$gte: 2020}, genre: {$eq: "sci-fi"}, rating: {$gt: 8}}
+#   query="sci-fi films"
+# Then runs both the filter and similarity search in one vector store call.
+docs = retriever.invoke("sci-fi films from 2020 with a rating above 8")
+```
+
+**When it breaks:**
+
+- **Adds ~200-400ms per query** for the LLM filter-generation step. High-latency tolerance required.
+- **Filter quality depends on `AttributeInfo` descriptions.** A vague description ("some number") produces no filter and falls back to pure vector search silently.
+- **Only works with stores that support pre-retrieval metadata filtering** — Chroma, Qdrant, pgvector, Pinecone. FAISS does not, so "only documents tagged topic:rag" is not possible without migrating.
+- **`enable_limit=True`** lets the LLM set how many results to return, but the generated limit overrides your default `k`. Test on your data before enabling.
+- **Multi-field OR logic** is not universally supported across translators. Check your store's translator for exact operator support before relying on OR conditions.
+
+**Sources:** [LangChain how-to: Self-query retrieval](https://python.langchain.com/docs/how_to/self_query) · [Chroma SelfQuery integration](https://python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query) · [MongoDB Atlas self-query tutorial](https://www.mongodb.com/docs/atlas/ai-integrations/langchain/self-query-retrieval/)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[You Already Shipped the Component — Import the Repo Into Claude Design to Explore a Change Without Rebuilding From a Blank Canvas]]></title>
@@ -6320,114 +6465,8 @@ Multi-agent, specialized: one agent reads the PR, spawns focused sub-reviewers p
 **Sources:** [Claude Code Review GA — Unite.ai](https://www.unite.ai/?p=486769) · [Claude Code Review blog post — anthropic](https://claude.com/blog/code-review) · [Code Review launch coverage — newsbytesapp.com](https://www.newsbytesapp.com/news/science/anthropic-launches-claude-code-review-for-teams-and-enterprise-users/tldr)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Unattended Claude Code Run Stops at the First 429 — `CLAUDE_CODE_RETRY_WATCHDOG` Retries Capacity Errors; Two Cap Variables Prevent Infinite Waits]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-06-claude-code-retry-watchdog-429-unattended-run</link>
-      <guid isPermaLink="false">2026-10-17-06-claude-code-retry-watchdog-429-unattended-run</guid>
-      <pubDate>Sat, 17 Oct 2026 20:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description><![CDATA[CLAUDE_CODE_RETRY_WATCHDOG=1 retries 429 and 529 capacity errors automatically in unattended runs. Add CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS and the new MAX_USAGE_LIMIT_WAIT_MS (v2.1.301) to prevent indefinite blocking.]]></description>
-      <content:encoded><![CDATA[**`CLAUDE_CODE_RETRY_WATCHDOG=1` retries 429 and 529 capacity errors automatically in unattended runs; pair it with two cap variables so a long outage or usage-limit reset doesn't hold your pipeline indefinitely.**
-
-If you run Claude Code headlessly — nightly CI agents, overnight refactors, multi-step `--print` pipelines — a single 429 or 529 capacity error ends the run by default. The job exits cleanly, your workflow shows green, and the work was never done.
-
-## The default without the watchdog
-
-Claude Code retries transient errors with exponential backoff, up to `CLAUDE_CODE_MAX_RETRIES` attempts (default 10, hard-capped at 15 since v2.1.186). On a persistent capacity event, that retry envelope runs out in roughly 2.5 minutes before the process exits.
-
-## Enable the watchdog
-
-```bash
-CLAUDE_CODE_RETRY_WATCHDOG=1
-```
-
-Set this in your environment, `.env`, or shell script. With it enabled, Claude Code retries 429 and 529 capacity errors indefinitely — no count limit — backing off up to 5 minutes between attempts. On v2.1.199+, it also retries server errors and timeouts with a ceiling of 300 attempts.
-
-## Add the two cap variables
-
-An infinite retry loop is correct for "provider is briefly overloaded." It is wrong for "the provider is down for three hours." Two environment variables give you control:
-
-**`CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS`** — caps total time the watchdog will spend waiting across all retries. No default; unlimited without it. For an overnight run that must clean up by morning, `3600000` (one hour) is a reasonable ceiling.
-
-**`CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS`** — new in v2.1.301 (October 15): separately caps how long the watchdog blocks when the API response indicates a *usage-limit reset* rather than a capacity error. Without this, a usage-limit wait runs until the reset window closes (potentially hours) while your job window is open.
-
-## One more backstop
-
-Even with these caps, add a job-level timeout as a final guarantee. In GitHub Actions: `timeout-minutes: 90`. The env vars control Claude Code's internal retry logic; the job timeout is the OS-level guarantee that the runner reclaims its slot regardless.
-
-## Putting it together
-
-```bash
-CLAUDE_CODE_RETRY_WATCHDOG=1 \
-CLAUDE_CODE_RETRY_WATCHDOG_MAX_WAIT_MS=3600000 \
-CLAUDE_CODE_RETRY_WATCHDOG_MAX_USAGE_LIMIT_WAIT_MS=1800000 \
-  claude --print "your task here"
-```
-
-**One limit to know:** since v2.1.239, a 429 that carries a spend-limit or exhausted-credits flag fails immediately regardless of watchdog settings — that kind of limit won't lift until you take account action, so waiting forever is genuinely wrong. Log that exit code separately and alert on it; the watchdog won't mask it.
-
-**Sources:** [Claude Code retry watchdog guide — developersdigest.tech](https://www.developersdigest.tech/blog/claude-code-retry-watchdog-unattended-runs) · [v2.1.301 MAX_USAGE_LIMIT_WAIT_MS — fyve.co.jp](https://fyve.co.jp/claude-code/articles/claude-code-retry-watchdog) · [MAX_RETRIES cap and watchdog docs gap — claudeissues.com](https://claudeissues.com/issue/70142-docs-error-and-env-var-docs-omit-claude-code-max-retries-cap-and-retry-watchdog)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[A Hook That Crashes Was Silently Passing Actions — Set `onFailure: "block"` to Fail Closed]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-05-claude-code-hook-onfailure-block-fail-closed</link>
-      <guid isPermaLink="false">2026-10-17-05-claude-code-hook-onfailure-block-fail-closed</guid>
-      <pubDate>Sat, 17 Oct 2026 12:14:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description><![CDATA[Claude Code command and HTTP hooks now support onFailure: "block" — a hook that crashes or errors will block the action it guards instead of silently passing it through.]]></description>
-      <content:encoded><![CDATA[**Claude Code hooks that crash used to fail open — the action they guarded went through anyway. `onFailure: "block"` closes that gap for `command` and `http` hooks.**
-
-Your secret-scan hook runs `detect-secrets` on every `git commit`. The hook crashes because `detect-secrets` isn't installed in the CI container. Old behavior: commit goes through. With `onFailure: "block"`: commit is blocked.
-
-This is the fail-closed vs. fail-open distinction that matters for any hook used as a security gate. Before v2.1.295 (October 8), a hook that failed to *run* — crashed, missing binary, network error on an HTTP hook — defaulted to letting the action through. That creates a bypass path for every error condition the hook doesn't anticipate.
-
-## Wiring it up
-
-Add `"onFailure": "block"` to any hook that must not silently pass on error:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "./hooks/secret-scan.sh",
-            "onFailure": "block"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-For HTTP hooks, the same key works — a hook that can't reach its endpoint will block the action.
-
-## What counts as a failure
-
-`onFailure` applies to *failures to execute*: the process can't start, the binary is missing, the network is unreachable. It does **not** change how intentional non-zero exits work — exit 2 still blocks explicitly, exit 0 still passes. An HTTP hook returning 4xx or 5xx counts as a failure and will block.
-
-## The trade-off
-
-Any hook outage now blocks the action it guards. For a secret-scan or destructive-command gate, that's correct. For a logging-only or notification hook, it isn't — keep the default (fail open) for non-gate hooks so a transient crash doesn't halt legitimate work.
-
-`onFailure: "block"` is the right default for every hook that doubles as a security gate. Leave it off for observability hooks where availability matters more than strict enforcement.
-
-**Sources:** [Claude Code changelog v2.1.295 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code hooks docs — code.claude.com](https://code.claude.com/docs/en/hooks)]]></content:encoded>
-    </item>
-
+    
+    
     
     
     
