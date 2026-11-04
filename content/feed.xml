@@ -10,7 +10,207 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 03 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 04 Nov 2026 04:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[You Already Shipped the Component — Import the Repo Into Claude Design to Explore a Change Without Rebuilding From a Blank Canvas]]></title>
+    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
+    <guid isPermaLink="false">2026-11-04-04-claude-design-repo-import-code-to-design-round-trip-exploration</guid>
+    <pubDate>Wed, 04 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Link your GitHub repo in Claude Design's design system settings to start canvas explorations from your real components — not generic defaults. Use this when you need options before committing to a rework.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Link your GitHub repo in Claude Design's design system settings; explorations start from your real components, not generic defaults — the reverse round-trip for when you need three directions before committing to a rework.**
+
+The Claude Design → Claude Code handoff gets written about constantly. The reverse direction — taking something that already lives in your repo back into Claude Design to explore a change — works through design system import and is what you reach for when a component needs visual exploration before you commit to rework.
+
+**When this is useful:**
+- You want to try three layout directions on an existing feature without committing a diff
+- A stakeholder needs to see options, not a finished PR
+- You want Claude Design's generations to stay inside your component vocabulary instead of inventing new patterns
+
+**How to set it up:**
+
+In Claude Design, open the design system panel and link your repository. Claude Design reads your component exports, Tailwind config, and CSS tokens, using them as the generation context. You're no longer starting from a generic component library — you're starting from what your app already renders.
+
+```
+Claude Design → Design system panel → Link repository
+Paste your GitHub repo URL (must be public; use the file upload for private repos)
+```
+
+Once linked, any component Claude Design generates is checked against your component map before it appears. If your `Button` already exists in the repo, the generated output uses it rather than creating a new variant.
+
+**Where the round-trip breaks:**
+
+This is a one-way sync: Claude Design reads from the repo but doesn't push back automatically. Changes you make on the canvas are expressed as a new export bundle, not a diff against your component source. Use it for exploration and direction-setting, not for iterating on the actual implementation — that belongs in Claude Code once a direction is decided.
+
+Private repos require a manual upload rather than a live GitHub link, which means the design system context goes stale as your repo evolves. For active development, run `/design-sync` in Claude Code to keep the local spec current, then re-upload when you need a new exploration round.
+
+One further limit: Claude Design checks generated output against your component map, but it doesn't enforce your component API exactly — props may differ from your actual interface. Treat the output as a direction, not a finished component.
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + Claude Code June 2026 update — gigazine.net](https://www.gigazine.net/gsc_news/en/20260618-claude-design-claude-code) · [Claude Design 2 design systems guide — gaugr.app](https://gaugr.app/en/blog/claude-design-2-update-design-systems-code-sync-guide)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code Automatically Summarizes Sessions Left Idle 54 Minutes — Set idleCompaction: false or Raise the Threshold When That Loses Your Context]]></title>
+    <link>https://claudelog.com/faqs/what-is-idle-compaction-in-claude-code/</link>
+    <guid isPermaLink="false">2026-11-04-03-claude-code-idle-compaction-54min-200k-threshold-settings</guid>
+    <pubDate>Wed, 04 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Idle compaction runs just before the one-hour cache expires; it saves resume cost but can drop accumulated constraints. Disable in settings.json or tune the CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS threshold.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Claude Code auto-summarizes your session at 54 minutes idle to cut cache-resume cost — if that summary drops critical accumulated context, disable it with `"idleCompaction": false` in settings.json.**
+
+Claude Code (v2.1.299, recently extended to the VS Code panel and desktop app's Code tab) added idle compaction: when a session sits idle for about 54 minutes, it automatically compacts the conversation just before the one-hour prompt cache expires. The goal is a cheaper resume — your next turn starts from a summary rather than re-sending the full history.
+
+**Three things to know:**
+- Compaction triggers at the 54-minute mark if the session exceeds 200,000 tokens. Below that, the cache just expires and the next turn resumes cold.
+- The summary can silently drop detailed constraints you built up during the session — if you issued many inline rules or decision context over time, they may not survive compaction.
+- `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` lets you lower the threshold floor (minimum 100,000); no documented way to raise it above 200K.
+
+**How to control it:**
+
+Disable completely:
+```json
+// .claude/settings.json
+{ "idleCompaction": false }
+```
+
+Or via `/config` → "Idle compaction" row (requires v2.1.302+). Turning off `autoCompact` also disables idle compaction.
+
+**When to disable:**
+- Sessions where you've built up specific constraints, file paths, or task state over time
+- Long-running background tasks where the session is waiting, not idle
+- Anytime you need the full history when you return
+
+**When to leave it on:**
+- Exploration sessions with no critical accumulated state — you get a cheaper cold start
+- Short, focused tasks where any summary would include everything that matters
+
+Note: one independent report suggests the env-var disable (`DISABLE_AUTO_COMPACT`) had inconsistent behavior in an earlier version. If you need reliable disablement, use the settings.json approach and confirm it took effect in `/config`.
+
+**Sources:** [What is Idle Compaction in Claude Code — claudelog.com](https://claudelog.com/faqs/what-is-idle-compaction-in-claude-code/) · [Claude Code Hub — idle compaction](https://wmedia.es/en/tips/claude-code-idle-compaction) · [dsebastien.net explainer](https://www.dsebastien.net/2026-10-16-claude-code-idle-compaction-cheaper-to-resume-but-from-a-summary/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Google, Microsoft, OpenAI, and Anthropic Back a Shared robots.txt Token for AI Training Opt-Out]]></title>
+    <link>https://thenextweb.com/news/ai-training-opt-out-robots-txt-google-openai-microsoft-anthropic</link>
+    <guid isPermaLink="false">2026-11-04-02-ai-training-opt-out-robots-txt-usage-ai-training-token</guid>
+    <pubDate>Wed, 04 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Four major AI labs will honor __usage_ai-training in robots.txt starting 2027; add it now to exclude your content from future training runs once each company implements it.</description>
+    <category>AI</category>
+    <category>News</category>
+    <category>Policy</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Add `User-agent: __usage_ai-training / Disallow: /` to your robots.txt now — Google, Microsoft, OpenAI, and Anthropic jointly committed on October 30 to honor it for training opt-out, with implementation starting 2027.**
+
+On October 30, the four companies announced they will honor a shared robots.txt signal for AI training opt-out. The underlying mechanism is an IETF Internet-Draft authored by Anthropic's Kevin Kelley, adding a new policy token called `__usage_ai-training`.
+
+**How to add it:**
+
+```
+User-agent: __usage_ai-training
+Disallow: /
+```
+
+Add this group to your robots.txt alongside any existing `ClaudeBot`, `GPTBot`, or `Google-Extended` entries. The signal tells all four labs not to use the matching paths for training, without having to maintain separate entries per crawler.
+
+**Implementation timeline varies by company:** Anthropic says it has started. Microsoft gives February 1, 2027. Google and OpenAI give 2027 without a specific date.
+
+**Limits to understand:**
+- This is a voluntary IETF draft, not a ratified standard — no enforcement mechanism exists.
+- The existing `User-agent: *` wildcard deliberately does not cover the new token; your current wildcard block does not substitute for the new group.
+- It has no effect on content already in existing training datasets — only future runs.
+- Each company's existing mechanism (`Google-Extended`, `ClaudeBot`, etc.) still works independently.
+
+**Why it matters:** If you ship sites or APIs, adding this group is now the cross-vendor way to signal training opt-out for all four labs at once. Whether the signal holds long-term depends on each company's compliance — treat it as a reasonable-effort flag, not a legal guarantee.
+
+**Sources:** [Google, Microsoft, OpenAI and Anthropic back one AI training opt-out — thenextweb.com](https://thenextweb.com/news/ai-training-opt-out-robots-txt-google-openai-microsoft-anthropic) · [AI Weekly — opt-out token alert](https://aiweekly.co/alerts/openai-google-microsoft-anthropic-back-one-ai-opt-out-token)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Knowledge Base Re-Embeds Every Document Every Run — LangChain's Indexing API Tracks Source IDs and Skips Unchanged Files]]></title>
+    <link>https://python.langchain.com/docs/how_to/indexing</link>
+    <guid isPermaLink="false">2026-11-04-01-langchain-indexing-api-sqlrecordmanager-incremental-kb-sync</guid>
+    <pubDate>Wed, 04 Nov 2026 04:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>LangChain's index() with SQLRecordManager skips unchanged chunks and removes stale ones — cleanup=incremental means only changed documents trigger new embedding API calls.</description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Wrap your vector store loads in LangChain's `index()` function with a `SQLRecordManager` — it hashes every chunk, skips unchanged ones, and deletes stale chunks from modified sources so your KB stays current without redundant embedding calls.**
+
+**What you'll be able to do after this:** Keep a production knowledge base in sync with its source documents, paying for embedding API calls only when content actually changes.
+
+**Three things to know:**
+- The record manager stores a content hash, write timestamp, and source ID per chunk — a re-run skips anything whose hash matches.
+- `cleanup="incremental"` removes chunks from sources seen in this run that were not updated — handles deletions and edits within active sources.
+- `cleanup="full"` removes anything not in the current run — use it for a complete refresh or when entire sources are removed from the corpus.
+
+**The walkthrough:**
+
+```bash
+pip install langchain-community langchain-openai
+```
+
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain.indexes import SQLRecordManager, index
+from langchain_core.documents import Document
+
+# 1. Stand up the record manager (namespace = vectorstore + collection name)
+record_manager = SQLRecordManager(
+    "chroma/my_docs", db_url="sqlite:///record_manager_cache.sql"
+)
+record_manager.create_schema()
+
+# 2. Connect to your vector store
+vectorstore = Chroma(
+    collection_name="my_docs",
+    embedding_function=OpenAIEmbeddings()
+)
+
+# 3. Load your chunked documents — each needs a source metadata key
+docs = [
+    Document(page_content="...", metadata={"source": "docs/guide.md"}),
+    Document(page_content="...", metadata={"source": "docs/api.md"}),
+]
+
+# 4. First run: writes both documents
+result = index(docs, record_manager, vectorstore,
+               cleanup="incremental", source_id_key="source")
+# {"num_added": 2, "num_updated": 0, "num_skipped": 0, "num_deleted": 0}
+
+# 5. Re-run with no changes: both chunks skipped, zero embedding calls
+result = index(docs, record_manager, vectorstore,
+               cleanup="incremental", source_id_key="source")
+# {"num_added": 0, "num_updated": 0, "num_skipped": 2, "num_deleted": 0}
+```
+
+**Where it breaks:**
+- `cleanup="incremental"` only removes chunks from sources explicitly included in the current run. If a source file disappears from your corpus entirely and you don't include it in the run, its chunks survive in the vector store. For full deletions, switch to `cleanup="full"` for that run, or pass the source IDs to a manual delete.
+- The record manager state is separate from the vector store. If you drop and recreate the vector store without clearing the record manager, the manager thinks the chunks are already there and skips re-indexing them. Run `record_manager.create_schema()` fresh and do a full cleanup pass after any vector store reset.
+- `source_id_key` is required for `incremental` mode — the API raises `ValueError` if you omit it.
+
+**Sources:** [How to reindex data to keep your vectorstore in sync — python.langchain.com](https://python.langchain.com/docs/how_to/indexing) · [SQLRecordManager API reference — python.langchain.com](https://python.langchain.com/api_reference/_modules/langchain_core/indexing/api.html)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[The Claude Design Export Bundle Tells Claude Code What It Looks Like, Not What It Calls — Add a 10-Line Wiring Brief to Tell It the Routes, API Endpoints, and State Layer]]></title>
@@ -6228,333 +6428,10 @@ Any hook outage now blocks the action it guards. For a secret-scan or destructiv
 **Sources:** [Claude Code changelog v2.1.295 — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code hooks docs — code.claude.com](https://code.claude.com/docs/en/hooks)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Meta Releases Muse Spark Open: 816B-Param Open Weights for Coding Agents, Available on Fireworks AI and Groq]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-04-meta-muse-spark-open-816b-weights-groq-fireworks</link>
-      <guid isPermaLink="false">2026-10-17-04-meta-muse-spark-open-816b-weights-groq-fireworks</guid>
-      <pubDate>Sat, 17 Oct 2026 12:13:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Meta released open weights for Muse Spark on October 15 — 816B-parameter MoE with 42B active per token, 1M-token context, built for coding and long-running agent workloads.]]></description>
-      <content:encoded><![CDATA[**Meta released open weights for Muse Spark on October 15: 816B total params, 42B active per token (MoE), 1M-token context, built for coding and long-running agent workloads.**
-
-Muse Spark has been a closed proprietary model since its April debut. The weights are now on Hugging Face and in the model catalogs of AWS, Google, and Microsoft. Seven inference providers launched on day one, including Groq and Fireworks AI — both are OpenAI-SDK-compatible, so routing calls to it is a `base_url` swap.
-
-**License:** The Muse Model License is not Apache 2.0. Most developers can use it freely. Companies that sell hosted API *access to the model itself* and have cleared $20M in annual revenue need a separate agreement. Consumer products and applications built on top of it are not affected by the revenue threshold.
-
-**Benchmarks (Meta's own harness):** 76.4 on Terminal-Bench 2.1 — behind Kimi K3's 85 on the same benchmark. 89.2 on MCP-Atlas (tool-use). Full independent evaluation results have not been published yet; treat the headline numbers as directional, not confirmed.
-
-**What remains closed:** Meta's Muse Wonder series, which scores higher, is available only through Meta's own API and Muse Code. Muse Spark Open is the open-weight tier.
-
-**Why it matters:** The first 816B open-weight model purpose-built for agentic coding. If your pipeline needs self-hostable, frontier-adjacent reasoning without a custom enterprise license, it's the first serious option at this scale. The Fireworks AI partnership means it's one config change away from an existing OpenAI-compatible inference setup.
-
-**Sources:** [SiliconANGLE](https://siliconangle.com/?p=850737) · [The New Stack](https://thenewstack.io/meta-muse-spark-open/) · [Meta Muse Spark Open on Together AI](https://together.ai/blog/meta-muse-spark-open)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Headless Claude Code Pipeline Blocks on Every Tool Prompt — Wire `--permission-prompt-tool` to an MCP Handler That Auto-Approves Safe Patterns, Logs Every Decision, and Routes Risky Commands to a Webhook]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-03-claude-code-permission-prompt-tool-mcp-approval-handler</link>
-      <guid isPermaLink="false">2026-10-17-03-claude-code-permission-prompt-tool-mcp-approval-handler</guid>
-      <pubDate>Sat, 17 Oct 2026 04:19:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <description><![CDATA[The `--permission-prompt-tool` flag replaces Claude Code's interactive y/n dialog with a call to your own MCP tool — so a scheduled job can auto-approve safe patterns, deny destructive commands, and write every decision to an audit log without a human at the terminal.]]></description>
-      <content:encoded><![CDATA[**Claude Code's interactive permission dialog blocks indefinitely in a headless pipeline — `--permission-prompt-tool` replaces it with a call to your own MCP tool that can approve, deny, or log each request programmatically.**
-
-When you run Claude Code with `--print` in CI or a scheduled task, every permission prompt that isn't pre-approved in `settings.json` causes the process to hang. The standard escape is `--dangerouslySkipPermissions`, which bypasses all checks. `--permission-prompt-tool` is the third option: wire a custom MCP tool that receives each permission request and returns an explicit decision, so you get automation without blanket trust.
-
-**What you'll be able to do after this:** auto-approve read-only tools, block destructive command patterns, and log every Claude permission decision to an audit trail — without touching `--dangerouslySkipPermissions`.
-
-## The flag
-
-```bash
-claude --print \
-  --mcp-config .mcp-permissions.json \
-  --permission-prompt-tool mcp__permissions__handle \
-  "Run the test suite and fix any failing tests"
-```
-
-`--permission-prompt-tool` only works with `--print`. Pass the full MCP tool name in `namespace__server__tool` format.
-
-## What your handler receives
-
-```json
-{
-  "tool_name": "Bash",
-  "tool_input": {
-    "command": "rm -rf ./dist",
-    "description": "Clean build output"
-  }
-}
-```
-
-## What it must return
-
-```json
-{ "behavior": "allow" }
-
-{ "behavior": "deny", "message": "Destructive rm blocked by CI policy" }
-
-{
-  "behavior": "allow",
-  "updatedInput": { "command": "rm -rf ./dist --preserve-root" }
-}
-```
-
-Set `updatedInput` when you want to modify the tool's input before Claude proceeds — Claude sees the updated version as if it had requested it originally.
-
-## Minimal MCP handler (Python, stdio)
-
-```python
-import json, sys, asyncio
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp import types
-
-app = Server("permissions")
-
-SAFE_TOOLS = {"Read", "Grep", "Glob"}
-ALWAYS_DENY = {"mcp__github__delete_file"}
-DANGEROUS_PATTERNS = ["rm -rf /", "DROP TABLE", "; curl | bash"]
-
-@app.call_tool()
-async def handle(name: str, arguments: dict) -> list[types.TextContent]:
-    tool_name = arguments.get("tool_name", "")
-    tool_input = arguments.get("tool_input", {})
-
-    # Audit log every request
-    print(f"PERM: {tool_name} | {json.dumps(tool_input)[:100]}", file=sys.stderr)
-
-    if tool_name in ALWAYS_DENY:
-        result = {"behavior": "deny", "message": f"{tool_name} blocked by policy"}
-    elif tool_name in SAFE_TOOLS:
-        result = {"behavior": "allow"}
-    elif tool_name == "Bash":
-        command = tool_input.get("command", "")
-        if any(p in command for p in DANGEROUS_PATTERNS):
-            result = {"behavior": "deny", "message": "Destructive pattern blocked"}
-        else:
-            result = {"behavior": "allow"}
-    else:
-        result = {"behavior": "allow"}
-
-    return [types.TextContent(type="text", text=json.dumps(result))]
-
-asyncio.run(stdio_server(app))
-```
-
-## MCP config
-
-```json
-{
-  "mcpServers": {
-    "permissions": {
-      "command": "python3",
-      "args": ["scripts/permission_handler.py"]
-    }
-  }
-}
-```
-
-## When to use this vs. other approaches
-
-| Approach | Right for |
-|---|---|
-| `allowedTools` in `settings.json` | Static pre-approved list; no dynamic logic needed |
-| `--dangerouslySkipPermissions` | Fully sandboxed environments (Docker, disposable VMs) |
-| `--permission-prompt-tool` | Dynamic approval; audit logs; Bash command inspection; Slack escalation |
-
-The key advantage over a static allowlist: your handler sees the *inputs*, not just the tool name. A Bash handler can allow `pnpm test` and deny `rm -rf /tmp/important` — a distinction a name-only allowlist cannot make.
-
-Full reference: [Claude Code SDK docs](https://docs.anthropic.com/en/docs/claude-code/sdk)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Reflection AI Releases Beam: 501B MoE, 23B Active Parameters, Apache 2.0 — and Nvidia Acquisition Talks]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-02-reflection-ai-beam-501b-moe-open-weight-apache</link>
-      <guid isPermaLink="false">2026-10-17-02-reflection-ai-beam-501b-moe-open-weight-apache</guid>
-      <pubDate>Sat, 17 Oct 2026 04:18:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Reflection AI has shipped Beam, a 501B MoE open-weight model with 23B active parameters and an Apache 2.0 license — the first frontier-scale reasoning model open-sourced at this weight class. Weights dropped October 16. Nvidia acquisition talks are reportedly underway.]]></description>
-      <content:encoded><![CDATA[**Reflection AI has released Beam — a 501-billion-parameter mixture-of-experts model with 23B active parameters, an Apache 2.0 license, and weights available on Hugging Face as of October 16.**
-
-Beam is designed for reasoning-intensive workloads — coding, agentic pipelines, scientific reasoning, and mathematics — and is positioned as the first open-weight challenger to proprietary frontier reasoning models at this scale. With only 23B active parameters per token (MoE architecture activates one expert subset per forward pass), running Beam is within reach of a 4×A100-80GB or 2×H100 node — hardware many research labs and mid-size teams already have.
-
-## Key specs
-
-| | |
-|---|---|
-| Total parameters | 501B |
-| Active parameters per token | 23B (MoE) |
-| License | Apache 2.0 |
-| Weights released | October 16, 2026 |
-| Target workloads | Coding, agentic workflows, science, math |
-| Architecture | Mixture-of-Experts |
-
-## Getting the weights
-
-```bash
-pip install huggingface_hub
-
-huggingface-cli download ReflectionAI/Beam --local-dir ./beam-weights
-```
-
-## Running with vLLM
-
-```bash
-vllm serve ReflectionAI/Beam \
-  --tensor-parallel-size 4 \
-  --max-model-len 32768 \
-  --gpu-memory-utilization 0.95
-```
-
-## Why Apache 2.0 matters
-
-Most open-weight reasoning models use non-commercial or restricted licenses — Meta's Muse models use a custom commercial use agreement; some Mistral reasoning variants carry usage caps. Apache 2.0 means you can build and ship commercial products on Beam without negotiating an enterprise license, subject only to attribution.
-
-For teams running self-hosted inference for privacy, cost, or compliance reasons, Beam is the first open alternative at frontier-comparable reasoning capability.
-
-## Nvidia acquisition context
-
-The Financial Times and Bloomberg have reported that Nvidia is in acquisition talks with Reflection AI. The company was founded by Matt Shumer and raised at a significant valuation earlier this year. No terms or timeline have been confirmed publicly.
-
-**Practical takeaway:** If your pipeline runs coding agents or scientific reasoning workloads and requires a self-hostable model, Beam is the first serious open-weight option at frontier-comparable scale. The Apache 2.0 license makes it the only major open-weight contender suitable for commercial deployment at this capability tier.
-
-Sources: [Let's Data Science](https://letsdatascience.com/news/reflection-introduces-beam-open-weight-reasoning-model-b6a0e32f), [VKTR](https://www.vktr.com/ai-platforms/reflection-ai-unveils-beam-a-501b-open-weight-model/)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your RAG Pipeline Hits the Vector Store Even When Claude Already Knows the Answer — Adaptive RAG Classifies Each Query First and Routes It to the Right Source]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-17-01-adaptive-rag-langgraph-query-routing-vectorstore-web</link>
-      <guid isPermaLink="false">2026-10-17-01-adaptive-rag-langgraph-query-routing-vectorstore-web</guid>
-      <pubDate>Sat, 17 Oct 2026 04:17:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Adaptive RAG adds one cheap LLM call before retrieval that classifies each query and routes it: skip the store for what the model already knows, hit your vectorstore for domain-specific questions, and fall back to web search for recency-sensitive ones. A LangGraph walkthrough.]]></description>
-      <content:encoded><![CDATA[**Every query hitting your vector store adds latency and retrieval noise — Adaptive RAG inserts a lightweight classifier that routes each question to the right source before any embedding comparison runs.**
-
-A standard RAG pipeline sends every query through retrieval. This works, but it wastes compute for questions the model can answer from its training data ("What is the capital of France?") and falls short for time-sensitive queries that need live data. [Adaptive RAG](https://arxiv.org/abs/2403.14403) (Jeong et al., 2024) adds one cheap LLM call — a query classifier — that routes to one of three paths: direct answer (no retrieval), vectorstore, or web search.
-
-**What you'll be able to do after this:** skip retrieval for questions your model already knows, hit your vectorstore only for domain-specific content, and fall back to web search only when freshness matters.
-
-## The three-way router
-
-```python
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_anthropic import ChatAnthropic
-from pydantic import BaseModel, Field
-from typing import Literal
-
-class RouteDecision(BaseModel):
-    source: Literal["vectorstore", "web_search", "direct"] = Field(
-        description="Which knowledge source to use."
-    )
-
-llm = ChatAnthropic(model="claude-haiku-5-5")  # cheap; single structured-output call
-structured_llm = llm.with_structured_output(RouteDecision)
-
-ROUTE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """Route the user question to the right knowledge source.
-- vectorstore: product docs, internal knowledge, domain-specific questions
-- web_search: recent events, new releases, time-sensitive information
-- direct: general factual questions, math, reasoning the model already knows
-
-Return only the source name."""),
-    ("human", "{question}"),
-])
-
-route_chain = ROUTE_PROMPT | structured_llm
-```
-
-## LangGraph state machine
-
-```python
-from langgraph.graph import StateGraph, END
-from typing import TypedDict
-
-class RAGState(TypedDict):
-    question: str
-    route: str | None
-    context: list[str]
-    answer: str | None
-
-def classify(state: RAGState) -> RAGState:
-    decision = route_chain.invoke({"question": state["question"]})
-    return {**state, "route": decision.source}
-
-def retrieve_store(state: RAGState) -> RAGState:
-    docs = vectorstore.similarity_search(state["question"], k=4)
-    return {**state, "context": [d.page_content for d in docs]}
-
-def search_web(state: RAGState) -> RAGState:
-    results = tavily_client.search(state["question"])["results"]
-    return {**state, "context": [r["content"] for r in results[:3]]}
-
-def direct_answer(state: RAGState) -> RAGState:
-    return {**state, "context": []}  # skip retrieval; generate from weights
-
-def generate(state: RAGState) -> RAGState:
-    ctx = "\n\n".join(state["context"]) or "No retrieved context."
-    prompt = f"Context:\n{ctx}\n\nQuestion: {state['question']}\n\nAnswer:"
-    return {**state, "answer": ChatAnthropic(model="claude-sonnet-5-5").invoke(prompt).content}
-
-graph = StateGraph(RAGState)
-graph.add_node("classify", classify)
-graph.add_node("vectorstore", retrieve_store)
-graph.add_node("web_search", search_web)
-graph.add_node("direct", direct_answer)
-graph.add_node("generate", generate)
-
-graph.set_entry_point("classify")
-graph.add_conditional_edges("classify", lambda s: s["route"], {
-    "vectorstore": "vectorstore",
-    "web_search": "web_search",
-    "direct": "direct",
-})
-for node in ("vectorstore", "web_search", "direct"):
-    graph.add_edge(node, "generate")
-graph.add_edge("generate", END)
-
-adaptive_rag = graph.compile()
-```
-
-## Testing the routing
-
-```python
-tests = [
-    ("What is the capital of France?", "direct"),      # factual; no retrieval needed
-    ("What changed in our API v3?", "vectorstore"),    # domain knowledge
-    ("Did Claude get updates this week?", "web_search"),  # recency-sensitive
-]
-
-for question, expected_route in tests:
-    result = adaptive_rag.invoke(
-        {"question": question, "route": None, "context": [], "answer": None}
-    )
-    print(f"{expected_route:12} → {result['route']:12} | {question}")
-```
-
-## Tuning the classifier
-
-The system prompt is the only knob. Describe your domain in 1-2 sentences to distinguish "vectorstore" from "direct". Use `claude-haiku-5-5` for the classifier — it's a single 5-token structured-output call, costing less than $0.001 per query even at high volume.
-
-For a complete walkthrough with relevance-grader nodes (checking document quality before generating), see the [LangGraph Adaptive RAG tutorial](https://langchain-ai.github.io/langgraph/tutorials/rag/langgraph_adaptive_rag/) and the [Mistral cookbook adaptation](https://docs.mistral.ai/resources/cookbooks/third_party-langchain-adaptive_rag_mistral).]]></content:encoded>
-    </item>
-
+    
+    
+    
+    
     
     
     
