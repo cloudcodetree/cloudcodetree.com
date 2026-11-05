@@ -10,9 +10,171 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 04 Nov 2026 20:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 05 Nov 2026 04:05:00 +0000</lastBuildDate>
 
 
+
+  <item>
+    <title><![CDATA[Claude Code Edits .env on Every Run Until You Add a 12-Line PreToolUse Hook]]></title>
+    <link>https://code.claude.com/docs/en/hooks</link>
+    <guid isPermaLink="false">2026-11-05-02-claude-code-pretooluse-hook-file-block-env-protect</guid>
+    <pubDate>Thu, 05 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[A PreToolUse hook that exits 2 on a file-match blocks any Edit or Write call before it runs — .env, production configs, and secret files become write-locked for the whole session.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**A PreToolUse hook that exits 2 on a file-match blocks any Edit or Write call before it runs — `.env`, production configs, and secret files become write-locked for the whole session.**
+
+Claude Code's hook system fires scripts at four points in the tool lifecycle. PostToolUse hooks run after a tool succeeds; they can't stop it. PreToolUse hooks fire before the tool runs and can block it: exit code 2 blocks the call and shows Claude the hook's stderr; exit code 0 allows it; exit code 1 adds a warning but still allows.
+
+**Write `.claude/hooks/protect-files.sh`:**
+
+```bash
+#!/usr/bin/env bash
+# Blocks Edit/Write to any file matching the blocklist.
+BLOCKLIST=(".env" ".env.*" "*.pem" "private-key.*" "production.yml" "secrets.*")
+FILE=$(echo "$CLAUDE_TOOL_INPUT" | jq -r '.file_path // .path // empty')
+[ -z "$FILE" ] && exit 0
+BASE=$(basename "$FILE")
+for PATTERN in "${BLOCKLIST[@]}"; do
+  if [[ "$BASE" == $PATTERN ]]; then
+    echo "BLOCKED: $FILE is in the write-protected list" >&2
+    exit 2
+  fi
+done
+exit 0
+```
+
+**Wire it in `.claude/settings.json`:**
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": ".claude/hooks/protect-files.sh" }]
+      }
+    ]
+  }
+}
+```
+
+Claude Code passes the tool's input JSON in `CLAUDE_TOOL_INPUT`; `jq` extracts the target path. The exit 2 sends Claude the stderr message so it knows why it was blocked — without it, Claude retries and fails again silently.
+
+**Two limits to know:** First, this hook fires on every Edit and Write call, so keep the check fast (a `jq` parse is milliseconds). Second, the hook doesn't fire on `Bash` calls that write files directly — pair it with a Bash pre-hook or allowlist to close that gap. Secret scan hooks (which block `git commit/push` when secrets appear in the diff) are complementary, not a replacement, for this guard.
+
+**How it fits the hooks series:** PostToolUse handles what happens after a tool succeeds; Stop hooks gate when Claude ends a turn; PreToolUse is the place to intercept before damage is done. All three can coexist.
+
+**Sources:** [Hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks) · [PreToolUse reference — code.claude.com](https://code.claude.com/docs/en/hooks#pretooluse) · [Claude Code hook patterns — morphllm.com](https://morphllm.com/blog/claude-code-hooks)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code Builds a New Button Component Every Time Because Figma's MCP Server Doesn't Know Your Button Exists — Code Connect Maps It in Three Steps]]></title>
+    <link>https://developers.figma.com/docs/figma-mcp-server/skill-figma-code-connect</link>
+    <guid isPermaLink="false">2026-11-05-03-figma-code-connect-mcp-claude-code-component-reuse</guid>
+    <pubDate>Thu, 05 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Figma Code Connect links library components to their real source files; the MCP server then tells Claude Code exactly which import and props to use instead of generating a duplicate.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Design-to-Code</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** Configure Figma Code Connect so Claude Code reads a Figma frame via the MCP server and generates code that uses your existing components — not new duplicates with the wrong props.
+
+**Three things to know first:**
+- Figma Code Connect links a Figma component to its real source file by writing a `.figma.ts` mapping file alongside your component; the Figma MCP server reads those mappings and passes them to Claude Code as context when you paste a Figma URL
+- Without Code Connect, Claude Code sees a visual design and guesses — it generates a component that looks right but uses the wrong props, naming, or file structure
+- Code Connect only works with components published to a Figma team library; unpublished components are invisible to the mapping
+
+**Step 1 — Install the Figma MCP server and authenticate:**
+
+```bash
+claude mcp add --transport http figma https://mcp.figma.com/mcp
+```
+
+Open a new Claude Code session, run `/mcp`, and authenticate in the browser. Confirm with `/mcp status figma`.
+
+Alternatively, install the bundled plugin (which also adds Code Connect skills):
+```bash
+claude plugin install figma@claude-plugins-official
+```
+
+**Step 2 — Write a Code Connect mapping for one component:**
+
+Create `src/components/Button.figma.ts` alongside your existing `Button.tsx`:
+
+```typescript
+import figma from '@figma/code-connect'
+import { Button } from './Button'
+
+figma.connect(Button, 'https://www.figma.com/file/ABC123/Design-System?node-id=1-2', {
+  props: {
+    variant: figma.enum('Variant', {
+      primary: 'primary',
+      secondary: 'secondary',
+      ghost: 'ghost',
+    }),
+    disabled: figma.boolean('Disabled'),
+    label: figma.string('Label'),
+  },
+  example: ({ variant, disabled, label }) => (
+    &lt;Button variant={variant} disabled={disabled}&gt;{label}&lt;/Button&gt;
+  ),
+})
+```
+
+The `node-id` comes from the Figma URL when you select the library component. Set `FIGMA_ACCESS_TOKEN` in your env, then push the mapping:
+
+```bash
+npx figma connect publish
+```
+
+Start with 5–10 high-use primitives (Button, Input, Card, Badge). Connecting every component upfront is impractical and unnecessary.
+
+**Step 3 — Test the loop:**
+
+Paste a Figma frame URL into Claude Code:
+
+```
+Implement this screen using our existing components:
+https://www.figma.com/file/ABC123/Design-System?node-id=5-10
+```
+
+With Code Connect configured, the generated output will say `import { Button } from './components/Button'` and use `variant="primary"` — your actual API — instead of inventing `&lt;button className="bg-blue-500 rounded px-4"&gt;`.
+
+**What it doesn't do:** Code Connect maps component usage, not layout logic. Claude still decides how to assemble components in a grid, handle responsive breakpoints, and what to do with unmapped components. Plan to audit the first few generations and add mappings for your most-used components before running at scale.
+
+**One real limit:** A stale mapping — Figma component updated, mapping not republished — is worse than no mapping. Claude Code receives the old props as authoritative and generates confidently wrong code. Build `npx figma connect publish` into your design-system update process, not a one-time setup step.
+
+**Sources:** [Figma Code Connect — Figma Developers](https://developers.figma.com/docs/figma-mcp-server/skill-figma-code-connect) · [Claude Code and Figma: Set up the MCP server — Figma Help](https://help.figma.com/hc/en-us/articles/39888612464151-Claude-Code-and-Figma-Set-up-the-MCP-server) · [Figma MCP server guide — GitHub](https://github.com/figma/mcp-server-guide) · [Figma to Claude Code workflow — superdesign.dev](https://superdesign.dev/blog/figma-to-claude-code)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Anthropic's ANT Roadshow May Start This Week — The Risk Factors Section Is What API Teams Should Read]]></title>
+    <link>https://www.anthropic.com/news/s1-sec</link>
+    <guid isPermaLink="false">2026-11-05-01-anthropic-ipo-roadshow-november-ant-nasdaq</guid>
+    <pubDate>Thu, 05 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Anthropic's ANT Nasdaq roadshow could start the week of November 9, with a first trade possible around November 16. For API-dependent teams, the S-1 risk factors are the useful section.]]></description>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Anthropic may begin its ANT Nasdaq roadshow the week of November 9, with a first trade possible around November 16 — for teams building on the Claude API, the S-1's risk factors section is the more useful reading than the valuation headline.**
+
+Anthropic filed its S-1 on October 26 (covered here then). Bloomberg reports the roadshow could begin as early as the week of November 9, putting a possible first trade around November 16 under standard SEC quiet-period rules — though Anthropic has not confirmed a specific date. Goldman Sachs and Morgan Stanley lead underwriting, with 22 banks participating.
+
+For developers, the valuation figure ($965 billion Series H; some outlets cite a $2 trillion IPO target) is noise. The useful section of the S-1 is risk factors: compute dependency on a small number of cloud providers, pricing sustainability as a key uncertainty, and the fact that model capability claims are forward-looking. The filing also notes that two unnamed customers account for roughly 20% of revenue — a concentration risk worth noting if you are one of Anthropic's enterprise API customers.
+
+**Why it matters:** A public Anthropic introduces shareholder scrutiny of every pricing tier from the moment shares price — teams with large API usage should monitor Q4 pricing announcements and check whether their current contract terms survive a pricing review.
+
+**Sources:** [Anthropic S-1 — anthropic.com](https://www.anthropic.com/news/s1-sec) · [IPO timeline — xtb.com](https://www.xtb.com/int/market-analysis/news/anthropic-files-prospectus-ahead-of-ipo-with-ant-ticker-on-nasdaq-the-launch-date-and-price-remain-a-mystery) · [Admiral Markets IPO analysis](https://admiralmarkets.com/education/articles/shares/anthropic-ipo)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Agent Runs Three Tool Calls Sequentially When They Could All Go in One Turn — One System Prompt Sentence Drops Latency to the Longest Single Call]]></title>
@@ -6246,238 +6408,9 @@ The envelope still includes `session_id`, `total_cost_usd`, and `is_error` — p
 **Sources:** [Headless mode — Claude Code docs](https://code.claude.com/docs/en/headless) · [CLI usage — Anthropic docs](https://docs.anthropic.com/en/docs/claude-code/cli-usage) · [`--json-schema` invalid-schema behavior — Claude Code issues tracker](https://claudeissues.com/issue/75875-docs-json-schema-flag-docs-omit-v2-1-205-fix-for-invalid-schema-silent-fallback)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Open-Model Inference Needs No Always-On Server — Modal Deploys vLLM on H100s from a Single Python File and Scales to Zero]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-06-modal-vllm-serverless-gpu-openai-endpoint</link>
-      <guid isPermaLink="false">2026-10-18-06-modal-vllm-serverless-gpu-openai-endpoint</guid>
-      <pubDate>Sun, 18 Oct 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>Cloud</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Modal wraps vLLM in a Python decorator, deploys it on cloud GPUs in one command, and scales the container to zero when idle — the OpenAI-compatible endpoint works with your existing client code.]]></description>
-      <content:encoded><![CDATA[**Modal deploys vLLM on real GPUs from a single Python file, exposes an OpenAI-compatible HTTPS endpoint, and scales the container to zero when idle — you pay only for requests, not for a server sitting warm.**
-
-**What you'll be able to do after this:** run any HuggingFace model (including a fine-tune you trained locally) on H100 or H200 GPUs behind an OpenAI-compatible API, with no Dockerfile, no Kubernetes, and no idle billing.
-
-## Where Modal fits
-
-Ollama, vLLM, and managed endpoints (Fireworks, Together AI) all expose OpenAI-compatible APIs. The choice is about where the model runs:
-
-- **Ollama:** local GPU you own — fastest, no latency, no cost per request; requires hardware
-- **Fireworks / Together AI:** managed endpoints you call — lowest ops burden, highest ongoing cost at scale
-- **Modal + vLLM:** you define the runtime in Python, Modal provisions cloud GPUs, container idles down between requests — right for a specific open model (e.g. a fine-tuned Mistral from the QLoRA tutorial) when you don't want to operate a persistent server
-
-## Walk-through
-
-```bash
-pip install modal
-modal setup   # opens browser for one-time auth
-```
-
-Create `vllm_server.py`:
-
-```python
-import modal
-
-app = modal.App("vllm-openai")
-
-vllm_image = modal.Image.debian_slim().pip_install("vllm")
-
-@app.cls(
-    image=vllm_image,
-    gpu="H100",
-    scaledown_window=15 * 60,   # container idles down after 15 min
-)
-class VLLMServer:
-    @modal.enter()
-    def load(self):
-        import subprocess, time
-        self.proc = subprocess.Popen([
-            "python", "-m", "vllm.entrypoints.openai.api_server",
-            "--model", "mistralai/Mistral-7B-Instruct-v0.3",
-            "--port", "8000",
-        ])
-        time.sleep(40)   # wait for weights to load into GPU memory
-
-    @modal.web_server(8000)
-    def serve(self):
-        pass
-```
-
-Deploy:
-
-```bash
-modal deploy vllm_server.py
-# Prints: https://your-workspace--vllm-openai-serve.modal.run
-```
-
-Point your existing OpenAI client at the endpoint — no other code changes:
-
-```python
-from openai import OpenAI
-client = OpenAI(
-    base_url="https://your-workspace--vllm-openai-serve.modal.run/v1",
-    api_key="unused",   # vLLM doesn't require auth by default
-)
-resp = client.chat.completions.create(
-    model="mistralai/Mistral-7B-Instruct-v0.3",
-    messages=[{"role": "user", "content": "Summarize this diff in 3 bullets."}],
-)
-```
-
-During development, `modal serve vllm_server.py` gives you a hot-reload URL without committing to a persistent deployment.
-
-## Limits
-
-**Cold start:** after the container idles down, the first request waits 30–60 seconds while vLLM loads model weights into GPU memory. The Modal Volume caches weights across deploys, so subsequent starts are faster — but first-request latency is real. If you need sub-second P99, keep a minimum replica running (`min_containers=1`) and accept the idle cost.
-
-**Cost:** H100 time runs roughly $3–4/hour at current Modal pricing. That's economical for bursty workloads; for sustained high-throughput production, a managed endpoint is cheaper. The free tier includes credits to experiment.
-
-**Fine-tuned models:** a model you trained locally needs its weights available to Modal — store them in a Modal Volume or point to a private HuggingFace repo using a `modal.Secret` for `HF_TOKEN`.
-
-The official Modal example uses Gemma on H200s as the production-grade reference — it's the canonical code to follow; the code above is a minimal illustration of the pattern.
-
-**Sources:** [Run OpenAI-compatible LLM inference with Gemma and vLLM — Modal docs](https://modal.com/docs/examples/vllm_inference) · [How to deploy vLLM — Modal blog](https://modal.com/blog/how-to-deploy-vllm) · [Deploying the Magistral vLLM Server on Modal — KDnuggets](https://www.kdnuggets.com/deploying-the-magistral-vllm-server-on-modal) · [vLLM on Modal — vLLM deployment docs](https://docs.vllm.ai/en/v0.9.1/deployment/frameworks/modal.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[The Claude Design Export Shows One Viewport — Add a Three-Line Responsive Brief to Your Claude Code Handoff Before It Starts Building]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-04-claude-design-export-responsive-brief-handoff</link>
-      <guid isPermaLink="false">2026-10-18-04-claude-design-export-responsive-brief-handoff</guid>
-      <pubDate>Sun, 18 Oct 2026 12:11:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Claude Design exports a single desktop viewport with no breakpoints. Without a responsive brief in your handoff prompt, Claude Code uses generic media queries that won't match your design system. Three lines fix this.]]></description>
-      <content:encoded><![CDATA[**Claude Design gives Claude Code a desktop frame — no breakpoints, no mobile layout, no spacing-scale hints. A three-line responsive brief in your handoff prompt closes that gap before the first line of code is written.**
-
-**What you'll be able to do after this:** write a responsive brief that takes your Claude Design export from "desktop only" to "works at 375px, 768px, and 1280px" in a single Claude Code session, without regenerating the design.
-
-## What Claude Design does not export
-
-Claude Design produces a visual composition at one viewport — typically the desktop width you designed at. It exports:
-- Layout structure and component arrangement
-- Color tokens, typography, and spacing values used in the design
-- Component states (hover, active, disabled) if you specified them
-
-It does not export:
-- Breakpoints or responsive rules
-- Mobile layout changes (stacked vs. side-by-side, hidden elements, reordered sections)
-- Touch target sizes
-- Any instruction about which elements collapse, reorder, or disappear at smaller widths
-
-Claude Code has no way to infer these from a desktop frame. Left to its own heuristics, it will emit generic `max-width` breakpoints that have no relationship to your design system's scale.
-
-## The three-line responsive brief
-
-Add this block to your handoff prompt, immediately after pasting the exported design or describing the component:
-
-```
-Responsive rules:
-- ≤640px (mobile): stack all flex rows to column, 16px side gutters, minimum 44px touch targets
-- 641–1024px (tablet): two-column grid max, sidebar collapses to drawer if present
-- ≥1025px (desktop): match the exported layout exactly
-```
-
-Adjust the column rules to match your actual design decisions. The gutters and touch targets should stay consistent across projects — make them a reusable snippet.
-
-**Where to put it:**
-- In `CLAUDE.md` under a "Responsive contract" heading if you want it applied to every Claude Code session in the repo
-- Inline in the handoff prompt for a one-off component
-
-## One step before the handoff
-
-Before exporting, resize the Claude Design canvas to 375px and review the result. Claude Design will attempt a mobile adaptation — it's often incomplete, but it surfaces the decisions you haven't made yet: does the hero image disappear? Does the nav collapse to a hamburger? Does the pricing table stack or scroll?
-
-Make those decisions in the design before the handoff. The responsive brief only works if you've actually thought through the mobile layout — it's a communication format, not a substitute for design judgment.
-
-**Limit:** The brief tells Claude Code your rules but doesn't give it your full design-system token file. If your system has specific breakpoint values (e.g., `--bp-md: 768px`), either pass the token file or name the variable in the brief: "use `--bp-md` for the 641px breakpoint."
-
-**Sources:** [Claude Design documentation](https://support.claude.ai/hc/en-us/articles/get-started-with-claude-design), [responsive design patterns with Claude Code](https://www.anthropic.com/news/claude-responsive-design), [Claude Design to Claude Code handoff mechanics](https://claudefa.st/handoff-mechanics)]]></content:encoded>
-      <media:content url="https://img.cloudcodetree.com/2026-10-18-04-claude-design-export-responsive-brief-handoff.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-18-04-claude-design-export-responsive-brief-handoff.jpg" />
-    </item>
-
-    <item>
-      <title><![CDATA[Your Multi-Agent Run Shows Hex IDs in the Fleet View — Pass `name:` to Every Agent Call and Use `n:` to Find Any Session Instantly]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-03-agent-name-fleet-view-n-filter</link>
-      <guid isPermaLink="false">2026-10-18-03-agent-name-fleet-view-n-filter</guid>
-      <pubDate>Sun, 18 Oct 2026 12:10:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Unnamed Agent calls show as hex IDs in `claude agents`. A `name:` on every call plus the `n:` filter in the fleet view makes navigating ten or more parallel sessions practical.]]></description>
-      <content:encoded><![CDATA[**When you launch parallel agents without a `name:`, the fleet view shows hex IDs you can't distinguish at a glance. A one-field addition to every Agent call turns a wall of identifiers into a navigable dashboard.**
-
-**What you'll be able to do after this:** open the fleet view during a multi-agent run, find any specific agent by name in under two seconds using the `n:` filter, and know which convention to use for naming agents across different call patterns.
-
-## Why the fleet view shows hex IDs
-
-Every agent call spawns a session with a generated ID. The fleet view (`claude agents`, or ctrl+] on Mac) lists running sessions by that ID unless you provided a human-readable name. With five or more parallel agents, all running in background mode, hex IDs make it impossible to tell which session is reviewing auth, which is analyzing deps, and which is now stuck.
-
-Unnamed sessions also make `SendMessage` error-prone — you're copying a hex string instead of typing a purposeful label.
-
-## The `name:` field on Agent tool calls
-
-Every Agent tool call accepts a `name:` parameter. It's optional in the schema but should be treated as required in practice:
-
-```
-Agent({
-  name: "review:auth",
-  description: "Review the auth middleware for security issues",
-  prompt: "...",
-  run_in_background: true
-})
-```
-
-**Naming convention that works across projects:** `purpose:target`
-- `review:auth`, `review:payments`, `review:api`
-- `analyze:deps`, `analyze:bundle`, `analyze:types`
-- `generate:tests`, `generate:docs`, `generate:fixtures`
-- `fix:lint`, `fix:types`
-
-The colon separator makes the `n:` filter especially effective — `n:review` matches all review agents at once.
-
-## The `label:` field in workflow scripts
-
-If you're writing workflow scripts (via the Workflow tool), the equivalent is `label:` in the `opts` object passed to `agent()`:
-
-```js
-agent("Review the auth module for security issues", {
-  label: "review:auth",
-  phase: "Review"
-})
-```
-
-`label:` and `name:` appear identically in the fleet view.
-
-## Using `n:` in the fleet view
-
-Open `claude agents` during a run. Type `n:` followed by any substring of a session name to filter immediately:
-
-- `n:review` — shows all review agents
-- `n:auth` — shows any agent whose name contains "auth"
-- `n:review:auth` — exact match
-
-Press Enter on a result to attach to that session and read its output. Press Escape to return to the list and filter again.
-
-**Limit:** Names must be unique within a run — if two agents share the same name, the `n:` filter returns both and you can't tell them apart. For agents that iterate (e.g., multiple fix passes), append a suffix: `fix:types-1`, `fix:types-2`.
-
-**Sources:** [Claude Code sub-agents documentation](https://code.claude.com/docs/en/sub-agents), [Claude Code 2.1.287 release notes](https://www.havoptic.com/r/claude-code-2.1.287), [Claude Code workflow authoring guide](https://code.claude.com/docs/en/workflow-authoring)]]></content:encoded>
-      <media:content url="https://img.cloudcodetree.com/2026-10-18-03-agent-name-fleet-view-n-filter.jpg" medium="image" />
-      <media:thumbnail url="https://img.cloudcodetree.com/2026-10-18-03-agent-name-fleet-view-n-filter.jpg" />
-    </item>
-
+    
+    
+    
     
     
     
