@@ -1,0 +1,111 @@
+name: course-shots
+
+# Regenerate DealFinder lesson screenshots from each step's manifest, and open a PR
+# with the PNGs that really changed. GitHub shows image diffs in the PR, and the owner
+# approves there. A PR opened with GITHUB_TOKEN starts no other workflow; these PRs
+# change only images, so that is accepted.
+#
+# Two jobs: `shoot` runs companion code (pip install, the step's setup, uvicorn) with a
+# read-only token and no stored credentials, and uploads the screens as an artifact.
+# `pr` holds the write token, runs nothing from the companion, and commits only PNGs.
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: 'Steps to shoot: all, or a list like 01,02'
+        required: true
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  shoot:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: pgvector/pgvector:0.7.0-pg16
+        env:
+          POSTGRES_USER: dealfinder
+          POSTGRES_PASSWORD: dealfinder
+          POSTGRES_DB: dealfinder
+        ports: [ '5432:5432' ]
+        options: >-
+          --health-cmd "pg_isready -U dealfinder"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      STEPS: ${{ inputs.steps }}
+      DATABASE_URL: postgresql://dealfinder:dealfinder@127.0.0.1:5432/dealfinder
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - uses: pnpm/action-setup@v6
+    # No pnpm cache here: this job runs companion code, and a store it saved would be
+    # restored by deploy.yml in the job that holds the Cloudflare secrets.
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm exec playwright install --with-deps chromium
+    - name: Shoot
+      shell: bash
+      run: |
+        mkdir -p public/tutorials/screens
+        node scripts/shoot-course.mjs --steps "$STEPS" | tee shots.log
+    - uses: actions/upload-artifact@v4
+      with:
+        name: course-screens
+        path: |
+          public/tutorials/screens
+          shots.log
+        if-no-files-found: error
+        retention-days: 7
+
+  pr:
+    needs: shoot
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      STEPS: ${{ inputs.steps }}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: ${{ github.sha }}
+    - uses: actions/download-artifact@v4
+      with:
+        name: course-screens
+        path: ${{ runner.temp }}/course-screens
+    - name: Open a PR with the changed screenshots
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        art="$RUNNER_TEMP/course-screens"
+        # Only PNGs under public/tutorials/screens come back from the shoot job.
+        (cd "$art/public/tutorials/screens" && find . -type f -name '*.png' -print0) |
+          while IFS= read -r -d '' f; do
+            mkdir -p "public/tutorials/screens/$(dirname "$f")"
+            cp -f "$art/public/tutorials/screens/$f" "public/tutorials/screens/$f"
+          done
+        if [ -z "$(git status --porcelain -- public/tutorials/screens)" ]; then
+          echo "no screenshot changed"
+          exit 0
+        fi
+        branch="course-shots/$GITHUB_RUN_ID"
+        title="course: regenerated screenshots (steps $STEPS)"
+        { echo "Written by course-shots run $GITHUB_RUN_ID:"; echo; grep '^written ' "$art/shots.log" | sed 's/^/- /'; } > "$RUNNER_TEMP/body.md"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git switch -c "$branch"
+        git add -- 'public/tutorials/screens/*.png'
+        git commit -m "$title"
+        git push origin "$branch"
+        gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"

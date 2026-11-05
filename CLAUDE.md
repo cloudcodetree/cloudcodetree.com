@@ -590,6 +590,17 @@ use it to add one. In short:
   tables of contents link to `#the-heading-text`. A "capture" in a lesson must be
   real output: `node scripts/render-terminal-capture.mjs <out.png> --title '$ cmd' --file lines.txt`
   renders actual terminal lines into the screenshot style — never compose numbers by hand.
+- **DealFinder course includes.** A lesson fence like ```` ```python include="dealfinder/schema.py#product" ````
+  or ```` ```text output="pytest" ```` has an empty body. At build time
+  `scripts/lib/remark-course-include.mjs` fills it from `content/course/snippets.json`, at the
+  step whose `lesson` is the page's slug (a `step="NN"` meta overrides that). The build never
+  reads the companion or the network. Regions are `ANCHOR: name` / `ANCHOR_END: name` comment
+  lines in companion files (`scripts/lib/course-anchors.mjs`). Never hand-edit the snippet
+  file: `node scripts/sync-course-snippets.mjs` rewrites it from the pinned step commits
+  (`--update-lock` re-pins to the `course` tip, `--check` is the CI drift check in
+  `course-content.yml`, `--strict` requires a step for every lesson and is the release gate).
+  `node scripts/shoot-course.mjs --steps 01` regenerates lesson screenshots from each step's
+  manifest; `course-shots.yml` runs it and opens a PR with the changed PNGs.
 
 ## Local multi-repo workspace
 

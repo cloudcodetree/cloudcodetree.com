@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "repo": "https://github.com/cloudcodetree/tutorial-dealfinder",
+  "branch": "course",
+  "steps": {
+    "01": {
+      "sha": "77478fb2483f86489ab20e329c6551958b80ea92",
+      "lesson": "dealfinder-part-01",
+      "subject": "step-01: Data layer, normalization & the snapshot"
+    }
+  },
+  "snippets": {
+    "01:course/examples/01_raw_brands.py": {
+      "lang": "python",
+      "text": "# Part 1: the raw `brand` field, straight from the frozen snapshot.\nfrom dealfinder.snapshot import load_snapshot\n\nitems = load_snapshot(\"data/snapshots/electronics-2026-07.json\")\nprint(len(items))\n\nfor item in items[:8]:\n    print(repr(item[\"brand\"]))"
+    },
+    "01:course/examples/01_title_brand.py": {
+      "lang": "python",
+      "text": "# Part 1: title_brand() against the hero cast.\nfrom dealfinder.features import title_brand\n\ncases = [\n    (\"Sony WH-1000XM5 Wireless Headphones\", \"Sony\"),\n    (\"COWIN E7 Active Noise Cancelling Headphones\", \"Cowin\"),\n    (\"Bose QuietComfort 45 Bluetooth Wireless Over Ear Headphones\", \"Bose\"),\n    # Longest match first: Soundcore, Anker's audio line, wins over Anker.\n    (\"Anker Soundcore Q20i Active Noise Cancelling Headphones\", \"Soundcore\"),\n]\nfor title, expected in cases:\n    result = title_brand(title)\n    status = \"✓\" if result == expected else \"✗\"\n    print(f\"{status} '{result}' from: {title[:55]}\")"
+    },
+    "01:dealfinder/features.py#title-brand": {
+      "lang": "python",
+      "text": "def title_brand(title: str) -> str | None:\n    \"\"\"Extract the true manufacturer from a listing title, or None if unknown.\n\n    Tries the known-brand vocabulary first (greedy, longest match), falling back\n    to the first title token when it looks like a proper brand name. This is the\n    normalization the raw ``brand`` field can't give us — see module docstring.\n    \"\"\"\n    if not title:\n        return None\n    for canonical, pat in _BRAND_PATTERNS:\n        if pat.search(title):\n            return canonical\n    # Fallback: first token if it's capitalized/alnum and not a generic word.\n    first = title.strip().split()[0] if title.strip().split() else \"\"\n    first = first.strip(\".,\")\n    if first and first[0].isalpha() and first[:1].isupper() and len(first) > 1:\n        return first\n    return None"
+    },
+    "01:dealfinder/ingest.py#dedup": {
+      "lang": "python",
+      "text": "def dedup_key(p: Product) -> str:\n    \"\"\"Exact-match collision key: same brand + title (case-insensitive).\n\n    Collapses byte-identical duplicates (e.g. a feed returning the same row twice).\n    It does NOT merge the same product across retailers — the raw brand is a\n    retailer string and titles vary between stores, so cross-retailer offers get\n    distinct keys and are intentionally kept for price comparison. Recognizing\n    those as one product is the semantic (cosine) dedup in Part 9.\n    \"\"\"\n    return f\"{(p.brand or '').strip().lower()}|{p.title.strip().lower()}\"\n\n\ndef ingest(sources: list[DealSource]) -> list[Product]:\n    \"\"\"Pull from every source; when the exact same product appears twice, keep the cheapest.\"\"\"\n    best: dict[str, Product] = {}\n    for src in sources:\n        for p in src.products():\n            k = dedup_key(p)\n            if k not in best or p.price < best[k].price:\n                best[k] = p\n    return list(best.values())"
+    },
+    "01:dealfinder/live_sources.py#rapidapi-source": {
+      "lang": "python",
+      "text": "class RapidApiSource:\n    name = \"RapidAPI\"\n    tier = 1  # fast, generous limits — try first\n    _host = \"real-time-product-search.p.rapidapi.com\"\n\n    def available(self) -> bool:\n        return bool(os.getenv(\"RAPIDAPI_KEY\"))\n\n    def search(self, query: str, limit: int = 15) -> list[Product]:\n        key = os.getenv(\"RAPIDAPI_KEY\")\n        if not key:\n            return []\n        r = httpx.get(f\"https://{self._host}/search\",\n                      params={\"q\": query, \"country\": \"us\", \"limit\": str(limit)},\n                      headers={\"X-RapidAPI-Key\": key, \"X-RapidAPI-Host\": self._host}, timeout=20)\n        out = []\n        for it in (r.json().get(\"data\") or {}).get(\"products\", []):\n            price = _f(it.get(\"price\"))\n            if not price:\n                continue\n            store = it.get(\"store_name\") or \"store\"\n            out.append(Product(\n                id=f\"rapidapi-{str(it.get('product_id') or it.get('product_title', ''))[:40]}\",\n                title=(it.get(\"product_title\") or query)[:120],\n                brand=store, category=\"product\", price=price,\n                url=it.get(\"product_page_url\") or \"\",\n                source=f\"{self.name}:{store}\",\n                image_url=(it.get(\"product_photos\") or [None])[0],\n            ))\n        return out"
+    },
+    "01:dealfinder/schema.py#product": {
+      "lang": "python",
+      "text": "class Product(BaseModel):\n    id: str\n    title: str\n    brand: str | None\n    category: str\n    price: float\n    currency: str = \"USD\"\n    url: str\n    source: str\n    image_url: str | None = None\n    # Store provenance (Best Buy): the store's SKU and its own \"was\" price. The\n    # regular price is display-only and never feeds a signal (shop.score_offers).\n    sku: str | None = None\n    regular_price: float | None = None\n    # Broad-electronics fields (added for the real-data regeneration). All are\n    # optional / defaulted so existing callers and fixtures keep working.\n    marketplace: str | None = None  # e.g. \"RapidAPI\", \"Apify\" — where the offer was seen\n    condition: str = \"new\"  # new / refurb / used (parsed from the title in features.py)\n    specs: dict[str, str] = {}\n    price_history: list[PricePoint] = []"
+    },
+    "01:dealfinder/snapshot.py#load-snapshot": {
+      "lang": "python",
+      "text": "def load_snapshot(path: str | None = None) -> list[dict]:\n    \"\"\"Return the snapshot's raw item rows (list of dicts), newest file by default.\n\n    Pass ``path`` to pin a specific snapshot (tests/eval that quote fixed numbers\n    should pin the file so the numbers never drift).\n    \"\"\"\n    p = Path(path) if path else _newest_snapshot()\n    data = json.loads(p.read_text())\n    # The snapshot is ``{\"meta\": {...}, \"items\": [...]}``; tolerate a bare list too.\n    items = data[\"items\"] if isinstance(data, dict) else data\n    return [{k: v for k, v in r.items() if k != \"image_url\"} for r in items]"
+    }
+  },
+  "outputs": {
+    "01:pytest": {
+      "text": "$ python -m pytest tests/test_part01.py -v -p no:cacheprovider\n======================================= test session starts ========================================\nplatform <python, os>\nrootdir: .\nconfigfile: pyproject.toml\nplugins: <installed plugins>\ncollecting ... collected 6 items\n\ntests/test_part01.py::test_snapshot_count PASSED                                             [ 16%]\ntests/test_part01.py::test_brand_field_is_retailer_polluted PASSED                           [ 33%]\ntests/test_part01.py::test_hero_query_median_is_pinned PASSED                                [ 50%]\ntests/test_part01.py::test_xm5_cross_retailer_offers_are_both_kept PASSED                    [ 66%]\ntests/test_part01.py::test_exact_duplicate_collapses_to_cheapest PASSED                      [ 83%]\ntests/test_part01.py::test_deal_pct_outliers_are_unsanitized PASSED                          [100%]\n\n======================================== 6 passed in <t>s =========================================",
+      "manual": null
+    },
+    "01:raw-brands": {
+      "text": "$ python course/examples/01_raw_brands.py\n270\n'Walmart - COWIN'\n\"Kohl's\"\n'mountainlifestyle.ca'\n'Walmart - OEM ACCESSORIES'\n'Target'\n'Target'\n'Target'\n'costco.com'",
+      "manual": null
+    },
+    "01:title-brand": {
+      "text": "$ python course/examples/01_title_brand.py\n✓ 'Sony' from: Sony WH-1000XM5 Wireless Headphones\n✓ 'Cowin' from: COWIN E7 Active Noise Cancelling Headphones\n✓ 'Bose' from: Bose QuietComfort 45 Bluetooth Wireless Over Ear Headph\n✓ 'Soundcore' from: Anker Soundcore Q20i Active Noise Cancelling Headphones",
+      "manual": null
+    }
+  }
+}

@@ -1,3 +1,5 @@
+const path = require('node:path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
@@ -60,7 +62,17 @@ const withMDX = createMDX({
   // Turbopack serialization). rehype-slug gives every heading a GitHub-style
   // id so the in-page tables of contents in the tutorials actually resolve.
   // Syntax highlighting stays a component (see above).
-  options: { remarkPlugins: [['remark-gfm']], rehypePlugins: [['rehype-slug']] },
+  // The course include plugin fills DealFinder lesson fences from the committed
+  // snippet file. Absolute paths: @next/mdx resolves a plugin string from the MDX
+  // file's own directory, so a "./scripts/…" string would not be found.
+  options: {
+    remarkPlugins: [
+      ['remark-gfm'],
+      [path.join(__dirname, 'scripts/lib/remark-course-include.mjs'),
+        { snippets: path.join(__dirname, 'content/course/snippets.json') }],
+    ],
+    rehypePlugins: [['rehype-slug']],
+  },
 });
 
 module.exports = withMDX(nextConfig);

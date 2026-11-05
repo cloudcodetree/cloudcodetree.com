@@ -1,0 +1,41 @@
+name: course-content
+
+# DealFinder lessons include companion code and outputs from content/course/snippets.json.
+# A production build never compiles draft lessons, so this job checks every lesson's
+# include fences, and checks the snippet file against the pinned companion steps.
+on:
+  pull_request:
+    paths:
+      - 'content/course/**'
+      - 'app/tutorials/(article)/dealfinder-*/**'
+      - 'scripts/sync-course-snippets*.mjs'
+      - 'scripts/lib/course-anchors*.mjs'
+      - 'scripts/lib/remark-course-include*.mjs'
+  push:
+    branches: [ main ]
+    paths:
+      - 'content/course/**'
+      - 'app/tutorials/(article)/dealfinder-*/**'
+      - 'scripts/sync-course-snippets*.mjs'
+      - 'scripts/lib/course-anchors*.mjs'
+      - 'scripts/lib/remark-course-include*.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+    - run: pnpm exec vitest run scripts/lib/course-anchors.test.mjs scripts/lib/remark-course-include.test.mjs scripts/sync-course-snippets.test.mjs
+    - name: Snippet file matches the pinned steps
+      run: node scripts/sync-course-snippets.mjs --check
