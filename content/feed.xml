@@ -10,9 +10,95 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 05 Nov 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 05 Nov 2026 20:04:00 +0000</lastBuildDate>
 
 
+
+  <item>
+    <title><![CDATA[You're Using Claude Code When You Should Be in Claude Design, and Vice Versa — the Decision Rule That Ends the Guessing]]></title>
+    <link>https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/</link>
+    <guid isPermaLink="false">2026-11-05-07-claude-design-claude-code-when-to-switch-decision-rule</guid>
+    <pubDate>Thu, 05 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Regenerate in Claude Design when you need to explore layout or interaction; switch to Claude Code once you're modifying real components, wiring behavior, or conforming to repo rules.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Regenerate in Claude Design when you need to explore layout or interaction; switch to Claude Code once you're modifying real components, wiring behavior, or conforming to repo rules.**
+
+After the first handoff, every component change raises the same question: go back to the design tool, or iterate in the editor? The wrong choice costs time — either generating code you then have to reconcile with your codebase, or manually implementing a visual change that would take two prompts in the design surface.
+
+**Stay in Claude Code when:**
+- The change involves props, event handlers, or data shape — implementation details
+- The component is already in your codebase with passing tests
+- The fix must conform to your TypeScript types, design tokens, or component API
+- It's a targeted correction, not an exploration
+
+**Go back to Claude Design when:**
+- The layout, information hierarchy, or interaction model needs to change
+- You want to compare two or three directions before writing any code
+- You haven't decided what it should look like — you need to see it
+- The current approach is structurally wrong, not just incorrectly implemented
+
+The asymmetry matters: an April 2026 hands-on review found Claude Design doesn't modify an existing component library's real code — it generates output that resembles your components. That gap is why the handoff is non-trivial. Once Claude Code has significantly customized a component, regenerating in Claude Design produces something you'll need to reconcile.
+
+**The round-trip cost:** `/design-sync` can push your component state back to the canvas (June 2026 two-way sync), but only published components in your team library are mappable. Changes Claude Code made directly to component internals don't surface automatically — the round-trip cost grows the further you've diverged.
+
+Limit: This decision logic applies on the second iteration and beyond. First time through, start in Claude Design; the rule applies when you're iterating on something that already exists in the codebase.
+
+**Sources:** [Claude Design hands-on review — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/) · [Claude Code and Claude Design two-way sync — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync) · [Claude Design guide — studiomeyer.io](https://studiomeyer.io/en/blog/claude-design-guide)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your MCP Server Approvals Don't Protect Against Tool Description Poisoning — Scan, Hook, and Audit Before Adding Another Server]]></title>
+    <link>https://arxiv.org/abs/2603.21642</link>
+    <guid isPermaLink="false">2026-11-05-06-mcp-tool-poisoning-scan-pretooluse-hook-defense</guid>
+    <pubDate>Thu, 05 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Tool description poisoning runs before permission prompts fire — scan tool descriptions for changes, log every MCP call with a PreToolUse hook, and prune your connected server list.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>MCP</category>
+    <category>Security</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Tool description poisoning runs before permission prompts — scan descriptions for changes, log every MCP call with a PreToolUse hook, and prune the connected server list.**
+
+A March 2026 paper from UBC ([arXiv:2603.21642](https://arxiv.org/abs/2603.21642)) tested seven MCP clients — Claude Code, Claude Desktop, Cursor, Cline, Continue, Gemini CLI, and Langflow — for prompt injection vulnerabilities. The finding most relevant to Claude Code users: tool description poisoning is the attack that bypasses permission dialogs. Claude Code reads tool descriptions during planning, before any `always_ask` prompt fires. Instructions embedded there execute in the model's reasoning before you see anything.
+
+**Three things worth wiring up now:**
+
+**1. Scan and pin tool descriptions:**
+```bash
+uvx mcp-scan@latest scan          # first run: hashes each server's tool descriptions
+uvx mcp-scan@latest scan          # subsequent runs: alerts on any change
+```
+A server that updates its description after you've trusted it — a rug pull — becomes visible. Limit: `mcp-scan` sends tool names and descriptions to `invariantlabs.ai`. Use `uvx mcp-scan@latest inspect` to review descriptions locally without transmitting them.
+
+**2. Log MCP calls with a PreToolUse hook:**
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "mcp__",
+      "hooks": [{"type": "command", "command": "echo \"$CLAUDE_TOOL_NAME $CLAUDE_TOOL_INPUT\" >> ~/.claude/mcp-audit.log"}]
+    }]
+  }
+}
+```
+An append-only record of every MCP call, keyed to tool name and input, independent of Claude Code's own logging.
+
+**3. Audit the connected list:**
+```bash
+claude mcp list
+```
+Remove servers you're not actively using. The attack surface is exactly this list.
+
+None of these is a complete defense — the arXiv paper found no fully immune client across all seven tested. The goal is raising the bar on unattended exploitation, not eliminating risk.
+
+**Sources:** [Are AI-assisted Development Tools Immune to Prompt Injection? — arXiv:2603.21642](https://arxiv.org/abs/2603.21642) · [mcp-scan — PyPI](https://pypi.org/project/mcp-scan/) · [Claude Code hooks — code.claude.com](https://code.claude.com/docs/en/hooks) · [Aptible MCP Security](https://aptible.com/mcp-security/mcp-prompt-injection)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Specialized Subagents Load 400 Lines of Project Rules They Never Use — `omitClaudeMd: true` Strips Them From Startup Context]]></title>
@@ -6295,34 +6381,7 @@ Qdrant computes the RRF fusion server-side — no manual rank-combination code n
 **Sources:** [Qdrant Hybrid Search with Reranking — qdrant.tech](https://qdrant.tech/documentation/tutorials-basics/reranking-hybrid-search/) · [Hybrid BM25 + Vector + RRF 2026 reference — sidhya.studio](https://sidhya.studio/posts/hybrid-bm25-vector-rerank-2026-reference) · [Hybrid Search with LangChain — LanceDB blog](https://lancedb.substack.com/p/hybrid-search-combining-bm25-and)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your PR Review Queue Is the Bottleneck, Not Your Inference Speed — Harvard Finds AI Coding Agents Raise Code Output +30% With No Gain in Shipped Features]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-19-03-harvard-coding-agents-bottleneck-nemotron-bolt</link>
-      <guid isPermaLink="false">2026-10-19-03-harvard-coding-agents-bottleneck-nemotron-bolt</guid>
-      <pubDate>Mon, 19 Oct 2026 12:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[A Harvard working paper on 700+ software firms found AI coding agents raised code output 30% with no gain in resolved issues; PR merge times rose 49%.]]></description>
-      <content:encoded><![CDATA[**A Harvard working paper finds AI coding agents raised per-worker code output ~30% across 700+ firms — but resolved issues were flat, PR merge time rose 49%, and revision requests nearly doubled; the bottleneck is review, not generation.**
-
-Fiona Chen and James Stratton (Harvard, "Artificial Intelligence in the Firm," Aug 2026) used Jellyfish engineering analytics data from over 700 software companies between 2021–2026. Workers using AI coding agents produced roughly 1,500 extra lines per month (+30%), 20% more commits, and 23% more pull requests. Resolved Jira issues and completed epics showed no statistically significant change; firm-level headcount held flat.
-
-The identified constraint: review. PR-to-merge time rose 49%. Revision requests nearly doubled. The share of workers assigned to review grew 14%.
-
-Practical read: adding generation capacity without matching review bandwidth shifts the queue, not the throughput. If your team is already reviewer-limited, more AI-generated PRs accelerate that constraint rather than relieving it.
-
-One caveat: the study measures commit and PR metadata, not shipped-feature quality or post-merge impact. It covers adoption through early 2026, and both the tools and the workflow patterns around them continue to change.
-
-**Also this week:** NVIDIA released [Nemotron 3.5 Bolt 74B](https://www.techrepublic.com/article/news-nvidia-nemotron-3-5-super-vl-bolt-ai-models/) — an open model (24 GB VRAM, ~9B active parameters per NVIDIA's own figures) built for local agentic workloads — available now on Ollama, LM Studio, and llama.cpp. OpenRouter's earlier testing of the Nemotron 3.5 Lightning variant found lower accuracy than NVIDIA's benchmarks, so measure on your own tasks.
-
-**Why it matters:** The Harvard finding reframes where AI coding tool ROI actually lands — invest in review tooling and process, not just a faster model.
-
-**Sources:** [Harvard: AI Coding Agents Lift Code 30%, Shipped Output Flat — aiweekly.co](https://aiweekly.co/alerts/harvard-study-ai-coding-agents-lift-code-30-shipped-output-flat) · [Byteiota coverage and analysis](https://byteiota.com/ai-coding-agents-write-30-more-code-teams-ship-the-same/) · [NVIDIA Nemotron 3.5 Bolt — TechRepublic](https://www.techrepublic.com/article/news-nvidia-nemotron-3-5-super-vl-bolt-ai-models/) · [HPC Wire on Nemotron 3.5](https://www.hpcwire.com/aiwire/2026/10/15/nvidia-expands-nemotron-family-with-highest-efficiency-super-vl-and-bolt-models/)]]></content:encoded>
-    </item>
-
+    
     <item>
       <title><![CDATA[Your Chunks Lose the Context That Made Them Retrievable — Late Chunking Embeds the Full Document First, Then Splits]]></title>
       <link>https://cloudcodetree.com/ai-news/2026-10-19-04-late-chunking-jina-embeddings-full-document-context</link>
@@ -6375,45 +6434,7 @@ Send the full document as the first element and your chunks after it. Discard `d
 **Sources:** [Late Chunking in Long-Context Embedding Models — jina.ai](https://jina.ai/news/late-chunking-in-long-context-embedding-models/) · [Late Chunking hands-on tutorial — DataCamp](https://www.datacamp.com/tutorial/late-chunking) · [Hosted API implementation guide — TDS course](https://tds.s-anand.net/2026-02/docs/week-4/late-chunking/)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Auto Mode Logs Don't Tell You Why a Tool Was Blocked — v2.1.301 Adds classifier_verdict and permission_mode to Every tool_decision Span]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-19-02-claude-code-auto-mode-otel-classifier-verdict</link>
-      <guid isPermaLink="false">2026-10-19-02-claude-code-auto-mode-otel-classifier-verdict</guid>
-      <pubDate>Mon, 19 Oct 2026 04:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Claude Code v2.1.301 adds classifier_verdict and permission_mode to tool_decision OTel spans — traces now show whether auto mode's classifier or a permission rule blocked each tool call.]]></description>
-      <content:encoded><![CDATA[**Claude Code v2.1.301 adds `classifier_verdict` and `permission_mode` to `claude_code.tool_decision` spans — your OTel backend can now distinguish classifier blocks from permission-rule blocks in unattended runs.**
-
-Auto mode logs a `claude_code.tool_decision` event on every tool call decision. Before v2.1.301, the event carried `tool_name`, `decision`, and `source`, but nothing that distinguished why a call was blocked: you couldn't tell whether auto mode's classifier refused it or a permission rule in your `settings.json` denied it. Both showed up as "blocked", pointing you at the wrong part of your configuration when you tried to debug.
-
-**What v2.1.301 adds (October 15):**
-- `classifier_verdict` — the auto mode classifier's raw decision for this call
-- `permission_mode` — the permission source (classifier, explicit deny, allowlist, etc.) that produced the final outcome
-
-Filter on `classifier_verdict` to find calls the classifier was unsure about. Join with `tool_name` and you can see which tools repeatedly hit the classifier — a signal that your auto mode threshold is tight relative to your actual usage pattern.
-
-**v2.1.302 follow-up (October 16): `CLAUDE_CODE_AUTO_MODE_MODEL`**
-
-A new env var pins the model used for client-side auto mode classification, independent of the session model:
-
-```
-CLAUDE_CODE_AUTO_MODE_MODEL=claude-haiku-5-5
-```
-
-Default is Sonnet for external sessions. Setting this to Haiku on a batch Workflow run reduces classifier overhead when the tasks are straightforward and the classifier rarely needs to deliberate.
-
-**Known regression in v2.1.301 (fixed in v2.1.302):** `classifier_category` was dropped from `tool_decision` events in 2.1.301. Upgrade to 2.1.302 before building dashboards that read that field.
-
-**Limits:** As of October 16, the official auto-mode docs page does not yet list `classifier_verdict` or `permission_mode`. The field names come from the Classmethod write-up and release notes — confirmed by implementation, not yet official reference. Server-side auto mode decisions are not emitted through client OTel, so this only covers client-side classifier decisions.
-
-**Sources:** [Claude Code v2.1.301 OTel changes — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261016-cc-updates-v2-1-301/) · [Claude Code telemetry with OpenTelemetry — openobserve.ai](https://openobserve.ai/blog/claude-agent-sdk-observability-opentelemetry/) · [Claude Code auto mode config — code.claude.com](https://code.claude.com/docs/en/auto-mode-config.md)]]></content:encoded>
-    </item>
-
+    
     
 
     
