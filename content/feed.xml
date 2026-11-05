@@ -10,9 +10,111 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 05 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 05 Nov 2026 12:04:00 +0000</lastBuildDate>
 
 
+
+  <item>
+    <title><![CDATA[Your Specialized Subagents Load 400 Lines of Project Rules They Never Use — `omitClaudeMd: true` Strips Them From Startup Context]]></title>
+    <link>https://code.claude.com/docs/en/memory</link>
+    <guid isPermaLink="false">2026-11-05-04-subagent-omitclaudemd-strip-project-rules-startup-context</guid>
+    <pubDate>Thu, 05 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Claude Code v2.1.271 adds omitClaudeMd: true as a frontmatter field for custom subagents — set it on narrow-task agents (schema checks, linters, file scans) to skip loading project CLAUDE.md entirely.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Set `omitClaudeMd: true` in a custom subagent's frontmatter and it starts without any project CLAUDE.md — useful for narrow-task agents where your project rules are irrelevant noise.**
+
+When you fan out work to custom subagents, each one inherits your full CLAUDE.md hierarchy by default — the same 400+ lines written for the orchestrator session. A subagent whose job is to scan a schema file, run a linter, or do a targeted code search doesn't need your deployment runbook, design system conventions, or database migration policy. Unused context wastes window space and can cause the subagent to apply rules that don't belong to its task.
+
+Claude Code v2.1.271 (September 14, 2026) added `omitClaudeMd: true` as a frontmatter field for custom subagent definitions at `.claude/agents/<name>.md`:
+
+```markdown
+---
+name: schema-auditor
+description: Checks database schema files for naming and type violations
+omitClaudeMd: true
+---
+You receive a schema file path. Output a JSON array of violations...
+```
+
+With the flag set, the subagent doesn't load user, project, or local CLAUDE.md files. Organization-level managed policy files still load — the flag removes the project-specific layer, not the organization-enforced one. Subdirectory CLAUDE.md files that would normally load on-demand are also skipped.
+
+The flag also works in `--agents` JSON definitions passed to the CLI, and in plugin subagents.
+
+**When to use it:** Narrow-task subagents with a fixed input/output contract — file analysis, schema validation, search, test runners, linters. Any subagent that only needs to know *its own instructions*, not the broader project context.
+
+**When not to use it:** Orchestrator agents, any subagent that edits code in the repo, or anything that needs to follow project-wide conventions. Keep it off unless you have a reason to strip context.
+
+**Limit:** `omitClaudeMd` only applies to custom subagents defined in `.claude/agents/` or via `--agents` JSON. It has no effect on built-in subagents (Explore, Plan) — those follow their own context rules.
+
+**Sources:** [Claude Code memory docs — code.claude.com](https://code.claude.com/docs/en/memory) · [v2.1.271 changelog summary — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20260915-cc-updates-v2-1-272/) · [omitClaudeMd explained — claudelog.com](https://claudelog.com/faqs/what-is-omit-claude-md-in-claude-code/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your OpenAI SDK Already Has a Faster Path to 70B+ Models — Two Lines Route It to Fireworks AI's Inference Endpoint]]></title>
+    <link>https://docs.fireworks.ai/getting-started/quickstart</link>
+    <guid isPermaLink="false">2026-11-05-05-fireworks-ai-openai-compatible-endpoint-hosted-inference-70b</guid>
+    <pubDate>Thu, 05 Nov 2026 12:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Point your OpenAI SDK at https://api.fireworks.ai/inference/v1 with a Fireworks API key and access a catalog of 70B+ hosted models using the same code you already have. Function calling works; streaming + tools does not.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: Change `base_url` to `https://api.fireworks.ai/inference/v1`, swap in a Fireworks model ID, and your existing OpenAI SDK code hits Fireworks' hosted inference fleet — no other changes required.**
+
+**What you'll be able to do after this:** Call a 70B+ instruction-tuned model for structured output or function calling through the same OpenAI SDK your app already uses, without managing GPU infrastructure or working around per-minute rate limits.
+
+Fireworks AI runs a hosted inference fleet optimized for throughput on large open-weight models. Its API is fully OpenAI-compatible.
+
+**Three things to know before you start:**
+- Model IDs use a path format: `accounts/fireworks/models/<name>` — e.g., `accounts/fireworks/models/llama-v3p1-70b-instruct`
+- Function calling works; streaming is not currently supported for tool-call responses — set `stream=False` on any tool-use path
+- The native `fireworks-ai` Python SDK is still in alpha; the OpenAI SDK route below is the stable path
+
+**Setup:**
+
+```bash
+pip install openai
+export FIREWORKS_API_KEY="your_api_key_here"
+```
+
+**First call:**
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.fireworks.ai/inference/v1",
+    api_key=os.environ["FIREWORKS_API_KEY"],
+)
+
+response = client.chat.completions.create(
+    model="accounts/fireworks/models/llama-v3p1-70b-instruct",
+    messages=[{"role": "user", "content": "Summarize this in one sentence: ..."}],
+    max_tokens=200,
+)
+print(response.choices[0].message.content)
+```
+
+**Function calling:**
+
+Replace the model with one from [Fireworks' function-calling catalog](https://docs.fireworks.ai/models/overview). Pass tools the same way you would with OpenAI. Check `response.choices[0].finish_reason == "tool_calls"` to detect when the model requests a function. Do not set `stream=True` on tool-use requests — it is not yet supported.
+
+**Where Fireworks wins:** High-throughput workloads on 70B+ models where you need sub-second time-to-first-token and structured output. Where it's not the best fit: at 7B–13B scale, Together AI and OpenRouter (covered in [this earlier post](https://cloudcodetree.com/ai-news/2026-10-22-01-together-ai-openai-sdk-base-url-open-models)) often have lower latency; Fireworks' pricing advantage is most visible at larger model sizes.
+
+**Limits:** Model names and availability change frequently — always check the [model catalog](https://docs.fireworks.ai/models/overview) rather than hardcoding a name. The native SDK is alpha and may break across minor versions. No streaming support for function calling means you need a different code path if you're streaming and calling tools.
+
+**Sources:** [Fireworks quickstart — docs.fireworks.ai](https://docs.fireworks.ai/getting-started/quickstart) · [LlamaIndex Fireworks function-calling cookbook — developers.llamaindex.ai](https://developers.llamaindex.ai/python/framework/integrations/llm/fireworks_cookbook/) · [Together vs OpenRouter vs Fireworks comparison (earlier in this series)](https://cloudcodetree.com/ai-news/2026-10-22-01-together-ai-openai-sdk-base-url-open-models)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Claude Code Edits .env on Every Run Until You Add a 12-Line PreToolUse Hook]]></title>
@@ -6312,102 +6414,9 @@ Default is Sonnet for external sessions. Setting this to Haiku on a batch Workfl
 **Sources:** [Claude Code v2.1.301 OTel changes — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261016-cc-updates-v2-1-301/) · [Claude Code telemetry with OpenTelemetry — openobserve.ai](https://openobserve.ai/blog/claude-agent-sdk-observability-opentelemetry/) · [Claude Code auto mode config — code.claude.com](https://code.claude.com/docs/en/auto-mode-config.md)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[You're Regenerating in Claude Design for Changes That Belong in Your Editor — Here Is the Decision Rule for When to Stay vs. When to Switch to Claude Code]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-19-01-claude-design-regenerate-vs-code-decision-rule</link>
-      <guid isPermaLink="false">2026-10-19-01-claude-design-regenerate-vs-code-decision-rule</guid>
-      <pubDate>Mon, 19 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Claude Design</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Use Claude Design for structural and aesthetic changes; switch to Claude Code once the design is settled. Inline canvas adjustments handle small visual nudges without burning a generation.]]></description>
-      <content:encoded><![CDATA[**Use Claude Design for layout overhauls and aesthetic direction; switch to Claude Code the moment you're adjusting an implementation detail — spacing values, component props, a media query. Inline canvas adjustments handle small visual nudges without spending a generation.**
+    
 
-**What you'll be able to do after this:** Decide in under 30 seconds which tool a UI change belongs in, and stop re-exporting a design after you've already iterated in code.
-
-**Three takeaways:**
-
-1. **Structural and aesthetic changes → Claude Design.** A new section, a layout overhaul, a color direction shift, a different typographic treatment — these require the model to understand overall design intent. Give them to Claude Design via chat, where it can reason about the whole composition.
-
-2. **Implementation changes → Claude Code.** Spacing values, responsive breakpoints, a component prop, a CSS custom property, a WCAG fix — these live in code, don't require design intent, and won't sync back to the canvas anyway. Fix them in your editor; a round-trip through Claude Design costs a full generation and returns the same structure with a slightly different implementation.
-
-3. **Small visual nudges → inline adjustments first.** Claude Design's inline canvas comments let you adjust targeted properties without triggering a full generation. Use them for minor visual tuning before deciding whether a change is substantial enough to warrant a chat prompt.
-
-**Concrete walk-through:**
-
-You have a hero section. The client wants a more editorial direction — bigger headline, no gradient overlay.
-
-1. **That's structural → Claude Design.** Prompt: *"Make the hero editorial: headline at 2× current size, remove the gradient overlay, bleed the image edge-to-edge."* Claude Design regenerates the section.
-
-2. **Export and hand off.** Claude Code builds the component from the bundle.
-
-3. **The headline/subheadline gap is 24px but you want 32px.** Implementation detail → fix it in code (`gap-6` → `gap-8`, or adjust the design token). Do not go back to Claude Design for this.
-
-4. **Client wants to explore three different header directions.** Structural → back to Claude Design. Ask for variants in separate chat turns; save the state between them.
-
-5. **Breakpoint behavior at 768px is broken.** Responsive bug → fix in Claude Code.
-
-**The handoff is one-directional by default.** Code changes don't sync back to the Claude Design canvas. If you re-export from Claude Design after iterating in code, your code-side changes are overwritten. Treat the export as your starting point; once the component is in the repo, it lives in Claude Code.
-
-**Limit:** Full regeneration in Claude Design draws from your plan's shared usage pool alongside chat and Claude Code. On a project with many components, keep structural sessions focused on one section at a time — whole-design prompts consume more than targeted ones. As of October 2026, there is no selective regeneration of one section while others stay fixed; chat iterates the entire canvas.
-
-**Sources:** [Using Claude Design for prototypes and UX — claude.com/resources](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Iterative refinement loop in Claude Design — mindstudio.ai](https://www.mindstudio.ai/blog/iterative-refinement-loop-claude-design-multimodal)]]></content:encoded>
-    </item>
-
-
-    <item>
-      <title><![CDATA[Claude Code --print Returns Freeform Text by Default — Add --json-schema to Get Schema-Pinned Structured Output Your Pipeline Can Parse Without Regex]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-18-05-claude-code-json-schema-headless-structured-output</link>
-      <guid isPermaLink="false">2026-10-18-05-claude-code-json-schema-headless-structured-output</guid>
-      <pubDate>Sun, 18 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Add --json-schema to --output-format json and Claude Code's headless mode puts a schema-validated object in .structured_output — no text-parsing or regex needed in your CI script.]]></description>
-      <content:encoded><![CDATA[**When Claude Code runs headless with `-p --output-format json`, the answer lands in `.result` as a prose string. Add `--json-schema` and it lands in `.structured_output` as a validated object your script can destructure directly.**
-
-When you pipe Claude Code output to a CI script, the default JSON envelope looks like this:
-
-```json
-{ "result": "The PR introduces a breaking change in getUser...", "session_id": "...", "total_cost_usd": 0.003 }
-```
-
-That `.result` is a prose string — you end up regex-ing for "yes" or "no" or building a secondary parse step. `--json-schema` removes that entirely:
-
-```bash
-SCHEMA='{"type":"object","properties":{"has_breaking_change":{"type":"boolean"},"reason":{"type":"string"}},"required":["has_breaking_change","reason"]}'
-
-claude -p "Analyze this diff for breaking changes" \
-  --output-format json \
-  --json-schema "$SCHEMA" \
-  | jq '.structured_output'
-```
-
-Output:
-
-```json
-{"has_breaking_change": true, "reason": "Changed return type of getUser from string to User object"}
-```
-
-The envelope still includes `session_id`, `total_cost_usd`, and `is_error` — pipe through `jq '.structured_output'` to extract just the structured result, or use the full envelope for spend tracking.
-
-**Three things to know:**
-
-- Pass the schema inline as a JSON string, or from a file: `--json-schema "$(cat schema.json)"`.
-- An invalid schema causes an immediate CLI exit with an error (v2.1.205+ improved reporting; earlier versions silently fell back to freeform text — worth pinning your CLI version in CI).
-- `format` keywords (e.g. `"format": "date"`) are accepted but treated as annotations, not enforced. Use `pattern` if you need validation.
-
-**Limit:** An open bug reported July 2026 shows array-type fields serializing as XML text in some versions. If your schema has array properties, test carefully against your installed version before relying on it in production CI.
-
-**Sources:** [Headless mode — Claude Code docs](https://code.claude.com/docs/en/headless) · [CLI usage — Anthropic docs](https://docs.anthropic.com/en/docs/claude-code/cli-usage) · [`--json-schema` invalid-schema behavior — Claude Code issues tracker](https://claudeissues.com/issue/75875-docs-json-schema-flag-docs-omit-v2-1-205-fix-for-invalid-schema-silent-fallback)]]></content:encoded>
-    </item>
-
+    
     
     
     
