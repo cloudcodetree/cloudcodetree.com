@@ -10,9 +10,138 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 05 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 06 Nov 2026 04:04:00 +0000</lastBuildDate>
 
 
+
+  <item>
+    <title><![CDATA[Your CLAUDE.md Has 200 Lines Because You've Never Run /doctor — It Flags Codebase-Derivable Content and Warns When You Cross 40 K Characters]]></title>
+    <link>https://code.claude.com/docs/en/best-practices</link>
+    <guid isPermaLink="false">2026-11-06-03-claude-code-doctor-audit-claude-md-trim-codebase-derivable</guid>
+    <pubDate>Fri, 06 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Run /doctor in Claude Code to find CLAUDE.md bloat — it flags size warnings at 40 K characters and identifies content Claude can already derive from your committed files.</description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: `/doctor` audits your CLAUDE.md for size bloat and content Claude could derive from the codebase itself; v2.1.206 (July 2026) added the codebase-derivable check.**
+
+Every line in CLAUDE.md loads on every request. Rules that document things Claude can already read from your project — the tech stack, the directory layout, that you're on Node 22 — burn context window on every conversation and can mask real conflicts. `/doctor` checks for this.
+
+**What /doctor flags:**
+
+```
+/doctor
+```
+
+1. **CLAUDE.md size** — warns when you cross 40 K characters (community-tested threshold; not stated in official docs). Over that, every conversation starts with a heavy always-on load.
+2. **Codebase-derivable content** — added in v2.1.206. If CLAUDE.md documents things visible in package.json, tsconfig, the directory tree, or other committed files, `/doctor` proposes removing them. Claude reads those files; the CLAUDE.md copy is redundant noise.
+3. **Local vs. committed duplicates** — if your user CLAUDE.md (`~/.claude/CLAUDE.md`) restates rules from the project file, it flags the overlap.
+
+**How to trim:**
+
+Review each proposed cut before accepting. `/doctor` can't tell whether a rule is there for a reason it couldn't discover — a one-line override for a framework default, an edge case that bit the team. When in doubt, keep it and add a brief inline note explaining why it's explicit.
+
+Practical order: remove tech-stack documentation first (Claude reads package.json and tsconfig), then remove directory descriptions that match what an `ls` already shows. Keep anything that overrides a default, resolves an ambiguity, or records a past mistake.
+
+**Limit:** `/doctor` reports tooling mismatches (missing Node version, broken MCP connections) but doesn't fix them — structural problems require manual repair. And the 40 K size threshold comes from community testing, not official docs; treat it as a signal, not a hard rule.
+
+**Sources:** [Claude Code best practices — code.claude.com](https://code.claude.com/docs/en/best-practices) · [/doctor command guide 2026 — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-doctor-checkup-command-guide-2026/) · [v2.1.206 release notes — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20260710-cc-updates-v2-1-206/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Existing Component Lives in Code and You Want to Explore a Visual Change — /design export Pushes It Into Claude Design as a Live Prototype]]></title>
+    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
+    <guid isPermaLink="false">2026-11-06-02-design-export-claude-code-live-prototype-reverse-round-trip</guid>
+    <pubDate>Fri, 06 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Use /design export in Claude Code to push an existing component into Claude Design as a live prototype, explore visual changes in the design surface, then import the result back as code.</description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: `/design export` takes an existing component from your codebase into Claude Design as a live visual prototype; `/design import` brings the design changes back as code edits — the reverse of the standard handoff direction.**
+
+**What you'll be able to do after this:** Take a component that already exists in your codebase, push it into Claude Design for visual exploration without touching the codebase, make layout or styling changes in the design surface, and pull those changes back as code — without rebuilding from a screenshot.
+
+**Three things to know before you start:**
+
+- `/design export` reads your component and creates an editable Claude Design prototype; `/design import <id>` applies design changes back as code edits in Claude Code (requires v2.1.233+, research preview on Pro/Max/Team/Enterprise)
+- Claude Design uses your Tailwind config, CSS tokens, and component exports as generation context, so explorations start from what your app actually renders rather than generic defaults
+- The bundle carries visual structure and styling; it doesn't carry runtime behavior, API calls, or state management — expect to wire those after the import
+
+**Walk-through:**
+
+```bash
+# Step 1: Export an existing component as a Claude Design prototype
+/design export --component src/components/CheckoutSummary.tsx
+
+# Claude publishes a live prototype and returns the project ID
+# Design project created: cd_proj_abc123
+# View at: https://claude.ai/design/cd_proj_abc123
+
+# Step 2: Open the link in Claude Design (browser)
+# Explore layout changes, spacing adjustments, variant directions
+# No code changes needed during this phase — iterate freely
+
+# Step 3: Pull design changes back into the codebase
+/design import cd_proj_abc123
+# Claude Code reads the updated bundle and applies
+# visual changes as code edits to the component file
+```
+
+**What survives the return trip:** layout changes, spacing, color tokens, component hierarchy. **What doesn't:** any behavior wired up after the last export — route handlers, fetch calls, context subscriptions need re-review after the import.
+
+**How this differs from `/design-sync`:** Sync pushes your design system (all components, tokens) into the canvas as a generation context. Export starts from one specific component in code and creates a prototype of it. Use export when you're exploring a rework of something that already exists; use sync when starting a new feature from scratch.
+
+A hands-on test from April 2026 found that Claude Design reads your component files as design artifacts, not as an editable component graph — the generated canvas looks right but isn't directly linked to your library's internals. That gap means you should treat the round-trip as "visual diff to apply," not as a lossless sync.
+
+**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design hands-on: what it generates and what it doesn't — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/) · [/design skill, w34 release notes — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w34)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[The Standalone claude.ai/design Site Closes December 14 — Migrate Your Design Systems Through Artifacts Before Then or Lose Your Projects]]></title>
+    <link>https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude</link>
+    <guid isPermaLink="false">2026-11-06-01-claude-design-standalone-closing-december-14-migrate</guid>
+    <pubDate>Fri, 06 Nov 2026 04:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description>Anthropic's official migration guide confirms claude.ai/design shuts down December 14, 2026. Design systems migrate through Artifacts; chats, comments, and public share links are permanently deleted.</description>
+    <category>AI</category>
+    <category>News</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**TL;DR: claude.ai/design shuts down December 14, 2026; design systems migrate through the Artifacts page in Claude, but chats, comments, and public share links are permanently deleted.**
+
+Anthropic's [official migration guide](https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude) confirms the closure. After December 14 the standalone address redirects to Claude.
+
+**What moves:**
+
+- **Design systems** — migrate one to bring over all systems in the organization, via the Artifacts page in Claude
+- **Project files** — open projects carry over into Claude
+
+**What doesn't:**
+
+- Chats and comments in the standalone site are deleted permanently
+- Public share links break — anyone visiting an old `/design` share URL loses access
+- No export-and-reimport path for chat history
+
+**Where to work after closure:**
+
+The design workflow continues through two paths:
+
+1. **Claude.ai** — design systems live alongside conversations in Artifacts; the canvas is accessible from any Claude conversation
+2. **Claude Code** — the `/design` skill (research preview, v2.1.233+) lets you create, edit, import, and export designs without leaving the terminal, and connects to Claude Design via MCP
+
+If you've used the standalone site and have design systems there, the migration window is about 38 days from today.
+
+**Why it matters:** Public project links break permanently. If you've shared a claude.ai/design URL with a team, embedded it in documentation, or used it as a client handoff link, replace those links before December 14. Chats contain prompt history that isn't downloadable after closure — save anything you'd want to reference.
+
+**Sources:** [Migrate from standalone Claude Design — support.claude.com](https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude) · [Claude Design migration walkthrough — memorylake.ai](https://www.memorylake.ai/en/blogs/migrate-claude-design-to-claude-code) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[You're Using Claude Code When You Should Be in Claude Design, and Vice Versa — the Decision Rule That Ends the Guessing]]></title>
@@ -6283,157 +6412,10 @@ Constraints not foregrounded in the announcement: this requires GitHub Enterpris
 **Sources:** [Unsloth fine-tuning guide with one-click Colab notebooks — unsloth.ai](https://unsloth.ai/docs/get-started/fine-tuning-llms-guide) · [QLoRA: Efficient Finetuning of Quantized LLMs — arXiv:2305.14314](https://arxiv.org/abs/2305.14314) · [Fine-tuning with Unsloth QLoRA walkthrough — computingforgeeks.com](https://computingforgeeks.com/fine-tune-llm-unsloth-qlora/)]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Claude Code Truncates Your Test Output Before the Failing Assertion — `bashOutputMaxChars` and `taskOutputMaxChars` in settings.json Raise the Cap to 128K]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-20-02-claude-code-bash-task-output-max-chars-settings</link>
-      <guid isPermaLink="false">2026-10-20-02-claude-code-bash-task-output-max-chars-settings</guid>
-      <pubDate>Tue, 20 Oct 2026 04:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Two settings.json keys raise Claude Code's Bash and task output cap to 128K characters so test failures and compile errors stop getting cut before you reach them.]]></description>
-      <content:encoded><![CDATA[**Two settings.json keys let you raise Claude Code's Bash and task output cap to 128,000 characters — the failing assertion stops getting cut from the bottom of your test run.**
-
-When a verbose test runner, a TypeScript type check, or a large `git diff` runs inside a Claude Code session, the raw output is silently cut at the tool's inline display limit — the error or failure is usually near the end, which is exactly where it gets truncated.
-
-Two settings added in v2.1.263 control this. Add them to `.claude/settings.json` (project-scoped) or `~/.claude/settings.json` (global):
-
-```json
-{
-  "bashOutputMaxChars": 128000,
-  "taskOutputMaxChars": 128000
-}
-```
-
-- **`bashOutputMaxChars`** — caps Bash tool inline output. Raise this when `jest --verbose`, `pytest -s -v`, or `tsc --noEmit` gets cut before the assertion you need.
-- **`taskOutputMaxChars`** — caps output from background subagent tasks. Raise this when you've delegated a CI-style run to a subagent and need the full log to diagnose failures after the fact.
-
-**When to set globally vs. per-project:** if you only need verbose output for one project's test suite, set it in that project's `.claude/settings.json`. If you routinely work with verbose tooling across projects, set it in `~/.claude/settings.json`.
-
-**Limit:** longer inline output means more tokens in context per tool call. On a tight context budget, or when you run many Bash calls in sequence, the context window fills faster. Pair this setting with explicit `allowedTools` restrictions to avoid tools that produce verbose noise you won't act on.
-
-**Sources:** [Claude Code v2.1.263 release summary — claudelog.com](https://www.claudelog.com/claude-code-changelog/) · [Claude Code context window and compaction — morphllm.com](https://www.morphllm.com/claude-code-context-window)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Vector Store Returns Documents About RAG Instead of Documents Mentioning "RAG v0.9" — Hybrid BM25 Plus Dense Search Fuses Both Rankings With RRF in Qdrant]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-20-01-qdrant-hybrid-bm25-dense-rrf-better-rag</link>
-      <guid isPermaLink="false">2026-10-20-01-qdrant-hybrid-bm25-dense-rrf-better-rag</guid>
-      <pubDate>Tue, 20 Oct 2026 04:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Embeddings</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Dense search encodes meaning but blurs exact tokens; BM25 catches them by term frequency; Qdrant's native hybrid mode fuses both rankings server-side via RRF.]]></description>
-      <content:encoded><![CDATA[**Dense search encodes meaning but blurs exact tokens; BM25 catches them by term frequency; running both and fusing via RRF consistently outperforms either alone on mixed-query RAG workloads.**
-
-**What you'll be able to do after this:** build a hybrid BM25 + dense retrieval pipeline that finds documents by meaning *and* by exact keyword — so searches for version strings, error codes, API identifiers, and technical terms don't disappear into the embedding space.
-
-- Dense embeddings encode semantic similarity but smear exact tokens. Searching "LangChain v0.3 deprecation" produces a vector near "LangChain framework changes" — useful, but it may miss a document that literally contains the string "v0.3".
-- BM25 scores by token frequency weighted by inverse document frequency (IDF) — it finds exact term matches that dense search misses.
-- Reciprocal Rank Fusion (RRF) merges two ranked lists by position rather than by raw score, so BM25 term counts and cosine similarity values (on different numeric scales) combine without normalization.
-
-**Walk-through (Qdrant, self-hosted or cloud):**
-
-```bash
-pip install qdrant-client fastembed
-```
-
-Create a collection with a dense vector and a BM25 sparse vector:
-
-```python
-from qdrant_client import QdrantClient, models
-
-client = QdrantClient(url="http://localhost:6333")  # or ":memory:"
-
-client.create_collection(
-    "docs",
-    vectors_config={"dense": models.VectorParams(size=384, distance=models.Distance.COSINE)},
-    sparse_vectors_config={
-        "bm25": models.SparseVectorParams(modifier=models.Modifier.IDF)
-    },
-)
-```
-
-At query time, pass two `prefetch` sub-queries and fuse with `FusionQuery`:
-
-```python
-results = client.query_points(
-    collection_name="docs",
-    prefetch=[
-        models.Prefetch(query=dense_vec, using="dense", limit=20),
-        models.Prefetch(query=sparse_vec, using="bm25", limit=20),
-    ],
-    query=models.FusionQuery(fusion=models.Fusion.RRF),
-    limit=5,
-)
-```
-
-Qdrant computes the RRF fusion server-side — no manual rank-combination code needed. With Qdrant Cloud Inference you can pass a plain text string as `query` and skip the local embedding model entirely.
-
-**Limits:** sparse vectors add ~20–30% storage overhead. BM25 IDF is computed at index time across the full corpus — adding documents later recomputes IDF, which can shift rankings for existing queries. For very short queries (one or two tokens), BM25 can dominate over semantics; reduce the RRF k-constant below 60 to soften that effect.
-
-**Sources:** [Qdrant Hybrid Search with Reranking — qdrant.tech](https://qdrant.tech/documentation/tutorials-basics/reranking-hybrid-search/) · [Hybrid BM25 + Vector + RRF 2026 reference — sidhya.studio](https://sidhya.studio/posts/hybrid-bm25-vector-rerank-2026-reference) · [Hybrid Search with LangChain — LanceDB blog](https://lancedb.substack.com/p/hybrid-search-combining-bm25-and)]]></content:encoded>
-    </item>
-
     
-    <item>
-      <title><![CDATA[Your Chunks Lose the Context That Made Them Retrievable — Late Chunking Embeds the Full Document First, Then Splits]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-19-04-late-chunking-jina-embeddings-full-document-context</link>
-      <guid isPermaLink="false">2026-10-19-04-late-chunking-jina-embeddings-full-document-context</guid>
-      <pubDate>Mon, 19 Oct 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Embeddings</category>
-      <category>RAG</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Late chunking embeds the full document first, then splits the resulting token embeddings per chunk — so each chunk inherits its surrounding document context.]]></description>
-      <content:encoded><![CDATA[**Late chunking embeds the full document first, then splits the resulting token embeddings at chunk boundaries — each chunk inherits its surrounding document context, not just its own text.**
-
-**What you'll be able to do after this:** generate chunk embeddings that capture cross-chunk references, so pronouns and entity mentions in a chunk don't become dead ends in your vector index.
-
-Standard RAG: split text → embed each chunk in isolation. The problem: "It increased 40% in Q3" produces a semantically vague embedding because the model only sees that sentence. Your vector store indexes it faithfully, but no plausible query can retrieve it reliably.
-
-Late chunking flips the order:
-
-1. Run the **full document** through a long-context embedding model to get one embedding **per token**.
-2. Split at your chunk boundaries and **average** the token embeddings for each span.
-
-Each chunk embedding is conditioned on its full document context. Cross-references, pronouns, and topic continuity survive the split.
-
-**With the Jina API (hosted, one call):**
-
-```python
-import requests, os
-
-response = requests.post(
-    "https://api.jina.ai/v1/embeddings",
-    headers={"Authorization": f"Bearer {os.environ['JINA_API_KEY']}"},
-    json={
-        "model": "jina-embeddings-v3",
-        "late_chunking": True,
-        "input": [
-            full_document,   # index 0 — discard this embedding
-            chunk_1, chunk_2, chunk_3,
-        ]
-    }
-)
-chunk_embeddings = [d["embedding"] for d in response.json()["data"][1:]]
-```
-
-Send the full document as the first element and your chunks after it. Discard `data[0]`; store the rest in your vector store as usual.
-
-**Limit:** Late chunking helps most when chunks have cross-document dependencies — financial reports, technical documentation, meeting notes. For self-contained paragraphs (e.g. FAQ entries), the gain over standard chunking is marginal. `jina-embeddings-v3` has an 8,192-token context window; documents longer than that need a sliding-window approach or a different long-context model.
-
-**Sources:** [Late Chunking in Long-Context Embedding Models — jina.ai](https://jina.ai/news/late-chunking-in-long-context-embedding-models/) · [Late Chunking hands-on tutorial — DataCamp](https://www.datacamp.com/tutorial/late-chunking) · [Hosted API implementation guide — TDS course](https://tds.s-anand.net/2026-02/docs/week-4/late-chunking/)]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
 
