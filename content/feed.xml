@@ -10,10 +10,112 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 06 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 07 Nov 2026 04:04:00 +0000</lastBuildDate>
 
 
 
+
+  <item>
+    <title><![CDATA[Claude Code Silently Drops Five of Your Eight Requested Changes — Ask for a Task List First and Each Step Becomes a Visible, Interruptible Checkpoint]]></title>
+    <link>https://code.claude.com/docs</link>
+    <guid isPermaLink="false">2026-11-07-03-claude-code-todowrite-task-plan-checkpoint-complex-tasks</guid>
+    <pubDate>Sat, 07 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Ask Claude Code to write its task plan before starting any multi-step task — a live checklist appears in the terminal and each step becomes a visible, interruptible checkpoint.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Before sending Claude Code on any task with five or more steps, ask it to write out its plan first — a live task list appears in the terminal, and you can catch a wrong assumption before code is written.**
+
+By default, Claude Code starts acting on a complex request immediately. If its interpretation of step 3 differs from yours, you find out when it has already edited half a dozen files. A prior plan makes the difference visible at zero cost.
+
+**Add this to any complex prompt:**
+
+```
+Before you start, write your task plan using TodoWrite.
+List each step with its current state as "pending".
+Wait for my confirmation before proceeding.
+```
+
+The terminal shows the task list as Claude Code creates it. You read it. If step 2 is wrong, say so now — before any edits land. Once you approve, it proceeds and marks steps complete as it goes, so you always know where the run is.
+
+**Three cases where this pays off immediately:**
+- Refactors that touch more than one module (you can verify the file list before changes)
+- Tasks where the right starting point is ambiguous (the plan exposes the assumption)
+- Long CI runs where you need a progress trail without watching a scrolling terminal
+
+**What it doesn't prevent:** TodoWrite is session-scoped. If the session ends mid-task, the list is gone. For work that spans sessions, also ask Claude Code to write a `PLAN.md` to disk at the same time — same content, but it survives a restart.
+
+**Limit:** Useful for complex tasks; adds an extra round-trip on simple ones. For "rename this variable" or "fix the type error on line 42," skip it — the planning step costs more than it saves.
+
+**Sources:** [Claude Code task management — claudefa.st](https://claudefa.st/blog/guide/development/task-management) · [TodoWrite and task management — engineering-playbook.vercel.app](https://engineering-playbook.vercel.app/claude-code/todowrite-and-task-management) · [Claude Code docs — code.claude.com](https://code.claude.com/docs)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Enterprise: Project Billing Tags Now in Beta and Unified Chat+Cowork Turns On by Default November 16]]></title>
+    <link>https://support.claude.com/en/articles/12138966-release-notes</link>
+    <guid isPermaLink="false">2026-11-07-02-claude-enterprise-billing-tags-cowork-unified-november-16</guid>
+    <pubDate>Sat, 07 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Claude Enterprise Nov 5-6: project billing tags in beta let teams track AI spend by charge code; unified chat+Cowork defaults on for all orgs on November 16.]]></description>
+    <category>AI</category>
+    <category>News</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Two Claude Enterprise changes this week: project billing tags (Nov 6, beta) attach charge codes to projects for cost tracking; the unified chat+Cowork interface defaults on for all orgs on November 16.**
+
+**Project billing tags (beta, Nov 6):** Enterprise admins can tag projects with the charge codes or client-matter numbers their org already uses. Spend appears broken down by tag in the admin console. Useful when multiple teams share one Enterprise org and need a cost split without creating separate orgs. Per Anthropic's release notes, this is in beta.
+
+**Unified chat+Cowork (November 16 deadline):** Anthropic is merging the separate Cowork and chat surfaces into one experience. Orgs that haven't changed the setting will have it turned on automatically on November 16. Worth reviewing with your admin before then — anything relying on the current Cowork-only interface should be re-verified after the change.
+
+**Why it matters:** Billing tag visibility is small quality-of-life for finance sign-off on shared orgs. The unified interface is the larger operational change — if your team has Claude Code routines or integrations that behave differently in Cowork vs. chat context, check them now rather than on November 17.
+
+**Limit:** Project billing tags are in beta; the schema and reporting UI may change. The November 16 auto-enablement is announced as an org-level default, not a forced change — an admin can still turn it off before then.
+
+**Sources:** [Claude release notes — support.claude.com](https://support.claude.com/en/articles/12138966-release-notes) · [Set up the unified Claude Enterprise experience — support.claude.com](https://support.claude.com/en/articles/17444462-set-up-and-manage-the-new-unified-claude-experience-for-your-enterprise-organization)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Imported Claude Design Component Renders Fine at 1280px and Breaks Below 400px — Have Claude Code Audit AI-Generated Layouts for Responsive Failures Before You Integrate]]></title>
+    <link>https://claude.com/resources/articles/build-responsive-web-layouts</link>
+    <guid isPermaLink="false">2026-11-07-01-claude-code-audit-ai-generated-layout-responsive-mobile-failures</guid>
+    <pubDate>Sat, 07 Nov 2026 04:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Use Claude Code to audit AI-generated components for responsive failures before they enter your codebase: catch fixed widths, hover-only interactions, and overflow before Playwright.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Claude Design</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** Give Claude Code a component that displayed correctly in Claude Design and broke at a 375 px viewport; it identifies which CSS rules are the cause and suggests replacements before the component enters your codebase.
+
+AI design tools generate layouts tuned for the design-canvas viewport — typically 1280–1440 px. Mobile behavior is implied, not tested. Anthropic's guide on responsive layout work says Claude Code can "explore project file structure, identify viewport-specific problems across multiple files, and propose fixes that maintain existing architecture." That capability is real, but it only fires if you direct it at the right questions.
+
+**Three things this gives you:**
+- A focused prompt runs the audit in under a minute, before Playwright, before code review, before staging
+- Claude Code finds structural issues — fixed px widths, hover-only interactions, tables that overflow, touch targets below 44 × 44 px — not just visual mismatches you'd spot at a glance
+- Fix suggestions stay in your stack; you don't regenerate the whole component from the design tool for a single CSS tweak
+
+**The audit prompt (run after export, before `git add`):**
+
+```
+Audit `src/components/ImportedCard.tsx` and its styles for responsive failures.
+Check for:
+1. CSS widths in px that break below 500px — suggest fluid alternatives
+2. hover: interactions with no equivalent touch event
+3. Tables or flex rows that overflow rather than wrap at narrow widths
+4. Touch targets below 44×44px
+Propose a corrected version for each issue found.
+```
+
+Then resize DevTools to 375 px and check by eye — Claude Code catches structure, your eyes catch rendering.
+
+**Limits:** This audit finds CSS and markup issues. It does not catch iOS input zoom (triggered by `font-size < 16px` on inputs), GPU compositing artifacts, or safe-area inset failures on notched devices. Those require a real device before ship. The Playwright responsive test suite from [this earlier post](https://cloudcodetree.com/ai-news/2026-10-22-04-playwright-responsive-viewport-ai-generated-ui) is the right follow-up for systematic CI coverage.
+
+**Sources:** [Build responsive web layouts — claude.com](https://claude.com/resources/articles/build-responsive-web-layouts) · [Mobile UI QA checklist for AI-generated code — DEV.to](https://dev.to/sahil_kat/mobile-ui-quality-control-checklist-for-ai-generated-code-33p1)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Remote MCP Server Returns 401 and You're Hardcoding Tokens in CLAUDE.md — `claude mcp add --transport http` Followed by `claude mcp login` Handles OAuth Discovery and Token Refresh]]></title>
@@ -6337,145 +6439,9 @@ Skip forks when tasks are genuinely self-contained (reading different repos, ind
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Anthropic Rebuilt Version Control Because Its Agents Were Doing 30,000 Merges a Day — Scion Replaces Git in Its Monorepo]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-02-anthropic-scion-vcs-agent-scale-git-30k-merges-day</link>
-      <guid isPermaLink="false">2026-10-21-02-anthropic-scion-vcs-agent-scale-git-30k-merges-day</guid>
-      <pubDate>Wed, 21 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Anthropic's monorepo hit 30,000 AI-agent-generated merges per day by September 2026; git's assumptions buckled and a seven-person team built and migrated to Scion in five months.]]></description>
-      <content:encoded><![CDATA[**Anthropic's monorepo hit 30,000 agent-generated merges per day, up from 2,500 — git buckled, and a seven-person team built and migrated to Scion in five months.**
-
-Anthropic published an engineering post on October 13, 2026 describing Scion, the version control system it built to replace git internally. AI coding agents don't commit a few times a day the way human developers do. By September 2026, Anthropic's monorepo was absorbing more than 30,000 merges per day — up from roughly 2,500 in May. Standard git's locking and merge-queue assumptions, designed for human-paced batches, stopped scaling.
-
-**What changed and why it matters**
-
-Git was built for mostly-disconnected developers who push periodically. AI agents writing code in hundreds of parallel sessions and submitting changes continuously hit the same synchronization bottlenecks you'd see on a very large coordinated team — just faster. The underlying assumptions (branch checkouts, lock contention, merge queues sized for human throughput) were never stress-tested at this volume.
-
-If you're running Claude Code agents in CI or as long-running background workers, you're already dealing with an early version of this at smaller scale: stale base branches, merge conflicts on auto-generated changes, and queues not sized for that volume.
-
-**What Scion is and isn't**
-
-Anthropic says Scion was purpose-built for their specific setup: one huge monorepo accessed mostly by always-connected agents and CI jobs. It is not a general-purpose git replacement. They've said they want to work with GitHub, GitLab, and the open-source community to bring some ideas back to git, but there is no public release, and the code's open-source status is unconfirmed as of this writing.
-
-**The practical takeaway:** "developer infrastructure built for human scale" is a category that breaks at agent scale. If you're designing systems today where agents generate commits at volume, git's merge queue, branch model, and CI triggers are worth stress-testing before you're at 30,000 merges a day — not after.
-
-**Why it matters:** The signal is architectural, not a product. The gap between 2,500 human merges/day and 30,000 agent merges/day is roughly where every assumption about "normal" pull request volume fails.
-
-**Sources:** [Scion engineering overview — fourweekmba.com](https://fourweekmba.com/ai-anthropic-builds-scion-to-replace-git-at-30000-merges-a-day/) · [The Register coverage](https://www.theregister.com/a/5302943) · [The New Stack](https://thenewstack.io/?p=22840374)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your RAG App Returns an Answer But Can't Say Which Chunk — LangChain's `.with_structured_output()` Maps Every Claim to Its Source Document]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-01-langchain-citation-aware-rag-with-structured-output</link>
-      <guid isPermaLink="false">2026-10-21-01-langchain-citation-aware-rag-with-structured-output</guid>
-      <pubDate>Wed, 21 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Number each retrieved chunk, pass a Pydantic CitedAnswer schema to .with_structured_output(), and the model returns the IDs it drew from — verify them before rendering sources.]]></description>
-      <content:encoded><![CDATA[**Number each retrieved chunk, pass a Pydantic `CitedAnswer` schema to `.with_structured_output()`, and the model returns the IDs it drew from — verify them before rendering sources.**
-
-**What you'll be able to do after this:**
-- Return verifiable RAG responses where every claim traces back to a specific retrieved chunk
-- Detect when the model generates from memory rather than retrieved context (no valid cited ID = flag it)
-- Build the citation layer in under 20 lines on top of any existing retrieval setup
-
-**The problem**
-
-RAG answers questions — but "the document says so" is only useful when the user can verify *which* document. Without citation IDs, you cannot tell whether an answer came from the retrieved context or from the model's training data. In any compliance- or accuracy-sensitive context, that gap is a non-starter.
-
-**The pattern (LangChain + any model with tool calling)**
-
-```python
-from langchain_anthropic import ChatAnthropic
-from pydantic import BaseModel, Field
-from typing import List
-
-class CitedAnswer(BaseModel):
-    answer: str = Field(description="Answer based only on the provided context")
-    cited_ids: List[int] = Field(
-        description="IDs of context chunks that support the answer"
-    )
-
-# Retrieve and label each chunk with an integer ID
-docs = retriever.invoke(question)
-context = "
-
-".join(
-    f"[Source {i}] {doc.page_content}"
-    for i, doc in enumerate(docs)
-)
-
-# Force the model to fill in citation IDs via structured output
-structured_llm = ChatAnthropic(model="claude-sonnet-5-5").with_structured_output(CitedAnswer)
-result = structured_llm.invoke(
-    f"Answer the question based only on the context below.
-
-{context}
-
-Question: {question}"
-)
-
-# Bounds-check before rendering — models can return IDs outside the range you gave them
-valid_sources = [docs[i].metadata for i in result.cited_ids if 0 <= i < len(docs)]
-```
-
-**Three things that go wrong**
-
-1. **ID hallucination.** Models occasionally return integers outside the range you gave them. Always bounds-check `cited_ids` before indexing into `docs`.
-
-2. **Post-hoc citations.** Research by Wallat et al. found that up to 57% of RAG citations are post-rationalized: the model generates an answer from memory, then attaches a plausible source ID. A stronger variant adds a `quoted_text: str` field and requires the model to echo the exact passage it drew from — that verbatim quote is independently verifiable and significantly reduces post-hoc attachment.
-
-3. **Retrieval quality is the ceiling.** If your retriever returns low-precision chunks, accurate citation IDs still produce wrong answers. Citation quality is bounded by retrieval quality — fix retrieval first.
-
-The LangChain how-to also covers a retrieval post-processing variant and a generation post-processing variant for models that don't support structured output. Start with `.with_structured_output()` if your model supports tool calling; fall back to the others if it doesn't.
-
-**Sources:** [LangChain How-To: Add Citations to a RAG App](https://python.langchain.com/docs/how_to/qa_citations) · [Citation-Aware RAG in LangChain — netjstech.com](https://www.netjstech.com/2026/04/citation-aware-rag-application-in.html) · [Citation faithfulness in RAG: Wallat et al.](https://arxiv.org/abs/2406.13663)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Claude Code's Built-In Plan and Explore Subagents Run Without Any Setup — They're Read-Only Sandboxes for Codebase Exploration That Can't Accidentally Write a File]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-20-07-claude-code-plan-explore-built-in-subagents-read-only-exploration</link>
-      <guid isPermaLink="false">2026-10-20-07-claude-code-plan-explore-built-in-subagents-read-only-exploration</guid>
-      <pubDate>Tue, 20 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Plan and Explore are built-in Claude Code subagents that need no .claude/agents/ definition — they search and analyze your codebase read-only and cannot write, delete, or run shell commands.]]></description>
-      <content:encoded><![CDATA[**Plan and Explore are built-in Claude Code subagents that run without any `.claude/agents/` setup — both are read-only sandboxes that can search and analyze your codebase but cannot write, delete, or execute shell commands.**
-
-When you trigger `/plan` or ask Claude to plan a change, it doesn't do all the file reading in your main session — it delegates that phase to the built-in **Plan** agent. Plan runs with a restricted tool set: Read, Glob, Grep, and nothing else. No Bash, no Edit. The exploration stays isolated from your main context window, and none of it can accidentally modify anything.
-
-**Explore** is the same idea for on-demand research. Invoke it for any multi-file search task where you want sandboxed exploration without polluting the main session. Because it's read-only, you can run it alongside an implementation session — Explore researches in parallel, finds what you need, and returns a summary; the main session writes files. Neither runs in the other's context.
-
-**What you'll be able to do after this:**
-- Understand why `/plan` keeps exploration isolated from your main context — and what that means for plan quality on a messy codebase
-- Explicitly invoke the Explore agent for multi-file audits or codebase surveys you don't want eating your main context
-- Trust the safety property: neither Plan nor Explore can write, delete, or run shell commands
-
-**The key difference from custom `.claude/agents/` subagents:** You don't define a file for Plan or Explore. Claude Code ships them and picks them automatically. You can override the defaults (including the model they use) by creating a `.claude/agents/explore.md` file — but out of the box they require no configuration.
-
-**When NOT to use them:** The subagent overhead isn't worth it for a targeted grep or a single-file lookup. Plan and Explore earn their keep when the exploration spans many files and would otherwise leave dozens of file-read results in the main session's context. For anything simpler, stay in the main session.
-
-A practical limit: if you've split your project across many directories without cross-linked CLAUDE.md files, Explore may miss relevant context that a manual search would catch. The agent reads what it can access from the project root; it doesn't load directory-specific CLAUDE.md files outside of the paths it visits.
-
-**Sources:** [Claude Code sub-agents — official docs](https://code.claude.com/docs/en/sub-agents), [How and when to use subagents in Claude Code](https://claude.com/blog/how-and-when-to-use-subagents-in-claude-code), [Practical guide: Claude Code subagents 2026](https://tembo.io/blog/claude-code-subagents), [3 patterns for saving context with subagents](https://vantaige.io/blog/claude-code-subagents-save-context-3-patterns)
-]]></content:encoded>
-    </item>
-
+    
+    
+    
     
     
     
