@@ -10,10 +10,126 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 07 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 07 Nov 2026 12:04:00 +0000</lastBuildDate>
 
 
 
+
+  <item>
+    <title><![CDATA[Your Complex Claude Code Session Ends When You Close the Terminal — `/rename` It Before You Finish and `--resume` Gets You Back Instantly]]></title>
+    <link>https://code.claude.com/docs/en/sessions</link>
+    <guid isPermaLink="false">2026-11-07-04-claude-code-rename-resume-session-persist-context</guid>
+    <pubDate>Sat, 07 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[/rename stores a session by name before you close; claude --resume <name> reopens it in any directory with its full history intact. Flags like --mcp-config must be passed again.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**`/rename <name>` stores a session by name before you close; `claude --resume <name>` or `claude --continue` reopens it in any directory with its full history intact.**
+
+When a Claude Code session builds up real value — an hour of debugging context, accumulated file insights, a decision trail — closing the terminal forgets it. By default `claude --continue` reopens the most recent session in that directory. That breaks the moment you switch directories or the most recent session isn't the one you want.
+
+**Name a session before you close it:**
+
+```
+/rename auth-debug-session
+```
+
+Claude Code stores it in the session table. Next session:
+
+```bash
+claude --resume auth-debug-session   # exact name
+claude --resume                      # pick from a list
+```
+
+Inside a running session, `/resume` opens the same picker without leaving the terminal.
+
+**What carries over:**
+- Full conversation history (or its compact summary if idle compaction ran)
+- The session's model and agent type
+- Permission mode (can be overridden: `claude --resume <name> --permission-mode default`)
+
+**What you must pass again on resume:** `--mcp-config`, `--settings`, `--plugin-dir`, `--add-dir`, and `--fallback-model` don't persist — they aren't part of the session record. Keep a wrapper shell alias for sessions with non-default flags so you don't have to remember them.
+
+**Limit:** Sessions launched via `claude -p` (headless print mode) or through the Agent SDK are excluded from the picker and from `--continue`. They run non-interactively and don't appear in `claude --resume`.
+
+**Sources:** [Manage sessions — Claude Code Docs](https://code.claude.com/docs/en/sessions) · [Claude Code headless mode](https://code.claude.com/docs/en/headless) · [Session flags, community testing — claudeissues.com](https://claudeissues.com)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your RAG Chain Returns Plain Text and Users Can't Verify Which Source Backs Each Claim — Add a `CitedAnswer` Schema and Every Fact Gets Its Document Index]]></title>
+    <link>https://python.langchain.com/docs/how_to/qa_citations</link>
+    <guid isPermaLink="false">2026-11-07-05-langchain-cited-answer-structured-output-rag-citations</guid>
+    <pubDate>Sat, 07 Nov 2026 12:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Define a CitedAnswer Pydantic schema with an answer string and a list of integer indices; pass it to .with_structured_output() and the LLM cites its sources in every response.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** modify your existing LangChain RAG chain to return a structured `CitedAnswer` object — an answer string plus a list of citation indices — so every claim can be traced back to a retrieved source chunk.
+
+Currently most RAG answers are plain text: the LLM summarizes or misremembers something, and there is no way to tell which chunk it drew from. Citations close that gap by forcing the model to reference document IDs inline.
+
+**Step 1 — Define the schema:**
+
+```python
+from pydantic import BaseModel, Field
+from langchain_anthropic import ChatAnthropic
+
+class CitedAnswer(BaseModel):
+    answer: str = Field(
+        description="The answer, with inline [N] markers referencing source indices"
+    )
+    citations: list[int] = Field(
+        description="0-based indices of the retrieved documents that support the answer"
+    )
+
+llm = ChatAnthropic(model="claude-sonnet-5-5").with_structured_output(CitedAnswer)
+```
+
+**Step 2 — Label the retrieved chunks before passing them to the LLM:**
+
+```python
+def format_docs_with_ids(docs):
+    return "\n\n".join(
+        f"[{i}] {doc.page_content}\nSource: {doc.metadata.get('source', '')}"
+        for i, doc in enumerate(docs)
+    )
+
+context = format_docs_with_ids(retrieved_docs)
+prompt = f"""Answer using ONLY the provided context.
+Cite each fact as [N] where N is the document index.
+
+Context:
+{context}
+
+Question: {question}"""
+
+result = llm.invoke(prompt)
+# result.answer: "HNSW uses an M parameter to control edges [0]. Higher ef_construction improves recall [1]."
+# result.citations: [0, 1]
+```
+
+**Step 3 — Surface the sources:**
+
+```python
+for idx in result.citations:
+    print(f"[{idx}] {retrieved_docs[idx].metadata['source']}")
+```
+
+**Three takeaways:**
+- `.with_structured_output()` calls the tool/function-calling API — the model fills in the schema rather than guessing JSON format
+- Claude Sonnet 5.5 and other Anthropic models support this via `langchain-anthropic`
+- LangChain's how-to describes five citation methods; the tool-calling approach above is recommended first because it is most reliable
+
+**Limits:** `.with_structured_output()` does not stream — the full `CitedAnswer` object returns once at the end, increasing perceived latency for long answers. The LLM can still cite a source index that does not support the claim; surface the actual chunk alongside the answer so users can verify.
+
+**Sources:** [How to get a RAG application to add citations — LangChain docs](https://python.langchain.com/docs/how_to/qa_citations) · [Citation-aware RAG in Python — netjstech.com (April 2026)](https://www.netjstech.com/2026/04/citation-aware-rag-application-in.html)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Claude Code Silently Drops Five of Your Eight Requested Changes — Ask for a Task List First and Each Step Becomes a Visible, Interruptible Checkpoint]]></title>
@@ -6308,137 +6424,7 @@ For those patterns, the manual loop (check `stop_reason`, dispatch, append, repe
 
 **Sources:** [Tool Runner — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [Building a coding agent with the manual tool-use loop — dev.to](https://dev.to/pavelespitia/i-built-a-coding-agent-with-the-manual-tool-use-loop-heres-what-it-taught-me-4gjn)]]></content:encoded>
     </item>
-    <item>
-      <title><![CDATA[Add a Python Tool to Claude Code Without Writing the MCP Protocol — FastMCP Exposes Any Function as an MCP Tool, Resource, or Prompt in Under 30 Lines]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-04-python-fastmcp-server-tool-resource-prompt-claude-code</link>
-      <guid isPermaLink="false">2026-10-21-04-python-fastmcp-server-tool-resource-prompt-claude-code</guid>
-      <pubDate>Wed, 21 Oct 2026 12:15:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>MCP</category>
-      <category>Developer Tools</category>
-      <category>Building AI Products</category>
-      <description>FastMCP's three decorators (@mcp.tool, @mcp.resource, @mcp.prompt) turn Python functions into MCP tools Claude Code can call — no protocol code needed. Test with mcp dev before registering.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** register a Python function as an MCP tool Claude Code can call from any project, test it interactively before connecting it to any client, and extend the pattern to read-only context data (Resources) and named prompt templates (Prompts).
-
-The MCP Python SDK ships FastMCP — a decorator-based API that hides the protocol plumbing. You define a function, annotate it with type hints, and the server handles JSON Schema generation, transport, and the request/response cycle.
-
-## Install
-
-```bash
-uv add "mcp[cli]>=1.27,<2"  # pin below v2 alpha; class name changes in v2
-```
-
-## Three decorators, one server file
-
-```python
-# server.py
-from mcp.server.fastmcp import FastMCP
-
-mcp = FastMCP("MyServer")
-
-# Tool — a function the model can call with arguments
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers."""
-    return a + b
-
-# Resource — read-only context data exposed by URI
-@mcp.resource("config://app")
-def get_config() -> str:
-    return '{"timeout": 30, "retries": 3}'
-
-# Templated resource — URI parameter resolved at request time
-@mcp.resource("file://{path}")
-def read_file(path: str) -> str:
-    with open(path) as f:
-        return f.read()
-
-# Prompt — a named, parameterized message template
-@mcp.prompt()
-def review_prompt(code: str) -> str:
-    return f"Review this code for security issues:\n\n{code}"
-
-if __name__ == "__main__":
-    mcp.run()  # stdio transport by default
-```
-
-**Type hints are required on `@mcp.tool()` parameters.** The SDK uses them to build the JSON Schema the calling model receives. A parameter without a type hint causes the tool to fail registration.
-
-## Test locally with MCP Inspector
-
-```bash
-uv run mcp dev server.py
-```
-
-This opens the MCP Inspector — a browser UI that lists your tools, resources, and prompts, lets you invoke them manually, and shows the raw protocol messages. Verify tool behavior here before connecting to any client.
-
-## Register with Claude Code
-
-```bash
-claude mcp add my-server -- uv run server.py
-```
-
-Claude Code now sees the server's tools and resources as native tools in every session. Confirm with `claude mcp list`.
-
-## Limits
-
-- No built-in OAuth flow. If your tool calls an authenticated API, handle credentials via environment variables or a secrets manager.
-- Streaming tool responses are not supported in FastMCP v1. The `Context` parameter enables progress notifications but not true streaming.
-- FastMCP v2 alpha renames the import path — pin `mcp<2` until v2 is stable.
-
-**Sources:** [MCP Python SDK — PyPI](https://pypi.org/project/mcp/1.29.0/) · [Build MCP Servers with Python — glama.ai](https://glama.ai/mcp/servers/@surya-madhav/MCP/blob/db9db79cfcb56d67cbb87c5e16ebd40380183b32/docs/03-building-mcp-servers-python.md) · [MCP in Claude Code — code.claude.com](https://code.claude.com/docs/en/mcp)]]></content:encoded>
-    </item>
-    <item>
-      <title><![CDATA[Your Parallel Subagents Encode the Parent Context Once Each — `subagent_type: "fork"` Turns Every Child Into a Prompt Cache Hit Instead]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</link>
-      <guid isPermaLink="false">2026-10-21-03-claude-code-fork-subagent-shared-cache-parallel-research</guid>
-      <pubDate>Wed, 21 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Agents</category>
-      <category>Building AI Products</category>
-      <description><![CDATA[Pass subagent_type: "fork" when fanning out parallel research that all needs the same background — the child inherits the parent's context as a prompt cache hit, not a fresh encode.]]></description>
-      <content:encoded><![CDATA[**A forked subagent inherits the parent's full context as a prompt cache hit — five parallel forks on a 100K-token session cost roughly what one fresh subagent encode costs.**
-
-Every `Agent()` call without `subagent_type` spawns a fresh context window — a blank slate that receives only what you pass as a prompt. Right for isolated tasks. But when you're fanning out five research questions that all need the same codebase context, you're encoding the same system prompt and conversation history five times — once per subagent. At 100K tokens of shared background, that's 500K input tokens for the fan-out.
-
-**The fork alternative**
-
-Pass `subagent_type: "fork"` and the child inherits the parent's full, uncompressed context — system prompt, tool call history, conversation history — as a prompt cache hit. Anthropic prices prompt cache reads at roughly 10× less than fresh input tokens, so a five-way fork on a 100K-token session costs about what one fresh subagent encode costs.
-
-```javascript
-// Five fresh contexts — each encodes the full parent context
-const fresh = await parallel(
-  questions.map(q => () => agent(q, { label: q.id }))
-)
-
-// Five cache hits — each inherits the parent context without re-encoding
-const forked = await parallel(
-  questions.map(q => () => agent(q, { subagent_type: "fork", label: q.id }))
-)
-```
-
-**When to fork vs. when to spawn fresh**
-
-Use forks when: (a) all children need the same shared background and (b) you don't need the children's intermediate tool output added to the parent context. Fork results come back through the return value only — the child's tool calls stay in its own context window.
-
-Skip forks when tasks are genuinely self-contained (reading different repos, independent computations) — inherited context inflates each child's window with irrelevant history.
-
-**Limits**
-
-- Forked context still counts against the child's window ceiling. A 180K-token parent session gives each fork only 20K tokens of headroom in a 200K window.
-- The prompt cache expires after one hour. Forks launched more than an hour after the parent context was last used pay the full encode cost.
-- Children cannot write back to the parent context. Read results through the agent's return value.
-- A fork inherits context but not ongoing tool permissions — the child runs with its own permission set.
-
-**Sources:** [Claude Code Subagents guide — morphllm.com](https://www.morphllm.com/claude-subagents) · [Fork subagents in Claude Code — mejba.me](https://www.mejba.me/blog/forked-subagents-claude-code-anthropic) · [Prompt caching — anthropic.com](https://www.anthropic.com/pricing)
-]]></content:encoded>
-    </item>
-
+        
     
     
     
