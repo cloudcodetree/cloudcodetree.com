@@ -10,10 +10,74 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 07 Nov 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 07 Nov 2026 20:03:00 +0000</lastBuildDate>
 
 
 
+
+  <item>
+    <title><![CDATA[Your CI Eval Loop Waits for Each Inference Call Before Starting the Next — Anthropic's Message Batches API Submits All Requests at Once and Returns Results at Half Cost]]></title>
+    <link>https://docs.claude.com/en/docs/build-with-claude/message-batches</link>
+    <guid isPermaLink="false">2026-11-07-06-anthropic-message-batches-async-bulk-eval</guid>
+    <pubDate>Sat, 07 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Submit up to 100k requests as a single batch job; Anthropic charges 50% of standard rates and returns results as a .jsonl file. Good for eval runs, bulk classification, and document pipelines.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Best Practices</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Anthropic reports 50% cost reduction on the Message Batches API for async workloads — submit up to 100k requests in one call, pick up results as a `.jsonl` file when the batch completes.**
+
+A synchronous eval loop — one inference call per test case, waiting for each before the next — is the most expensive way to run evaluations. The Message Batches API submits every request in one call and handles rate-limit queuing on Anthropic's side. Per Anthropic's pricing page, all usage on the Batches API is billed at 50% of standard rates; that discount stacks with prompt caching.
+
+**How it works:**
+
+```python
+import anthropic, time
+
+client = anthropic.Anthropic()
+
+# 1. Build request list (same params as a standard Messages call)
+requests = [
+    {
+        "custom_id": f"eval-{i}",
+        "params": {
+            "model": "claude-sonnet-5-5",
+            "max_tokens": 512,
+            "messages": [{"role": "user", "content": f"Classify: {text}"}],
+        }
+    }
+    for i, text in enumerate(test_cases)
+]
+
+# 2. Submit
+batch = client.messages.batches.create(requests=requests)
+
+# 3. Poll until complete
+while batch.processing_status == "in_progress":
+    time.sleep(60)
+    batch = client.messages.batches.retrieve(batch.id)
+
+# 4. Stream results (.jsonl, arbitrary order)
+for result in client.messages.batches.results(batch.id):
+    if result.result.type == "succeeded":
+        print(result.custom_id, result.result.message.content[0].text)
+```
+
+`custom_id` ties each result back to your input — results arrive in arbitrary order, so keep it meaningful (e.g. the test-case id, the document path).
+
+**Good fits:** CI eval pipelines, nightly document classification or extraction, bulk summarization, offline enrichment jobs — anything where waiting an hour for the full batch beats paying double for real-time throughput.
+
+**Where it breaks down:**
+
+- **Not eligible for Zero Data Retention.** Per the official docs, data is retained under the standard retention policy for the feature. If ZDR is a compliance requirement, batch mode won't satisfy it — use the standard Messages API instead.
+- **Batches expire after 24 hours.** Most complete in under an hour, but Anthropic publishes no SLA for completion time. Don't schedule batch jobs without a timeout handler.
+- **No streaming.** Results arrive as a completed `.jsonl` file. Partial progress isn't visible until the batch ends, so this isn't a fit for anything that surfaces incremental output to a user.
+- **Rate limits still apply.** You can't bypass per-minute limits by batching; the batch endpoint itself has its own limits. See the current batch processing guide for the per-account caps.
+
+**Sources:** [Message Batches API — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/message-batches) · [Batch processing guide — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/batch-processing.md) · [Message Batching: when 50% off is worth the latency — DEV Community](https://dev.to/gabrielanhaia/anthropic-message-batching-when-50-off-is-worth-the-latency-4jfc)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Complex Claude Code Session Ends When You Close the Terminal — `/rename` It Before You Finish and `--resume` Gets You Back Instantly]]></title>
@@ -6368,63 +6432,7 @@ When you need both accuracy and consistent output style: build RAG for the knowl
 ]]></content:encoded>
     </item>
 
-    <item>
-      <title><![CDATA[Your Agentic Loop Is 40 Lines of Boilerplate — The Anthropic SDK's tool_runner Collapses It to Five, and Here Is When You Still Want the Manual Version]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-05-anthropic-tool-runner-collapse-agent-loop-sdk-beta</link>
-      <guid isPermaLink="false">2026-10-21-05-anthropic-tool-runner-collapse-agent-loop-sdk-beta</guid>
-      <pubDate>Wed, 21 Oct 2026 12:16:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Agents</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>The Anthropic SDK's tool_runner handles the full agentic loop in one .run() call. Use it for straightforward function-calling; keep the manual loop for human-in-loop approval, per-call logging, or conditional execution.</description>
-      <content:encoded><![CDATA[**The Anthropic SDK's `client.beta.messages.tool_runner()` handles the full tool-use cycle in one `.run()` call. Use it for straightforward function-calling loops; keep the manual version when you need to intercept individual tool calls.**
-
-The manual agentic loop — check `stop_reason`, dispatch to a function, append the result, repeat — is correct and worth understanding once. After that, `tool_runner` gives you the same behavior in a fifth of the lines.
-
-## Usage
-
-```python
-from anthropic import Anthropic
-
-client = Anthropic()
-
-@client.beta.messages.tool_runner.beta_tool
-def get_weather(city: str) -> str:
-    """Fetch the current weather for a city."""
-    return fetch_weather_api(city)  # your actual implementation
-
-result = client.beta.messages.tool_runner(
-    model="claude-sonnet-5-5",
-    tools=[get_weather],
-    messages=[{"role": "user", "content": "What is the weather in Berlin?"}],
-).run()
-
-print(result.content)
-```
-
-`@client.beta.messages.tool_runner.beta_tool` decorates your function and generates the tool schema from its type hints and docstring. `.run()` executes the full loop: each `tool_use` stop triggers your function, the result goes back to the model, and the loop exits when `stop_reason == "end_turn"`. The final `Message` is returned.
-
-**Error handling:** if your function raises, the runner sends the exception message to the model as a tool result with `is_error: true`. Full stack traces are not forwarded.
-
-## When to keep the manual loop
-
-The official docs list these as out of scope for `tool_runner`:
-
-- **Human-in-the-loop approval.** You need to pause before executing the tool and either approve or abort. `tool_runner` executes immediately.
-- **Conditional execution.** You want to skip a tool call based on its arguments, or substitute a different implementation at runtime.
-- **Per-call logging.** You need to record the tool name, arguments, latency, and result on each iteration for observability.
-- **Mid-loop result transformation.** The model should receive a different value than what your function returned.
-
-For those patterns, the manual loop (check `stop_reason`, dispatch, append, repeat) gives you full control at the cost of the boilerplate.
-
-**Note:** `tool_runner` is in the SDK beta namespace. The API surface is stable in practice but not yet covered by the Anthropic API versioning guarantee — check the changelog before upgrading the SDK in production.
-
-**Sources:** [Tool Runner — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [Building a coding agent with the manual tool-use loop — dev.to](https://dev.to/pavelespitia/i-built-a-coding-agent-with-the-manual-tool-use-loop-heres-what-it-taught-me-4gjn)]]></content:encoded>
-    </item>
-        
+            
     
     
     

@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-11-07-06-anthropic-message-batches-async-bulk-eval",
+    "title": "Your CI Eval Loop Waits for Each Inference Call Before Starting the Next — Anthropic's Message Batches API Submits All Requests at Once and Returns Results at Half Cost",
+    "excerpt": "Submit up to 100k requests as a single batch job; Anthropic charges 50% of standard rates and returns results as a .jsonl file. Good for eval runs, bulk classification, and document pipelines.",
+    "author": "Chris Harper",
+    "date": "11-07-2026",
+    "publishedAt": "2026-11-07T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Best Practices",
+      "LLM",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.claude.com/en/docs/build-with-claude/message-batches",
+    "content": "**Anthropic reports 50% cost reduction on the Message Batches API for async workloads — submit up to 100k requests in one call, pick up results as a `.jsonl` file when the batch completes.**\n\nA synchronous eval loop — one inference call per test case, waiting for each before the next — is the most expensive way to run evaluations. The Message Batches API submits every request in one call and handles rate-limit queuing on Anthropic's side. Per Anthropic's pricing page, all usage on the Batches API is billed at 50% of standard rates; that discount stacks with prompt caching.\n\n**How it works:**\n\n```python\nimport anthropic, time\n\nclient = anthropic.Anthropic()\n\n# 1. Build request list (same params as a standard Messages call)\nrequests = [\n    {\n        \"custom_id\": f\"eval-{i}\",\n        \"params\": {\n            \"model\": \"claude-sonnet-5-5\",\n            \"max_tokens\": 512,\n            \"messages\": [{\"role\": \"user\", \"content\": f\"Classify: {text}\"}],\n        }\n    }\n    for i, text in enumerate(test_cases)\n]\n\n# 2. Submit\nbatch = client.messages.batches.create(requests=requests)\n\n# 3. Poll until complete\nwhile batch.processing_status == \"in_progress\":\n    time.sleep(60)\n    batch = client.messages.batches.retrieve(batch.id)\n\n# 4. Stream results (.jsonl, arbitrary order)\nfor result in client.messages.batches.results(batch.id):\n    if result.result.type == \"succeeded\":\n        print(result.custom_id, result.result.message.content[0].text)\n```\n\n`custom_id` ties each result back to your input — results arrive in arbitrary order, so keep it meaningful (e.g. the test-case id, the document path).\n\n**Good fits:** CI eval pipelines, nightly document classification or extraction, bulk summarization, offline enrichment jobs — anything where waiting an hour for the full batch beats paying double for real-time throughput.\n\n**Where it breaks down:**\n\n- **Not eligible for Zero Data Retention.** Per the official docs, data is retained under the standard retention policy for the feature. If ZDR is a compliance requirement, batch mode won't satisfy it — use the standard Messages API instead.\n- **Batches expire after 24 hours.** Most complete in under an hour, but Anthropic publishes no SLA for completion time. Don't schedule batch jobs without a timeout handler.\n- **No streaming.** Results arrive as a completed `.jsonl` file. Partial progress isn't visible until the batch ends, so this isn't a fit for anything that surfaces incremental output to a user.\n- **Rate limits still apply.** You can't bypass per-minute limits by batching; the batch endpoint itself has its own limits. See the current batch processing guide for the per-account caps.\n\n**Sources:** [Message Batches API — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/message-batches) · [Batch processing guide — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/batch-processing.md) · [Message Batching: when 50% off is worth the latency — DEV Community](https://dev.to/gabrielanhaia/anthropic-message-batching-when-50-off-is-worth-the-latency-4jfc)"
+  },
+  {
     "id": "2026-11-07-04-claude-code-rename-resume-session-persist-context",
     "title": "Your Complex Claude Code Session Ends When You Close the Terminal — `/rename` It Before You Finish and `--resume` Gets You Back Instantly",
     "excerpt": "/rename stores a session by name before you close; claude --resume <name> reopens it in any directory with its full history intact. Flags like --mcp-config must be passed again.",
