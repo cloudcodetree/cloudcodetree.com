@@ -10,10 +10,130 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 08 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 08 Nov 2026 12:04:00 +0000</lastBuildDate>
 
 
 
+
+  <item>
+    <title><![CDATA[Your Team's Deploy Checklist Exists Only in Slack — Encode It in `.claude/commands/name.md` and `/name` Runs It Every Time]]></title>
+    <link>https://code.claude.com/docs/en/slash-commands</link>
+    <guid isPermaLink="false">2026-11-08-05-claude-code-custom-slash-commands-claude-commands-md</guid>
+    <pubDate>Sun, 08 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Drop a Markdown file in .claude/commands/, type /filename <args>, and Claude Code runs the encoded prompt with $ARGUMENTS and inline shell output — no copy-pasting, no forgetting a step.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**A Markdown file in `.claude/commands/` becomes a slash command at startup — `$ARGUMENTS` injects whatever you type after the name, and backtick lines starting with `!` run shell commands before Claude sees the prompt.**
+
+Claude Code loads every `.md` file in `.claude/commands/` as a project-scoped slash command. The filename (without `.md`) is the command name. The file content is the prompt Claude receives. Commit the directory and the whole team shares it.
+
+**The authoring format:**
+
+```markdown
+<!-- .claude/commands/check-pr.md -->
+---
+allowed-tools: Bash, Read, Grep
+---
+Review PR #$ARGUMENTS for security issues.
+
+First, fetch the diff:
+`!gh pr diff $ARGUMENTS`
+
+Then check each changed file for:
+- Unparameterized SQL in raw query strings
+- Missing input validation at API boundaries
+- Credentials or secrets in new config keys
+
+Report findings as `file:line — issue` entries.
+```
+
+Type `/check-pr 42` and Claude Code fetches the diff for PR #42, injects it inline, and runs the review against your three criteria.
+
+**Three mechanics worth knowing:**
+
+1. **`$ARGUMENTS`** — the string after the command name, dropped in wherever `$ARGUMENTS` appears in the file. `/check-pr 42` passes `42`; `/deploy staging v2.1.3` passes `staging v2.1.3`. It is a single variable — split inside a shell block if you need parts.
+2. **Backtick lines with `!`** — `` `!command` `` runs a shell command before Claude processes the prompt; the output is injected inline. Claude sees live data (the actual diff, the CI log, the recent commits), not a placeholder you forgot to fill.
+3. **`allowed-tools` frontmatter** — restricts which tools this command can invoke. A code-review command that should never write files gets `Bash, Read, Grep` only. Without it, the command inherits the full tool set.
+
+**When a custom command earns its file:**
+- Steps that always happen in the same order: fetch diff → grep for a pattern → analyze → report
+- Context-gathering that takes several manual steps before Claude has what it needs
+- Shared quality gates — security scan, release-notes generation, test-failure triage — that need a consistent, versioned prompt
+
+**Limits:** Commands are Markdown files in the repo — a new team member does not have them until they clone, and changes go through code review like any other source file. For personal or exploratory prompts, `~/.claude/commands/` stores per-user commands that do not commit. `$ARGUMENTS` interpolates the whole string after the command name; there is no positional-argument syntax (`$1`, `$2`) built in — parse it in the shell block if you need separate parts.
+
+**Sources:** [Custom slash commands — Claude Code Docs](https://code.claude.com/docs/en/slash-commands) · [Project configuration — code.claude.com](https://code.claude.com/docs/en/project-overview) · [Claude Code custom commands in practice — AI Engineer Guide](https://aiengineerguide.com/til/claude-code-custom-command/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Fine-Tuned LoRA Adapters Each Need Their Own vLLM Instance — `--enable-lora --lora-modules` Serves Dozens of Adapters on One Base Model]]></title>
+    <link>https://docs.vllm.ai/en/stable/models/lora.html</link>
+    <guid isPermaLink="false">2026-11-08-04-vllm-multi-lora-adapters-serving-lora-modules-max-loras</guid>
+    <pubDate>Sun, 08 Nov 2026 12:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[--enable-lora --lora-modules name=path lets one vLLM server switch between LoRA adapters per-request; clients select an adapter by passing its registered name as the model ID.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>Fine-Tuning</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**`--enable-lora --lora-modules name=path` lets one vLLM server switch between LoRA adapters per-request — one copy of the base weights in VRAM, dozens of fine-tunes accessible by name.**
+
+**What you'll be able to do after this:** Serve multiple fine-tuned LoRA adapters from a single base model and GPU allocation, without spinning up a separate vLLM instance per fine-tune.
+
+**Three things this unlocks:**
+
+1. Clients use the same OpenAI-compatible API; they select an adapter (or the unmodified base) by passing its name as the `model=` value
+2. `--max-loras N` controls how many adapters stay in GPU memory simultaneously — misses swap from disk (LRU cache), not an error
+3. All adapters must share the same base model; serving adapters for different base models requires separate server instances
+
+**How to set it up:**
+
+```bash
+pip install vllm
+
+# Adapters must be in PEFT format (adapter_config.json + adapter_model.safetensors)
+# -- the output of model.save_pretrained() or model.push_to_hub()
+
+vllm serve meta-llama/Llama-3.1-8B-Instruct \
+  --enable-lora \
+  --lora-modules customer_support=/models/cs-adapter \
+                 code_review=/models/cr-adapter \
+  --max-loras 2 \
+  --max-lora-rank 64
+```
+
+If you pushed your adapter to the Hub with `model.push_to_hub()`, pass the Hub path (`username/cs-adapter`) instead of a local directory.
+
+**Selecting an adapter from client code:**
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8000/v1", api_key="x")
+
+# customer_support adapter
+resp = client.chat.completions.create(
+    model="customer_support",          # name from --lora-modules
+    messages=[{"role": "user", "content": "How do I return an order?"}]
+)
+
+# base model, no adapter
+resp = client.chat.completions.create(
+    model="meta-llama/Llama-3.1-8B-Instruct",
+    messages=[{"role": "user", "content": "Explain HNSW indexing."}]
+)
+```
+
+`curl http://localhost:8000/v1/models` lists all registered adapters alongside the base model.
+
+**Limits:** An adapter whose rank exceeds `--max-lora-rank` is rejected at load time — set the flag to match your largest adapter. `--max-loras` is a VRAM budget: too high and you exhaust GPU memory, too low and cache misses spike latency (not fatal, but measurable). Runtime adapter loading/unloading is available but requires `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`, which the vLLM docs flag as a production risk. All adapters in one server instance must share the same base model — mixing base models requires separate instances.
+
+**Sources:** [vLLM LoRA adapters — docs.vllm.ai](https://docs.vllm.ai/en/stable/models/lora.html) · [Multi-LoRA serving guide — docs.anyscale.com](https://docs.anyscale.com/llm/serving/multi-lora)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code Session Keeps Solving the Wrong Problem After an Hour of Tool Calls — `/goal` Locks the Session to One Explicit Objective and Loops Until It's Met]]></title>
@@ -6341,70 +6461,8 @@ Run `playwright test --update-snapshots` once to create the baseline; subsequent
 **Sources:** [Playwright Emulation — Viewport — playwright.dev](https://playwright.dev/docs/emulation#viewport) · [Zero overflow in 10 minutes: responsive testing with Claude Code and Playwright — web-developpeur.com](https://www.web-developpeur.com/en/blog/responsive-testing-claude-code-playwright) · [Responsive overflow tests scaffold — github.com/CyberPunkCodes](https://github.com/CyberPunkCodes/responsive-overflow-tests)]]></content:encoded>
     </item>
     
-    <item>
-      <title><![CDATA[This Week in Model Serving: OpenAI's GPT-6 Lands on Google Cloud, and llm-d 1.0 Brings Kubernetes-Native Distributed Inference to Production]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-02-openai-google-cloud-llm-d-inference-stack</link>
-      <guid isPermaLink="false">2026-10-22-02-openai-google-cloud-llm-d-inference-stack</guid>
-      <pubDate>Thu, 22 Oct 2026 04:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Cloud</category>
-      <category>Building AI Products</category>
-      <description>OpenAI's GPT-6 Astra is now available in Google Cloud Model Garden (Oct 21); llm-d 1.0 — IBM's CNCF-hosted Kubernetes-native distributed inference layer — hit production Oct 20.</description>
-      <content:encoded><![CDATA[**GPT-6 Astra is now callable via Google Cloud Model Garden; llm-d 1.0 — a Kubernetes-native distributed inference layer from IBM and CNCF — reached production this week.**
-
-**OpenAI on Google Cloud (Oct 21):** OpenAI announced its flagship GPT-6 Astra is coming to Google Cloud's Model Garden. Engineers already on GCP can call it through Google's SDK with GCP billing, removing the separate OpenAI account requirement in shops that consolidate cloud vendors. Pricing follows OpenAI's published rates, billed through GCP. No independent benchmark comparing Astra's latency or accuracy on GCP versus OpenAI direct has been published yet.
-
-**llm-d 1.0 (Oct 20):** IBM's open-source project, under CNCF governance, builds on vLLM and Kubernetes to add prefix-cache-aware routing (requests land on the node whose KV cache already holds the start of the prompt), prefill/decode disaggregation, and hardware-aware autoscaling across NVIDIA, AMD, and Google TPU clusters. It targets teams already running Kubernetes who want open-model inference to behave like any other K8s workload — not a managed service, so you bring your own cluster.
-
-**Why it matters:** Both reduce the operational barrier to running the models that power agentic work at scale — one by consolidating billing, the other by making distributed open-model serving look like standard Kubernetes infrastructure.
-
-**Sources:** [SiliconAngle — OpenAI to make models available in Google Cloud](https://siliconangle.com/2026/10/21/openai-to-make-its-most-advanced-ai-models-available-in-google-cloud) · [IBM Newsroom — llm-d 1.0 production release](https://newsroom.ibm.com/2026-10-20-llm-d-1-0-advances-open,-cost-efficient-ai-inference-for-production-scale) · [llm-d integration docs — vLLM](https://docs.vllm.ai/en/latest/deployment/integrations/llm-d.html)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Automated AI Task Has Been Waiting for Your Laptop — Claude Code Routines Run in Anthropic's Cloud on a Schedule You Set]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-03-claude-code-routines-cloud-scheduled-tasks</link>
-      <guid isPermaLink="false">2026-10-22-03-claude-code-routines-cloud-scheduled-tasks</guid>
-      <pubDate>Thu, 22 Oct 2026 04:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>Claude Code Routines run saved sessions in Anthropic's cloud on a cron schedule, via API call, or on a GitHub event — no device needs to stay awake.</description>
-      <content:encoded><![CDATA[**Claude Code Routines package a prompt, repos, and connectors into a saved configuration that fires automatically — cloud-hosted, so a closed laptop doesn't stop a nightly run.**
-
-If you have a task that should run every night — check for open PRs, scan for dependency updates, summarize the build log — and it only works when your machine is awake, it will fail every time you're not. Claude Code Routines run the session on Anthropic's managed infrastructure instead.
-
-## What a Routine is
-
-A Routine is a saved Claude Code session configuration: a prompt (the task instructions), one or more connected repos, and any MCP connectors the task needs. When triggered, Anthropic spins up a cloud session and runs the prompt. Your task executes whether or not any device is on.
-
-## Three trigger types
-
-- **Scheduled:** a cron expression — every night at 02:00 UTC, every Monday at 09:00, or once at a specific future time
-- **API:** a POST to your Routine's endpoint starts a run from any webhook, CI step, or script
-- **GitHub:** a Routine reacts to PR events, pushes, or releases on connected repos
-
-## Setting one up
-
-From Claude Code on the web, go to your profile → Routines → New Routine. Write the prompt, attach repos and connectors, choose a trigger, and save. The API trigger URL is shown in the Routine's settings pane after saving.
-
-## Where it still needs your machine
-
-Tasks that read local files or drive a browser automation still work, but the cloud session calls your Claude Code desktop app as an intermediary. If the desktop app is closed, those local steps fail — the cloud session can't reach your filesystem on its own.
-
-## Limits to know
-
-Routines are labeled "research preview" in Anthropic's docs — the API surface, trigger types, and plan availability may change. Available on Pro, Max, Team, and Enterprise plans with Claude Code on the web enabled. Credentials for connectors (API keys, tokens) are set at Routine config time; there's no way to pass secrets dynamically at runtime today.
-
-**Sources:** [Claude Code Routines — code.claude.com](https://code.claude.com/docs/en/routines) · [Claude Code Routines: Complete Guide to Scheduled Cloud Agents — Makerkit](https://makerkit.dev/blog/tutorials/claude-code-routines-guide) · [How to Automate Recurring Tasks With Claude Code — The Neuron](https://theneuron.ai/explainer-articles/claude-code-recurring-automations-tutorial)]]></content:encoded>
-    </item>
-
+    
+    
 
     
     

@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-08-05-claude-code-custom-slash-commands-claude-commands-md",
+    "title": "Your Team's Deploy Checklist Exists Only in Slack — Encode It in `.claude/commands/name.md` and `/name` Runs It Every Time",
+    "excerpt": "Drop a Markdown file in .claude/commands/, type /filename <args>, and Claude Code runs the encoded prompt with $ARGUMENTS and inline shell output — no copy-pasting, no forgetting a step.",
+    "author": "Chris Harper",
+    "date": "11-08-2026",
+    "publishedAt": "2026-11-08T12:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/slash-commands",
+    "content": "**A Markdown file in `.claude/commands/` becomes a slash command at startup — `$ARGUMENTS` injects whatever you type after the name, and backtick lines starting with `!` run shell commands before Claude sees the prompt.**\n\nClaude Code loads every `.md` file in `.claude/commands/` as a project-scoped slash command. The filename (without `.md`) is the command name. The file content is the prompt Claude receives. Commit the directory and the whole team shares it.\n\n**The authoring format:**\n\n```markdown\n<!-- .claude/commands/check-pr.md -->\n---\nallowed-tools: Bash, Read, Grep\n---\nReview PR #$ARGUMENTS for security issues.\n\nFirst, fetch the diff:\n`!gh pr diff $ARGUMENTS`\n\nThen check each changed file for:\n- Unparameterized SQL in raw query strings\n- Missing input validation at API boundaries\n- Credentials or secrets in new config keys\n\nReport findings as `file:line — issue` entries.\n```\n\nType `/check-pr 42` and Claude Code fetches the diff for PR #42, injects it inline, and runs the review against your three criteria.\n\n**Three mechanics worth knowing:**\n\n1. **`$ARGUMENTS`** — the string after the command name, dropped in wherever `$ARGUMENTS` appears in the file. `/check-pr 42` passes `42`; `/deploy staging v2.1.3` passes `staging v2.1.3`. It is a single variable — split inside a shell block if you need parts.\n2. **Backtick lines with `!`** — `` `!command` `` runs a shell command before Claude processes the prompt; the output is injected inline. Claude sees live data (the actual diff, the CI log, the recent commits), not a placeholder you forgot to fill.\n3. **`allowed-tools` frontmatter** — restricts which tools this command can invoke. A code-review command that should never write files gets `Bash, Read, Grep` only. Without it, the command inherits the full tool set.\n\n**When a custom command earns its file:**\n- Steps that always happen in the same order: fetch diff → grep for a pattern → analyze → report\n- Context-gathering that takes several manual steps before Claude has what it needs\n- Shared quality gates — security scan, release-notes generation, test-failure triage — that need a consistent, versioned prompt\n\n**Limits:** Commands are Markdown files in the repo — a new team member does not have them until they clone, and changes go through code review like any other source file. For personal or exploratory prompts, `~/.claude/commands/` stores per-user commands that do not commit. `$ARGUMENTS` interpolates the whole string after the command name; there is no positional-argument syntax (`$1`, `$2`) built in — parse it in the shell block if you need separate parts.\n\n**Sources:** [Custom slash commands — Claude Code Docs](https://code.claude.com/docs/en/slash-commands) · [Project configuration — code.claude.com](https://code.claude.com/docs/en/project-overview) · [Claude Code custom commands in practice — AI Engineer Guide](https://aiengineerguide.com/til/claude-code-custom-command/)"
+  },
+  {
+    "id": "2026-11-08-04-vllm-multi-lora-adapters-serving-lora-modules-max-loras",
+    "title": "Your Fine-Tuned LoRA Adapters Each Need Their Own vLLM Instance — `--enable-lora --lora-modules` Serves Dozens of Adapters on One Base Model",
+    "excerpt": "--enable-lora --lora-modules name=path lets one vLLM server switch between LoRA adapters per-request; clients select an adapter by passing its registered name as the model ID.",
+    "author": "Chris Harper",
+    "date": "11-08-2026",
+    "publishedAt": "2026-11-08T12:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "Fine-Tuning",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://docs.vllm.ai/en/stable/models/lora.html",
+    "content": "**`--enable-lora --lora-modules name=path` lets one vLLM server switch between LoRA adapters per-request — one copy of the base weights in VRAM, dozens of fine-tunes accessible by name.**\n\n**What you'll be able to do after this:** Serve multiple fine-tuned LoRA adapters from a single base model and GPU allocation, without spinning up a separate vLLM instance per fine-tune.\n\n**Three things this unlocks:**\n\n1. Clients use the same OpenAI-compatible API; they select an adapter (or the unmodified base) by passing its name as the `model=` value\n2. `--max-loras N` controls how many adapters stay in GPU memory simultaneously — misses swap from disk (LRU cache), not an error\n3. All adapters must share the same base model; serving adapters for different base models requires separate server instances\n\n**How to set it up:**\n\n```bash\npip install vllm\n\n# Adapters must be in PEFT format (adapter_config.json + adapter_model.safetensors)\n# -- the output of model.save_pretrained() or model.push_to_hub()\n\nvllm serve meta-llama/Llama-3.1-8B-Instruct \\\n  --enable-lora \\\n  --lora-modules customer_support=/models/cs-adapter \\\n                 code_review=/models/cr-adapter \\\n  --max-loras 2 \\\n  --max-lora-rank 64\n```\n\nIf you pushed your adapter to the Hub with `model.push_to_hub()`, pass the Hub path (`username/cs-adapter`) instead of a local directory.\n\n**Selecting an adapter from client code:**\n\n```python\nfrom openai import OpenAI\nclient = OpenAI(base_url=\"http://localhost:8000/v1\", api_key=\"x\")\n\n# customer_support adapter\nresp = client.chat.completions.create(\n    model=\"customer_support\",          # name from --lora-modules\n    messages=[{\"role\": \"user\", \"content\": \"How do I return an order?\"}]\n)\n\n# base model, no adapter\nresp = client.chat.completions.create(\n    model=\"meta-llama/Llama-3.1-8B-Instruct\",\n    messages=[{\"role\": \"user\", \"content\": \"Explain HNSW indexing.\"}]\n)\n```\n\n`curl http://localhost:8000/v1/models` lists all registered adapters alongside the base model.\n\n**Limits:** An adapter whose rank exceeds `--max-lora-rank` is rejected at load time — set the flag to match your largest adapter. `--max-loras` is a VRAM budget: too high and you exhaust GPU memory, too low and cache misses spike latency (not fatal, but measurable). Runtime adapter loading/unloading is available but requires `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`, which the vLLM docs flag as a production risk. All adapters in one server instance must share the same base model — mixing base models requires separate instances.\n\n**Sources:** [vLLM LoRA adapters — docs.vllm.ai](https://docs.vllm.ai/en/stable/models/lora.html) · [Multi-LoRA serving guide — docs.anyscale.com](https://docs.anyscale.com/llm/serving/multi-lora)"
+  },
+  {
     "id": "2026-11-08-03-claude-code-goal-command-autonomous-loop",
     "title": "Your Claude Code Session Keeps Solving the Wrong Problem After an Hour of Tool Calls — `/goal` Locks the Session to One Explicit Objective and Loops Until It's Met",
     "excerpt": "`/goal <text>` turns Claude Code into an autonomous loop that keeps working until a machine-checkable condition is true; added in v2.1.139 as a research preview for unattended tasks.",
