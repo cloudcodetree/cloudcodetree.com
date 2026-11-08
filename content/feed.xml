@@ -10,9 +10,143 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 08 Nov 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 08 Nov 2026 20:03:00 +0000</lastBuildDate>
 
 
+
+
+
+  <item>
+    <title><![CDATA[Your RAG Chain Passes Its Unit Tests But Still Hallucinates — DeepEval Scores Faithfulness, Contextual Precision, and Recall as Pytest Assertions]]></title>
+    <link>https://deepeval.com/tutorials/rag-qa-agent/tutorial-rag-qa-evaluation</link>
+    <guid isPermaLink="false">2026-11-08-06-deepeval-rag-faithfulness-contextual-precision-pytest</guid>
+    <pubDate>Sun, 08 Nov 2026 20:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[DeepEval turns RAG evaluation into pytest assertions — Contextual Precision, Contextual Recall, and Faithfulness are LLM-as-judge metrics you gate CI on, not prose you read manually.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**DeepEval turns RAG evaluation into pytest: three LLM-as-judge metrics score whether retrieved chunks were ranked well, whether the answer stayed inside them, and whether the right chunks came back at all.**
+
+Your RAG pipeline passes every unit test and still hallucinates. The problem is that existing tests check plumbing — retriever returns something, LLM responds — not quality: were the right chunks promoted? Did the answer stay inside the context?
+
+**What you'll be able to do after this:** write pytest assertions that catch retrieval ranking problems, groundedness failures, and coverage gaps before they reach production — using the same LLM you already call.
+
+**Three takeaways:**
+- `ContextualPrecisionMetric` catches ranking problems: were the most relevant chunks promoted above noise?
+- `FaithfulnessMetric` catches generation drift: does the answer include claims not in the retrieved context?
+- `ContextualRecallMetric` catches coverage holes: did the retriever surface all the facts the question needed?
+
+**The walkthrough:**
+
+```bash
+pip install -U deepeval
+```
+
+```python
+from deepeval import evaluate
+from deepeval.test_case import LLMTestCase
+from deepeval.metrics import (
+    ContextualPrecisionMetric,
+    ContextualRecallMetric,
+    FaithfulnessMetric,
+)
+
+case = LLMTestCase(
+    input="What is the refund policy for digital goods?",
+    actual_output=your_chain.invoke("What is the refund policy for digital goods?"),
+    # your retriever's returned chunks, in ranking order
+    retrieval_context=["Digital goods are non-refundable after download.", ...],
+    # used by Precision and Recall to judge coverage
+    expected_output="Digital goods cannot be refunded once downloaded.",
+)
+
+evaluate(
+    test_cases=[case],
+    metrics=[
+        ContextualPrecisionMetric(threshold=0.5),
+        ContextualRecallMetric(threshold=0.5),
+        FaithfulnessMetric(threshold=0.5),
+    ],
+)
+```
+
+Each metric uses a configured LLM as judge — by default OpenAI, [configurable to any provider](https://deepeval.com/docs/metrics-introduction#using-a-custom-llm-as-judge) including Anthropic models. Scores are 0–1; a test case passes only when every metric clears its threshold.
+
+**Running in pytest:**
+
+```python
+# test_rag.py
+def test_refund_policy():
+    case = LLMTestCase(input=..., actual_output=..., retrieval_context=[...], expected_output=...)
+    assert_test(case, [ContextualPrecisionMetric(), FaithfulnessMetric()])
+```
+
+```bash
+pytest test_rag.py -v
+```
+
+**Limits:** Each evaluation turn calls your judge LLM — a full suite over hundreds of question-answer pairs has real API cost. DeepEval can use a local Ollama model as judge (lower cost, noisier on nuanced faithfulness checks). A 0.5 threshold flags clear failures; production gates typically need 0.7+, which you calibrate against a labeled set. The LlamaIndex integration guide notes that judge-model defaults point to `gpt-4o`, so check the config before billing surprises arrive.
+
+**Sources:** [DeepEval RAG Agent Evaluation Tutorial](https://deepeval.com/tutorials/rag-qa-agent/tutorial-rag-qa-evaluation) · [Evaluating RAG with DeepEval and LlamaIndex — LlamaIndex blog](https://llamaindex.ai/blog/evaluating-rag-with-deepeval-and-llamaindex) · [DeepEval Faithfulness metric](https://deepeval.com/docs/metrics-faithfulness) · [DeepEval Contextual Precision](https://deepeval.com/docs/metrics-contextual-precision)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Team's CLAUDE.md Is Committed but Your Personal Preferences Aren't — CLAUDE.local.md Is the Gitignored Per-Developer Override That Loads Every Session]]></title>
+    <link>https://code.claude.com/docs/en/memory</link>
+    <guid isPermaLink="false">2026-11-08-07-claude-local-md-gitignored-per-developer-override</guid>
+    <pubDate>Sun, 08 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[CLAUDE.local.md sits alongside your committed CLAUDE.md, loads automatically every session, takes precedence when rules conflict, and never gets checked into the repo.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**`CLAUDE.local.md` is a gitignored per-developer file that loads alongside the committed `CLAUDE.md` and wins on any conflict — the right place for personal tool paths, debug preferences, and machine-specific facts your team doesn't need.**
+
+Your project's `CLAUDE.md` is committed and shared. That's correct — team conventions, codebase structure, and deploy steps should be consistent. But some instructions only apply to you: your virtualenv path, your preference to never use `sudo`, the fact that your machine maps `python` to 3.12 while CI uses 3.11, your note to always print the SQL query during this debugging session.
+
+Putting those in the shared file is noise for your teammates. Keeping them only in your head means every new Claude Code session starts without them.
+
+**`CLAUDE.local.md` is the per-developer override.** It sits in the project root alongside `CLAUDE.md`. Claude Code reads it on startup, adds it to `.gitignore` automatically, and never stages it. When instructions conflict with the shared file, the local file wins.
+
+**What it's for — a short checklist:**
+
+```markdown
+# My local overrides for this project
+- Use ~/.venvs/myproject/bin/python, not the system python
+- Never use sudo — ask me first if you need elevated access
+- My machine is on macOS ARM; avoid x86-only tools
+- When debugging DB issues, print the full SQL query before executing
+- I'm working on the payments module this week — focus suggestions there
+```
+
+**How to create it:**
+
+```bash
+# Create in project root (Claude Code gitignores it automatically)
+touch CLAUDE.local.md
+# Verify — if it was missed:
+grep -q 'CLAUDE.local.md' .gitignore || echo 'CLAUDE.local.md' >> .gitignore
+```
+
+**The companion: `.claude/settings.local.json`** does the same for settings — it's also gitignored and takes precedence over the committed `.claude/settings.json`. If you have been pasting personal `allow` rules (tool permissions, `Bash` patterns) into the shared settings file, move them here.
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(pnpm run:*)", "Bash(node scripts/:*)"]
+  }
+}
+```
+
+**Limits:** `CLAUDE.local.md` only helps the person who wrote it — shared team conventions still belong in `CLAUDE.md`. It loads every turn, so keep it short; a 400-line personal file bleeds context budget the same as a 400-line shared one. For one-session context (a debugging hypothesis, a temporary constraint), use a `/memory` note instead — it doesn't persist to disk.
+
+**Sources:** [Claude Code memory and CLAUDE.md hierarchy — code.claude.com](https://code.claude.com/docs/en/memory) · [CLAUDE.md hierarchy and local overrides — morphllm.com](https://www.morphllm.com/claude-md-guide) · [settings.local.json reference](https://code.claude.com/docs/en/settings)]]></content:encoded>
+  </item>
 
 
   <item>
@@ -6349,118 +6483,7 @@ Claude Code uses `uv` internally for its own Python tool calls. Hooks written as
 
 **Sources:** [uv Scripts guide — docs.astral.sh](https://docs.astral.sh/uv/guides/scripts/) · [Share Python Scripts Like a Pro: uv and PEP 723 — thisdavej.com](https://thisdavej.com/share-python-scripts-like-a-pro-uv-and-pep-723-for-easy-deployment/) · [How to write a self-contained script — pydevtools.com](https://pydevtools.com/handbook/how-to/how-to-write-a-self-contained-script/)]]></content:encoded>
     </item>
-    <item>
-      <title><![CDATA[Anthropic Launches Claude Duet — A Proactive Cloud Agent That Monitors Your Apps and Gates Irreversible Actions on Your Approval]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-05-claude-duet-proactive-agent-research-preview</link>
-      <guid isPermaLink="false">2026-10-22-05-claude-duet-proactive-agent-research-preview</guid>
-      <pubDate>Thu, 22 Oct 2026 12:08:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>News</category>
-      <category>LLM</category>
-      <category>Agents</category>
-      <category>Building AI Products</category>
-      <description>Anthropic launched Claude Duet Oct 21 as a research preview for Pro/Max subscribers: a proactive agent running on Anthropic's cloud computer that sends morning briefs, monitors connected apps, and requires explicit approval before any irreversible action.</description>
-      <content:encoded><![CDATA[**Anthropic announced Claude Duet on October 21 as a research preview for US Pro/Max subscribers: a proactive agent that runs on Anthropic's cloud computer, monitors your connected apps, and initiates — morning briefs, background tasks, alerts — while gating any irreversible action (send, pay, sign, delete) on explicit approval.**
-
-**Why it matters:** This is the first Anthropic product where Claude initiates rather than responds. The approval-before-irreversible-action pattern it ships as a default — not an opt-in — is exactly what well-behaved autonomous agents need, and Duet is now a published reference implementation for that architecture. If you're designing an agent that acts on behalf of a user, look at how Duet classifies which actions require a gate and which don't.
-
-Duet runs on Claude Opus 5.5. Anthropic claims over 6,000 connectors across email, calendar, project trackers, and communication tools — that figure is Anthropic's own and has not been independently verified. The product is positioned alongside OpenAI Dots and Meta Muse in the proactive-agent space.
-
-**Limits to know:**
-
-- Proactive agents that monitor for urgency tend to misjudge it — expect Duet to surface low-signal noise alongside genuinely time-sensitive items until the filtering improves
-- Research preview is US-only for personal Pro/Max plans; Team and Enterprise are not yet included
-- Duet's background work draws from the same plan quota as your interactive Claude sessions
-
-**Sources:** [@claudeai on X — official announcement Oct 21, 2026](https://x.com/claudeai/status/2112984664256241837) · [Digital Trends — Anthropic unveils Claude Duet](https://www.digitaltrends.com/computing/anthropic-unveils-claude-duet-ai-agent/) · [9to5Mac — Anthropic takes on ChatGPT Dots with Claude Duet](https://9to5mac.com/2026/10/21/anthropic-takes-on-chatgpt-dots-and-meta-muse-with-claude-duet/) · [shattered.io — Claude Duet runs on Opus 5.5](https://shattered.io/claude-duet-anthropic-ai-agent-opus-5-5-2026/)]]></content:encoded>
-    </item>
-    <item>
-      <title><![CDATA[Your AI-Generated Components Pass the Prompt Test and Fail at 375px — Three Playwright Projects Catch Horizontal Overflow at Mobile, Tablet, and Desktop Widths]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-04-playwright-responsive-viewport-ai-generated-ui</link>
-      <guid isPermaLink="false">2026-10-22-04-playwright-responsive-viewport-ai-generated-ui</guid>
-      <pubDate>Thu, 22 Oct 2026 12:07:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Design</category>
-      <category>Design-to-Code</category>
-      <category>Building AI Products</category>
-      <description>Define three Playwright projects (mobile/tablet/desktop) in playwright.config.ts; `document.body.scrollWidth > window.innerWidth` catches layout breakage in CI before shipping AI-generated components.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** add responsive layout checks for your AI-generated components to an existing Playwright suite, catch horizontal overflow at three viewport widths in CI, and handle the multi-variant DOM pattern AI-generated components tend to produce.
-
-**Three-bullet takeaway:**
-- A single `projects` array in `playwright.config.ts` runs every spec at mobile (375px), tablet (768px), and desktop (1280px) — no per-test code changes
-- `document.body.scrollWidth > window.innerWidth` catches text, images, and absolutely positioned elements that bleed past the viewport
-- AI-generated components often render multiple breakpoint variants to the DOM simultaneously and use CSS to hide inactive ones — use `.locator(':visible')` to avoid matching hidden variants
-
----
-
-## Step 1 — Three projects in one config
-
-```typescript
-// playwright.config.ts
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  projects: [
-    { name: 'mobile',  use: { viewport: { width: 375,  height: 812  } } },
-    { name: 'tablet',  use: { viewport: { width: 768,  height: 1024 } } },
-    { name: 'desktop', use: { viewport: { width: 1280, height: 900  } } },
-  ],
-  testDir: './tests',
-});
-```
-
-Every spec file now runs three times, once per project. No test changes required.
-
-## Step 2 — The overflow check
-
-```typescript
-import { test, expect } from '@playwright/test';
-
-test('no horizontal overflow', async ({ page }) => {
-  await page.goto('/components/card');
-  const hasOverflow = await page.evaluate(
-    () => document.body.scrollWidth > window.innerWidth
-  );
-  expect(hasOverflow).toBe(false);
-});
-```
-
-Run this at each breakpoint to catch any content bleeding past the viewport edge.
-
-## Step 3 — Handle the AI-generated component caveat
-
-Many AI-generated components (and many design-system components) render all breakpoint variants to the DOM simultaneously and use CSS (`display: none`, `visibility: hidden`) to show the right one. A locator like `page.getByRole('heading')` may match the hidden mobile variant while running on desktop. Scope to visible elements:
-
-```typescript
-const heading = page
-  .getByRole('heading', { name: 'Card title' })
-  .locator(':visible')
-  .first();
-```
-
-## Step 4 — Screenshot baseline
-
-```typescript
-await page.screenshot({
-  path: `snapshots/card-${test.info().project.name}.png`,
-  fullPage: true,
-});
-```
-
-Run `playwright test --update-snapshots` once to create the baseline; subsequent CI runs catch visual regressions per breakpoint.
-
-## Limits
-
-- `scrollWidth > innerWidth` passes when an element uses `overflow: hidden` — content hidden inside a container won't be detected. For deeper coverage, walk the DOM checking `getComputedStyle(el).overflow !== 'hidden'` on each child.
-- `setViewportSize()` alone does not emulate touch events or device pixel ratio; import `devices['iPhone 12']` from `@playwright/test` for full device emulation including touch handling.
-- Screenshot comparisons need a committed baseline; the first run always passes. Regenerate snapshots in version control when layouts change intentionally.
-
-**Sources:** [Playwright Emulation — Viewport — playwright.dev](https://playwright.dev/docs/emulation#viewport) · [Zero overflow in 10 minutes: responsive testing with Claude Code and Playwright — web-developpeur.com](https://www.web-developpeur.com/en/blog/responsive-testing-claude-code-playwright) · [Responsive overflow tests scaffold — github.com/CyberPunkCodes](https://github.com/CyberPunkCodes/responsive-overflow-tests)]]></content:encoded>
-    </item>
-    
+            
     
     
 
