@@ -10,10 +10,167 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 07 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 08 Nov 2026 04:05:00 +0000</lastBuildDate>
 
 
 
+
+  <item>
+    <title><![CDATA[Your Claude Code Session Keeps Solving the Wrong Problem After an Hour of Tool Calls — `/goal` Locks the Session to One Explicit Objective and Loops Until It's Met]]></title>
+    <link>https://www.mindstudio.ai/blog/claude-code-goal-command-autonomous-tasks</link>
+    <guid isPermaLink="false">2026-11-08-03-claude-code-goal-command-autonomous-loop</guid>
+    <pubDate>Sun, 08 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[`/goal <text>` turns Claude Code into an autonomous loop that keeps working until a machine-checkable condition is true; added in v2.1.139 as a research preview for unattended tasks.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**`/goal <condition>` pins an explicit objective to the session and loops Claude Code until the condition is verifiably true — added in v2.1.139 (May 2026) as a research preview.**
+
+Long sessions drift. After 20 tool calls and two compaction cycles the model is still technically "on task," but its working definition of "done" has drifted from what you meant at the start. `/goal` is a session directive, not a prompt: set it once and the session loops — running tools, checking its own output, trying again — until it can demonstrate that the stated condition holds.
+
+**Usage:**
+
+```
+/goal "All 47 unit tests pass and eslint returns zero errors"
+```
+
+The objective persists across tool calls and compaction for the life of the session. Claude evaluates whether the condition is satisfied after each significant action and continues if it is not.
+
+For unattended runs with the CLI:
+
+```bash
+claude --dangerously-skip-permissions \
+  -p '/goal "migrate auth module to new token format; existing session tests stay passing"'
+```
+
+The session exits when it judges the goal met, or when it hits a blocker it cannot resolve.
+
+**Where it works:**
+
+- CI-style gates: "all tests pass," "lint returns zero errors," "build succeeds"
+- Refactors with a verifiable before/after state: "all usages of the old API replaced and the type checker is clean"
+- Autonomous scripted pipelines you would otherwise have to babysit
+
+**Where it breaks down:**
+
+- **Needs a machine-checkable condition.** Vague goals ("improve the code quality") give the model an easy exit — it will decide it succeeded. The goal must be something the session can evaluate without asking you.
+- **Research preview.** The `/goal` command is not in the stable API. Behavior around compaction and subagents is not officially documented and may change.
+- **Full blast radius with write access.** `--dangerously-skip-permissions` lets the loop run file edits, shell commands, and git commits without pausing. Scope the goal and the directory carefully.
+
+**Sources:** [MindStudio: Claude Code /goal command](https://www.mindstudio.ai/blog/claude-code-goal-command-autonomous-tasks) · [startupfortune.com: Claude adds /goal](https://startupfortune.com/claude-adds-goal-to-keep-working-until-the-job-is-done/) · [Stork.ai: /goal guide](https://www.stork.ai/blog/claudes-goal-command-will-change-how-you-work)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Enterprise Nov 5: Security Center Shows Policy Gaps, Admin API Gets Session Revocation, Developer Platform Adds IP Allowlisting]]></title>
+    <link>https://support.claude.com/en/articles/12138966-release-notes</link>
+    <guid isPermaLink="false">2026-11-08-02-claude-enterprise-security-center-session-revoke-ip-allowlist</guid>
+    <pubDate>Sun, 08 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Anthropic's Nov 5 enterprise release adds a security center that flags configuration gaps against Anthropic's recommendations, Admin API session revocation, and IP allowlisting for the Developer Platform — all in beta.]]></description>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Anthropic's Nov 5 enterprise release includes a security center for configuration gap analysis, Admin API session revocation, and IP allowlisting for the Developer Platform — all currently in beta.**
+
+Three additions shipped together on November 5:
+
+**Security center (beta).** A new dashboard in the Claude.ai admin panel audits your organization's configuration against Anthropic's security recommendations and surfaces gaps. The recommendations are Anthropic's own judgment, not a third-party benchmark — treat the flagged items as a prioritized checklist, not a compliance report.
+
+**Admin API: session revocation.** Admins can now invalidate active Claude.ai sessions via the Admin API. Useful for responding to a compromised account or offboarding without waiting for session expiry. Revoke a session:
+
+```bash
+curl -X DELETE https://api.anthropic.com/v1/admin/sessions/<session_id> \
+  -H "X-API-Key: $ADMIN_API_KEY"
+```
+
+(Exact endpoint shape from release notes — verify against current Admin API docs before wiring into automation.)
+
+**Developer Platform IP allowlisting (beta).** Organizations can now restrict API key usage to a declared list of IP ranges. Keys used from outside the allowlist are rejected. Applies to the Developer Platform (direct API access), not to Claude.ai web sessions.
+
+**Inference hooks — background.** The release notes also reference inference hook visibility improvements. Inference hooks (beta since Aug 5, 2026) let an organization route every prompt and response through its own HTTPS security server before and after inference; the security server can allow or deny the request but cannot rewrite it. The Nov 5 update improves hook status visibility in the admin panel.
+
+**Where it breaks down:**
+
+- All three features are still in beta — APIs and UI may change.
+- Security center recommendations reflect Anthropic's defaults; your organization's risk model may differ.
+- Inference hooks can only allow or deny requests, not rewrite them — DLP use cases that require redaction need a different approach.
+
+**Sources:** [Claude Enterprise release notes — Anthropic support](https://support.claude.com/en/articles/12138966-release-notes) · [Anthropic puts inline DLP inside Claude Enterprise — Unite.AI](https://www.unite.ai/anthropic-puts-inline-data-loss-prevention-inside-claude-enterprise/) · [Claude Enterprise inference hooks: a protocol review — mint.security](https://www.mint.security/blog/claude-enterprise-inference-hooks-a-protocol-review)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Every Claude Client Gets Its Own Hard-Coded Tool Integration Until You Build One MCP Server — `@mcp.tool()` Exposes Any Python Function to All Clients Without Duplication]]></title>
+    <link>https://modelcontextprotocol.io/docs/develop/build-server</link>
+    <guid isPermaLink="false">2026-11-08-01-mcp-server-python-fastmcp-tool-resource-build</guid>
+    <pubDate>Sun, 08 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Define tools and resources once in a Python MCP server with `@mcp.tool()` and `@mcp.resource()` decorators; test with the MCP Inspector via `mcp dev server.py`, then register with Claude Code using one command.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>MCP</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Write a Python function, decorate it with `@mcp.tool()`, and every MCP-compatible client — including Claude Code — can call it without a separate integration per client.**
+
+Before MCP, connecting an internal API to Claude Code meant a custom tool definition in every session config. Connect it to Cursor, same thing. Connect it to a Claude-powered agent, another integration. MCP flips that: you build the server once, and clients discover it over a standard protocol.
+
+**Install and scaffold:**
+
+```bash
+uv add "mcp[cli]"
+```
+
+```python
+from mcp.server.fastmcp import FastMCP  # SDK v1.x; check official docs for v2 import path
+
+mcp = FastMCP("my-tools")
+
+@mcp.tool()
+def get_latest_metrics(service: str, hours: int = 24) -> str:
+    """Return the last N hours of p99 latency for a service."""
+    # Replace with a real metrics API call
+    return f"p99 for {service}: 42ms (last {hours}h)"
+
+@mcp.resource("docs://{path}")
+def get_internal_doc(path: str) -> str:
+    """Return an internal doc by path."""
+    return open(f"docs/{path}").read()
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+The docstring is the tool description Claude sees when deciding whether to call it — write it as you would a function signature comment.
+
+**Test with the MCP Inspector:**
+
+```bash
+mcp dev server.py
+```
+
+This starts a local web UI at `http://localhost:5173` where you can invoke tools and resources interactively before wiring up any client. It's the fastest feedback loop for catching schema errors.
+
+**Register with Claude Code:**
+
+```bash
+claude mcp add my-tools --transport stdio -- uv run python server.py
+```
+
+Claude Code starts the server as a subprocess on `stdio` and injects the declared tools into every session automatically.
+
+**Where it breaks down:**
+
+- **stdio = local only.** The stdio transport connects one server to one client on the same machine. Sharing a server across machines or running it as a persistent service requires the Streamable HTTP transport (`mcp.run(transport="streamable-http")`), which is newer and less widely supported.
+- **Startup cost per session.** Claude Code starts the server fresh each session. Cold start for a Python server with heavy imports adds latency to the first tool call.
+- **Permission prompts still apply.** MCP tool calls go through Claude Code's standard permission model — Claude will still ask before running destructive tools unless you've pre-allowed them.
+
+**Sources:** [Build an MCP server — official quickstart](https://modelcontextprotocol.io/docs/develop/build-server) · [python-sdk — GitHub](https://github.com/modelcontextprotocol/python-sdk) · [MCP quickstart resources — GitHub](https://github.com/modelcontextprotocol/quickstart-resources)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your CI Eval Loop Waits for Each Inference Call Before Starting the Next — Anthropic's Message Batches API Submits All Requests at Once and Returns Results at Half Cost]]></title>
@@ -6183,65 +6340,7 @@ Run `playwright test --update-snapshots` once to create the baseline; subsequent
 
 **Sources:** [Playwright Emulation — Viewport — playwright.dev](https://playwright.dev/docs/emulation#viewport) · [Zero overflow in 10 minutes: responsive testing with Claude Code and Playwright — web-developpeur.com](https://www.web-developpeur.com/en/blog/responsive-testing-claude-code-playwright) · [Responsive overflow tests scaffold — github.com/CyberPunkCodes](https://github.com/CyberPunkCodes/responsive-overflow-tests)]]></content:encoded>
     </item>
-    <item>
-      <title><![CDATA[Your OpenAI SDK Already Works Against Together AI's Open-Model Catalog — Swap base_url and a Model ID, Keep Everything Else]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-01-together-ai-openai-sdk-base-url-open-models</link>
-      <guid isPermaLink="false">2026-10-22-01-together-ai-openai-sdk-base-url-open-models</guid>
-      <pubDate>Thu, 22 Oct 2026 04:03:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Self-Hosting</category>
-      <category>LLM</category>
-      <category>Building AI Products</category>
-      <description>Together AI serves 200+ open models via an OpenAI-compatible API. Set base_url to https://api.together.xyz/v1 and swap the model ID to call Llama, Qwen, or Mistral with existing SDK code.</description>
-      <content:encoded><![CDATA[**What you'll be able to do after this:** call Llama 3.1, Qwen3, Mistral, and other open-weight models using your existing OpenAI Python client by changing one URL and one model string — no new SDK, no new abstractions.
-
-**Three things to know first:**
-1. Together's serverless tier is billed per token and ready instantly — but not every catalog model is available serverless. Check the model list before building on an ID.
-2. Dedicated endpoints give you a reserved slot billed per minute of hosting whether or not you call them — useful under sustained high-concurrency load, costly for low-traffic experiments.
-3. Together's API key is separate from OpenAI's. Store it as `TOGETHER_API_KEY`; don't reuse the same env variable.
-
-## Setup
-
-```bash
-pip install openai
-export TOGETHER_API_KEY="your-key-here"
-```
-
-## The one-line change
-
-```python
-import os
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["TOGETHER_API_KEY"],
-    base_url="https://api.together.xyz/v1",
-)
-
-response = client.chat.completions.create(
-    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-    messages=[{"role": "user", "content": "Explain vector indexing in one paragraph."}],
-)
-print(response.choices[0].message.content)
-```
-
-The entire `openai.OpenAI()` surface — streaming, tool calls, async client, LangChain's `ChatOpenAI` wrapper — works unchanged against Together's endpoint. Swap `base_url` at the client level and every call routes there.
-
-## Together vs OpenRouter vs Fireworks — when to reach for which
-
-- **Together:** fixed per-token pricing, 200+ open-model catalog, fine-tuning API built in (train a LoRA adapter, deploy it, serve it — all in one platform)
-- **OpenRouter:** routes across multiple providers for best price or availability; useful when you need provider-level failover or want to compare outputs across hosts
-- **Fireworks:** optimized for structured generation and JSON mode at high throughput; tends to win on latency for those specific workloads
-
-## Limits
-
-Not every model in the catalog is serverless-callable — some require a dedicated endpoint. Rate limits on the serverless tier can be restrictive at high concurrency; request an increase through the Together dashboard. Dedicated endpoints are billed per minute of active hosting, so tear them down when not in use. Model IDs in the catalog change over time — pin the full string rather than inferring it programmatically.
-
-**Sources:** [Together AI OpenAI compatibility — docs.together.ai](https://docs.together.ai/docs/openai-api-compatibility) · [Together AI fine-tuning quickstart — docs.together.ai](https://docs.together.ai/docs/fine-tuning/quickstart) · [Deep Dive into Together AI's Inference API — DEV Community](https://dev.to/dev3l/unlocking-ais-potential-a-deep-dive-into-open-source-ai-inference-api-with-together-kp8)]]></content:encoded>
-    </item>
-
+    
     <item>
       <title><![CDATA[This Week in Model Serving: OpenAI's GPT-6 Lands on Google Cloud, and llm-d 1.0 Brings Kubernetes-Native Distributed Inference to Production]]></title>
       <link>https://cloudcodetree.com/ai-news/2026-10-22-02-openai-google-cloud-llm-d-inference-stack</link>
@@ -6307,131 +6406,8 @@ Routines are labeled "research preview" in Anthropic's docs — the API surface,
     </item>
 
 
-    <item>
-      <title><![CDATA[Your Claude Code Session Closed Before the Task Finished — `claude --continue` Reopens the Latest; `--resume` Picks Any]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-07-claude-code-continue-resume-session-recovery</link>
-      <guid isPermaLink="false">2026-10-21-07-claude-code-continue-resume-session-recovery</guid>
-      <pubDate>Wed, 21 Oct 2026 20:06:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Claude Code</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>claude -c recovers the latest session in your working directory; --resume opens a searchable picker; --resume &lt;id&gt; targets a specific one. SDK runs expose session_id for pipeline handoff.</description>
-      <content:encoded><![CDATA[**`claude -c` recovers the latest session in your working directory; `claude --resume` opens a searchable picker; capture `session_id` from SDK runs for scripted handoff across pipeline steps.**
-
-A mid-task disconnect — a terminal crash, a Wi-Fi drop, a laptop lid close — doesn't have to mean starting over. Claude Code persists session history on disk, and three flags expose it.
-
-## The three recovery paths
-
-**Reopen the latest session:**
-```bash
-claude --continue   # or: claude -c
-```
-Restores the most recent conversation in the current project directory, including tool call history and the last working context.
-
-**Open the session picker:**
-```bash
-claude --resume
-```
-Lists recent sessions for the directory with timestamps and a first-line summary. Pass a search term to filter: `claude --resume "refactor auth"`.
-
-**Target a specific session by ID:**
-```bash
-claude --resume abc123def456
-```
-Useful in scripts: capture the session ID from the previous run and pass it to the next step without the picker.
-
-## SDK / pipeline pattern
-
-When you call Claude Code programmatically via `claude -p` or the Agent SDK, the result envelope includes `session_id`:
-
-```bash
-result=$(claude -p "run the migration plan" --output-format json)
-session_id=$(echo "$result" | jq -r '.session_id')
-
-# Later step in the same pipeline:
-claude --resume "$session_id" -p "now apply the plan"
-```
-
-This lets a multi-step script hand context across invocations without relying on the picker or re-encoding the prior conversation.
-
-## Limits
-
-`-p` and SDK sessions **do not appear in the session picker** — they're stored, but the picker only shows interactive sessions. You must capture and pass the session ID explicitly to resume one. Session history lives in `~/.claude/projects/<hash>/` and survives between terminal sessions and reboots, but may not carry over across major Claude Code version updates (the storage format has changed at least once). The official recommendation is to treat session history as best-effort, not durable state — commit or document work you need to keep rather than relying on resumability.
-
-**Sources:** [Sessions — Claude Code docs](https://code.claude.com/docs/en/sessions) · [You close Claude Code. The context is gone. Or is it? — Medium](https://medium.com/rigel-computer-com/you-close-claude-code-the-context-is-gone-or-is-it-3ebc5c1c379d) · [What is the --resume flag in Claude Code — claudelog.com](https://www.claudelog.com/faqs/what-is-resume-flag-in-claude-code/) · [How to resume your Claude Code session after a reboot — Medium](https://medium.com/@artjoms.stukans/how-to-resume-your-claude-code-session-after-a-reboot-automatically-126f710e9c1d)
-]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Model Gives Wrong Answers — Diagnose Whether It Lacks Facts or Lacks Behavior Before You Build Anything]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-21-06-rag-vs-fine-tuning-knowledge-gap-behavior-gap</link>
-      <guid isPermaLink="false">2026-10-21-06-rag-vs-fine-tuning-knowledge-gap-behavior-gap</guid>
-      <pubDate>Wed, 21 Oct 2026 20:05:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>Fine-Tuning</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>RAG fixes knowledge gaps; fine-tuning fixes behavior gaps. A diagnostic flowchart, the decision ladder from prompt engineering through RAG to fine-tuning, and the key hallucination risk to know before you fine-tune.</description>
-      <content:encoded><![CDATA[**RAG fills a knowledge gap — facts the model doesn't have. Fine-tuning fills a behavior gap — format, tone, or domain style the model consistently gets wrong. Diagnosing which one you have before you build saves weeks.**
-
-**What you'll be able to do after this:**
-- Run a three-question diagnostic to identify whether your problem is a knowledge gap or a behavior gap
-- Know when long-context prompt caching is cheaper than building either pipeline
-- Recognize the specific case where fine-tuning on facts reliably makes hallucinations worse
-
-## The diagnostic
-
-Before choosing a technique, ask three questions about the wrong answers you're getting:
-
-1. **"Could the model answer this correctly if I pasted the source document into the prompt?"** If yes, the model lacks access to a document — that's a knowledge gap. RAG.
-2. **"Is the model producing answers with the right facts but in the wrong format, register, or domain style?"** If yes, that's a behavior gap. Fine-tuning.
-3. **"Would a longer, more explicit system prompt fix this reliably?"** If yes, neither — prompt engineering first.
-
-## The decision ladder
-
-Try cheaper options before building a pipeline:
-
-**Step 1 — prompt engineering.** If your entire knowledge base fits in ~200k tokens (product docs, policy, FAQ), load it with [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) and cache the tokens. One API call update keeps it current; cache hits cost ~90% less. Only build RAG when the knowledge base exceeds what a long context handles economically.
-
-**Step 2 — RAG** when knowledge is large, changes frequently, or requires source citations. Updating the vector store costs a single upsert; the model never retrains. Standard stack: chunk documents, embed with `sentence-transformers/all-MiniLM-L6-v2`, store in Chroma or pgvector, retrieve at query time:
-
-```python
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
-from langchain_anthropic import ChatAnthropic
-
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-vectorstore = Chroma.from_documents(docs, embeddings)
-
-chain = RetrievalQA.from_chain_type(
-    llm=ChatAnthropic(model="claude-sonnet-5-5"),
-    retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
-)
-answer = chain.invoke({"query": "What is our refund policy?"})
-```
-
-**Step 3 — fine-tuning** when the model consistently produces the wrong output shape even when it has the facts: wrong JSON schema, wrong tone for your brand, domain-specific phrasing it fumbles repeatedly. Fine-tune on *examples of the behavior you want*, not on facts you want it to memorize.
-
-## The hallucination trap
-
-[Gekhman et al. (2024)](https://arxiv.org/abs/2406.05233) found that fine-tuning a model on facts it doesn't already know reliably *increases* hallucinations — the model adopts the style of the training examples while generating new false details in the same register. The safe use of fine-tuning is for format and behavior; RAG is the tool for knowledge. A team that fine-tunes to inject proprietary facts ends up with a model that sounds more authoritative while being less accurate.
-
-## Combining both
-
-When you need both accuracy and consistent output style: build RAG for the knowledge layer, fine-tune for the output format layer. The fine-tuned model learns *how* to answer; the retrieved context gives it *what* to answer from. DataCamp's tutorial (link below) walks through a medical chatbot that implements both on the same dataset and compares the outputs.
-
-**Limits:** Updating fine-tuned knowledge requires retraining — a GPU bill and a multi-day turnaround. RAG adds latency at inference time: every query now includes an embedding call and a vector lookup. Neither is free.
-
-**Sources:** [RAG vs Fine-Tuning tutorial (DataCamp)](https://www.datacamp.com/tutorial/rag-vs-fine-tuning) · [When to fine-tune vs when to use RAG: decision framework (Reintech, Feb 2026)](https://reintech.io/blog/when-to-fine-tune-vs-when-to-use-rag-decision-framework) · [Knowledge Conflicts for LLMs: Gekhman et al. 2024 — arXiv:2406.05233](https://arxiv.org/abs/2406.05233) · [RAG vs Fine-Tuning: Which Approach to Choose? — denser.ai](https://denser.ai/blog/rag-vs-fine-tuning/)
-]]></content:encoded>
-    </item>
-
+    
+    
             
     
     
