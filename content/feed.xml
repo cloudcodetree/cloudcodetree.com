@@ -10,7 +10,151 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 09 Nov 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 09 Nov 2026 20:08:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code "Yes, Don't Ask Again" Saves the Full Shell Command — Including Any Password or API Key Inline in It]]></title>
+    <link>https://github.com/anthropics/claude-code/issues/5544</link>
+    <guid isPermaLink="false">2026-11-09-08-claude-code-settings-local-json-plaintext-secrets-gitignore-fix</guid>
+    <pubDate>Mon, 09 Nov 2026 20:08:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Choosing "Yes, don't ask again" stores the full shell command as a plaintext allow rule in .claude/settings.local.json. If the command contained a credential, the credential is now in that file. Apiiro found 1,122+ public repos with exposed secrets.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Security</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Choosing "Yes, don't ask again" stores the full shell command — including any inline credential — in `.claude/settings.local.json`. Apiiro found 1,122+ public repos with exposed secrets.**
+
+When Claude Code asks permission to run a shell command and you pick "Yes, and don't ask again," it records the exact command string as an allow rule in `.claude/settings.local.json`. Commands like `PGPASSWORD=s3cr3t psql -U app prod` or `curl -H "Authorization: Bearer $TOKEN" ...` where `$TOKEN` was expanded before you ran it get stored verbatim.
+
+## Why the existing protection isn't enough
+
+Claude Code adds `.claude/settings.local.json` to your global git excludes (usually `~/.gitignore_global`). That protects the developer's current machine — but global git excludes do not travel with the repository. A collaborator who clones on a different machine has no protection, and the file can be committed and pushed. In many of the 1,122 cases Apiiro found, Claude Code itself was listed as the commit co-author.
+
+Secrets remain in git history and in every clone and fork even after the file is deleted.
+
+## Three things to do now
+
+**1. Add it to your project's `.gitignore`:**
+
+```
+# .gitignore
+.claude/settings.local.json
+```
+
+This protects all collaborators, not just the original developer. The committed `.claude/settings.json` (team-shared allow rules) is fine; it's the `.local` variant that shouldn't travel.
+
+**2. Never inline credentials in a "don't ask again" command.** Use environment variables that Claude Code can reference rather than values:
+
+```bash
+# Fine — the allow rule records the reference, not the secret
+PGPASSWORD="$DB_PASS" psql -U app prod
+
+# Dangerous — the allow rule stores the literal string
+PGPASSWORD=s3cr3t psql -U app prod
+```
+
+**3. Audit your existing history.** Check whether the file was ever committed:
+
+```bash
+git log --all --oneline -- .claude/settings.local.json
+```
+
+If it shows up, rotate every credential that appeared in an allow rule there. Deleting the file from HEAD is not enough — secrets stay in git history, forks, and clones.
+
+**One limit:** Pre-commit secret scanners that check for known key formats (GitHub PAT, AWS keys) may not detect a database password stored inside a shell command string. After adding the file to `.gitignore`, also consider a scanner that flags credential patterns inside any command block.
+
+**Sources:** [Apiiro security report — aviatrix.ai threat research center](https://aviatrix.ai/threat-research-center/claude-code-dont-ask-again-settings-local-json-passwords-keys-1122-github-2026/) · ["Don't ask again" leaks developer secrets — iTnews](https://www.itnews.com.au/news/dont-ask-again-in-anthropics-claude-code-leaks-developer-secrets-630203) · [Claude Code GitHub issue #5544](https://github.com/anthropics/claude-code/issues/5544)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Anthropic Launches Claude Fable 5.2 and Mythos 5.2 — Better Coding at a Lower Per-Token Price]]></title>
+    <link>https://www.anthropic.com/claude-fable-and-mythos-5-2</link>
+    <guid isPermaLink="false">2026-11-09-07-claude-fable-5-2-mythos-5-2-launch-coding-price-cut</guid>
+    <pubDate>Mon, 09 Nov 2026 20:06:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Fable 5.2 and Mythos 5.2 launched today. Fable 5.2 is 20% cheaper than Fable 5.1 and Anthropic reports it scores 49.1% on FrontierCode 2.0 at Xhigh effort.]]></description>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Claude Code</category>
+    <category>Frontier</category>
+    <content:encoded><![CDATA[**Fable 5.2 launches today: $8/$40 per million tokens (down from $10/$50), Anthropic reports 30% faster output, and Vals AI ranks it first of 36 models in independent evaluation.**
+
+Anthropic released Fable 5.2 and Mythos 5.2 on November 9, 2026. The two are the same underlying model; Fable carries stronger safeguards for general availability while Mythos is for dual-use research organizations.
+
+**Fable 5.2 by the numbers (Anthropic's figures):**
+- **Price:** $8 input / $40 output per million tokens; optional fast mode at $16 / $80
+- **Speed:** Outputs up to 30% faster than Fable 5.1 (Anthropic claims)
+- **Coding:** 49.1% on FrontierCode 2.0 at Xhigh effort — highest Anthropic has reported for any released model; Vals AI, an independent evaluation firm, places it first of 36 models on its Vals Index at 71.31%, ahead of Sonnet 5.5 (70.85%) and Gemini 4 Carbon (70.45%)
+- **Other:** 64.9% on the RoboDojo Sim robotics benchmark at Max effort
+
+**Limits:** Fast mode roughly doubles the per-token cost. Fable 5.2 is not the top model on every leaderboard — Vals AI notes a margin of error of ±0.96 points. Anthropic still recommends Opus 5.5 as the everyday model for cost-sensitive use. Mythos 5.2 is not available to most developers. Benchmark scores on FrontierCode and RoboDojo originate with Anthropic; treat them as vendor-reported claims until independent replications appear.
+
+**Why it matters:** If you route complex coding tasks to Opus 5.5 today because Fable 5.1 wasn't strong enough, the price/capability trade-off just shifted. The 20% price cut on the standard tier is the most direct change for most teams.
+
+**Sources:** [Official announcement — anthropic.com](https://www.anthropic.com/claude-fable-and-mythos-5-2) · [Independent benchmarks — vals.ai](https://www.vals.ai/models/anthropic_claude-fable-5-2) · [Launch coverage — The Next Web](https://thenextweb.com/news/claude-fable-5-2-mythos-5-2-anthropic-launch-price)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Every RAG Tutorial Starts With `all-MiniLM-L6-v2` — Use the MTEB Leaderboard's Retrieval Tab to Find Out If That's Still the Right Call]]></title>
+    <link>https://huggingface.co/spaces/mteb/leaderboard</link>
+    <guid isPermaLink="false">2026-11-09-06-mteb-retrieval-tab-embedding-model-selection-rag</guid>
+    <pubDate>Mon, 09 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[The overall MTEB average misleads for RAG — filter to the retrieval tab to compare models on actual retrieval tasks, then test your top candidates on your own data before committing.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Embeddings</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Filter the MTEB leaderboard to the retrieval tab — not the overall average — to compare embedding models on actual RAG recall, then test your top candidates on your own documents.**
+
+**What you'll be able to do after this:**
+- Navigate the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) and filter it to the retrieval task instead of the overall average
+- Identify the trade-off between model size and retrieval score for three common tiers
+- Run a lightweight A/B comparison against your own documents before committing to a model
+
+---
+
+Most RAG tutorials reach for `sentence-transformers/all-MiniLM-L6-v2` without explaining why. It was near the top of the leaderboard when the tutorials were written — small, fast, and good enough. MTEB (Massive Text Embedding Benchmark) is the benchmark that tells you whether it still is for your use case.
+
+MTEB scores hundreds of embedding models across 56 datasets covering retrieval, reranking, clustering, classification, and other tasks. The key rule before reading any ranking: **filter to the retrieval tab, not the overall average**. A model that wins the overall leaderboard can sit mid-pack on retrieval — the overall score folds in classification and clustering tasks that have nothing to do with RAG recall.
+
+## Three common size tiers and what you trade
+
+| Model | Params | Dims | Approximate retrieval score |
+|---|---|---|---|
+| `all-MiniLM-L6-v2` | 22M | 384 | ~56 on BEIR retrieval |
+| `bge-base-en-v1.5` | 110M | 768 | ~63 on BEIR retrieval |
+| `bge-large-en-v1.5` | 335M | 1024 | ~65 on BEIR retrieval |
+
+The jump from MiniLM to bge-base is roughly 7 retrieval points at ~5× the embedding time. Whether that matters depends on your query volume and latency budget. Scores above are approximate BEIR averages; check the live leaderboard for current figures.
+
+## A practical selection workflow
+
+**1. Open the leaderboard and filter to task: retrieval.** Sort descending. This gives you a list ranked on the datasets that matter — NQ, HotpotQA, MSMARCO, FEVER, and others from the BEIR benchmark suite.
+
+**2. Flag contamination risk.** Models trained after 2023 may have seen parts of the BEIR datasets. A model card that lists MTEB scores without saying whether the benchmark corpora were excluded from training should be treated with caution. The [premai.io comparison](https://blog.premai.io/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting) calls this out for several 2025–2026 models.
+
+**3. Test on your own corpus.** MTEB tells you how models rank on public datasets. Your documents are different. Per [Zilliz's analysis](https://zilliz.com/blog/choose-embedding-model-rag-2026), the 11th-ranked MTEB model outperformed the top-ranked one on their actual documents. After shortlisting from the leaderboard, embed 200–500 of your own chunks with each candidate and run a small retrieval eval:
+
+```python
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+model_a = SentenceTransformer("BAAI/bge-base-en-v1.5")
+model_b = SentenceTransformer("all-MiniLM-L6-v2")
+
+# Embed your eval queries and chunks, then compare hit@3 or MRR
+```
+
+**One limit:** MTEB primarily covers single-language English text retrieval. If your documents are multilingual, switch to the MTEB Multilingual tab — the rankings shift substantially. For code retrieval, check the code retrieval task filter. Neither the English nor multilingual tab reflects performance on structured data, tables, or very long documents.
+
+**Sources:** [MTEB Leaderboard — huggingface.co/spaces/mteb/leaderboard](https://huggingface.co/spaces/mteb/leaderboard) · [Best Embedding Models for RAG 2026 — premai.io](https://blog.premai.io/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting) · [How to Choose the Best Embedding Model for RAG — Zilliz](https://zilliz.com/blog/choose-embedding-model-rag-2026) · [Top embedding models on the MTEB leaderboard — Modal](https://modal.com/blog/mteb-leaderboard-article)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your `claude -p` Script Gets the Final Answer and Loses Every Tool Call — `--output-format stream-json` Streams Each Event as Parseable NDJSON]]></title>
@@ -6277,182 +6421,7 @@ A high `beta` makes DPO converge toward the SFT base and the style signal washes
 
 **Sources:** [TRL DPOTrainer docs](https://huggingface.co/docs/trl/main/en/dpo_trainer) · [Maxime Labonne's DPO Colab — TRL community tutorials](https://huggingface.co/docs/trl/en/community_tutorials) · [Rafailov et al., "Direct Preference Optimization" (arXiv:2305.18290)](https://arxiv.org/abs/2305.18290) · [IBM Skills Network DPO guided project](https://catalog.skills.network/catalog_item/6413)]]></content:encoded>
     </item>
-    <item>
-    <title><![CDATA[Anthropic User Profiles API: Per-Customer Usage Tracking and Rate-Limit Budgets in Three Lines]]></title>
-    <link>https://docs.anthropic.com/en/api/user-profiles</link>
-    <guid isPermaLink="false">2026-10-23-06-anthropic-user-profiles-api-per-customer-tracking</guid>
-    <pubDate>Fri, 23 Oct 2026 12:08:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Developer Tools</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Anthropic's beta User Profiles API lets you attach a per-user ID to every Claude API call, unlocking per-customer dashboards, spend limits, and rate-limit budgets without building your own metering layer.]]></description>
-    <content:encoded><![CDATA[Anthropic's beta User Profiles API (released Oct 20, 2026) lets you attach a stable per-customer identity to every Claude API call. You get per-user dashboards, spend limits, and rate-limit budgets without building your own metering layer.
-
-**What you'll be able to do after this:** route multi-tenant API calls through named user profiles so Anthropic's dashboard breaks out cost and usage by customer, and enforce per-customer token budgets, with about ten lines of code.
-
-## Create a profile once, attach it everywhere
-
-```python
-import anthropic
-client = anthropic.Anthropic()
-
-# Create a profile for a customer (idempotent by external_user_id)
-profile = client.beta.user_profiles.create(
-    external_user_id="customer-42",
-    name="Acme Corp",
-    access_type="application"   # "passthrough" for resellers
-)
-
-# Attach the profile to every call for this customer
-message = client.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": prompt}],
-    extra_headers={"anthropic-user-profile-id": profile.id}
-)
-```
-
-`access_type="application"` means you're calling on behalf of your own product. `"passthrough"` is for platforms that resell API access directly — it requires Anthropic approval.
-
-## What you get in the dashboard
-
-Once a profile ID appears in requests, the Anthropic console shows:
-- Token usage broken out by profile
-- Spend over time per customer
-- Rate-limit headroom per profile (set via the API)
-
-This replaces the common pattern of shadowing every API call in your own database just to answer "how much did customer X use this month?"
-
-## Limits to know before shipping
-
-- **Still in beta**: the header name changed once already (Oct 21 patch), so pin to the latest SDK version and watch the changelog.
-- **Passthrough access type** requires explicit Anthropic approval before it shows up in your account.
-- **Webhooks for budget exhaustion** are on the roadmap but not yet available — you'll need to poll or catch 429s with a `user_profile_budget_exceeded` error code for now.
-- **Profile IDs are not portable** across API keys; if you rotate keys, re-create or re-map profiles.
-
-**Source:** Anthropic, "User Profiles" API reference (Oct 20, 2026) — [docs.anthropic.com](https://docs.anthropic.com/en/api/user-profiles). *Note: as of this writing (Oct 23, 2026) no independent tech-outlet coverage exists for this three-day-old feature; all details above come from Anthropic's official documentation.*
-
-**Limits recap:** beta instability (header changed Oct 21); passthrough needs Anthropic approval; budget-exhaustion webhooks not yet available; profiles are not portable across API keys.
-]]></content:encoded>
-  </item>
-  <item>
-    <title><![CDATA[Anthropic Donates Agent Skills Standard to Linux Foundation — 70+ Platforms, 1 M Published Skills]]></title>
-    <link>https://www.anthropic.com/news/agent-skills</link>
-    <guid isPermaLink="false">2026-10-23-05-anthropic-agent-skills-standard-linux-foundation-aaif</guid>
-    <pubDate>Fri, 23 Oct 2026 12:07:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>News</category>
-    <category>Claude Code</category>
-    <category>MCP</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Anthropic has donated the Agent Skills specification to the AI Alliance and Interoperability Forum (AAIF) under the Linux Foundation, alongside MCP. The standard now spans 70+ platforms and 1 M published skills with 280 M installs — but "integrated" still doesn't mean "interoperable."]]></description>
-    <content:encoded><![CDATA[Anthropic announced on Oct 22, 2026 that it is donating the **Agent Skills** specification to the **AI Alliance and Interoperability Forum (AAIF)**, the Linux Foundation body that already stewards MCP. According to Anthropic, the Skills ecosystem now counts 70+ integrated platforms, ~1 M published skills, and 280 M cumulative installs.
-
-## What Agent Skills is
-
-Agent Skills is a standard that lets users bundle a reusable capability — a prompt template, a tool binding, a short agentic workflow — into a shareable artifact that any compliant agent host can discover and invoke. Think of it as the package-manager layer on top of MCP's protocol layer: MCP defines how an agent calls a tool; Skills defines how you package and distribute a named, versioned capability that wraps those calls.
-
-## Why the AAIF donation matters
-
-Handing the spec to the Linux Foundation removes Anthropic as sole steward and opens governance to the broader ecosystem. The AAIF already governs MCP this way. Together the two donations mean both the transport (MCP) and the packaging (Skills) layers of agent interoperability live in neutral hands — a prerequisite for enterprise procurement teams that need vendor-independence assurances.
-
-SDTimes covered the AAIF's formation when MCP was donated in late 2025: the body was explicitly designed as a home for agent-interoperability standards across vendors.
-
-## The limit: integrated ≠ interoperable
-
-70 platforms list Skills support, but "support" ranges from native invocation to a compatibility shim. A skill authored for Claude Code may need manual porting to work in a different agent host. The spec defines the format, not the runtime semantics — until conformance tests are published and vendors certify against them, interoperability is best-effort.
-
-**Source:** Anthropic, "Agent Skills" announcement (Oct 22, 2026) — [anthropic.com/news/agent-skills](https://www.anthropic.com/news/agent-skills); AAIF background — SD Times coverage of the Linux Foundation AI body (Dec 2025). *Note: as of Oct 23, 2026 the specific Oct 22 donation announcement has not yet appeared in independent tech-outlet news cycles; the AAIF governance context and the 70+/1 M/280 M figures are Anthropic's own.*
-
-**Limits:** "integrated" does not mean certified interoperable; conformance tests have not been published; skill portability across hosts remains best-effort.
-]]></content:encoded>
-  </item>
-  <item>
-    <title><![CDATA[LangChain @before_model: Trim Context Windows Before They Overflow Your Agent]]></title>
-    <link>https://langchain-ai.github.io/langgraph/how-tos/memory/add-summary-of-the-conversation-history/</link>
-    <guid isPermaLink="false">2026-10-23-04-langchain-before-model-trim-messages-context-window</guid>
-    <pubDate>Fri, 23 Oct 2026 12:06:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[After 40+ agent turns the message list overflows. LangChain's @before_model decorator and trim_messages utility let you trim older messages before every LLM call — no call-site changes required.]]></description>
-    <content:encoded><![CDATA[Long-running agents quietly hit their context limit one message at a time. When the list finally overflows you get a truncation error or a mysteriously wrong answer — neither is obvious. LangChain's `@before_model` decorator and `trim_messages` utility let you enforce a context budget before every LLM call, with no changes to the rest of your graph.
-
-**Curriculum area:** Applied/agentic → Memory & context engineering.
-
-## The problem
-
-Every turn in a LangGraph agent appends to `state["messages"]`. After 40–50 turns on a long conversation — or a few turns with large tool outputs — the accumulated history blows past the model's context window. The model silently truncates or the API returns a 400. Neither tells you which messages were lost.
-
-## Two strategies with one decorator
-
-`@before_model` is middleware that intercepts `state` before the LLM call. Return a modified state and LangChain uses that for the call — original state is unchanged.
-
-```python
-from langchain_core.messages import trim_messages
-from langgraph.graph import StateGraph, MessagesState
-
-# Strategy 1 — count-based: keep system message + last 20 messages
-def keep_last_20(state):
-    msgs = state["messages"]
-    # Always preserve the system message at index 0
-    return {"messages": [msgs[0]] + msgs[-20:] if len(msgs) > 21 else msgs}
-
-# Strategy 2 — token-based: keep system message + last 4,000 tokens
-def trim_by_tokens(state):
-    return {
-        "messages": trim_messages(
-            state["messages"],
-            max_tokens=4_000,
-            strategy="last",
-            token_counter=len,      # swap for a real tokenizer in production
-            include_system=True,
-            allow_partial=False,    # never split a message mid-sentence
-        )
-    }
-```
-
-Wire it in when you build the graph:
-
-```python
-from langgraph.prebuilt import create_react_agent
-
-agent = create_react_agent(
-    model=llm,
-    tools=tools,
-    pre_model_hook=keep_last_20,   # or trim_by_tokens
-)
-```
-
-## Choosing a strategy
-
-| | Count-based | Token-based |
-|---|---|---|
-| **Predictable** | Yes — always exactly N messages | No — depends on message length |
-| **Accurate** | No — a long tool output costs 10× a short one | Yes |
-| **Cost** | Cheap | Requires a tokenizer call per turn |
-
-For most agents, start with count-based (simple, no tokenizer dependency). Upgrade to token-based once you know your tool outputs vary widely in length.
-
-## What trim_messages does not do
-
-- It does not summarize dropped messages. If your agent needs to recall facts from turn 5 while operating at turn 50, dropping those messages silently corrupts behavior. Add a summarization step before dropping (see LangGraph's "add summary of conversation history" how-to).
-- `token_counter=len` counts characters, not tokens — fast for development, wrong for production. Swap in `model.get_num_tokens_from_messages(msgs)` or a tiktoken call.
-- `allow_partial=False` means a single oversized message is never split — if one tool output exceeds `max_tokens` on its own, trim_messages raises. Handle this upstream by truncating tool outputs before they enter state.
-
-**Sources:** LangGraph "How to add summary of the conversation history" — [langchain-ai.github.io](https://langchain-ai.github.io/langgraph/how-tos/memory/add-summary-of-the-conversation-history/); LangChain Core `trim_messages` reference — [python.langchain.com](https://python.langchain.com/docs/how_to/trim_messages/); LangGraph prebuilt `create_react_agent` + `pre_model_hook` — [langchain-ai.github.io](https://langchain-ai.github.io/langgraph/reference/prebuilt/).
-
-**Limits:** `token_counter=len` counts characters, not tokens — replace with a real tokenizer before shipping; `trim_messages` does not summarize dropped history; `allow_partial=False` will raise on a single message that exceeds `max_tokens`.
-]]></content:encoded>
-  </item>
-
+        
           
                 
     
