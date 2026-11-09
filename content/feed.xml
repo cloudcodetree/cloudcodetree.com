@@ -10,7 +10,182 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 09 Nov 2026 04:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 09 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your `claude -p` Script Gets the Final Answer and Loses Every Tool Call — `--output-format stream-json` Streams Each Event as Parseable NDJSON]]></title>
+    <link>https://code.claude.com/docs/en/headless</link>
+    <guid isPermaLink="false">2026-11-09-05-claude-code-output-format-stream-json-ci-ndjson-events-parse</guid>
+    <pubDate>Mon, 09 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Run claude --output-format stream-json and each tool call, result, and final answer arrives as its own JSON line — so CI scripts can inspect every step, not just the last sentence.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Run `claude -p` with `--output-format stream-json` and every tool call, result, and final answer arrives as its own JSON line (NDJSON) — so CI scripts can inspect what Claude did, not just what it said.**
+
+When you wire `claude -p "..."` into a build pipeline today, you get a text blob: Claude's final answer. If the session made tool calls to gather context — reading files, running searches, checking git history — those steps are invisible. `--output-format stream-json` changes that: each session event streams as a JSON object on its own line as it happens, making the full execution trace parseable.
+
+## The three output modes
+
+| Flag | Use case |
+|---|---|
+| (none) or `--output-format text` | Human-readable terminal output — the default |
+| `--output-format json` | Full session as a single JSON object after completion — includes `total_cost_usd`, tool call history, final result |
+| `--output-format stream-json` | NDJSON stream: each event appears as it happens. Best for long tasks where `json` mode would time out the CI runner |
+
+## Streaming events in a CI job
+
+```bash
+# Log each tool call in real time; act on the final result
+claude -p "Audit all TypeScript files for console.log calls that weren't removed before prod." \
+  --output-format stream-json \
+  --allowedTools "Glob,Read,Bash" \
+  | while IFS= read -r event; do
+      type=$(echo "$event" | jq -r '.type // empty')
+      case "$type" in
+        tool_use) echo "→ $(echo "$event" | jq -r '.name')" ;;
+        result)   echo "Session complete" ;;
+      esac
+    done
+```
+
+The [headless docs](https://code.claude.com/docs/en/headless) define the full event schema; event types you don't recognise are safe to skip — treat them as informational.
+
+## Getting cost and session data from `--output-format json`
+
+```bash
+# Run a code review and capture cost
+output=$(claude -p "Review the diff and output JSON only: {\"issues\": [], \"severity\": \"none|low|critical\"}" \
+  --output-format json \
+  --allowedTools "Read" < diff.txt)
+
+cost=$(echo "$output" | jq -r '.cost_usd // .total_cost_usd // "unknown"')
+echo "Review cost: \$cost"
+```
+
+The JSON output includes `total_cost_usd` and `session_id` — pass the session ID to `--resume` in a follow-up `claude -p` call to continue the same conversation from a script.
+
+## Practical patterns
+
+- **Cost gate:** Extract `total_cost_usd` from the final JSON object and fail the job if Claude exceeded a per-task budget — useful when you fan out many parallel reviews
+- **Fail on critical finding:** Ask Claude to output structured JSON with a severity field, parse it with `jq`, and `exit 1` if severity is `critical`
+- **Audit trail:** Pipe `stream-json` to a log file alongside the CI artifact; every tool call is there if you need to replay what Claude did
+
+**One limit:** `--output-format json` waits for the session to finish before writing anything to stdout. For tasks that might run for minutes, use `stream-json` instead — the CI runner won't time out, and you get progress. Neither mode supports interactive prompts; both require `--print` / `-p` mode.
+
+**Sources:** [Headless mode — Claude Code Docs](https://code.claude.com/docs/en/headless) · [Claude Code automation and stream-json — The Prompt Shelf](https://thepromptshelf.dev/blog/claude-code-print-mode-stream-json-automation-2026/) · [Headless mode CI/CD guide — SFEIR Institute](https://institute.sfeir.com/en/claude-code/claude-code-headless-mode-and-ci-cd/tutorial/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Model Gives Generic Answers Even After Fine-Tuning — Three Questions Diagnose Whether the Fix Is RAG or Behavior Training]]></title>
+    <link>https://ai.meta.com/blog/when-to-fine-tune-llms-vs-other-techniques/</link>
+    <guid isPermaLink="false">2026-11-09-04-rag-vs-fine-tuning-three-question-test-knowledge-behavior</guid>
+    <pubDate>Mon, 09 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[RAG injects knowledge at query time; fine-tuning changes model behavior permanently. Three diagnostic questions tell you which one actually solves your problem.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>RAG</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**RAG injects knowledge at query time; fine-tuning changes model behavior permanently. The most common applied-AI mistake is using fine-tuning to fix a knowledge gap — here's the three-question test that tells them apart.**
+
+**What you'll be able to do after this:** Diagnose any model output problem as either a knowledge gap (needs RAG) or a behavior gap (needs fine-tuning) in under two minutes, and avoid the most expensive mistake in applied AI: running a fine-tuning job on a problem only retrieval can solve.
+
+**Three takeaways:**
+1. Fine-tuning changes *how* the model responds — format, style, tone, reasoning structure. It does not reliably add new facts; it bakes in training signal the model may surface without grounding.
+2. RAG changes *what* the model knows at query time. It's debuggable (inspect the retrieved chunks), reversible (remove a document and it's gone), and always current.
+3. The two compose: fine-tune once to lock in output format and domain vocabulary, then add RAG to inject changing facts at query time.
+
+## The three diagnostic questions
+
+**1. If you pasted the right information into the prompt, would the model answer correctly?**
+
+Test it in under a minute:
+
+```python
+import anthropic
+client = anthropic.Anthropic()
+
+# Failing without context
+response = client.messages.create(
+    model="claude-haiku-5-5",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "What is our Q3 refund policy for enterprise customers?"}]
+)
+# Probably: "I don't have access to your company's policies..."
+
+# Now paste the relevant document
+with open("policies/q3-enterprise-refund.md") as f:
+    policy_text = f.read()
+
+response = client.messages.create(
+    model="claude-haiku-5-5",
+    max_tokens=256,
+    messages=[{
+        "role": "user",
+        "content": f"Policy:\n{policy_text}\n\nWhat is the Q3 refund policy for enterprise customers?"
+    }]
+)
+# If this answers correctly: the fix is RAG, not fine-tuning
+```
+
+**→ Answers correctly with context → RAG.** The model has the capability; it lacks the information.
+**→ Still wrong even with context → Fine-tuning candidate.** The model doesn't know *how* to respond, even when given the facts.
+
+**2. Does the information change, or do you need to cite a source?**
+
+A model fine-tuned on last month's docs will confidently cite outdated numbers with no way to tell. Meta's own guidance is explicit: "If the problem requires access to a dynamic corpus of data, fine-tuning may not be the right approach, as the knowledge of the LLM can soon become stale."
+
+→ Changing or citable data → **RAG.**
+
+**3. Is the problem about *how* it responds, not *what* it says?**
+
+- Always outputs a specific JSON schema
+- Always replies in a particular language or voice
+- Always reasons through a fixed structure before answering
+- Consistent domain vocabulary across a narrow task
+
+These are behavior/format changes that a system prompt alone can be inconsistent about at scale.
+
+→ Output format, style, reasoning structure → **Fine-tuning** (try a detailed system prompt with few-shot examples first).
+
+## The practical hybrid
+
+Most production systems end up using both. Fine-tune to lock in output behavior — the JSON schema your API consumers depend on — then add RAG to inject current facts at query time. The fine-tuned model processes retrieved context more reliably because it already knows what shape the answer should take:
+
+```python
+# Fine-tuned model: always outputs {"answer": "...", "sources": [...]}
+# RAG: injects the current facts at query time
+context_chunks = retrieve_top_k(query, vector_store, k=5)
+response = client.messages.create(
+    model="your-fine-tuned-checkpoint",
+    max_tokens=512,
+    system='You are a support assistant. Output only valid JSON: {"answer": string, "sources": [string]}',
+    messages=[{
+        "role": "user",
+        "content": f"Context:\n{chr(10).join(context_chunks)}\n\nQuestion: {query}"
+    }]
+)
+```
+
+## When fine-tuning genuinely wins alone
+
+- Output format compliance at scale (consistent JSON schema without long few-shot examples per prompt)
+- Domain vocabulary and tone consistency (legal, medical, brand voice)
+- Latency/cost: a fine-tuned smaller model can outperform prompting a larger one for a narrow task
+- Teaching a reasoning *pattern* where training examples fully specify correct behavior
+
+**Common mistakes to avoid:**
+- Fine-tuning to fix hallucinations → usually makes the model more *confidently* wrong
+- Fine-tuning on knowledge you'll need to update → no diff, no rollback, stale weights with no indicator
+- Fine-tuning before trying prompting → always test system prompts and few-shot examples first
+
+**Sources:** [To fine-tune or not to fine-tune — Meta AI Blog](https://ai.meta.com/blog/when-to-fine-tune-llms-vs-other-techniques/) · [Methods for adapting LLMs — Meta AI](https://ai.meta.com/blog/adapting-large-language-models-llms/) · [Fine-tuning vs RAG in 2026: A Practical Decision Framework — Tian Pan](https://tianpan.co/forum/t/fine-tuning-vs-rag-in-2026-a-practical-decision-framework-for-production-llm-systems/995)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Long-Running MCP Tool Call Holds Claude's Attention — The `/tasks` Panel and an Env Var Give You Back Control]]></title>
@@ -6278,78 +6453,7 @@ For most agents, start with count-based (simple, no tokenizer dependency). Upgra
 ]]></content:encoded>
   </item>
 
-    <item>
-    <title><![CDATA[Your CLAUDE.md Grows Into a Context Sink — Anthropic's Guide Defines When to Use a Skill, Hook, or Subagent Instead]]></title>
-    <link>https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more</link>
-    <guid isPermaLink="false">2026-10-23-03-claudemd-skill-hook-subagent-steering-decision-framework</guid>
-    <pubDate>Fri, 23 Oct 2026 04:05:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Every line in CLAUDE.md loads every turn and costs context. Anthropic's June 2026 guide defines when to use a skill, hook, or subagent instead.]]></description>
-    <content:encoded><![CDATA[Every line in CLAUDE.md loads every turn and costs context. Anthropic's June 2026 "Steering Claude Code" guide names four mechanisms and tells you when to reach for each one.
-
-**What you'll be able to do after this:** stop packing every constraint into one growing markdown file and instead route each concern to the mechanism that handles it best.
-
-## The four mechanisms
-
-| Mechanism | When it loads | Use for |
-|---|---|---|
-| **CLAUDE.md** | Every turn, always | Persistent project context: repo layout, style rules, required preambles, non-negotiable invariants |
-| **Skill** | Only when invoked by name | Specialized multi-step workflows: publishing a post, running a deploy, scaffolding a feature |
-| **Hook** | On every matching tool event, outside the context window | Enforcement that must run regardless of prompt state: secret scanning, schema validation, lint-on-save |
-| **Subagent** | Spawned explicitly, isolated context window | Parallel research, long-running tasks, work whose tool noise you don't want back in the main thread |
-
-## When the lines blur
-
-A constraint that must fire without being asked is a hook, not a CLAUDE.md rule — hooks run outside the model's context so they cannot be reasoned around.
-
-A workflow you invoke by name (`/publish-post`, `/deploy-staging`) is a skill, not a CLAUDE.md section — skills load only when called and can include their own tools and sub-steps.
-
-Parallel or context-expensive work belongs in a subagent — forking keeps the main thread clean and lets several tasks finish at once.
-
-CLAUDE.md stays for the rest: the standing facts every turn needs.
-
-## In practice
-
-Start pruning when CLAUDE.md passes ~200 lines. For each block ask: does this need to be present in every single turn? If it fires only on an event → hook. If it runs only on explicit invocation → skill. If it's parallel or noisy → subagent. The remainder is genuine CLAUDE.md material.
-
-**Source:** Anthropic, "Steering Claude Code: Skills, Hooks, Rules, Subagents, and More" (June 18, 2026) — [claude.com/blog](https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more); hooks reference — [docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code/hooks); independent analysis — [Towards AI](https://pub.towardsai.net/claude-code-skills-vs-subagents-vs-hooks-vs-workflows-which-to-use-in-2026-120db6ae5b3c).
-
-**Limits:** Skill invocation depends on description clarity — a vague description causes Claude to miss the skill entirely. Hooks add ~500 ms round-trip latency per matched tool call; keep hook scripts fast.
-]]></content:encoded>
-  </item>
-  <item>
-    <title><![CDATA[OpenAI's Decisions API Reaches General Availability — Typed Routing Answers for Agents at $0.10/M Tokens]]></title>
-    <link>https://openai.com/index/devday-2026-recap/</link>
-    <guid isPermaLink="false">2026-10-23-02-openai-decisions-api-ga-agent-routing-classification</guid>
-    <pubDate>Fri, 23 Oct 2026 04:04:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>News</category>
-    <category>Developer Tools</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[OpenAI's Decisions API reached general availability October 22, returning typed predicates, choices, and scores from GPT-6 Luna — purpose-built for agent routing and content classification.]]></description>
-    <content:encoded><![CDATA[**OpenAI's Decisions API reached general availability on October 22, 2026.** Previewed at DevDay (September 29), it is now open to all API customers on GPT-6 Luna.
-
-The endpoint — `POST /v1/decisions` — takes a prompt and a typed decision schema and returns a structured answer: a predicate (`true`/`false`), a choice from an enumerated set, or a score within a defined range. The model never writes prose; it fills the schema and returns.
-
-The design target is agent routing and classification steps where you need a reliable typed answer rather than a generated string you then parse. A content-moderation gate, a priority classifier, an intent router — each becomes a single API call with a machine-readable result.
-
-**Pricing:** $0.10/M input tokens, $0.40/M output tokens (per OpenAI's pricing page) — approximately 10× lower latency than a standard Chat Completions call per OpenAI's benchmarks.
-
-**Limits worth noting:** The API is currently Luna-only; there is no open-model or on-premises equivalent. Competitor TypeSafe Jev offers a similar typed-routing endpoint at $0.042/M input tokens. The schema is constrained to flat decision types — nested structured output is not supported.
-
-**Why it matters:** Typed routing endpoints reduce a class of fragile string-parsing glue in agent pipelines. Expect the pattern to spread across providers.
-
-**Sources:** [OpenAI DevDay 2026 recap](https://openai.com/index/devday-2026-recap/); [DataCamp tutorial](https://www.datacamp.com/tutorial/open-ai-decisions-api-tutorial); [Towards AI analysis](https://pub.towardsai.net/openai-decisions-api-rollout-build-fast-ai-routing-without-letting-it-make-the-final-call-794da1adf83c).
-]]></content:encoded>
-  </item>
-    
+          
                 
     
     
