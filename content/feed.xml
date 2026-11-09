@@ -10,9 +10,98 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 08 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 09 Nov 2026 04:08:00 +0000</lastBuildDate>
 
+  <item>
+    <title><![CDATA[Your Long-Running MCP Tool Call Holds Claude's Attention — The `/tasks` Panel and an Env Var Give You Back Control]]></title>
+    <link>https://code.claude.com/docs/en/changelog</link>
+    <guid isPermaLink="false">2026-11-09-03-mcp-background-tasks-panel-env-var-long-running-claude-code</guid>
+    <pubDate>Mon, 09 Nov 2026 04:08:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Claude Code v2.1.319 backgrounds long-running MCP tool calls immediately. Here's how to observe, test, and control this behavior — with the escape hatch for tools that need to stay in the main thread.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>MCP</category>
+    <category>Claude Code</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Since v2.1.319, Claude Code backgrounds long-running MCP tool calls immediately instead of holding the main thread — here's how to observe, test, and control this in your servers.**
 
+Before v2.1.319, a slow MCP tool call either held Claude Code's focus during execution or was auto-backgrounded at the 2-minute timeout. The new behavior is immediate and explicit: tool calls that Claude Code classifies as long-running are moved to the background at the start, freeing Claude to continue working while the tool runs.
+
+**What you can do with running tasks:**
+- Open `/tasks` (alias `/bashes`) to see all running MCP tasks and their status
+- A counter appears in the status line while a task runs
+- Claude resumes with the full tool result once the task completes
+
+**Testing your server:** Run your tools with `/tasks` open and verify they appear there. If a fast tool (under 1 second) is being backgrounded unexpectedly, check the classification — the official changelog has the heuristic.
+
+**Opting out:** Set `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1` in your environment if a tool call needs to block the main thread — for example, when testing a tool interactively or when it streams intermediate output you need to watch in real time.
+
+**Where this doesn't help:** Tools that need Claude to poll for completion after returning a task handle still require a polling tool on your server. Tools that return in under a second are unaffected.
+
+The earlier 2-minute auto-background threshold (from v2.1.212) remains as a catch-all for any MCP call that hasn't finished in time — this new behavior runs earlier than that.
+
+**Sources:** [Claude Code changelog v2.1.319](https://code.claude.com/docs/en/changelog), [v2.1.319 release notes](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-319/), [MCP progress notification tracking](https://claudeissues.com/issue/86464-bug-mcp-progress-notifications-are-received-but-discarded-once-a-call-is-auto-ba)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code v2.1.319 Backgrounds MCP Tasks Immediately; Auto-Mode Classifier Removed Behind LLM Gateways]]></title>
+    <link>https://code.claude.com/docs/en/changelog</link>
+    <guid isPermaLink="false">2026-11-09-02-claude-code-v2-1-319-mcp-background-auto-mode-gateway</guid>
+    <pubDate>Mon, 09 Nov 2026 04:06:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[v2.1.319 (Nov 6) backgrounds MCP tasks immediately and removes the auto-mode classifier fallback behind LLM gateways — teams routing through ANTHROPIC_BASE_URL need explicit allow rules.]]></description>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**Two changes in Claude Code v2.1.319 (Nov 6) affect anyone running MCP servers or deploying Claude Code in enterprise LLM gateway environments.**
+
+**MCP background tasks:** Tool calls Claude Code identifies as long-running tasks now run in the background immediately, rather than holding the main thread. Status appears in `/tasks` (or `/bashes`). Disable per-session with `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1`.
+
+**Auto-mode behind gateways:** The built-in classifier fallback is removed. If your team routes Claude Code through a corporate LLM proxy via `ANTHROPIC_BASE_URL` and the proxy doesn't pass through Anthropic's classifier endpoint, Claude Code now asks or denies instead of silently degrading. Teams in this setup need explicit allow rules in CLAUDE.md or settings.json — run `claude /status` to check if the classifier is reachable.
+
+Also: **fast mode for Claude Opus 4.8 retires November 30, 2026.** Update any scripts or API calls that pin `claude-opus-4-8` fast mode to `claude-opus-5-5` before then.
+
+**Why it matters:** If your team uses Claude Code behind a gateway and recently noticed more permission prompts after upgrading, this is the cause — the fix is explicit allow rules, not reverting to an older version.
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [v2.1.319 release notes](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-319/), [Releasebot Claude updates](https://releasebot.io/updates/anthropic/claude)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your v0 Component Uses shadcn Defaults, Not Your Design System — `npx shadcn add` + Claude Code Closes That Gap]]></title>
+    <link>https://vercel.com/blog/maximizing-outputs-with-v0-from-ui-generation-to-code-creation</link>
+    <guid isPermaLink="false">2026-11-09-01-v0-add-codebase-shadcn-nextjs-claude-code-token-adapt</guid>
+    <pubDate>Mon, 09 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[v0's "Add to Codebase" CLI command drops a generated component into your Next.js project in seconds; Claude Code then adapts it to your design tokens and component library in one pass.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Design-to-Code</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**v0's "Add to Codebase" CLI command drops a generated component into your Next.js project in seconds; Claude Code then adapts it to your design tokens and component library in one pass.**
+
+**What you'll be able to do after this:** Generate a complex UI component in v0 — a data table, settings panel, or chart wrapper — and land it in your existing project using your color tokens, your `<Button>`, and your TypeScript types, not shadcn/ui defaults.
+
+**Three takeaways:**
+- `npx shadcn@latest add <v0-url>` installs the component and any missing shadcn primitives directly into `components/ui/` — no copy-paste required.
+- The main failure modes are missing CSS variables and server/client component boundary errors, both fixable with a focused Claude Code prompt.
+- v0 output assumes shadcn/ui; if your project uses a different library or custom tokens, Claude Code can adapt it in one pass rather than you rewriting every import manually.
+
+**The workflow:**
+
+1. Build and iterate your component on [v0.dev](https://v0.dev) until it looks right.
+2. Click **Add to Codebase** → copy the `npx shadcn@latest add <url>` command. Run it at your project root — it installs the component into `components/ui/` and any shadcn primitives it depends on.
+3. Import the component in a page. Run `tsc --noEmit` and your dev server to catch missing CSS vars (`--background`, `--foreground`, `--primary`) and boundary errors.
+4. Open Claude Code: `"This component uses shadcn tokens and imports from 'shadcn/ui'. Adapt it to use our design system (see CLAUDE.md tokens section) and replace shadcn primitives with components from @/components."` One pass usually covers it.
+5. Re-run your type checker and spot-check the rendered output.
+
+**Where it breaks:** shadcn's default styling bleeds through when your CSS token set doesn't cover the full range the component uses. Keep your token list in CLAUDE.md so Claude Code knows what variables are available. If your project doesn't use shadcn/ui at all, include which component library you do use in the adaptation prompt.
+
+**Sources:** [v0 official guide](https://vercel.com/blog/maximizing-outputs-with-v0-from-ui-generation-to-code-creation), [v0-to-Next.js integration walkthrough](https://dev.to/brandon-vibestart/from-v0-output-to-production-nextjs-in-90-minutes-a-6-step-integration-workflow-2026-4c60), [shadcn/ui CLI docs](https://ui.shadcn.com/docs/cli)]]></content:encoded>
+  </item>
 
 
 
@@ -6260,230 +6349,8 @@ The design target is agent routing and classification steps where you need a rel
 **Sources:** [OpenAI DevDay 2026 recap](https://openai.com/index/devday-2026-recap/); [DataCamp tutorial](https://www.datacamp.com/tutorial/open-ai-decisions-api-tutorial); [Towards AI analysis](https://pub.towardsai.net/openai-decisions-api-rollout-build-fast-ai-routing-without-letting-it-make-the-final-call-794da1adf83c).
 ]]></content:encoded>
   </item>
-  <item>
-    <title><![CDATA[Your Open Model Returns Free-Form Text When You Need JSON — vLLM's GuidedDecodingParams Constrains Any Model to a Schema at the Decoding Level]]></title>
-    <link>https://docs.vllm.ai/en/stable/features/structured_outputs.html</link>
-    <guid isPermaLink="false">2026-10-23-01-vllm-guideddecodingparams-json-schema-constrained-output</guid>
-    <pubDate>Fri, 23 Oct 2026 04:03:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Self-Hosting</category>
-    <category>LLM</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Pass a Pydantic schema to GuidedDecodingParams and vLLM guarantees valid JSON from any open model — the constraint operates at token selection, not prompt engineering.]]></description>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** configure any vLLM-served open model to return valid, schema-conforming JSON on every call — without prompt tricks, retry loops, or post-processing parsers.
-
-## Why prompt engineering alone isn't enough
-
-Asking a model to "respond in JSON" works until it doesn't — a missed bracket, an extra key, a value in the wrong type. For production pipelines that parse the output programmatically, "usually correct" is not acceptable.
-
-vLLM's `GuidedDecodingParams` solves this at the token level. Instead of constraining the prompt, it constrains the sampling step: at each token position, only tokens that keep the output on a valid path through the schema's finite-state automaton are eligible. The model cannot produce invalid JSON even if the instructions say nothing about format.
-
-## Minimal working example
-
-```python
-from typing import Literal
-from pydantic import BaseModel
-from vllm import LLM, SamplingParams
-from vllm.sampling_params import GuidedDecodingParams
-
-class Review(BaseModel):
-    sentiment: Literal["positive", "negative", "neutral"]
-    score: float   # 0.0–1.0
-    summary: str
-
-llm = LLM(model="mistralai/Mistral-7B-Instruct-v0.3")
-params = SamplingParams(
-    temperature=0,
-    guided_decoding=GuidedDecodingParams(json=Review.model_json_schema()),
-)
-outputs = llm.generate(
-    ["Review: 'Excellent build quality, but battery life is poor.'"],
-    params,
-)
-result = Review.model_validate_json(outputs[0].outputs[0].text)
-# result.sentiment == "negative", result.score == 0.35, result.summary == "..."
-```
-
-`GuidedDecodingParams` accepts `json` (a JSON Schema dict), `regex` (a pattern), `choice` (a list of strings), or `grammar` (a BNF/EBNF string). Pydantic's `.model_json_schema()` gives you the dict directly.
-
-## Three things to know
-
-- **It's a sampling constraint, not a prompt constraint.** The model still uses the prompt for meaning; only the token selection step is restricted.
-- **xgrammar is the default backend** (as of vLLM 0.6+). It compiles the schema to a pushdown automaton once per schema shape and reuses it across requests.
-- **Batch inference works.** Pass a list of prompts to `llm.generate()` with the same `params`; each output is independently constrained.
-
-## Limits
-
-xgrammar doesn't support every JSON Schema feature: `$ref` cycles, `allOf` with incompatible types, and some `if/then/else` constructs are unsupported. There is a per-schema compilation cost on first use (~10–50 ms depending on schema complexity); subsequent requests with the same schema pay nothing. Very large or recursive schemas can slow the sampler.
-
-**Sources:** [vLLM Structured Outputs docs](https://docs.vllm.ai/en/stable/features/structured_outputs.html); [Guided Decoding in RAG — arXiv 2509.06631](https://arxiv.org/html/2509.06631v1); [vLLM community forum — guided decoding speed tips, July 2026](https://discuss.vllm.ai/t/as-of-july-2026-what-are-some-general-tips-in-improving-the-speed-of-guided-decoding-in-vllm/2845).
-]]></content:encoded>
-  </item>
-  <item>
-      <title><![CDATA[Your RAG Pipeline Splits Documents at Arbitrary Byte Boundaries — RecursiveCharacterTextSplitter Falls Back Through Paragraph, Line, and Word Separators to Keep Context Together]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-07-recursive-char-splitter-chunk-size-overlap-langchain</link>
-      <guid isPermaLink="false">2026-10-22-07-recursive-char-splitter-chunk-size-overlap-langchain</guid>
-      <pubDate>Thu, 22 Oct 2026 20:04:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Tutorial</category>
-      <category>RAG</category>
-      <category>Best Practices</category>
-      <category>Building AI Products</category>
-      <description>RecursiveCharacterTextSplitter splits on paragraph breaks first, then lines, then spaces — never at a random byte offset — keeping context units intact before they are embedded.</description>
-      <content:encoded><![CDATA[**RecursiveCharacterTextSplitter splits on paragraph breaks first, then lines, then spaces — so chunks respect sentence and paragraph boundaries rather than landing mid-sentence inside your vector store.**
-
-**What you'll be able to do after this:**
-- Split any text document into context-preserving chunks ready for embedding
-- Choose chunk_size and chunk_overlap values that match your embedding model and retrieval setup
-- Know when to swap for a structure-aware splitter instead
-
-## Why the splitter choice matters
-
-A fixed-size character split at byte offset 512 cuts sentences mid-thought. The embedded fragment loses its subject. Your retriever then surfaces partial answers as the best match.
-
-`RecursiveCharacterTextSplitter` avoids this by trying a cascade of separators in order — paragraph breaks (`
-
-`), then line breaks (`
-`), then spaces (` `), then individual characters as a last resort. It only falls to a finer separator when a chunk still exceeds `chunk_size` after splitting on the coarser one.
-
-## Minimal setup
-
-```python
-pip install langchain-text-splitters
-```
-
-```python
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,       # max characters per chunk
-    chunk_overlap=50,     # characters re-used from the end of the prior chunk
-    length_function=len,  # default; swap for tiktoken to count tokens instead
-)
-
-# Split plain text
-chunks = splitter.split_text(your_long_string)
-
-# Split LangChain Document objects (keeps .metadata: source, page, etc.)
-from langchain_community.document_loaders import TextLoader
-docs = TextLoader("README.md").load()
-doc_chunks = splitter.split_documents(docs)
-```
-
-`split_documents` preserves `metadata` from the loader — `source`, `page`, and any custom keys — so each chunk knows where it came from.
-
-## Sizing decisions
-
-| Document type | chunk_size (chars) | chunk_overlap |
-|---|---|---|
-| Prose / articles | 400–600 | 50–80 |
-| FAQ / short paragraphs | 150–300 | 30–50 |
-| Code (use `language=` variant) | 1000–2000 | 200 |
-
-Start at 500/50 and measure retrieval recall on your own data before optimising. Most embedding models have a 512-token limit; 500 characters is roughly 375–400 tokens for English prose, which leaves safe margin.
-
-**Counting tokens instead of characters:**
-
-```python
-import tiktoken
-enc = tiktoken.get_encoding("cl100k_base")  # matches OpenAI & many open models
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=400,       # now in tokens, not characters
-    chunk_overlap=40,
-    length_function=lambda text: len(enc.encode(text)),
-)
-```
-
-## When to reach for a different splitter
-
-`RecursiveCharacterTextSplitter` does not know what a heading, table, code fence, or list item is — it splits on whitespace patterns only. Two situations where it causes problems:
-
-- **Markdown with headers**: use `MarkdownHeaderTextSplitter` to split by `#` / `##` / `###` levels. Each chunk then carries the header path as metadata, which lets you filter by section at retrieval time.
-- **PDFs and structured documents**: use Docling's `DOC_CHUNKS` mode (covered in an [earlier post](https://cloudcodetree.com/ai-news/2026-10-14-03-docling-langchain-pdf-table-structure-rag)). Docling preserves table rows and section breaks before the chunks reach LangChain.
-
-**Limits:** `chunk_overlap` is a *target*, not a guarantee — if the final separator that fits a chunk is longer than the overlap window, the actual overlap may be zero for that pair. And character-based sizing means two chunks with identical character counts can have very different token counts depending on vocabulary (code, URLs, and numbers are cheap in characters but expensive in tokens). Measure before you deploy.
-
-**Sources:** [Recursively split by character — LangChain official docs](https://python.langchain.com/docs/how_to/recursive_text_splitter) · [RAG Chunking Strategies 2026: 8 Methods Compared with Code — denser.ai](https://denser.ai/blog/rag-chunking-strategies/) · [Chunking Strategies for RAG: Fixed, Semantic, and Recursive — codingshuttle.com](https://www.codingshuttle.com/blogs/chunking-strategies-for-rag-fixed-semantic-and-recursive)]]></content:encoded>
-    </item>
-
-    <item>
-      <title><![CDATA[Your Python Automation Script Ships Without Its Own Requirements — PEP 723 Puts the Dependencies Inside the File; `uv run script.py` Installs Them and Runs]]></title>
-      <link>https://cloudcodetree.com/ai-news/2026-10-22-06-uv-pep-723-self-contained-python-automation-script</link>
-      <guid isPermaLink="false">2026-10-22-06-uv-pep-723-self-contained-python-automation-script</guid>
-      <pubDate>Thu, 22 Oct 2026 12:09:00 +0000</pubDate>
-      <dc:creator>Chris Harper</dc:creator>
-      <category>AI</category>
-      <category>Workflow</category>
-      <category>Developer Tools</category>
-      <category>Claude Code</category>
-      <category>Building AI Products</category>
-      <description>PEP 723 lets you declare pip dependencies in a comment block at the top of any .py file. `uv run script.py` reads the block, builds a temp venv, and runs — one command, no setup.</description>
-      <content:encoded><![CDATA[**PEP 723 embeds pip dependencies directly in a `.py` file as a comment block. `uv run script.py` reads the block, builds a temporary virtual environment, and executes — no requirements.txt, no Makefile step, no `pip install` before the script runs.**
-
-This matters for automation scripts you write alongside Claude Code tasks, share via a repo, or run in CI: the script is the whole package. Drop it in your `.claude/hooks/` directory, check it into the repo, and any machine with `uv` installed runs it correctly from the first `uv run`.
-
-## The inline dependency block (PEP 723)
-
-```python
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#   "httpx",
-#   "rich>=13.0",
-# ]
-# ///
-
-import httpx
-from rich import print
-
-r = httpx.get("https://api.example.com/status")
-print(r.json())
-```
-
-The `# /// script` block is parsed by uv before execution. Everything between `# ///` and the closing `# ///` is TOML. `dependencies` is a list of PEP 508 dependency specifiers — the same format as requirements.txt.
-
-## Three commands you'll use daily
-
-```bash
-# Scaffold a new self-contained script
-uv init --script analyze.py --python 3.12
-
-# Add a dependency — writes it into the block in-place
-uv add --script analyze.py httpx
-
-# Run without activating anything
-uv run analyze.py
-```
-
-`uv add --script` adds the dependency and updates the inline block atomically; there is no separate file to keep in sync.
-
-## In CI (GitHub Actions)
-
-```yaml
-- uses: astral-sh/setup-uv@v3
-- run: uv run scripts/validate.py
-```
-
-No `pip install` step, no requirements cache to maintain. uv installs the declared deps to an ephemeral environment that it caches across CI runs by content hash.
-
-## Claude Code angle
-
-Claude Code uses `uv` internally for its own Python tool calls. Hooks written as uv scripts match that toolchain exactly — `uv run` in a `PreToolUse` or `PostToolUse` hook works consistently across local machines and cloud sessions without a system Python or an activated venv.
-
-## Limits
-
-- Only uv reads PEP 723 natively — running the script with `python script.py` skips the block and fails with an import error. The `#!/usr/bin/env -S uv run --script` shebang makes the file self-executing on Unix if uv is on PATH.
-- `uv add --script` writes the current Python version into `requires-python` (e.g. `>=3.12.3`), which is usually more restrictive than you need — change it to `>=3.11` manually.
-- A script in a directory that has a `pyproject.toml` is treated as a project script by default; pass the explicit `--script` flag to override: `uv run --script script.py`.
-- No lockfile by default — for reproducibility, run `uv lock --script script.py` to pin the dep graph.
-
-**Sources:** [uv Scripts guide — docs.astral.sh](https://docs.astral.sh/uv/guides/scripts/) · [Share Python Scripts Like a Pro: uv and PEP 723 — thisdavej.com](https://thisdavej.com/share-python-scripts-like-a-pro-uv-and-pep-723-for-easy-deployment/) · [How to write a self-contained script — pydevtools.com](https://pydevtools.com/handbook/how-to/how-to-write-a-self-contained-script/)]]></content:encoded>
-    </item>
-            
+    
+                
     
     
 
