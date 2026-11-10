@@ -10,7 +10,162 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 10 Nov 2026 04:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 10 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Anthropic API Calls Block Until the Full Response Arrives — `client.messages.stream()` Gives You Token-by-Token Text for Any Streaming UI]]></title>
+    <link>https://platform.claude.com/docs/build-with-claude/streaming</link>
+    <guid isPermaLink="false">2026-11-10-04-anthropic-sdk-messages-stream-token-by-token-text-streaming-fastapi</guid>
+    <pubDate>Tue, 10 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Replace client.messages.create() with the client.messages.stream() context manager and iterate stream.text_stream — tokens arrive as they generate instead of blocking on the full response, so a FastAPI SSE endpoint can forward each token to the browser immediately.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What changes:** replace `client.messages.create()` with the `client.messages.stream()` context manager, then iterate `stream.text_stream` — tokens arrive as they generate instead of blocking on the full response.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Blocking — waits for the full response
+message = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Explain vector search."}]
+)
+print(message.content[0].text)
+
+# Streaming — tokens arrive as they generate
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Explain vector search."}]
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)
+final = stream.get_final_message()   # full Message object with usage counts
+```
+
+The context manager handles connection lifecycle. `stream.get_final_message()` returns the complete `Message` object with `usage.input_tokens` and `usage.output_tokens`, so you still have token counts after streaming.
+
+## Wire it to a FastAPI SSE endpoint
+
+```python
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
+import anthropic
+
+app = FastAPI()
+client = anthropic.Anthropic()
+
+@app.get("/chat")
+def chat(prompt: str):
+    def token_stream():
+        with client.messages.stream(
+            model="claude-sonnet-5-5",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}]
+        ) as stream:
+            for text in stream.text_stream:
+                yield f"data: {text}\n\n"
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(token_stream(), media_type="text/event-stream")
+```
+
+The browser side reads via `EventSource` or a `fetch` reader loop against `/chat?prompt=...`.
+
+## Limits
+
+- **NGINX / load balancer timeouts**: the default read timeout is 60 s. A slow generation on large `max_tokens` can still time out upstream. Set `proxy_read_timeout 300s;` or equivalent on any reverse proxy between your app and the client.
+- **Cloudflare Workers free tier**: the CPU time limit is 10 ms per request; holding a Worker context open for a streaming response does not work on the free tier. Use Cloudflare's `fetch()` with `ReadableStream` instead of a blocking SDK loop inside a Worker.
+- **Cloudflare Workers paid (Unbound)**: the wall-clock limit is 30 s for a Workers-to-origin request. If your LLM call streams beyond 30 s, the client gets a truncated response with no error. Stream shorter outputs or proxy through a Durable Object.
+- **`get_final_message()` placement**: call it outside the `with` block after iteration finishes, not inside it. Inside the block it blocks until all tokens arrive, defeating the purpose of streaming in a generator context.
+
+**Sources:** [Anthropic streaming docs](https://platform.claude.com/docs/build-with-claude/streaming) · [Python SDK source (Debian sources mirror)](https://sources.debian.org/src/python-anthropic/) · [Streaming responses with Claude API in Python (dev.to, 2026)](https://dev.to/kalyna_pro/streaming-responses-with-claude-api-in-python-2026-44la)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Inference Code Calls Three Different SDKs for Three Different Providers — Cloudflare Workers AI's OpenAI-Compatible Endpoint Cuts That to One SDK]]></title>
+    <link>https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/</link>
+    <guid isPermaLink="false">2026-11-10-03-cloudflare-workers-ai-openai-compatible-endpoint-single-sdk-inference</guid>
+    <pubDate>Tue, 10 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[Cloudflare Workers AI exposes an OpenAI-compatible /chat/completions endpoint: point the openai Python SDK at api.cloudflare.com/client/v4/accounts/{id}/ai/v1 with a Workers AI token and call Llama 3.3, Mistral, Gemma, and others with the same code that calls OpenAI GPT.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Cloud</category>
+    <category>LLM</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** call Llama 3.3, Mistral, Gemma, and other models on Cloudflare Workers AI using the standard `openai` Python SDK — the same code that calls OpenAI GPT works against Workers AI by changing three lines.
+
+- Use one SDK for every inference provider instead of maintaining separate `anthropic`, `openai`, and `google.generativeai` import paths
+- Run inference from Python scripts against Workers AI's hosted fleet without opening a provider account for each model
+- Stream tokens the same way you already do with the OpenAI client
+
+## Setup
+
+```bash
+pip install openai
+```
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    api_key=os.environ["CLOUDFLARE_API_TOKEN"],
+    base_url=(
+        f"https://api.cloudflare.com/client/v4/accounts/"
+        f"{os.environ['CLOUDFLARE_ACCOUNT_ID']}/ai/v1"
+    )
+)
+
+response = client.chat.completions.create(
+    model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    messages=[{"role": "user", "content": "Explain HNSW indexing in three sentences."}]
+)
+print(response.choices[0].message.content)
+```
+
+`CLOUDFLARE_API_TOKEN` = an API token with the **Workers AI Read** permission (not your Global API key). `CLOUDFLARE_ACCOUNT_ID` appears in the Cloudflare dashboard URL bar.
+
+## Streaming
+
+```python
+stream = client.chat.completions.create(
+    model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    messages=[{"role": "user", "content": "Explain HNSW indexing."}],
+    stream=True,
+)
+for chunk in stream:
+    delta = chunk.choices[0].delta.content
+    if delta:
+        print(delta, end="", flush=True)
+```
+
+## Available models
+
+Browse the full catalog at [developers.cloudflare.com/workers-ai/models/](https://developers.cloudflare.com/workers-ai/models/). Common picks:
+
+| Model | Workers AI name |
+|---|---|
+| Llama 3.3 70B (fast) | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` |
+| Mistral 7B Instruct | `@cf/mistral/mistral-7b-instruct-v0.2-lora` |
+| Gemma 7B | `@cf/google/gemma-7b-it` |
+| Qwen 2.5 Coder 15B | `@cf/qwen/qwen2.5-coder-15b-instruct` |
+
+## Limits
+
+- **Free tier — neurons**: Workers AI free tier gives 10,000 neurons/day. The 70B model costs roughly 7–10 neurons per output token, so ~1,000–1,400 output tokens before hitting the daily cap. The 7B–8B models cost fewer neurons per token. Neuron cost is listed on each model's page in the catalog.
+- **Latency**: Workers AI runs inference at Cloudflare's edge. From a standalone Python script on your laptop, that is an extra round-trip compared to calling the model's native API. The endpoint is fastest when your code runs inside a Cloudflare Worker, colocated with the inference fleet.
+- **Model availability**: not every model in the catalog is available in every region at every time — a 503 from the endpoint means the model is at capacity. Build retry logic for production use.
+- **OpenAI API surface parity**: Workers AI implements `chat/completions` and embeddings. It does not implement function calling, fine-tuning, files, or assistants — if your code uses those OpenAI features, it will not work against this endpoint.
+
+**Sources:** [Workers AI OpenAI compatibility docs](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) · [Workers AI model catalog](https://developers.cloudflare.com/workers-ai/models/) · [Cloudflare Workers AI tutorial (mecanik.dev)](https://mecanik.dev/en/posts/cloudflare-workers-ai-tutorial/) · [Workers AI with Agno (agno.com docs)](https://docs.agno.com/examples/models/cloudflare/basic)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your MCP Tool Just Reads a File and Returns It — That's a Resource, Not a Tool, and the Difference Cuts Conversation Overhead]]></title>
@@ -6331,101 +6486,8 @@ Check vLLM's logs for `draft_acceptance_rate`. If it falls below ~0.5, the draft
 
 
 
-    <item>
-    <title><![CDATA[Claude Code's Read Tool Truncates Large Files at a Fixed Cap — `allow_large: true` Reads Them Whole When the Session Has Context Room]]></title>
-    <link>https://code.claude.com/docs/en/</link>
-    <guid isPermaLink="false">2026-10-24-01-allow-large-read-tool-whole-file-context-aware-claude-code</guid>
-    <pubDate>Sat, 24 Oct 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Claude Code v2.1.296 added allow_large: true to the Read tool. When context has room, Claude reads a text file whole instead of chunking at the ~25K token default cap — the read is sized against remaining session context.]]></description>
-    <content:encoded><![CDATA[**Claude Code v2.1.296 added `allow_large: true` to the Read tool — when the session has context room, Claude reads a text file whole in one call instead of chunking it across multiple offset/limit reads.**
-
-The Read tool has a default size cap: roughly 25,000 tokens in the CLI and 10,000 in Claude Desktop. Before v2.1.296 (October 9, 2026), a file that exceeded the cap would require multiple chunk reads with `offset` and `limit` — Claude would have to stitch the results, sometimes losing inter-section relationships in the process.
-
-`allow_large: true` removes the cap and instead sizes the read against whatever context space the session has at call time. Claude sets the parameter itself based on current session budget; there is no user-facing flag to force it.
-
-**What this means for how you structure sessions:**
-
-- **Start large-file tasks fresh.** If your task is a deep audit of a 20,000-line generated file, open a new session or run `/compact` early. A full read late in a busy session still falls back to chunks because the context has less room.
-- **Subagent sessions start empty.** An Agent tool call or forked subagent inherits nothing from the orchestrator's session — so it can read a large file whole even when the parent session is half full. Structure analysis of large files as a subagent if the orchestrator conversation is already deep.
-- **Explicit `limit` still wins.** `allow_large` affects the automatic cap, not a `limit` you set explicitly. Passing `limit: 500` still reads 500 lines even if the file is small.
-
-**Limits:** Claude sets the parameter itself; the behavior is not user-configurable. The exact behavior is not yet fully documented in the official tools reference as of October 2026 — check [code.claude.com/docs](https://code.claude.com/docs) before relying on it in production. Applies to text files; images, PDFs, and Jupyter notebooks follow separate size rules and are not affected.
-
-**Sources:** [Claude Code v2.1.296 Major Updates: autoCompactWindow and allow_large — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261010-cc-updates-v2-1-296/) · [Claude Code File Size Limits and Large File Handling — fast.io](https://fast.io/resources/claude-code-file-size-limit/)
-]]></content:encoded>
-    </item>
-
-    <item>
-    <title><![CDATA[Your Query Embeds From One Angle — LangChain's `MultiQueryRetriever` Generates Variants, Retrieves for Each, and Returns the Unique Union]]></title>
-    <link>https://api.python.langchain.com/en/latest/retrievers/langchain.retrievers.multi_query.MultiQueryRetriever.html</link>
-    <guid isPermaLink="false">2026-10-24-02-multiqueryretriever-langchain-query-variants-vector-recall</guid>
-    <pubDate>Sat, 24 Oct 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[MultiQueryRetriever asks an LLM to rewrite your query from 3+ angles, runs each against the same vector store, and deduplicates the combined results — better recall without re-chunking or re-indexing.]]></description>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** expand vector search recall without re-chunking or re-indexing by rewriting the query from multiple angles before the search runs.
-
-Vector similarity is path-dependent. "Show me revenue trends" and "quarterly income graphs" embed differently and can return different chunks from the same index — even when those chunks are directly relevant to both phrasings. A retriever that only runs your original query misses chunks that align with a slightly different framing.
-
-`MultiQueryRetriever` addresses this: it passes your question to an LLM, asks it to generate three rephrased variants, retrieves documents for each variant, and returns the deduplicated union. Your vector store and chunks stay untouched.
-
-**Three takeaways:**
-1. The LLM generates variants at `temperature=0` by default — deterministic reformulations, not creative ones. The goal is angle coverage, not novelty.
-2. Deduplication is by document identity: a chunk that surfaces in two variant results appears once in the final set.
-3. One extra LLM call per user query. Size it with a fast, cheap model — the variants it writes are short prompts, not complex reasoning tasks.
-
-**How to wire it in:**
-
-```python
-from langchain_community.vectorstores import Chroma
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import OpenAIEmbeddings
-from langchain.retrievers.multi_query import MultiQueryRetriever
-
-vectordb = Chroma(
-    persist_directory="./my_chroma_db",
-    embedding_function=OpenAIEmbeddings()
-)
-base_retriever = vectordb.as_retriever(search_kwargs={"k": 5})
-
-# Any fast, cheap model works for variant generation
-llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
-
-retriever = MultiQueryRetriever.from_llm(
-    retriever=base_retriever,
-    llm=llm,
-    include_original=True,  # adds your original query to the variant set
-)
-
-docs = retriever.invoke("What are the latency implications of adding a reranker?")
-```
-
-To inspect the variants it generated:
-
-```python
-import logging
-logging.getLogger("langchain.retrievers.multi_query").setLevel(logging.INFO)
-```
-
-**Limits:**
-- Adds one LLM call and extra vector queries per user request — latency compounds if `k` is large or the vector store is slow
-- Recall gain diminishes past 5–7 variants; the default 3 is a reasonable starting point
-- Over-retrieves on narrow factual lookups where the original query is already precise; for those, a plain retriever is faster and sufficient
-
-**Sources:** [MultiQueryRetriever Python API Reference — LangChain](https://api.python.langchain.com/en/latest/retrievers/langchain.retrievers.multi_query.MultiQueryRetriever.html) · [3 Advanced Strategies for Retrievers in LangChain — Analytics Vidhya](https://www.analyticsvidhya.com/blog/2024/11/retrievers-in-langchain/)
-]]></content:encoded>
-    </item>
-
+    
+    
                 
           
                 
