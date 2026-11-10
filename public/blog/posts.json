@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-10-06-claude-code-deny-instead-of-prompting-headless-unattended",
+    "title": "Your Claude Code Session Hangs Forever When an Unattended Agent Hits a Permission Prompt — `denyInsteadOfPrompting` Makes It Fail Fast Instead",
+    "excerpt": "Set \"denyInsteadOfPrompting\": true under permissions in .claude/settings.json to convert any unapproved tool call into an immediate denial rather than an indefinite hang during unattended or CI runs.",
+    "author": "Chris Harper",
+    "date": "11-10-2026",
+    "publishedAt": "2026-11-10T20:14:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://cloudcodetree.com/ai-news/2026-11-10-06-claude-code-deny-instead-of-prompting-headless-unattended",
+    "content": "**Set `\"denyInsteadOfPrompting\": true` under `permissions` in `.claude/settings.json` to convert any unapproved tool call into an immediate denial rather than an indefinite hang during unattended or CI runs.**\n\nBy default, when Claude Code hits a tool call it hasn't been given explicit permission for, it pauses and waits for you to approve or deny it. In an interactive session that's correct. In a background agent, a subagent, or a CI step — it means the process hangs indefinitely, often for hours, until someone notices the terminal.\n\n`permissions.denyInsteadOfPrompting`, added in v2.1.319, converts that pause into a fast failure: the call is denied immediately, the turn continues with an error result visible to Claude, and the agent can either recover or report cleanly.\n\n**Configuration:**\n\n```json\n// .claude/settings.json (project-level) or ~/.claude/settings.json (user-level)\n{\n  \"permissions\": {\n    \"denyInsteadOfPrompting\": true,\n    \"allow\": [\n      \"Bash(npm test:*)\",\n      \"Bash(git status:*)\",\n      \"Read(**)\"\n    ]\n  }\n}\n```\n\nExplicit `allow` rules are unaffected — those calls still execute without prompting or denial. Only calls that *would have asked* get denied instead.\n\n**Side effects to plan for:**\n\n- The `/ask` tool is unavailable with this setting on. Claude cannot pause to request confirmation; it must commit to a direction or report that it cannot proceed.\n- MCP elicitation requests are cancelled automatically, unless you have an `Elicitation` hook that answers them programmatically.\n\n**When to use it:** Any unattended agent that must fail fast rather than hang: CI validation runs, scheduled agents, backend automation triggered by webhooks. It also surfaces permission gaps quickly during development — run your agent once against a new task, watch what it tries to do, and add allow rules for the legitimate calls.\n\n**Limits:** The setting does not change which calls require approval — it only changes the response when approval is missing. Explicit allow rules always take precedence; this setting only fires when no matching allow or deny rule applies.\n\n**Sources:** [SmartScope: denyInsteadOfPrompting (v2.1.319)](https://smartscope.blog/en/blog/claude-code-automatic-permission-prompt-denial-denyinsteadofprompting-v2-2026/) · [DevelopersDigest: Deny Instead of Prompting](https://www.developersdigest.tech/blog/claude-code-deny-instead-of-prompting-2026) · [AgentPatterns: Deny-Fallback Permissions for Unattended Agents](https://agentpatterns.ai/patterns/agent-design/deny-fallback-unattended-permissions/)"
+  },
+  {
+    "id": "2026-11-10-05-anthropic-sdk-tool-runner-beta-auto-agent-loop",
+    "title": "Your Manual Tool Loop Calls the API, Checks stop_reason, Builds the Next Message, and Repeats — `client.beta.messages.tool_runner` Does That With a `for` Loop and Two Decorators",
+    "excerpt": "Annotate your Python functions with @beta_tool, pass them to client.beta.messages.tool_runner(), and iterate — the SDK handles the call/result loop automatically, without manual message assembly.",
+    "author": "Chris Harper",
+    "date": "11-10-2026",
+    "publishedAt": "2026-11-10T20:13:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Agents",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner",
+    "content": "**Annotate your Python functions with `@beta_tool`, pass them to `client.beta.messages.tool_runner()`, and iterate — the SDK calls the API, invokes matching tools, and feeds results back automatically.**\n\n**What you'll be able to do after this:** Build a multi-step tool-using agent (search → fetch → compute → format) without writing the message-assembly loop yourself.\n\nA manual tool-calling loop requires: call the API, check `stop_reason == \"tool_use\"`, extract each `tool_use` block by id, call the matching function, build a `tool_result` content block with the right structure, append it to the messages list, repeat until `stop_reason == \"end_turn\"`. That's roughly 30 lines of message-assembly bookkeeping before your first real function does anything useful.\n\nThe Anthropic Python SDK's `ToolRunner` (currently in beta) wraps that loop:\n\n```python\nfrom anthropic import Anthropic\nfrom anthropic.lib.tools import beta_tool\n\nclient = Anthropic()\n\n@beta_tool\ndef get_weather(location: str, unit: str = \"celsius\") -> str:\n    \"\"\"Get the current weather for a location.\"\"\"\n    return f\"22°C in {location}\"   # your real implementation\n\n@beta_tool\ndef convert_currency(amount: float, from_currency: str, to_currency: str) -> str:\n    \"\"\"Convert an amount between currencies.\"\"\"\n    return f\"{amount * 1.08} {to_currency}\"   # your real implementation\n\nrunner = client.beta.messages.tool_runner(\n    model=\"claude-sonnet-5-5\",\n    tools=[get_weather, convert_currency],\n    messages=[{\"role\": \"user\", \"content\": \"Weather in Paris and 100 USD in euros?\"}],\n)\n\n# Iterate through all turns (including tool call/result turns):\nfor message in runner:\n    pass\n\n# Or skip intermediate turns and get the final message directly:\nfinal = runner.until_done()\nprint(final.content[0].text)\n```\n\n`@beta_tool` builds the JSON schema automatically from Python type hints and the function's docstring — no manual `{\"name\": ..., \"input_schema\": {\"type\": \"object\", \"properties\": {...}}}` block required.\n\n**Limits:**\n\n- The tool runner is in beta (`client.beta`), so the interface may change before it graduates to stable.\n- It does not support human-in-the-loop approval inside the loop. If you need a \"confirm this action?\" step before an action runs, use the manual loop instead.\n- Async is supported: use `async for` on the async client's `tool_runner`.\n- The SDK does not handle client-side context compaction for long runs — trim your messages manually if the context grows large.\n\n**Sources:** [Tool Runner (SDK) — Anthropic Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [tools_runner.py SDK example](https://sources.debian.org/src/anthropic-sdk-python/0.76.0-1/examples/tools_runner.py)"
+  },
+  {
     "id": "2026-11-10-04-anthropic-sdk-messages-stream-token-by-token-text-streaming-fastapi",
     "title": "Your Anthropic API Calls Block Until the Full Response Arrives — `client.messages.stream()` Gives You Token-by-Token Text for Any Streaming UI",
     "excerpt": "Replace client.messages.create() with the client.messages.stream() context manager and iterate stream.text_stream — tokens arrive as they generate instead of blocking on the full response, so a Fas…",
