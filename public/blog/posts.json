@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-10-02-mcp-resource-vs-tool-static-data-conversation-overhead",
+    "title": "Your MCP Tool Just Reads a File and Returns It — That's a Resource, Not a Tool, and the Difference Cuts Conversation Overhead",
+    "excerpt": "If your MCP tool only reads static data and returns it unchanged, convert it to a resource — resources remove the tool_use/tool_result overhead and let Claude browse data without consuming a conver…",
+    "author": "Chris Harper",
+    "date": "11-10-2026",
+    "publishedAt": "2026-11-10T04:15:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "MCP",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://modelcontextprotocol.io/docs/concepts/resources",
+    "content": "**If your MCP tool only reads static data and returns it unchanged, it's a resource — converting it removes tool-call overhead and lets Claude browse the data without consuming a conversation turn.**\n\nThe MCP spec draws a sharp line between **tools** (actions Claude explicitly invokes, with inputs and side effects) and **resources** (addressable data Claude or the host can read, like a filesystem). Most MCP servers built from tutorials default to tools — even for things that just read a file or return a schema that never changes.\n\nThe practical cost: each tool call consumes a `tool_use` and `tool_result` block in the conversation, counts against context, and forces Claude to reason explicitly about \"should I call this now?\" For tools that retrieve the same static data every time, that overhead fires on every request.\n\nResources sidestep this. Claude (or the host client) can list available resources and read them on demand without a tool_use block. With FastMCP:\n\n```python\n# Before: a tool that reads the same file every time\n@mcp.tool()\ndef get_database_schema() -> str:\n    return open(\"schema.sql\").read()\n\n# After: a resource — same data, available without a tool_use block\n@mcp.resource(\"db://schema\")\ndef database_schema() -> str:\n    return open(\"schema.sql\").read()\n```\n\nThe decision rule:\n\n- **Tool** → takes inputs, performs an action, may change state (query a database, run a command, write a file)\n- **Resource** → returns data you would read in a documentation page: schema, API reference, project rules, config\n\nA quick check: delete the tool name from your docstring. If what remains is \"returns the contents of X,\" it should be a resource.\n\n**Limits:** Resources aren't re-fetched automatically when the underlying data changes — there is no cache invalidation. For data that updates frequently (live query results, test output), keep it as a tool. Converting to a resource also does not eliminate token cost: a large schema still consumes context tokens when Claude reads it; the saving is in conversation-turn overhead, not token count. And not all MCP host clients expose resource browsing in the same way — verify your target client (Claude Code, your SDK-based host) supports resources before converting a production tool.\n\n**Sources:** [MCP resources concept](https://modelcontextprotocol.io/docs/concepts/resources) · [FastMCP resources](https://github.com/jlowin/fastmcp) · [MCP spec — tools vs resources](https://spec.modelcontextprotocol.io/specification/server/resources/)"
+  },
+  {
+    "id": "2026-11-10-01-langfuse-anthropic-instrumentor-llm-tracing-observe",
+    "title": "Your Anthropic SDK Calls Run in a Black Box — `AnthropicInstrumentor` Puts Every Generation, Token Count, and Latency Into a Trace You Can Inspect",
+    "excerpt": "AnthropicInstrumentor() from opentelemetry-instrumentation-anthropic captures every Claude API call automatically; @observe groups multi-step functions into a single trace tree in Langfuse without…",
+    "author": "Chris Harper",
+    "date": "11-10-2026",
+    "publishedAt": "2026-11-10T04:14:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Agents",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://langfuse.com/integrations/model-providers/anthropic",
+    "content": "**What you'll be able to do after this:** instrument your Python app so every Claude API call appears as a trace with its full prompt, response, token counts, and latency — without touching your existing API call code.\n\n- See input/output for every generation, plus model name and token usage, in a shareable trace UI\n- Group multi-step functions into a single trace tree so a failure tells you exactly which call caused it\n- Filter traces by user ID or session ID to debug production issues for specific users\n\n## Setup\n\n```bash\npip install langfuse opentelemetry-instrumentation-anthropic\n```\n\nConfigure Langfuse and call `instrument()` once before any API call:\n\n```python\nimport os\nos.environ[\"LANGFUSE_PUBLIC_KEY\"] = \"pk-lf-...\"\nos.environ[\"LANGFUSE_SECRET_KEY\"] = \"sk-lf-...\"\nos.environ[\"LANGFUSE_HOST\"] = \"https://cloud.langfuse.com\"  # or self-hosted\n\nfrom langfuse import observe, get_client\nfrom opentelemetry.instrumentation.anthropic import AnthropicInstrumentor\nimport anthropic\n\nAnthropicInstrumentor().instrument()   # one line, all SDK calls now traced\nclient = anthropic.Anthropic()\n```\n\nEvery `client.messages.create(...)` call from this point is automatically captured as a **generation** span — model, prompt, response, tokens, latency. No changes to your existing API calls.\n\n## Group calls with `@observe`\n\n```python\n@observe()\ndef handle_support_ticket(ticket: str) -> dict:\n    category = client.messages.create(\n        model=\"claude-sonnet-4-6\",\n        max_tokens=64,\n        messages=[{\"role\": \"user\", \"content\": f\"One-word category: {ticket}\"}]\n    ).content[0].text\n\n    reply = client.messages.create(\n        model=\"claude-sonnet-4-6\",\n        max_tokens=256,\n        messages=[{\"role\": \"user\", \"content\": f\"Draft reply for a {category} issue: {ticket}\"}]\n    ).content[0].text\n\n    return {\"category\": category, \"reply\": reply}\n```\n\nEach `handle_support_ticket()` call appears as one trace in Langfuse containing two nested generations. Nested `@observe`-decorated functions are linked automatically — no manual span management.\n\n## Limits\n\n- **SDK version:** Langfuse v3 Python SDK requires a Langfuse server at v4.59.0+ for self-hosting. If your instance is older, stay on the v2 SDK (`from langfuse.decorators import observe`).\n- **Short-lived scripts:** Traces are sent asynchronously. Add `get_client().flush()` at the end of scripts that exit immediately or the last trace can be dropped.\n- **Self-hosting:** The Docker Compose stack is documented at langfuse.com/self-hosting. Cloud-hosted Langfuse rate-limits high-volume trace ingestion — for production workloads generating thousands of traces per minute, plan for self-hosting.\n- **Anthropic SDK auto-instrumentation caveat:** `AnthropicInstrumentor` captures generations correctly for `messages.create`. Streaming responses and tool use blocks may have partial capture depending on the instrumentation package version — test your specific call patterns before relying on completeness.\n\n**Sources:** [Langfuse Anthropic integration docs](https://langfuse.com/integrations/model-providers/anthropic) · [Python decorator docs](https://langfuse.com/docs/sdk/python/decorators) · [Towards AI: trace your first agent pipeline](https://pub.towardsai.net/getting-started-with-langfuse-tracing-your-first-agent-pipeline-38fca9271530) · [PyImageSearch self-hosted Langfuse + vLLM series](https://pyimagesearch.com/2026/05/18/llm-observability-with-self-hosted-langfuse-and-vllm/)"
+  },
+  {
     "id": "2026-11-09-08-claude-code-settings-local-json-plaintext-secrets-gitignore-fix",
     "title": "Your Claude Code \"Yes, Don't Ask Again\" Saves the Full Shell Command — Including Any Password or API Key Inline in It",
     "excerpt": "Choosing \"Yes, don't ask again\" stores the full shell command as a plaintext allow rule in .claude/settings.local.json. If the command contained a credential, the credential is now in that file. Ap…",

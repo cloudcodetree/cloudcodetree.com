@@ -10,7 +10,125 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 09 Nov 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 10 Nov 2026 04:15:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your MCP Tool Just Reads a File and Returns It — That's a Resource, Not a Tool, and the Difference Cuts Conversation Overhead]]></title>
+    <link>https://modelcontextprotocol.io/docs/concepts/resources</link>
+    <guid isPermaLink="false">2026-11-10-02-mcp-resource-vs-tool-static-data-conversation-overhead</guid>
+    <pubDate>Tue, 10 Nov 2026 04:15:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[If your MCP tool only reads static data and returns it unchanged, convert it to a resource — resources remove the tool_use/tool_result overhead and let Claude browse data without consuming a conversation turn.]]></description>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>MCP</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**If your MCP tool only reads static data and returns it unchanged, it's a resource — converting it removes tool-call overhead and lets Claude browse the data without consuming a conversation turn.**
+
+The MCP spec draws a sharp line between **tools** (actions Claude explicitly invokes, with inputs and side effects) and **resources** (addressable data Claude or the host can read, like a filesystem). Most MCP servers built from tutorials default to tools — even for things that just read a file or return a schema that never changes.
+
+The practical cost: each tool call consumes a `tool_use` and `tool_result` block in the conversation, counts against context, and forces Claude to reason explicitly about "should I call this now?" For tools that retrieve the same static data every time, that overhead fires on every request.
+
+Resources sidestep this. Claude (or the host client) can list available resources and read them on demand without a tool_use block. With FastMCP:
+
+```python
+# Before: a tool that reads the same file every time
+@mcp.tool()
+def get_database_schema() -> str:
+    return open("schema.sql").read()
+
+# After: a resource — same data, available without a tool_use block
+@mcp.resource("db://schema")
+def database_schema() -> str:
+    return open("schema.sql").read()
+```
+
+The decision rule:
+
+- **Tool** → takes inputs, performs an action, may change state (query a database, run a command, write a file)
+- **Resource** → returns data you would read in a documentation page: schema, API reference, project rules, config
+
+A quick check: delete the tool name from your docstring. If what remains is "returns the contents of X," it should be a resource.
+
+**Limits:** Resources aren't re-fetched automatically when the underlying data changes — there is no cache invalidation. For data that updates frequently (live query results, test output), keep it as a tool. Converting to a resource also does not eliminate token cost: a large schema still consumes context tokens when Claude reads it; the saving is in conversation-turn overhead, not token count. And not all MCP host clients expose resource browsing in the same way — verify your target client (Claude Code, your SDK-based host) supports resources before converting a production tool.
+
+**Sources:** [MCP resources concept](https://modelcontextprotocol.io/docs/concepts/resources) · [FastMCP resources](https://github.com/jlowin/fastmcp) · [MCP spec — tools vs resources](https://spec.modelcontextprotocol.io/specification/server/resources/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Anthropic SDK Calls Run in a Black Box — `AnthropicInstrumentor` Puts Every Generation, Token Count, and Latency Into a Trace You Can Inspect]]></title>
+    <link>https://langfuse.com/integrations/model-providers/anthropic</link>
+    <guid isPermaLink="false">2026-11-10-01-langfuse-anthropic-instrumentor-llm-tracing-observe</guid>
+    <pubDate>Tue, 10 Nov 2026 04:14:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <description><![CDATA[AnthropicInstrumentor() from opentelemetry-instrumentation-anthropic captures every Claude API call automatically; @observe groups multi-step functions into a single trace tree in Langfuse without changing any business logic.]]></description>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** instrument your Python app so every Claude API call appears as a trace with its full prompt, response, token counts, and latency — without touching your existing API call code.
+
+- See input/output for every generation, plus model name and token usage, in a shareable trace UI
+- Group multi-step functions into a single trace tree so a failure tells you exactly which call caused it
+- Filter traces by user ID or session ID to debug production issues for specific users
+
+## Setup
+
+```bash
+pip install langfuse opentelemetry-instrumentation-anthropic
+```
+
+Configure Langfuse and call `instrument()` once before any API call:
+
+```python
+import os
+os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-..."
+os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-..."
+os.environ["LANGFUSE_HOST"] = "https://cloud.langfuse.com"  # or self-hosted
+
+from langfuse import observe, get_client
+from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+import anthropic
+
+AnthropicInstrumentor().instrument()   # one line, all SDK calls now traced
+client = anthropic.Anthropic()
+```
+
+Every `client.messages.create(...)` call from this point is automatically captured as a **generation** span — model, prompt, response, tokens, latency. No changes to your existing API calls.
+
+## Group calls with `@observe`
+
+```python
+@observe()
+def handle_support_ticket(ticket: str) -> dict:
+    category = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=64,
+        messages=[{"role": "user", "content": f"One-word category: {ticket}"}]
+    ).content[0].text
+
+    reply = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        messages=[{"role": "user", "content": f"Draft reply for a {category} issue: {ticket}"}]
+    ).content[0].text
+
+    return {"category": category, "reply": reply}
+```
+
+Each `handle_support_ticket()` call appears as one trace in Langfuse containing two nested generations. Nested `@observe`-decorated functions are linked automatically — no manual span management.
+
+## Limits
+
+- **SDK version:** Langfuse v3 Python SDK requires a Langfuse server at v4.59.0+ for self-hosting. If your instance is older, stay on the v2 SDK (`from langfuse.decorators import observe`).
+- **Short-lived scripts:** Traces are sent asynchronously. Add `get_client().flush()` at the end of scripts that exit immediately or the last trace can be dropped.
+- **Self-hosting:** The Docker Compose stack is documented at langfuse.com/self-hosting. Cloud-hosted Langfuse rate-limits high-volume trace ingestion — for production workloads generating thousands of traces per minute, plan for self-hosting.
+- **Anthropic SDK auto-instrumentation caveat:** `AnthropicInstrumentor` captures generations correctly for `messages.create`. Streaming responses and tool use blocks may have partial capture depending on the instrumentation package version — test your specific call patterns before relying on completeness.
+
+**Sources:** [Langfuse Anthropic integration docs](https://langfuse.com/integrations/model-providers/anthropic) · [Python decorator docs](https://langfuse.com/docs/sdk/python/decorators) · [Towards AI: trace your first agent pipeline](https://pub.towardsai.net/getting-started-with-langfuse-tracing-your-first-agent-pipeline-38fca9271530) · [PyImageSearch self-hosted Langfuse + vLLM series](https://pyimagesearch.com/2026/05/18/llm-observability-with-self-hosted-langfuse-and-vllm/)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Code "Yes, Don't Ask Again" Saves the Full Shell Command — Including Any Password or API Key Inline in It]]></title>
@@ -6308,120 +6426,7 @@ logging.getLogger("langchain.retrievers.multi_query").setLevel(logging.INFO)
 ]]></content:encoded>
     </item>
 
-    <item>
-    <title><![CDATA[Your Repo's Build Commands Live in the README and Nowhere Else — AGENTS.md Gives Every Coding Agent the Narrow Directives That Actually Matter]]></title>
-    <link>https://simonwillison.net/2026/Sep/18/thariq-shihipar/</link>
-    <guid isPermaLink="false">2026-10-23-08-agents-md-coding-agent-directives-claude-code-native</guid>
-    <pubDate>Fri, 23 Oct 2026 20:05:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[AGENTS.md is a plain Markdown file any AAIF-conformant coding agent reads before acting — Claude Code reads it natively since v2.1.277 (September 2026), so one root file gives every agent the same build, test, and gotcha directives.]]></description>
-    <content:encoded><![CDATA[**AGENTS.md is a plain Markdown file any AAIF-conformant coding agent reads before acting — Claude Code reads it natively since v2.1.277 (September 2026), giving every agent on your repo the same build, test, and gotcha directives.**
-
-Every coding agent — Claude Code, GitHub Copilot, Cursor, Codex — infers your project setup from the code. They run the wrong test command, use npm in a pnpm repo, and miss the gotcha that isn't in any file. Each agent restarts from scratch because there's no authoritative source for "never `npm install`, always `pnpm install --frozen-lockfile`" or "run `typecheck` before committing, not just `tsc`."
-
-AGENTS.md is that file. It's a plain Markdown file at your repository root that any conformant coding agent reads before acting. It's an AAIF standard (Linux Foundation, since December 2025), so the same file reaches every tool that implements it — not just Claude Code.
-
-**What to put in it** (keep it under 30 lines — a 2026 ETH Zurich study found that README-style overviews add 20%+ token cost while slightly hurting agent performance):
-
-```markdown
-## Build
-pnpm install --frozen-lockfile
-pnpm run build   # outputs to ./out — do not use npm
-
-## Test
-pnpm run typecheck   # run before committing, not just tsc
-pnpm test            # worker unit tests, ~3s
-
-## Gotchas
-- Turbopack is disabled (crashes @next/mdx); use webpack dev server only
-- Never hand-edit public/blog/posts.json — use scripts/ingest-feed.mjs
-- The dev watcher ignores companions/ and projects/ — expected
-
-## Commit check
-Run .claude/hooks/validate-blog.sh before any commit touching public/blog/
-```
-
-Narrow, non-inferable directives: build commands, gotchas, verification steps. Omit anything an agent can read from the code — architecture descriptions, feature lists, README prose.
-
-**Claude Code integration:** since v2.1.277 (September 18, 2026), Claude Code reads AGENTS.md when there is no CLAUDE.md in a folder. If you already have CLAUDE.md, add `@AGENTS.md` as its first line — one file for all agents, CLAUDE.md for Claude-specific additions that don't belong in a cross-agent file.
-
-## Limits
-
-Native Claude Code support is not yet available on Bedrock, Vertex, or Foundry as of September 2026. In a monorepo, the nearest AGENTS.md wins — a nested file overrides the root, which is intentional but can cause confusion if subdirectory files drift out of sync. The spec has no required fields or schema; agents parse whatever headings you write, which means a badly named section may be silently ignored by a particular tool.
-
-**Sources:** [Simon Willison — Claude Code v2.1.277 AGENTS.md support, Sept 18 2026](https://simonwillison.net/2026/Sep/18/thariq-shihipar/) · [AGENTS.md standard reference (agentic-ai.readthedocs.io)](https://agentic-ai.readthedocs.io/en/latest/Standards/agents-md/) · [AGENTS.md Complete Guide for Engineering Teams 2026 (buildbetter.ai)](https://blog.buildbetter.ai/agents-md-complete-guide-for-engineering-teams-in-2026/) · [What AGENTS.md Does (morphllm.com)](https://morphllm.com/agents-md-guide)]]></content:encoded>
-    </item>
-    <item>
-    <title><![CDATA[Your SFT Model Gets the Task Right But Responds in the Wrong Tone — DPO Aligns Style Without a Reward Model]]></title>
-    <link>https://huggingface.co/docs/trl/main/en/dpo_trainer</link>
-    <guid isPermaLink="false">2026-10-23-07-dpo-trainer-trl-preference-alignment-no-reward-model</guid>
-    <pubDate>Fri, 23 Oct 2026 20:04:00 +0000</pubDate>
-    <author>Claude Code Tree</author>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[DPO replaces RLHF's reward model and PPO loop with a single classifier loss on (prompt, chosen, rejected) triplets — same TRL install you use for SFT, runs on one GPU with a small preference dataset.]]></description>
-    <content:encoded><![CDATA[**DPO replaces RLHF's reward model and PPO loop with a single classifier loss on (prompt, chosen, rejected) triplets — same TRL install you already use for SFT, runs on one GPU with a small preference dataset.**
-
-SFT teaches a model what to do. After fine-tuning on your task data, it answers correctly — but in a style that doesn't match your use case: too verbose, too casual, too blunt. That is a behavior gap, not a knowledge gap, and SFT alone can't close it.
-
-Direct Preference Optimization (DPO) aligns behavioral style from a preference dataset. Traditional RLHF requires a separate reward model and a PPO training loop — expensive, unstable, and complex to tune. DPO absorbs the reward signal directly into the language model loss on `{prompt, chosen, rejected}` triplets. The loss increases the probability of the chosen response and decreases the rejected one, relative to a frozen reference (your SFT base). No reward model. No PPO. One `.train()` call.
-
-**What you'll be able to do after this:** fine-tune a model's behavioral style — tone, verbosity, format, safety refusals — on top of a task-trained SFT base, using TRL's DPOTrainer and a small preference dataset.
-
-**Three things to know before you start:**
-1. **SFT first, DPO second.** DPO requires a strong task-trained base. Running it on an instruction-naive model produces unstable gradients.
-2. **Your dataset is `{prompt, chosen, rejected}` pairs.** One prompt, two responses: one preferred, one dispreferred. `trl-lib/ultrafeedback_binarized` is the canonical public example; for domain-specific alignment, generate pairs with an LLM judge comparing two generations.
-3. **`beta` controls the leash.** Lower beta (0.05) lets the model diverge further from the SFT base; higher beta (0.5) keeps it close. Start at 0.1 and tune from there.
-
-## Walk-through
-
-```bash
-pip install trl transformers datasets
-```
-
-```python
-from datasets import load_dataset
-from trl import DPOConfig, DPOTrainer
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model = AutoModelForCausalLM.from_pretrained("your-sft-checkpoint", torch_dtype="auto")
-tokenizer = AutoTokenizer.from_pretrained("your-sft-checkpoint")
-
-# Dataset must have "prompt", "chosen", "rejected" columns
-dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="train[:2000]")
-
-training_args = DPOConfig(
-    output_dir="dpo-output",
-    num_train_epochs=1,
-    per_device_train_batch_size=2,
-    beta=0.1,
-)
-trainer = DPOTrainer(
-    model=model,
-    args=training_args,
-    processing_class=tokenizer,  # note: `tokenizer=` arg is deprecated in TRL v1.x
-    train_dataset=dataset,
-)
-trainer.train()
-```
-
-DPOTrainer uses your loaded model as both the trained model and the reference policy (frozen copy). It handles tokenization, loss computation, and logging without additional setup.
-
-## Limits
-
-A high `beta` makes DPO converge toward the SFT base and the style signal washes out; a very low `beta` can destabilize training. Building quality preference pairs is the hard part: synthetic LLM-judged pairs introduce label noise proportional to how closely the judge's preferences match yours. For small style shifts, 500–2,000 pairs is often enough. For safety-critical alignment, you need human-rated pairs and a much larger dataset. DPO does not improve task accuracy — if the base model makes factual errors, DPO won't fix them.
-
-**Sources:** [TRL DPOTrainer docs](https://huggingface.co/docs/trl/main/en/dpo_trainer) · [Maxime Labonne's DPO Colab — TRL community tutorials](https://huggingface.co/docs/trl/en/community_tutorials) · [Rafailov et al., "Direct Preference Optimization" (arXiv:2305.18290)](https://arxiv.org/abs/2305.18290) · [IBM Skills Network DPO guided project](https://catalog.skills.network/catalog_item/6413)]]></content:encoded>
-    </item>
-        
+                
           
                 
     
