@@ -10,7 +10,115 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 10 Nov 2026 20:14:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 11 Nov 2026 04:11:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your CLAUDE.md Has Instructions Written for a Model You No Longer Use — `/claude-api prompt-audit` Finds and Removes Them]]></title>
+    <link>https://cloudcodetree.com/ai-news/2026-11-11-02-claude-api-prompt-audit-claudemd-older-model-patterns</link>
+    <guid isPermaLink="false">2026-11-11-02-claude-api-prompt-audit-claudemd-older-model-patterns</guid>
+    <pubDate>Wed, 11 Nov 2026 04:11:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Run /claude-api prompt-audit in Claude Code to scan your CLAUDE.md, skills, and tool descriptions for instructions written for older models that hurt performance or waste tokens on current ones.]]></description>
+    <content:encoded><![CDATA[**Run `/claude-api prompt-audit` to scan your project's CLAUDE.md, skill files, and tool descriptions for instructions written for older Claude models that confuse or bloat context on current ones.**
+
+Claude's models change how they interpret instructions. Patterns that helped older models — explicit "think step by step" nudges, repeated capability reminders, verbose tool description padding, model-name-specific hedging — can confuse or waste context on Fable 5.2 and Sonnet 5.5. The `claude-api` skill includes a `prompt-audit` subcommand that scans your project for these.
+
+**What it checks:** Your CLAUDE.md, any `.claude/skills/` files, tool descriptions in application code, and agent harness prompts. It identifies patterns from older Claude generations that the current release handles better without guidance — or handles worse with it.
+
+**Run it:**
+
+```
+/claude-api prompt-audit
+```
+
+No arguments audits the working directory. Target a specific file:
+
+```
+/claude-api prompt-audit ~/.claude/CLAUDE.md
+```
+
+**Output:** Reports findings by file and line, with proposed rewrites. It never modifies files automatically — you review and accept each change.
+
+**What practitioners report:** Teams running the audit on established projects find legacy "you are an X assistant" framing, model-specific hedging ("as Claude 3.5 Sonnet, you..."), and tool descriptions that over-explain what the model already infers. Removing those patterns tightened context. Anthropic's own write-up reports a 9% additional cost reduction on top of caching improvements — that's their measurement on their workload; your results will differ based on how much cruft has accumulated.
+
+**Where it falls short:** The command checks prompts, skills, and inline API calls, but won't catch model-specific assumptions baked into UI text, test fixtures, or hardcoded few-shot examples elsewhere in a codebase. Those need manual review.
+
+**Sources:** [Reducing cost and improving performance — claude.com](https://claude.com/resources/articles/reducing-cost-and-improving-performance-with-claude-platform) · [We audited our Claude Code setup — DEV Community](https://dev.to/pponali/we-audited-our-claude-code-setup-against-anthropics-own-context-engineering-rules-heres-what-we-3mme) · [CLAUDE.md anti-patterns — jwatte.com](https://jwatte.com/blog/claude-md-anti-patterns/) · [How to audit CLAUDE.md for newer models — Aident AI](https://aident.ai/blog/audit-claude-md-for-newer-models)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your FAISS Index Lives in RAM and Disappears at Process Exit — ChromaDB's `PersistentClient` Survives Restarts and Grows Without Reloading All Documents]]></title>
+    <link>https://docs.trychroma.com/getting-started</link>
+    <guid isPermaLink="false">2026-11-11-01-chromadb-persistent-client-local-vector-store-rag-dev</guid>
+    <pubDate>Wed, 11 Nov 2026 04:10:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Vectors</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[chromadb.PersistentClient(path="./chroma_db") stores your vector collection to SQLite on disk; add documents across runs, query them, and migrate to a server without changing your collection code.]]></description>
+    <content:encoded><![CDATA[**`chromadb.PersistentClient(path="./chroma_db")` stores your vector collection to SQLite on disk — add documents incrementally across script runs and migrate to a production server without touching your query code.**
+
+**What you'll be able to do after this:** persist a vector store between runs, add documents incrementally without reloading all embeddings, and move from local dev to a hosted Chroma server when you outgrow single-process storage.
+
+**Three takeaways:**
+- Use `EphemeralClient()` for in-memory test fixtures, `PersistentClient(path=...)` for anything that needs to survive a restart
+- Use `get_or_create_collection()` instead of `create_collection()` — it's idempotent and safe to call on every run
+- Production migration is one line: swap `PersistentClient(...)` for `HttpClient(host=..., port=8000)` — your collection name, add, and query code stay the same
+
+**Walk-through:**
+
+```bash
+pip install chromadb sentence-transformers
+```
+
+```python
+import chromadb
+from chromadb.utils import embedding_functions
+
+ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="all-MiniLM-L6-v2"
+)
+
+# Local SQLite persistence — data survives process exit
+client = chromadb.PersistentClient(path="./chroma_db")
+
+# Idempotent — safe to call each run
+collection = client.get_or_create_collection(name="docs", embedding_function=ef)
+
+# add() skips duplicate IDs; use upsert() to overwrite
+collection.add(
+    documents=["Chroma stores vectors in SQLite on disk."],
+    ids=["doc-1"]
+)
+
+results = collection.query(query_texts=["local vector storage"], n_results=1)
+print(results["documents"])
+```
+
+**Production migration:** When you need concurrent access or remote storage, run `chroma run --path ./chroma_db` to start the Chroma server, then swap the client:
+
+```python
+client = chromadb.HttpClient(host="localhost", port=8000)
+# collection.add() and collection.query() code unchanged
+```
+
+**Gotcha — SQLite version:** Chroma requires SQLite ≥ 3.35. If you hit a `RuntimeError` about SQLite, run `python -c "import sqlite3; print(sqlite3.sqlite_version)"`. Python 3.11 ships a newer SQLite than 3.9 on most Linux distros; upgrading Python is usually the fix. Alternatively, `pip install pysqlite3-binary` overrides the system version.
+
+**Where FAISS still wins:** FAISS is faster for large-scale ANN search and doesn't need a separate process for multi-writer concurrency. Use Chroma when you want metadata filtering, incremental adds, or the HTTP server handoff — it trades raw ANN throughput for a more usable operational model.
+
+**Sources:** [ChromaDB docs — Getting Started](https://docs.trychroma.com/getting-started) · [DataCamp ChromaDB step-by-step tutorial](https://www.datacamp.com/tutorial/chromadb-tutorial-step-by-step-guide) · [Local RAG with ChromaDB + Ollama — BestLLMFor](https://bestllmfor.com/guide/rag-chromadb-ollama-python/)
+]]></content:encoded>
+  </item>
+
+
 
   <item>
     <title><![CDATA[Your Claude Code Session Hangs Forever When an Unattended Agent Hits a Permission Prompt — `denyInsteadOfPrompting` Makes It Fail Fast Instead]]></title>
@@ -6354,117 +6462,8 @@ The temperature restriction was already enforced on Opus 4.7+ models (April 2026
 **Sources:** [Migration guide — Anthropic Platform Docs](https://platform.claude.com/docs/en/api/migration-2026-10-21) · [Real-world 400 errors — GitHub: ComfyUI issue](https://github.com/Comfy-Org/ComfyUI/issues/13923) · [Sampling removal coverage — AlphaSignal](https://alphasignal.ai/news/anthropic-rewrites-claude-api-after-3-years-removing-temperature-controls)]]></content:encoded>
     </item>
 
-        <item>
-    <title><![CDATA[Your LoRA Adapter Runs an Extra Matrix Multiply on Every Inference Call — `merge_and_unload()` Folds It Into the Base Weights]]></title>
-    <link>https://huggingface.co/learn/llm-course/en/chapter11/4</link>
-    <guid isPermaLink="false">2026-10-25-01-peft-merge-and-unload-lora-adapter-deployment</guid>
-    <pubDate>Sun, 25 Oct 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[After fine-tuning with LoRA or QLoRA, fold the adapter into base weights with merge_and_unload() — one checkpoint, no per-call overhead, no PEFT dependency at serving time.]]></description>
-    <content:encoded><![CDATA[**After fine-tuning with LoRA or QLoRA, fold the adapter into the base weights with `merge_and_unload()` before deploying — one checkpoint, no adapter overhead, no PEFT dependency at serving time.**
-
-**What you'll be able to do after this:** Take a LoRA-fine-tuned model from two files (base + adapter) to a single, standard HuggingFace checkpoint you can serve with vLLM, Ollama, or `llama.cpp` without any PEFT dependency at inference.
-
-**Three things to know:**
-- A LoRA adapter is a pair of low-rank matrices. At inference, every forward pass runs the base layer *plus* the adapter addition. `merge_and_unload()` permanently adds that contribution to the base weights and discards the adapter object. The merged model runs at full base-model speed with no extra computation.
-- **QLoRA caveat:** if you trained with 4-bit quantization, load the base in `bfloat16` (not `load_in_4bit=True`) before merging. A quantized base cannot be merged directly — the adapter weights are full precision but the base isn't, and the math doesn't compose.
-- Once merged, you lose the ability to swap or unload the adapter dynamically. If you plan to serve multiple LoRA adapters from one base (e.g., with vLLM's `--enable-lora` flag), keep the original adapter files and skip the merge.
-
-**Walk-through:**
-
-```python
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
-
-BASE = "meta-llama/Llama-3.1-8B"
-ADAPTER = "your-org/llama-3-1-8b-lora-adapter"  # your adapter on HF Hub
-
-# Load base in full precision — 4-bit quantized bases cannot merge
-base = AutoModelForCausalLM.from_pretrained(
-    BASE, torch_dtype=torch.bfloat16, device_map="auto"
-)
-tokenizer = AutoTokenizer.from_pretrained(BASE)
-
-# Load adapter on top of base
-model = PeftModel.from_pretrained(base, ADAPTER)
-
-# Merge adapter weights into the base, drop adapter layers
-merged = model.merge_and_unload()
-
-# Save as a plain HuggingFace model
-merged.save_pretrained("./llama-3-1-8b-merged")
-tokenizer.save_pretrained("./llama-3-1-8b-merged")
-
-# Push to Hub — loads like any standard model, no PEFT needed
-merged.push_to_hub("your-org/llama-3-1-8b-merged")
-tokenizer.push_to_hub("your-org/llama-3-1-8b-merged")
-```
-
-After pushing, `vllm serve your-org/llama-3-1-8b-merged` and `ollama create` both work without any adapter flags. The serving stack treats it as a standard base model.
-
-**Limit:** merging requires loading the full-precision base, so you need enough VRAM or RAM for the unquantized weights. An 8B model in bfloat16 needs ~16 GB; a 70B model needs ~140 GB (use `device_map="auto"` to offload layers to CPU if needed). The merge itself takes 20–60 seconds on an 8B model. If you need multi-adapter serving (one base, many adapters swapped at runtime), the unmerged path with vLLM's LoRA support is better suited.
-
-**Sources:** [HuggingFace LLM Course — Fine-tuning for deployment (ch. 11)](https://huggingface.co/learn/llm-course/en/chapter11/4), [PEFT LoRA developer guide — merging into base model](https://huggingface.co/docs/peft/main/en/developer_guides/lora#merging-lora-into-the-base-model), [ApX — Merging LoRA adapters with base models (QLoRA precision caveat)](https://apxml.com/courses/fine-tuning-small-language-model/chapter-7-model-merging-and-deployment/merging-lora-adapters-with-base-models)]]></content:encoded>
-    </item>
-
-    <item>
-    <title><![CDATA[Your Parallel Research Subagents Return Walls of Text That Flood the Orchestrator's Context — Have Each Write a Structured File Instead]]></title>
-    <link>https://code.claude.com/docs/en/agent-sdk/subagents</link>
-    <guid isPermaLink="false">2026-10-25-02-parallel-subagent-file-output-orchestrator-context</guid>
-    <pubDate>Sun, 25 Oct 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[When running 3+ parallel subagents, have each write findings to a structured file; the orchestrator reads selectively at the end, keeping its context clean for synthesis.]]></description>
-    <content:encoded><![CDATA[**When running parallel research subagents, have each write its findings to a structured file during the run; the orchestrator reads those files once — selectively — instead of receiving all output in context at once.**
-
-Four parallel subagents each returning 3,000 tokens of analysis is 12k tokens in the parent's context window before synthesis starts. The most important details are buried between the boilerplate, and you've spent a meaningful share of your context budget on raw delivery.
-
-**The pattern: instruct each subagent to write its output to a file**
-
-In the prompt for each parallel `Agent()` call, specify a file path and a structured format:
-
-```
-Investigate the authentication flow in the codebase and write your
-findings to .claude/research/auth.md. Use this exact structure:
-
-## Summary (3 sentences max)
-## Key files (paths only)
-## Issues found (bulleted list)
-## Recommendation (1 sentence)
-
-Do not return the full analysis in your reply — write it to the file
-and confirm the path when done.
-```
-
-Run all subagents in a single response (multiple `Agent()` calls so they execute in parallel). Once they complete, read only what you need:
-
-```
-Read the ## Issues found sections from .claude/research/auth.md,
-.claude/research/payments.md, and .claude/research/sessions.md.
-Rank every issue by severity and produce a prioritized fix plan.
-```
-
-The orchestrator's context now holds one targeted synthesis read instead of three full reports.
-
-**Why it works:** Claude Code subagents write files by default (same permission scope as the orchestrator unless restricted). The file lives outside the context window until you choose to read it — and you can read only the section you need. The parent session stays uncluttered for the synthesis step where careful reasoning actually matters.
-
-**When to keep in-context output:** read-only subagents you've scoped with `permissions: { allowed_tools: [Read, Grep, Glob] }` shouldn't be writing files — keep them limited and constrain their reply instead (ask for a 5-bullet summary). The file pattern also doesn't help for sequential chains where each step's output is the next step's input: there, the dependency is real and you're not fighting context bloat, you're building on it.
-
-**Limit:** `.claude/research/` is a reasonable project-local path, but it will be staged if you do a broad `git add`. Use a `.gitignore` entry or write to a temp dir when the findings are ephemeral. Temp files (`/tmp/`) disappear across sessions, so write to the project directory for anything you'll need in a follow-up session.
-
-**Sources:** [Claude Code agent SDK — subagents](https://code.claude.com/docs/en/agent-sdk/subagents), [LangGraph state persistence](https://langchain-ai.github.io/langgraph/concepts/persistence/) (the same write-intermediate-results-to-storage principle in a multi-agent framework)]]></content:encoded>
-    </item>
-
+        
+    
 
     
     
