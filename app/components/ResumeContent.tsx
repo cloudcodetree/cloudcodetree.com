@@ -49,7 +49,7 @@ export default function ResumeContent({ showContactInfo = false }: ResumeContent
     if (!showContactInfo) {
       // Replace contact information with placeholder for non-verified users
       processedContent = processedContent.replace(
-        /chris@cloudcodetree\.com \| 512-938-9697/g,
+        /\[?chris@cloudcodetree\.com\]?(?:\(mailto:chris@cloudcodetree\.com\))? \| 512-938-9697/g,
         'Contact via cloudcodetree.com/contact'
       );
     }

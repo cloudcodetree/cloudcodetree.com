@@ -2,11 +2,11 @@
 
 [chris@cloudcodetree.com](mailto:chris@cloudcodetree.com) | 512-938-9697 | Austin Metropolitan Area | [cloudcodetree.com](https://cloudcodetree.com) | [linkedin.com/in/cloudcodetree](https://linkedin.com/in/cloudcodetree/) | [github.com/cloudcodetree](https://github.com/cloudcodetree)
 
-**Principal AI Platforms Engineer | Agentic Engineering | Developer Tooling | Engineering Leadership**
+**Staff AI Enablement Engineer | Agentic Engineering | Developer Tooling | Engineering Leadership**
 
 ## Summary
 
-Principal engineer and former engineering manager with 18 years building web and cloud platforms. Built the AI-assisted engineering platform the Salient Systems web team now works in on Claude Code: custom skills, guardrail hooks, review and research agents, and cost governance. Earlier, helped rebuild Salient's CompleteView video web client, architected HIPAA-compliant AWS platforms for ALSAC/St. Jude, and led consulting teams for clients including Capital One, Rivian and GitKraken. Ships products independently, including a real-time neural amp modeling app for Android and an autonomous AI news pipeline.
+Staff AI Enablement Engineer and former engineering manager with 18 years building web and cloud platforms. Built the AI-assisted engineering platform the Salient Systems web team now works in on Claude Code: custom skills, guardrail hooks, review and research agents, and cost governance. Earlier, helped rebuild Salient's CompleteView video web client, architected HIPAA-compliant AWS platforms for ALSAC/St. Jude, and led consulting teams for clients including Capital One, Rivian and GitKraken. Ships products independently, including a real-time neural amp modeling app for Android and an autonomous AI news pipeline.
 
 ## Skills
 
@@ -18,8 +18,8 @@ Principal engineer and former engineering manager with 18 years building web and
 
 ## Professional Experience
 
-### Principal AI Platforms Engineer | Salient Systems
-*Oct 2025 – Present*
+### Staff AI Enablement Engineer | Salient Systems
+*Oct 2025 – Present • Promoted from Senior Software Engineer, Nov 2026*
 
 Grew the role from fixing the legacy CompleteView video surveillance web client to rebuilding it, then to building the AI-assisted engineering practice the web team now works in.
 

@@ -28,7 +28,6 @@ import {
   Article as MdIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
-import PrintableResume from './PrintableResume';
 import ResumeContent from './ResumeContent';
 
 // Resume file formats available for download
@@ -68,7 +67,6 @@ export default function ResumePage() {
   const [isVerified, setIsVerified] = useState(false);
   const [honeypot, setHoneypot] = useState<string>('');
   const [dialogStartTime, setDialogStartTime] = useState<number>(0);
-  const [printMode, setPrintMode] = useState<boolean>(false);
   const [downloadMenuAnchor, setDownloadMenuAnchor] = useState<null | HTMLElement>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [pendingDownload, setPendingDownload] = useState<typeof resumeFormats[0] | 'zip' | null>(null);
@@ -197,17 +195,11 @@ export default function ResumePage() {
     setHoneypot(event.target.value);
   };
 
+  // The PDF is generated from the Markdown by scripts/export-resume.mjs, so
+  // printing it prints the same resume the page shows.
   const handlePrint = () => {
-    setPrintMode(true);
-    setTimeout(() => {
-      window.print();
-      setPrintMode(false);
-    }, 100);
+    window.open('/resume/chris_harper-resume.pdf', '_blank', 'noopener,noreferrer');
   };
-
-  if (printMode) {
-    return <PrintableResume />;
-  }
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -216,7 +208,7 @@ export default function ResumePage() {
             Resume
           </Typography>
           <Typography variant="h6" sx={{ color: 'text.secondary', mb: 4 }}>
-            Principal Software Engineering Manager & Cloud Solutions Architect
+            Staff AI Enablement Engineer
           </Typography>
           
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', mb: 2 }}>

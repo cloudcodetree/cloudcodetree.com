@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is CloudCodeTree's professional portfolio website built with Next.js 15 (App Router), React 19, and TypeScript, statically exported and served by one Cloudflare Worker (`cct-site`, Workers Static Assets — see "Deployment"). It showcases the professional profile of Chris Harper, a Principal Software Engineering Manager with extensive experience leading enterprise teams and cloud architecture initiatives. Features include:
+This is CloudCodeTree's professional portfolio website built with Next.js 15 (App Router), React 19, and TypeScript, statically exported and served by one Cloudflare Worker (`cct-site`, Workers Static Assets — see "Deployment"). It showcases the professional profile of Chris Harper, an engineering leader focused on AI-assisted development, with extensive experience leading enterprise teams and cloud architecture initiatives. Features include:
 
 - **Dark Professional Theme**: Uses Material-UI v7 with custom dark theme, glass morphism effects, and gradient accents
 - **Hero Landing Page**: Professional intro with avatar, skills showcase, and service offerings
@@ -251,6 +251,13 @@ See the **Blog ("AI News")** section below — posts live inline in
 ### Resume PDF
 - Store resume PDF in `public/resume.pdf`
 - Contains sensitive contact information (protected by a `.claude` deny rule)
+
+### Resume downloads
+- `public/resume/chris_harper-resume.md` is the source. The resume page renders it.
+- After editing it, run `node scripts/export-resume.mjs` (macOS: headless Chrome +
+  `textutil`) to regenerate the `.pdf`, `.docx`, `.odt` and `.rtf` beside it. The
+  Print button opens that PDF.
+- The resume names the current job. Brand copy (About tagline, GitHub bio) does not.
 
 ### GitHub Integration
 - Projects are curated by hand in `app/projects/manifest.ts` (see "Projects");
