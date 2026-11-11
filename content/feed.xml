@@ -10,7 +10,108 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 11 Nov 2026 12:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 11 Nov 2026 20:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code Session Auto-Compacts Mid-Task at 95% Context — Run /compact Yourself at a Natural Break to Control What Gets Summarized Away]]></title>
+    <link>https://code.claude.com/docs/en/context-window</link>
+    <guid isPermaLink="false">2026-11-11-07-claude-code-compact-context-compaction-what-survives</guid>
+    <pubDate>Wed, 11 Nov 2026 20:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[/compact summarizes your session and resets the context window; path-scoped CLAUDE.md rules disappear in the summary unless you anchor them in the project root or add a Compact Instructions section.]]></description>
+    <content:encoded><![CDATA[**`/compact` summarizes your Claude Code session and resets the context window — path-scoped `CLAUDE.md` rules disappear in that summary unless you've anchored them in the project root.**
+
+When a Claude Code session runs long — multiple file edits, repeated test runs, large tool outputs — the context fills toward its 200k-token ceiling. Auto-compaction fires automatically at 95% and summarizes the conversation. The problem: it fires mid-task when you least want the interruption, and the summary may drop early instructions you never saved to a file.
+
+The fix: run `/compact` yourself at a natural break between subtasks.
+
+**What survives compaction:**
+- The project-root `CLAUDE.md` and any unscoped rules — re-injected from disk after compaction
+- Your explicit task description and the most recent code snippets
+- Up to five recently modified files Claude touched in the session
+
+**What gets summarized away:**
+- Path-scoped `CLAUDE.md` rules (anything using `paths:` frontmatter). If a rule must persist across compaction, move it to the root `CLAUDE.md` or drop the `paths:` restriction.
+- Detailed instructions from early in the session that weren't saved to a file.
+
+**Steer the summary with a `Compact Instructions` section:**
+```markdown
+## Compact Instructions
+When compacting, preserve: the current task goal, any architecture decisions made this session, and the list of files already edited.
+```
+
+**Pick the right command:**
+- `/compact` — continuing the same task, need breathing room
+- `/clear` — starting a genuinely new task in the same repo
+- `/rewind <N>` — went down the wrong path, undo N turns
+
+**Limit:** compacting a large session is itself a large request and costs proportionally. After a long idle break the prompt cache expires, so the compaction itself is expensive. Compact before stepping away rather than after coming back.
+
+**Sources:** [Explore the context window — code.claude.com](https://code.claude.com/docs/en/context-window) · [Claude Code commands reference](https://code.claude.com/docs/en/commands) · [Claude Code context management — bestagent.dev](https://bestagent.dev/claude-code-context-management-2026/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Fine-Tuned Model Is on the Hub but Calling It Means Spinning Up vLLM — Hugging Face Inference Endpoints Deploys a Managed Production API in Four Lines]]></title>
+    <link>https://huggingface.co/docs/inference-endpoints/quick_start</link>
+    <guid isPermaLink="false">2026-11-11-06-huggingface-inference-endpoints-deploy-hub-model-managed-api</guid>
+    <pubDate>Wed, 11 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Hugging Face Inference Endpoints deploys any Hub model to a private production API backed by vLLM without managing Docker, GPU drivers, or autoscaling yourself.]]></description>
+    <content:encoded><![CDATA[**What you'll be able to do after this:** deploy any Hugging Face Hub model — including your own fine-tuned adapters — to a private HTTPS production endpoint backed by vLLM, without managing servers.
+
+You fine-tuned a Llama adapter, pushed it to the Hub, and now you need an API. The usual next step is spinning up vLLM on a VM, writing a Dockerfile, managing GPU memory, and handling autoscaling. Inference Endpoints skips all of that.
+
+**Three takeaways before you start:**
+- **vLLM is the standard engine** for chat/instruction models. The platform also supports SGLang and llama.cpp — select the one that matches your architecture.
+- **Private by default:** every request requires a Hugging Face token as `Authorization: Bearer`, TLS in transit. Set `type: "public"` only if you need unauthenticated access.
+- **Dedicated endpoints bill per hour from creation**, not per request. The Serverless Inference API is for prototyping only.
+
+**Deploy via the Python SDK:**
+```python
+from huggingface_hub import create_inference_endpoint
+
+endpoint = create_inference_endpoint(
+    "my-llama-endpoint",
+    repository="your-username/your-fine-tuned-model",
+    framework="pytorch",
+    task="text-generation",
+    accelerator="gpu",
+    vendor="aws",
+    region="us-east-1",
+    instance_type="nvidia-a10g",
+    instance_size="x1",
+    min_replica=0,   # scale to zero when idle
+    max_replica=1,
+)
+endpoint.wait()   # blocks until RUNNING
+print(endpoint.url)
+```
+
+Then call it like any OpenAI-compatible endpoint:
+```python
+from openai import OpenAI
+client = OpenAI(base_url=endpoint.url + "/v1", api_key="hf_…")
+resp = client.chat.completions.create(model="tgi", messages=[…])
+```
+
+**UI route:** open your model on Hub, click **Deploy → Inference Endpoints**, pick hardware, click **Create**. Faster for one-offs; use the SDK for anything you want to reproduce or tear down in CI.
+
+**Limit:** `min_replica=0` eliminates idle cost but the first request after scale-down takes ~30 seconds to cold-start. If first-hit latency matters, set `min_replica=1` and accept the per-hour cost (~$1/hr on an A10G). A forgotten endpoint at that rate adds up: set billing alerts.
+
+**Sources:** [Inference Endpoints quickstart — huggingface.co](https://huggingface.co/docs/inference-endpoints/quick_start) · [Hub Python Library guide — huggingface.co](https://huggingface.co/docs/huggingface_hub/guides/inference_endpoints) · [LLM deployment guide (independent) — premai.io](https://www.premai.io/blog/llm-docker-deployment-complete-production-guide-2026/)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your MCP Tools Run Fine Against Claude but Break in CI Because Nothing Tested Them Without a Live Session — MCP Inspector and In-Memory Transports Fix That]]></title>
@@ -6332,139 +6433,7 @@ Use `claude-haiku-5-5` for bulk classification — at 1M context and low cost it
 ]]></content:encoded>
 </item>
 
-<item>
-    <title><![CDATA[Your Embedding Function Calls a Remote API on Every Lookup — sentence-transformers Runs all-MiniLM-L6-v2 Locally in Three Lines]]></title>
-    <link>https://sbert.net/docs/quickstart.html</link>
-    <guid isPermaLink="false">2026-10-26-01-sentence-transformers-encode-semantic-search-foundations</guid>
-    <pubDate>Mon, 26 Oct 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Embeddings</category>
-    <category>RAG</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[sentence-transformers 5.x loads a model from HuggingFace, runs inference locally, and returns 384-dim vectors you can compare with util.semantic_search — no API key, no per-call cost, no rate limit.]]></description>
-    <content:encoded><![CDATA[**`sentence-transformers` loads `all-MiniLM-L6-v2` locally, embeds your corpus once, and searches it with `util.semantic_search` — no API key, no per-call cost.**
 
-**What you'll be able to do after this:**
-
-- Produce embeddings from any text, entirely offline, with a 40 MB model that fits on a laptop
-- Understand what the 384-dimensional vector actually is: a fixed position in semantic space where similar sentences land near each other
-- Run `util.semantic_search` to get ranked hits with cosine scores, ready to pass into a vector store
-
----
-
-**Install:**
-
-```bash
-pip install sentence-transformers
-```
-
-**Encode a corpus and search it:**
-
-```python
-from sentence_transformers import SentenceTransformer, util
-
-model = SentenceTransformer("all-MiniLM-L6-v2")
-
-corpus = [
-    "How to configure a Postgres connection pool",
-    "Deploying a Python service to Kubernetes",
-    "Setting environment variables in Docker",
-    "Optimizing slow database queries with EXPLAIN",
-]
-
-# Encode the corpus once — cache or store these vectors
-corpus_embeddings = model.encode(corpus, convert_to_tensor=True)
-
-# Encode the query and search
-query = "How do I pass config to my container?"
-query_embedding = model.encode(query, convert_to_tensor=True)
-
-hits = util.semantic_search(query_embedding, corpus_embeddings, top_k=2)
-for hit in hits[0]:
-    print(f"Score: {hit['score']:.3f}  |  {corpus[hit['corpus_id']]}")
-```
-
-Output:
-```
-Score: 0.512  |  Setting environment variables in Docker
-Score: 0.431  |  Deploying a Python service to Kubernetes
-```
-
-The query never mentioned Docker — similarity is semantic, not keyword. The model maps both "pass config to my container" and "setting environment variables in Docker" to nearby points in the same 384-dimensional space.
-
-**How it works:** `model.encode()` runs a transformer (a small BERT variant) over each sentence and pools the token embeddings into one fixed-size vector. The model was trained to put sentences with similar meaning close together in cosine distance. That training is what makes the lookup work without any fine-tuning on your data.
-
-**For asymmetric search (short query, long documents):** the standard `encode()` uses a symmetric model. Switch to `multi-qa-mpnet-base-cos-v1` and call `model.encode_query()` / `model.encode_document()` — those apply the model's built-in query and document prompts, which improve retrieval when the two sides look very different in length and style.
-
-**The next step in production:** you wouldn't recompute `corpus_embeddings` on every request. Compute once, save with `numpy.save()` or push the vectors into Qdrant/pgvector, then call your vector store's ANN index instead of `util.semantic_search`. The `util.semantic_search` call above is a brute-force cosine scan — fine for a few hundred documents, slow beyond that.
-
-**Limits:**
-
-- `all-MiniLM-L6-v2` has a 256-token max sequence length. Documents longer than that need chunking before embedding — use `RecursiveCharacterTextSplitter` (covered earlier) and embed each chunk separately.
-- CPU inference is workable for small corpora but slow at scale. If you're embedding millions of chunks, use a GPU or a hosted embedding API; sentence-transformers ships CUDA support if a GPU is available.
-- The model is not multilingual. For non-English text use `paraphrase-multilingual-MiniLM-L12-v2` (same size, 50+ languages).
-
-**Sources:** [sentence-transformers quickstart — sbert.net](https://sbert.net/docs/quickstart.html) · [Semantic search examples — sbert.net](https://www.sbert.net/examples/applications/semantic-search/README.html) · [all-MiniLM-L6-v2 model card — HuggingFace](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
-]]></content:encoded>
-</item>
-
-<item>
-    <title><![CDATA[REVIEW.md Is How You Tell Claude Code Review What Actually Matters in Your Codebase]]></title>
-    <link>https://code.claude.com/docs/en/code-review-customize</link>
-    <guid isPermaLink="false">2026-10-25-06-review-md-claude-code-review-github-app-pr-customize</guid>
-    <pubDate>Sun, 25 Oct 2026 20:25:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <description><![CDATA[The GitHub App reads both CLAUDE.md and REVIEW.md. The local /code-review command reads only CLAUDE.md. Knowing that split is how you make PR reviews useful without adding noise to local analysis.]]></description>
-    <content:encoded><![CDATA[**The Claude Code Review GitHub App reads two files when it reviews a PR: `CLAUDE.md` and `REVIEW.md`. The local `/code-review` command reads only `CLAUDE.md`. Knowing this split is how you make PR reviews useful without adding noise to local analysis.**
-
-`REVIEW.md` is the PR-review-only configuration layer. It sits in your repo root on the default branch and tells the GitHub App what counts as important — without affecting how Claude Code analyzes diffs locally.
-
-**A working REVIEW.md:**
-
-```markdown
-# Review instructions
-
-## What Important means here
-Reserve Important for findings that would break behavior, leak data,
-or block a rollback: incorrect logic, unscoped database queries, PII
-in logs or error messages, and migrations that aren't backward compatible.
-Style, naming, and refactoring suggestions are Nit at most.
-
-## Cap the nits
-Report at most five Nits per review.
-
-## Do not report
-- Anything CI already enforces: lint, formatting, type errors
-- Generated files under src/gen/ and any *.lock file
-- Test-only code that intentionally violates production rules
-
-## Always check
-- New API routes have an integration test
-- Log lines don't include email addresses, user IDs, or request bodies
-- Database queries are scoped to the caller's tenant
-```
-
-**Three things REVIEW.md can do that CLAUDE.md cannot:**
-
-1. **Cap the nit count.** "Report at most five Nits per review" applies only to the GitHub App — the local `/code-review` command has no such cap.
-2. **Exclude generated files.** Protect `*.lock`, `src/gen/`, or migration files from noise-generating findings.
-3. **Add subdirectory rules.** A `backend/REVIEW.md` adds checks specifically for changes under `backend/` — additive to the root file, not a replacement.
-
-**Two things to know before shipping REVIEW.md:**
-
-- **The file is read from the base/default branch, not from the PR.** A `REVIEW.md` added in a PR itself does not take effect — it must already exist on `main` (or your default branch).
-- **Nit caps and path exclusions require a protected branch.** Without branch protection, the App ignores those directives. Check your branch settings first.
-
-You can also pull in skill files: `@.claude/skills/steward/SKILL.md` loads a per-repo review checklist that both the GitHub App and the babysit/steward system share.
-
-**Sources:** [Customize Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review-customize)]]></content:encoded>
-    </item>
 
     
 
