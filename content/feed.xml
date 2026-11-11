@@ -10,7 +10,129 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 11 Nov 2026 04:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 11 Nov 2026 12:11:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your MCP Tools Run Fine Against Claude but Break in CI Because Nothing Tested Them Without a Live Session — MCP Inspector and In-Memory Transports Fix That]]></title>
+    <link>https://cloudcodetree.com/ai-news/2026-11-11-05-mcp-inspector-in-memory-transport-unit-test-ci</link>
+    <guid isPermaLink="false">2026-11-11-05-mcp-inspector-in-memory-transport-unit-test-ci</guid>
+    <pubDate>Wed, 11 Nov 2026 12:11:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>MCP</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[npx @modelcontextprotocol/inspector lets you call any MCP tool interactively without a live Claude session; Vitest + in-memory transports run the same calls headlessly in CI.]]></description>
+    <content:encoded><![CDATA[**`npx @modelcontextprotocol/inspector` lets you call any MCP tool interactively without a live Claude session; Vitest + in-memory transports run the same calls headlessly in your CI pipeline.**
+
+Every MCP server you ship has the same gap: you test the tool handler logic in isolation, then test it against a live Claude session, but nothing tests the full protocol layer without Claude. Two tools close that gap.
+
+**MCP Inspector — visual and CLI tester**
+
+```bash
+npx -y @modelcontextprotocol/inspector tsx src/index.ts
+```
+
+Opens a browser UI where you fire tool calls, inspect input/output schemas, and read raw JSON-RPC traffic. For CI, `--cli` mode runs a single call and exits:
+
+```bash
+npx @modelcontextprotocol/inspector --cli tsx src/index.ts \
+  --tool myTool --args '{"key":"value"}'
+```
+
+**In-memory transport for unit tests — no process spawning, no live Claude**
+
+The MCP TypeScript SDK includes `InMemoryTransport`, which connects a test client directly to your server without stdio or HTTP:
+
+```typescript
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { createServer } from "./server.js";
+
+const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+const server = createServer();
+await server.connect(serverTransport);
+const client = new Client({ name: "test", version: "1.0" }, {});
+await client.connect(clientTransport);
+const result = await client.callTool({ name: "myTool", arguments: { key: "value" } });
+expect(result.content[0].text).toBe("expected output");
+```
+
+`createLinkedPair()` wires client and server in memory — the full MCP protocol runs but no stdio or HTTP is involved. Add this to your Vitest suite and your MCP tools now have regression tests that run in milliseconds.
+
+**What this won't catch:** Neither the Inspector nor in-memory tests simulate multi-turn agent context, tool chaining across sessions, or how Claude decides which tool to call. Those need real integration tests against a Claude session — the Inspector is for protocol-layer correctness, not agent behavior.
+
+**Sources:** [MCP Inspector — modelcontextprotocol.io](https://modelcontextprotocol.io/docs/tools/inspector) · [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) · [MCP Server Testing and Quality Assurance — Daniel Vaughan](https://codex.danielvaughan.com/2026/05/26/mcp-server-testing-quality-assurance-unit-integration-inspector/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your SFT Fine-Tune Gives Generic Answers Because the Model Never Learned Your Domain — Continual Pre-Training on Raw Text First Changes That]]></title>
+    <link>https://unsloth.ai/blog/contpretraining</link>
+    <guid isPermaLink="false">2026-11-11-04-continual-pretraining-raw-text-domain-adaptation-unsloth-cpt</guid>
+    <pubDate>Wed, 11 Nov 2026 12:10:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Run Unsloth's CPT Text Completion notebook to adapt a base model to your domain on raw text before instruction fine-tuning — no labels needed, just documents.]]></description>
+    <content:encoded><![CDATA[**Before fine-tuning on Q&A pairs, adapt the base model's weights to your domain with CPT — Unsloth's Text Completion notebook handles it in one Colab run on raw text, no labels needed.**
+
+**What you'll be able to do after this:**
+Run a continual pre-training (CPT) pass that teaches a base model your domain's vocabulary, writing patterns, and facts, so subsequent instruction fine-tuning starts from genuine domain knowledge rather than patching over ignorance.
+
+- **CPT keeps the original next-token prediction objective** — you feed raw documents (legal filings, codebase, medical notes); every token becomes a training target; no instruction format needed
+- **For CPT, full fine-tuning outperforms LoRA** — Unsloth's team reports that LoRA adapters underperform full-weight training on CPT tasks, the opposite of the typical SFT recommendation
+- **The right sequence:** CPT on raw domain text → SFT on instruction pairs → optional DPO/ORPO for alignment
+
+**Walk-through (Unsloth Text Completion Colab):**
+
+1. Install: `pip install unsloth`
+2. Open [Unsloth's CPT blog and notebook links](https://unsloth.ai/blog/contpretraining)
+3. Load a **base model** (not a chat model) with `FastLanguageModel.from_pretrained`
+4. Format your corpus as `{"text": "raw document text"}` — no system prompt, no alpaca template
+5. Use `DataCollatorForLanguageModeling(mlm=False)` for the standard CLM objective (train on all tokens)
+6. Train with the full model weights — `use_gradient_checkpointing=True` to stay within VRAM
+7. Save the CPT checkpoint, then run a normal SFT instruction-tuning pass on top
+
+**Where this costs you:** Full fine-tuning at the CPT step — not LoRA — requires significantly more VRAM. Unsloth's Mistral 7B example needs at least 24 GB for 4-bit, more for 16-bit. Free Colab T4 (16 GB) limits you to smaller models or quantized CPT, which Unsloth flags as lower quality than full CPT. LoRA CPT is still better than skipping CPT entirely when VRAM is constrained.
+
+**Sources:** [Unsloth CPT blog + notebooks](https://unsloth.ai/blog/contpretraining) · [Unsloth CPT docs](https://docs.unsloth.ai/basics/continued-pretraining) · [Continuing Pre-Training on Raw Text — Chris McCormick ML](https://mccormickml.com/2025/01/18/continuing-pre-training-on-raw-text/)
+]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Anthropic Ships Claude Whiteboards, Sheets, and Data — Claude Data's Warehouse Connectivity Is the Developer-Adjacent Piece]]></title>
+    <link>https://cloudcodetree.com/ai-news/2026-11-11-03-claude-whiteboards-sheets-data-launch-warehouse-queries</link>
+    <guid isPermaLink="false">2026-11-11-03-claude-whiteboards-sheets-data-launch-warehouse-queries</guid>
+    <pubDate>Wed, 11 Nov 2026 12:09:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>LLM</category>
+    <category>Developer Tools</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Anthropic launched three collaboration tools on Nov 10; Claude Data (GA, renamed from Dashboards) adds natural-language warehouse queries to Redshift, BigQuery, and ClickHouse — no API surface yet.]]></description>
+    <content:encoded><![CDATA[**Anthropic launched Claude Whiteboards (beta), Claude Sheets (beta), and Claude Data (GA, renamed from Claude Dashboards) on November 10; Claude Data's warehouse connectivity is the most engineer-relevant piece.**
+
+Three features shipped:
+
+- **Claude Whiteboards** — shared collaborative whiteboard where Claude participates in brainstorming; rolling out in beta on paid plans, off by default for Enterprise until admins enable it
+- **Claude Sheets** — Claude builds and edits spreadsheets alongside users; also in beta, also Enterprise-off by default
+- **Claude Data** — Claude Dashboards renamed and promoted to GA; adds certified queries, live sharing, and direct connections to Redshift, BigQuery, and ClickHouse data warehouses; turns on by default for Enterprise on November 19
+
+For engineers: Claude Data's warehouse connectivity is the most developer-adjacent — natural-language queries against infrastructure your team already runs, with certified queries your org can trust.
+
+**What none of these have yet:** An API surface. All three live inside the Claude.ai interface only. If you're building data features or agentic workflows that need similar behavior, you're still wiring it yourself.
+
+**Why it matters:** Claude Data's warehouse query pattern will likely reach the API; the gap between "available in the UI" and "available via API" is usually months, not years.
+
+**Sources:** [Claude on X (@claudeai)](https://x.com/claudeai/status/2120206365759094857) · [Anthropic launches Claude Sheets and Whiteboards — iClarified](https://www.iclarified.com/103419/anthropic-launches-claude-sheets-and-whiteboards-previews-meetings) · [Claude Whiteboards, Sheets and Data — cellcog.ai](https://cellcog.ai/blog/claude-whiteboards-sheets-data/)
+]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your CLAUDE.md Has Instructions Written for a Model You No Longer Use — `/claude-api prompt-audit` Finds and Removes Them]]></title>
@@ -6344,124 +6466,9 @@ You can also pull in skill files: `@.claude/skills/steward/SKILL.md` loads a per
 **Sources:** [Customize Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review-customize)]]></content:encoded>
     </item>
 
-    <item>
-    <title><![CDATA[Your Claude Agent SDK Has Zero Observability by Default — Three Lines Add Full Traces to Phoenix]]></title>
-    <link>https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk</link>
-    <guid isPermaLink="false">2026-10-25-05-arize-phoenix-trace-claude-agent-sdk-llm-observability</guid>
-    <pubDate>Sun, 25 Oct 2026 20:10:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Developer Tools</category>
-    <description><![CDATA[Every query() call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.]]></description>
-    <content:encoded><![CDATA[**Every `query()` call your Claude Agent SDK makes runs in a black box unless you instrument it. Phoenix — Arize's open-source LLM observability platform — adds full span traces in three setup lines.**
+    
 
-Install the OpenInference instrumentation package alongside your SDK:
-
-```bash
-pip install openinference-instrumentation-claude-agent-sdk claude-agent-sdk arize-phoenix-otel
-```
-
-Then, **before any `query()` call**, register Phoenix and let it auto-instrument:
-
-```python
-from phoenix.otel import register
-
-tracer_provider = register(
-    project_name="my-agent",
-    auto_instrument=True,
-)
-```
-
-That's it. Every subsequent `query()` call records a span: the model called, tool calls made, token counts, latency, and the full input/output. Open `http://localhost:6006` to browse traces in the Phoenix UI.
-
-**When you need privacy controls** — to hide user inputs or agent outputs from the trace store — skip `auto_instrument` and configure the instrumentor directly:
-
-```python
-from phoenix.otel import register
-from openinference.instrumentation.claude_agent_sdk import ClaudeAgentSDKInstrumentor
-
-tracer_provider = register(project_name="my-agent")
-ClaudeAgentSDKInstrumentor().instrument(
-    tracer_provider=tracer_provider,
-    hide_inputs=True,
-    hide_outputs=True,
-)
-```
-
-`hide_inputs=True` redacts the messages you send; `hide_outputs=True` redacts model responses. Spans still record timing, tool names, and token counts.
-
-**Three things traces reveal that logs miss:**
-
-1. **Tool call waterfalls** — which tools the agent invoked, in what order, and which ones took the most wall time.
-2. **Token spend per task** — how many tokens each `query()` consumed, so you can find expensive paths before they hit your budget.
-3. **Failure attribution** — when an agent task fails, the span tree shows whether the problem was in a tool call, a model refusal, or the application layer.
-
-**Limit:** Phoenix stores traces locally by default. For a shared team view or persistence beyond a single dev session, set `PHOENIX_COLLECTOR_ENDPOINT` to point at a hosted Phoenix instance or another OTLP-compatible backend.
-
-**Sources:** [Phoenix × Claude Agent SDK — Arize docs](https://arize.com/docs/phoenix/integrations/python/claude-agent-sdk) · [Claude Agent SDK tracing — Phoenix docs](https://phoenix.arize.com/docs/ax/integrations/python-agent-frameworks/claude-agent-sdk/claude-agent-sdk-tracing.md) · [OpenInference instrumentation — GitHub](https://github.com/Arize-ai/openinference)]]></content:encoded>
-    </item>
-
-<item>
-    <title><![CDATA[Anthropic's Agents Made 30,000 Commits a Day — Three Patterns That Keep Agent-Driven CI/CD From Imploding]]></title>
-    <link>https://anthropic.com/engineering/redesigning-source-control</link>
-    <guid isPermaLink="false">2026-10-25-04-agent-ci-merge-queue-atomic-branch-per-task</guid>
-    <pubDate>Sun, 25 Oct 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Anthropic's engineering post on Scion reveals what happens when agents drive commit volume beyond what git handles. Four patterns that hold up: merge queues, branch-per-task, atomic commits, fast CI.]]></description>
-    <content:encoded><![CDATA[**Anthropic published the design rationale behind Scion, its in-house VCS that replaced git after agent-generated commits outpaced what git's offline-first architecture could handle. The patterns behind it apply to any agent-driven repo today.**
-
-Git assumes clients work mostly offline with a full copy of the repository. That assumption breaks when most commits come from always-networked agents — CI jobs, coding agents, automated test runners. Secondary coverage of [Anthropic's engineering post](https://anthropic.com/engineering/redesigning-source-control) reports daily merges rising to over 30,000; the post's first design principle for Scion was "clients are always online." Scion itself is internal and not open source — but the workflow patterns it was built to survive are ones you can adopt now.
-
-**Four patterns that hold up at agent commit volume:**
-
-**1. Turn on the merge queue.** GitHub, GitLab, and Bitbucket all support merge queues. Enable one on any branch where agents push concurrently. Merge queues serialize merges, eliminating the "twenty PRs, all stale from the same branch point" problem that appears the moment parallel agents each open a PR.
-
-**2. One branch per agent task.** Claude Code does this by default via git worktrees. If you're building your own pipeline, give each agent task a fresh branch at task start. Shared feature branches accumulate mid-task conflicts when two tasks run in parallel.
-
-**3. Atomic commits.** Agents shouldn't accumulate 50-file diffs any more than humans should. Keep each commit to one purpose: a CI task that breaks can be reverted cleanly, and a code review tool can reason about a targeted change.
-
-**4. Make CI fast.** At human commit rates, a 10-minute CI run is annoying. At agent commit rates, it becomes a merge-queue bottleneck that backs up indefinitely. Profile the slowest check in your critical path and target under 2 minutes.
-
-**Limit:** These patterns reduce friction; they don't replace a solid test suite. A fast, broken CI is worse than a slow, accurate one.
-
-**Sources:** [Redesigning source control at Anthropic — Anthropic Engineering](https://anthropic.com/engineering/redesigning-source-control) · [Scion coverage with 30k/day figure — fourweekmba.com](https://fourweekmba.com/ai-anthropic-builds-scion-to-replace-git-at-30000-merges-a-day/) · [GitHub merge queues docs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)]]></content:encoded>
-    </item>
-
-    <item>
-    <title><![CDATA[Anthropic's API Version 2026-10-21 Drops temperature, Rejects Document Blocks in Assistant Messages, and Rejects Citation Arrays in User Messages]]></title>
-    <link>https://platform.claude.com/docs/en/api/migration-2026-10-21</link>
-    <guid isPermaLink="false">2026-10-25-03-anthropic-api-2026-10-21-breaking-changes-sdk-migration</guid>
-    <pubDate>Sun, 25 Oct 2026 12:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[API version 2026-10-21 — first major version since 2023 — removes temperature/top_p/top_k and adds two new 400 rules. Apps on the old version header are unaffected until they migrate.]]></description>
-    <content:encoded><![CDATA[**Anthropic shipped API version 2026-10-21, the first major API version since 2023-06-01. Three breaking changes trigger 400 errors once you migrate — audit your codebase before upgrading the SDK.**
-
-**The three breaking changes:**
-
-- **Sampling parameters removed.** `temperature`, `top_p`, and `top_k` — including at their previous default values — now return a 400. Omit them entirely. For "deterministic" behavior that you were getting via `temperature=0`, use prompt framing instead ("be precise and consistent").
-- **Document blocks in assistant messages rejected.** A `document` block placed directly in an assistant message now returns a 400. Move documents to user messages. Documents inside tool results are still accepted.
-- **Citation arrays in user message text blocks rejected.** A `text` block in a user message carrying a non-empty `citations` array now returns a 400.
-
-**Migration:** Upgrade the `anthropic` package per [Anthropic's official migration guide](https://platform.claude.com/docs/en/api/migration-2026-10-21), address these three patterns in your codebase, and test before shipping. Apps still sending `anthropic-version: 2023-06-01` continue to work until they adopt the new version.
-
-The temperature restriction was already enforced on Opus 4.7+ models (April 2026). The 2026-10-21 API version formalizes it across all current models and adds the two document and citation rules.
-
-**Why it matters:** Any production integration that passes `temperature` (even `temperature=0`), uses document blocks in assistant turns, or sends citation arrays in user messages will break the moment it upgrades to an SDK that sets the new version header.
-
-**Sources:** [Migration guide — Anthropic Platform Docs](https://platform.claude.com/docs/en/api/migration-2026-10-21) · [Real-world 400 errors — GitHub: ComfyUI issue](https://github.com/Comfy-Org/ComfyUI/issues/13923) · [Sampling removal coverage — AlphaSignal](https://alphasignal.ai/news/anthropic-rewrites-claude-api-after-3-years-removing-temperature-controls)]]></content:encoded>
-    </item>
-
+    
         
     
 
