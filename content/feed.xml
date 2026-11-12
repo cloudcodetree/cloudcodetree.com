@@ -10,7 +10,78 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 12 Nov 2026 04:11:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 12:14:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Managed Agent Starts Every Session With No Memory of the Last One — Attach a Memory Store and User Context Persists as Files Under /mnt/memory/]]></title>
+    <link>https://platform.claude.com/docs/en/managed-agents/memory</link>
+    <guid isPermaLink="false">2026-11-12-04-managed-agents-memory-store-persistent-context</guid>
+    <pubDate>Thu, 12 Nov 2026 12:14:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Attach a workspace-scoped memory store to any Managed Agents session and the agent reads and writes persistent user context as plain text files under /mnt/memory/ — preferences and prior decisions survive session restarts.]]></description>
+    <content:encoded><![CDATA[**Attach a workspace-scoped memory store to a Managed Agents session and the agent reads and writes persistent context as plain Markdown files under `/mnt/memory/` — no separate database, no extra API calls.**
+
+**What you'll be able to do after this:** give any Claude Managed Agent a persistent workspace so it carries user preferences, prior decisions, and learned context across sessions.
+
+- Create a durable memory store once; attach it to any number of future sessions
+- The agent reads and writes plain text files under `/mnt/memory/` using its existing bash and file tools
+- Control access per session (`read_write` or `read_only`) to prevent one agent from overwriting shared context
+
+**Why agents forget**
+
+Each Claude Managed Agents session starts with a fresh context by default. That is correct for stateless tasks but costly for agents doing repeated user-facing work — writing help, code review, planning — where the same context gets re-asked every session. A memory store is a filesystem volume that survives session endings and mounts automatically into the next session that attaches it.
+
+**Create a store and attach it (Python SDK)**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# One-time setup per user or workspace
+store = client.beta.memory_stores.create(
+    name="user-context",
+    description="User preferences and prior session decisions. Read before responding.",
+)
+
+# Attach when creating a session
+session = client.beta.sessions.create(
+    model="claude-opus-5-5",
+    beta=["managed-agents-2026-04-01"],
+    system=(
+        "You are a helpful assistant. Before your first response, "
+        "check /mnt/memory/ for existing user context. "
+        "Update relevant files at the end of each session."
+    ),
+    resources=[{
+        "type": "memory_store",
+        "id": store.id,
+        "access": "read_write"
+    }]
+)
+```
+
+The store mounts at `/mnt/memory/`. The agent reads and writes files there with its existing bash tools — `cat /mnt/memory/preferences.md`, `echo "..." >> /mnt/memory/decisions.md` — and those changes are there the next time you create a session using the same `store.id`.
+
+**What to store**
+
+Small Markdown files, one concern per file: `preferences.md`, `decisions.md`, `project-context.md`. Each file is capped at 100 KB (~25K tokens). Writes are automatically versioned, but only the latest version mounts — there is no built-in diffing between versions.
+
+**Limits to build around**
+
+- **Beta API**: every request requires the `managed-agents-2026-04-01` beta header; the Python and JS SDKs set it automatically. The API may change before GA.
+- **Prompt injection on shared stores**: a `read_write` store attached across users lets one user's input overwrite context for others. For multi-user agents, give each user a separate store, or attach shared reference stores as `read_only` and update them from application code rather than from agent tool calls.
+- **Workspace scope**: stores belong to the workspace, not to a user by default — a session in the same workspace can read the same store. Plan naming and access before connecting to production agents.
+- **No published throughput benchmarks**: each file read adds a round trip. Test at your expected concurrency before choosing memory-store reads over passing small state directly in the system prompt.
+
+**Sources:** [Using agent memory — platform.claude.com](https://platform.claude.com/docs/en/managed-agents/memory) · [Cookbook: Managed Agents that remember user preferences — platform.claude.com](https://platform.claude.com/cookbook/managed-agents-cma-remember-user-preferences) · ["Agents that remember" (Code with Claude London 2026) — YouTube](https://www.youtube.com/watch?v=geUv4CjPpxI) · [Community walkthrough — dev.to/raxxostudios](https://dev.to/raxxostudios/claude-managed-agents-now-have-filesystem-memory-ak9)]]></content:encoded>
+    <media:content url="https://img.youtube.com/vi/geUv4CjPpxI/maxresdefault.jpg" medium="image"/>
+    <media:thumbnail url="https://img.youtube.com/vi/geUv4CjPpxI/maxresdefault.jpg"/>
+  </item>
 
   <item>
     <title><![CDATA[Your First Claude Code Cloud Session Installs Dependencies From Scratch — Auto-Setup Detects What the Repo Needs, Snapshots the Disk, and Reuses That For Every Run After]]></title>
@@ -6334,60 +6405,6 @@ The two metrics are complementary on different failure modes. ROUGE-L measures l
 **Sources:** [HuggingFace `evaluate` — Transformers integrations](https://huggingface.co/docs/evaluate/transformers_integrations) · [BERTScore metric card — huggingface.co](https://huggingface.co/spaces/evaluate-metric/bertscore) · [Fine-tune evaluation patterns 2026 — ai2table.com](https://ai2table.com/fine-tune-evaluation-2026)]]></content:encoded>
 </item>
 
-<item>
-    <title><![CDATA[Your MCP Server Config Has One Permission Setting for All Tools — `permission_policy` Lets You Lock Individual Tools to `always_ask` or `always_deny`]]></title>
-    <link>https://code.claude.com/docs/en/agent-sdk/mcp</link>
-    <guid isPermaLink="false">2026-10-26-05-mcp-permission-policy-always-ask-always-deny-sdk-tool</guid>
-    <pubDate>Mon, 26 Oct 2026 12:11:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>MCP</category>
-    <category>Claude Code</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Agent SDK v0.3.301 added per-tool permission_policy to SDK-type MCP server configs — set always_ask or always_deny on individual tools without touching the server's overall trust level.]]></description>
-    <content:encoded><![CDATA[**Agent SDK v0.3.301 added `permission_policy` to individual MCP tool entries — set `always_ask` or `always_deny` on specific tools in an SDK-type MCP server config, so one dangerous tool doesn't inherit the server's blanket trust.**
-
-Before this, per-server granularity meant the `allowedTools` list or a full `bypassPermissions` flag — either trust the whole server or block it. `permission_policy` adds per-tool control: flag high-impact tools for explicit approval while letting read-only tools run automatically.
-
-**How to set it**
-
-In an SDK-type MCP server definition, add `permission_policy` to each tool entry:
-
-```typescript
-const sdk = new ClaudeSDK({
-  mcpServers: {
-    myServer: {
-      type: "sdk",
-      tools: [
-        {
-          name: "read_file",
-          // no permission_policy → inherits server default
-        },
-        {
-          name: "write_file",
-          permission_policy: "always_ask",   // prompt before every call
-        },
-        {
-          name: "exec_command",
-          permission_policy: "always_deny",  // blocked, no prompt
-        },
-      ],
-    },
-  },
-});
-```
-
-`always_ask` prompts on every single invocation — use it for tools that write files, call external APIs, or have side effects you want to approve per-call. `always_deny` blocks the tool entirely, useful when you want most of a server's tools but need to exclude one destructive operation. `setMcpServers()` accepts the same structure for runtime updates.
-
-**Limits**
-
-- `permission_policy` applies only to SDK-type server configs, not to `stdio` or `http` transport types added in Claude Code settings.
-- Field names come from third-party changelog sources; verify against the [official Agent SDK MCP docs](https://code.claude.com/docs/en/agent-sdk/mcp) before deploying.
-- You must list each tool explicitly — there is no server-wide default policy that `permission_policy` overrides per-tool.
-
-**Sources:** [Claude Agent SDK MCP docs — code.claude.com](https://code.claude.com/docs/en/agent-sdk/mcp) · [SDK changelog Oct 2026 — gradually.ai](https://www.gradually.ai/en/changelogs/claude-agent-sdk/) · [Claude Code MCP permissions 2026 — techtaek.com](https://techtaek.com/claude-code-mcp-permissions-in-2026-when-to-use-allowedtools-instead-of-bypass-mode/)]]></content:encoded>
-</item>
 
 
 
