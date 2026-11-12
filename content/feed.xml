@@ -10,7 +10,167 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 12 Nov 2026 12:14:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 12 Nov 2026 20:08:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your ESLint Errors Wait Until CI Because Claude Code Writes Files Without Running the Linter — Add a PostToolUse Hook and It Fixes Them in the Same Turn]]></title>
+    <link>https://code.claude.com/docs/en/hooks</link>
+    <guid isPermaLink="false">2026-11-12-06-claude-code-posttooluse-hook-lint-after-edit</guid>
+    <pubDate>Thu, 12 Nov 2026 20:08:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Wire a PostToolUse hook to run eslint --fix after every Edit/Write tool call — the hook's stdout feeds back to Claude in the same turn so it can verify lint status before declaring the task done.]]></description>
+    <content:encoded><![CDATA[**Your CI catches the lint errors Claude Code creates because the agent writes files without running the linter — a PostToolUse hook runs `eslint --fix` after every edit and feeds the result back to Claude in the same turn.**
+
+When Claude Code edits a file, it moves on. Lint errors surface at the next explicit `pnpm lint` call or at CI — not immediately. PostToolUse hooks run after each tool call completes and pipe their stdout back to Claude as a tool feedback message, so the model sees lint status before it declares the task done.
+
+**How PostToolUse hooks work**
+
+Hooks are shell commands registered in `.claude/settings.json` under `hooks.PostToolUse`. Each hook runs synchronously after the matched tool call.
+
+- **`matcher`**: a regex matching the tool name, e.g., `"Edit|Write"` or `"Bash"`
+- **`command`**: the shell command to run. It receives the tool input as JSON on stdin
+- **Exit code 0**: allow the turn to continue
+- **Exit code 2**: block the action; Claude sees the hook's reason
+- **Stdout**: returned to Claude as a feedback message in the same turn
+
+**Hook configuration**
+
+Add to `.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "command": "node .claude/hooks/lint-after-edit.mjs"
+      }
+    ]
+  }
+}
+```
+
+`.claude/hooks/lint-after-edit.mjs`:
+```js
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+
+const raw = readFileSync('/dev/stdin', 'utf8');
+const toolInput = JSON.parse(raw || '{}');
+const file = toolInput.file_path ?? '';
+
+// Only lint JS/TS files
+if (!/\.(ts|tsx|js|mjs|cjs)$/.test(file)) process.exit(0);
+
+try {
+  execSync(`eslint --fix "${file}" 2>&1`, { stdio: 'pipe' });
+  // No output = clean file; nothing fed back to Claude
+} catch (e) {
+  // Unfixable issues remain — report back so Claude can address them
+  const msg = e.stdout?.toString() ?? e.stderr?.toString() ?? '';
+  if (msg.trim()) console.log(`ESLint issues remain in ${file}:
+${msg.trim()}`);
+}
+process.exit(0); // Always let the turn continue
+```
+
+**What Claude does with the feedback**
+
+When the hook prints to stdout, Claude sees it as a feedback block in the turn. If you pair the hook with a task instruction like "fix lint errors as you go," Claude addresses the unfixable issues it sees and retries. Without that instruction it acknowledges the feedback but may not rewrite immediately.
+
+**Limits**
+
+- PostToolUse runs synchronously — a slow lint or test command adds real latency to every edit. Keep hooks under 2 seconds or scope them narrowly by extension.
+- Stdout is advisory, not authoritative. Whether the model acts on it depends on task context. For hard requirements, use a PreToolUse check or an explicit lint step in your task workflow.
+- Hooks in `.claude/settings.json` are committed and apply to everyone. Put per-developer preferences in `.claude/settings.local.json` (gitignored) to avoid forcing the hook on teammates with different workflows.
+
+**Sources:** [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) · [CC Hooks: The Deterministic Layer Around Your Agent (Blake Crosley)](https://blakecrosley.com/blog/claude-code-hooks-explained) · [Complete Guide to Claude Code Hooks — MLOps Community](https://home.mlops.community/public/blogs/the-complete-guide-to-claude-code-hooks-automating-your-ai-coding-workflow)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your SFT Fine-Tune Knows the Facts But Ranks a Rambling Answer Equal to a Crisp One — DPO Trains Preference From Chosen/Rejected Pairs Without a Reward Model]]></title>
+    <link>https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto</link>
+    <guid isPermaLink="false">2026-11-12-05-dpo-preference-alignment-unsloth-trl-sft-baseline</guid>
+    <pubDate>Thu, 12 Nov 2026 20:07:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Run Unsloth's DPO notebook to train a preference-aligned model from chosen/rejected pairs after SFT — no reward model or PPO loop needed, just contrastive fine-tuning against an SFT baseline.]]></description>
+    <content:encoded><![CDATA[**Run Unsloth's DPO notebook to teach your fine-tuned model to prefer clearer answers over rambling ones — no reward model, no PPO loop, just contrastive training against your SFT checkpoint using (prompt, chosen, rejected) pairs.**
+
+**What you'll be able to do after this:** add a Direct Preference Optimization pass on top of an SFT checkpoint to steer response quality, using Unsloth and TRL's DPOTrainer in a single Colab session on a free GPU.
+
+- DPO replaces the reward model and PPO with direct contrastive training: given a (prompt, chosen, rejected) triple, it increases the probability of the chosen response while decreasing the rejected one, treating your SFT checkpoint as the reference policy
+- The `beta` hyperparameter controls how far the model drifts from the reference — 0.1–0.3 is a stable starting range; above 0.5 training can diverge from SFT behavior
+- You need paired preference data: each example is a (prompt, chosen, rejected) triple. `HuggingFaceH4/ultrafeedback_binarized` is the standard starting dataset; for domain-specific use, generate pairs from your SFT outputs using Claude as the judge
+
+**When DPO beats more SFT**
+
+SFT teaches the model _what_ to say. If your SFT outputs are factually correct but awkwardly phrased, inconsistently structured, or prone to unnecessary hedging, more SFT on the same data doesn't fix that — it reinforces the same distribution. DPO teaches the model _which_ of two answers is better, so the preference can be orthogonal to factual correctness: same domain knowledge, better style.
+
+**The training pattern (Unsloth + TRL)**
+
+```python
+from unsloth import FastLanguageModel
+from trl import DPOTrainer, DPOConfig
+from datasets import load_dataset
+
+# Load your SFT checkpoint — Unsloth reuses it as both target and reference
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="your-username/your-sft-checkpoint",
+    max_seq_length=4096,
+    load_in_4bit=True,
+)
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=64, lora_alpha=64,
+    target_modules=["q_proj","v_proj","k_proj","o_proj"],
+    use_gradient_checkpointing="unsloth",
+)
+
+# Standard preference dataset: each row has prompt, chosen, rejected
+dataset = load_dataset(
+    "HuggingFaceH4/ultrafeedback_binarized", split="train_prefs"
+)
+
+training_args = DPOConfig(
+    beta=0.1,                        # < 0.3 stays close to SFT behavior
+    max_length=2048,
+    max_prompt_length=512,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=8,
+    warmup_ratio=0.1,
+    num_train_epochs=1,
+    output_dir="dpo-output",
+)
+
+trainer = DPOTrainer(
+    model=model,
+    ref_model=None,       # Unsloth reuses the base as reference automatically
+    args=training_args,
+    train_dataset=dataset,
+    tokenizer=tokenizer,
+)
+trainer.train()
+model.push_to_hub("your-username/your-dpo-model")
+```
+
+**Limits to plan around**
+
+- Generating quality preference pairs is harder than collecting raw demonstrations for SFT. Fewer than ~1,000 pairs often overfit to surface patterns rather than genuine quality differences.
+- `beta` above 0.5 can destabilize training against the reference. Evaluate against your SFT baseline before declaring improvement — DPO can degrade factual recall while improving style.
+- ORPO (Odds Ratio Preference Optimization) merges SFT and preference training into a single pass — Unsloth's docs cover it and it is worth trying if you are starting from a base model rather than an existing SFT checkpoint.
+- Preference datasets created by one judge (human or LLM) encode that judge's biases. A dataset judged by one LLM tends to prefer that LLM's own output style.
+
+**Sources:** [Unsloth DPO, ORPO & KTO guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto) · [TRL DPOTrainer docs](https://huggingface.co/docs/trl/main/en/dpo_trainer) · [HuggingFaceH4/ultrafeedback_binarized](https://huggingface.co/datasets/HuggingFaceH4/ultrafeedback_binarized) · [Rafailov et al., "Direct Preference Optimization: Your Language Model is Secretly a Reward Model" (arXiv 2023)](https://arxiv.org/abs/2305.18290)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Claude Managed Agent Starts Every Session With No Memory of the Last One — Attach a Memory Store and User Context Persists as Files Under /mnt/memory/]]></title>
@@ -6258,152 +6418,7 @@ Full catalog at [ollama.com/search](https://ollama.com/search). Use `:tag` for s
 **Sources:** [Ollama API docs](https://docs.ollama.com/api/introduction) · [ollama-python GitHub](https://github.com/ollama/ollama-python) · [Run LLMs Locally — analyticsvidhya.com](https://www.analyticsvidhya.com/blog/2025/01/how-to-run-llm-locally/) (independent walkthrough)]]></content:encoded>
 </item>
 
-<item>
-    <title><![CDATA[Your Programmatic Agent Has No Spending Limit by Default — `max_budget_usd` Ends a Stuck Run and Still Reports `total_cost_usd`]]></title>
-    <link>https://code.claude.com/docs/en/agent-sdk/agent-loop</link>
-    <guid isPermaLink="false">2026-10-26-06-agent-sdk-max-budget-usd-cost-cap</guid>
-    <pubDate>Mon, 26 Oct 2026 20:13:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Pass max_budget_usd=0.50 in ClaudeCodeOptions; the run ends with subtype "error_max_budget_usd" once estimated spend exceeds that, and total_cost_usd is always in the result regardless of how the run ended.]]></description>
-    <content:encoded><![CDATA[**When you call `query()` in the Claude Agent SDK, there is no spending cap by default — a stuck or looping run can consume far more than you intended. `ClaudeCodeOptions(max_budget_usd=0.50)` ends the run cleanly once estimated spend exceeds that, and `total_cost_usd` is always in the result regardless of how the run ended.**
 
-Most programmatic agent loops set `max_turns` and assume that's enough protection. It isn't — a run with a large context window and many tool calls per turn can be expensive before it hits the turn limit. `max_budget_usd` adds a second, dollar-denominated brake.
-
-**Python**
-
-```python
-from claude_code_sdk import query, ClaudeCodeOptions
-
-options = ClaudeCodeOptions(
-    max_budget_usd=0.50,   # stop once estimated spend exceeds $0.50
-    max_turns=40,          # second guard: hard turn limit
-)
-
-messages = []
-async for message in query(
-    prompt="Refactor the auth module and add tests.",
-    options=options,
-):
-    messages.append(message)
-
-last = messages[-1]
-if last.type == "result":
-    print(f"Spent: ${last.total_cost_usd:.3f}")
-    if last.subtype == "error_max_budget_usd":
-        print("Budget cap hit — run aborted; partial work may still be useful")
-    else:
-        print("Completed normally")
-```
-
-**TypeScript**
-
-```typescript
-import { query, ClaudeCodeOptions } from "@anthropic-ai/claude-code";
-
-const options: ClaudeCodeOptions = {
-  maxBudgetUsd: 0.50,
-  maxTurns: 40,
-};
-
-for await (const message of query({ prompt: "Refactor the auth module.", options })) {
-  if (message.type === "result") {
-    console.log(`Spent: $${message.total_cost_usd.toFixed(3)}`);
-    if (message.subtype === "error_max_budget_usd") {
-      console.log("Budget cap hit");
-    }
-  }
-}
-```
-
-**Limits**
-
-- The cap is an **estimate**, not a hard accounting guarantee — the actual charge may differ slightly.
-- `max_budget_usd` is **per `query()` call**, not a session or account budget.
-- Combine with `max_turns` — a run that hits the turn limit before the budget cap is a normal `error_max_turns` result; check `total_cost_usd` either way.
-- Added in Python SDK v0.1.6 (`max_budget_usd`) and TypeScript SDK v0.1.6 (`maxBudgetUsd`).
-
-**Sources:** [Claude Agent SDK — agent loop — code.claude.com](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Claude Code SDK examples — joshthomas.dev](https://git.joshthomas.dev/joshthomas/claude-code-sdk-example) · [Claude Code SDK cost control — towardsai.net](https://pub.towardsai.net/claude-code-sdk-cost-control-2026)]]></content:encoded>
-</item>
-
-<item>
-    <title><![CDATA[Your Fine-Tuned Model's Benchmark Numbers Hide Whether It Actually Improved on YOUR Task — `evaluate.load("rouge")` Runs That Comparison in Five Lines]]></title>
-    <link>https://huggingface.co/docs/evaluate/transformers_integrations</link>
-    <guid isPermaLink="false">2026-10-26-07-hf-evaluate-rouge-bertscore-fine-tune</guid>
-    <pubDate>Mon, 26 Oct 2026 20:12:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Use evaluate.load("rouge") and evaluate.load("bertscore") to compare your fine-tuned checkpoint against the base model on your own held-out test set — public benchmarks won't catch regressions on your specific task.]]></description>
-    <content:encoded><![CDATA[**Running your fine-tuned model against a public benchmark tells you whether it matches the average benchmark task — not whether it improved on yours. `evaluate.load("rouge")` and `evaluate.load("bertscore")` from HuggingFace's `evaluate` library compare your fine-tuned checkpoint against the base model on your own held-out test set in about five lines.**
-
-**What you'll be able to do after this:**
-
-- Run both ROUGE and BERTScore comparisons between base and fine-tuned models on a held-out split you supply
-- Interpret which metric signals improvement on your task versus generic text quality
-- Know the limits of each metric before presenting results
-
-**Install**
-
-```bash
-pip install evaluate bert_score
-```
-
-**Load metrics and run the comparison**
-
-```python
-import evaluate
-from transformers import pipeline
-
-rouge      = evaluate.load("rouge")
-bertscore  = evaluate.load("bertscore", lang="en")
-
-# Load both checkpoints
-base_pipe  = pipeline("text2text-generation", model="google/flan-t5-base")
-ft_pipe    = pipeline("text2text-generation", model="./my-fine-tuned-checkpoint")
-
-# Your held-out test set — never seen during fine-tuning
-inputs     = ["Summarize: " + doc for doc in test_docs]
-references = test_summaries   # ground-truth outputs
-
-# Generate
-base_preds = [base_pipe(inp)[0]["generated_text"] for inp in inputs]
-ft_preds   = [ft_pipe(inp)[0]["generated_text"]   for inp in inputs]
-
-# Compute
-base_rouge = rouge.compute(predictions=base_preds, references=references)
-ft_rouge   = rouge.compute(predictions=ft_preds,   references=references)
-
-base_bert  = bertscore.compute(predictions=base_preds, references=references)
-ft_bert    = bertscore.compute(predictions=ft_preds,   references=references)
-
-print("ROUGE-L   — base:", round(base_rouge["rougeL"], 3),
-      "  fine-tuned:", round(ft_rouge["rougeL"], 3))
-print("BERTScore F1 (mean) — base:",
-      round(sum(base_bert["f1"]) / len(base_bert["f1"]), 3),
-      "  fine-tuned:",
-      round(sum(ft_bert["f1"])  / len(ft_bert["f1"]),  3))
-print("BERTScore hashcode:", ft_bert["hashcode"])   # report for reproducibility
-```
-
-The two metrics are complementary on different failure modes. ROUGE-L measures longest-common-subsequence overlap — good at catching whether key phrases appear, blind to paraphrases and synonyms. BERTScore computes cosine similarity between contextual embeddings — catches semantic equivalence ROUGE misses, but is domain-sensitive.
-
-**Limits**
-
-- **ROUGE is blind to synonyms.** "automobile" and "car" score zero overlap — it penalizes paraphrases that are semantically correct.
-- **BERTScore is domain-dependent.** The default scoring model (`roberta-large`) was trained on general English; for biomedical or legal text, use a domain-matched model and always report the hashcode so results are reproducible.
-- Neither metric replaces human evaluation for the final decision — use them to surface regressions and rank candidates, not to certify readiness.
-- Public benchmarks (MMLU, HellaSwag) measure general capability; a fine-tune regression on your specific task can be invisible on benchmarks but visible here.
-
-**Sources:** [HuggingFace `evaluate` — Transformers integrations](https://huggingface.co/docs/evaluate/transformers_integrations) · [BERTScore metric card — huggingface.co](https://huggingface.co/spaces/evaluate-metric/bertscore) · [Fine-tune evaluation patterns 2026 — ai2table.com](https://ai2table.com/fine-tune-evaluation-2026)]]></content:encoded>
-</item>
 
 
 
