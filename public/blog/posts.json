@@ -1,5 +1,61 @@
 [
   {
+    "id": "2026-11-12-03-claude-code-cloud-session-auto-env-setup-snapshot",
+    "title": "Your First Claude Code Cloud Session Installs Dependencies From Scratch — Auto-Setup Detects What the Repo Needs, Snapshots the Disk, and Reuses That For Every Run After",
+    "excerpt": "Since November 6, Claude Code cloud sessions on Pro/Max/Ultra can auto-detect a repository's dependencies and environment requirements, configure the setup script, and snapshot the result for reuse.",
+    "author": "Chris Harper",
+    "date": "11-12-2026",
+    "publishedAt": "2026-11-12T04:11:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/cloud-environments",
+    "content": "**Since November 6, Claude Code cloud sessions on Pro, Max, and Ultra plans auto-detect what a repository needs, configure the environment, and snapshot the disk so every run after the first starts from a ready state.**\n\nPreviously, running a non-trivial project in a cloud session meant writing a setup script by hand: install system packages, declare external hosts, inject API keys. Now Claude inspects the repository first, drafts the setup configuration from what it finds, and runs it. When setup completes in roughly five minutes, Anthropic snapshots the filesystem — subsequent sessions start from that snapshot rather than reinstalling.\n\n**What the snapshot preserves:**\n- Files written to disk during setup (installed binaries, compiled deps, downloaded models)\n- Environment variables injected via the environment panel\n\n**What it does not preserve:**\n- Running processes (dev server, database, language runtime) — these restart each session\n- In-memory state\n\n**What still needs manual configuration:**\n- External hosts your repo doesn't declare (private registries, internal APIs)\n- Secrets managed via OIDC or vault outside Claude's reach\n- System packages installed in a Dockerfile not visible in project config files\n\n**Snapshot lifecycle:** the snapshot is rebuilt when you edit the setup script, change the allowed-hosts list, or after roughly seven days. Force a rebuild after any change that affects snapshottable state.\n\n**Practical pattern:** put heavy system installs (apt packages, build tools, large model downloads) in the setup script so they land in the snapshot. Put project-level steps (`npm install`, `pip install -r requirements.txt`) in a `SessionStart` hook — that way they run identically in both local and cloud sessions and don't depend on the snapshot.\n\n**Limits:** auto-setup is on Pro, Max, and Ultra plans only. Team plan users can still write the setup script manually using the same interface. The auto-generated script is an editable draft, not a black box — you can review and adjust it before saving.\n\n**Sources:** [Configure cloud environments — Claude Code Docs (official)](https://code.claude.com/docs/en/cloud-environments) · [Claude Code cloud sessions field guide — claude.dev](https://claude.dev/blog/claude-code-in-the-cloud/) · [Claude Code cloud auto-setup announcement coverage — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/30706/claude-code-cloud-automatic-setup-dependencies-api-keys)"
+  },
+  {
+    "id": "2026-11-12-02-openai-acquires-pierre-trees-diffs-codex",
+    "title": "OpenAI Acquires Pierre Computer — Trees, Diffs, and Code Storage Are Folding Into Codex",
+    "excerpt": "OpenAI announced November 4 it will acquire Pierre Computer, whose open-source Trees, Diffs, and Code Storage libraries underpin how Codex navigates and reviews large codebases.",
+    "author": "Chris Harper",
+    "date": "11-12-2026",
+    "publishedAt": "2026-11-12T04:10:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://openai.com/index/openai-to-acquire-pierre/",
+    "content": "**OpenAI announced on November 4 it will acquire Pierre Computer, the maker of Trees, Diffs, and Code Storage — three open-source libraries used in Codex for navigating, reviewing, and storing code.**\n\nPierre's tools are foundational primitives for AI coding agents that need to understand a whole repository rather than just open files:\n\n- **Trees** — navigates file structures in large codebases, surfacing the parts relevant to a query\n- **Diffs** — reviews code changes in a format AI models can reason over\n- **Code Storage** — a distributed Git backend; OpenAI plans to fold its capabilities directly into Codex\n\nPierre's open-source projects are reported to remain open source under the acquisition. The deal is subject to regulatory approval; financial terms were not disclosed.\n\n**Why it matters:** the libraries that allow an AI coding agent to reason about a repository at scale — not just open buffers — are now on track to be first-party OpenAI infrastructure. If you build on Codex or use developer tools that depend on Trees/Diffs, the acquisition puts their future roadmap and licensing under OpenAI's direct control. Watch the repositories for any license changes after the deal closes.\n\n**Limit:** \"stays open source\" is the acquisition announcement's claim, not a finalized license commitment. Verify after close.\n\n**Sources:** [OpenAI announcement](https://openai.com/index/openai-to-acquire-pierre/) · [InfoWorld: OpenAI buys tiny software developer to improve Codex](https://www.infoworld.com/article/4245719/openai-buys-tiny-software-developer-to-improve-codex.html) · [OODALoop brief](https://oodaloop.com/briefs/technology/openai-acquires-developer-tools-startup-pierre-computer-to-scale-codex-code-storage/)"
+  },
+  {
+    "id": "2026-11-12-01-hyde-hypothetical-document-embeddings-rag-retrieval",
+    "title": "Your Dense Retriever Returns the Wrong Chunks When Users Ask Short Questions — HyDE Generates a Hypothetical Answer First and Embeds That Instead",
+    "excerpt": "HyDE (Hypothetical Document Embeddings) fixes vocabulary mismatch in dense retrieval: embed a generated hypothetical answer rather than the raw query so the vector lands closer to relevant chunks.",
+    "author": "Chris Harper",
+    "date": "11-12-2026",
+    "publishedAt": "2026-11-12T04:09:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://python.langchain.com/docs/templates/hyde",
+    "content": "**What you'll be able to do after this:** convert a dense-retrieval pipeline that struggles with short or ambiguous queries into one that embeds a generated hypothetical answer, narrowing the vocabulary gap between user intent and document phrasing.**\n\nDense retrieval works well when the query uses the same language as the documents. When users ask \"how do I fix this error?\" but your docs say \"workaround for issue #4231\", cosine similarity finds wrong chunks — not because the embedding model is weak, but because the styles don't match.\n\nHyDE (Hypothetical Document Embeddings, Gao et al., [arXiv:2212.10496](https://arxiv.org/abs/2212.10496)) flips the direction: instead of embedding the question, you prompt an LLM to write a fake answer, then embed that. The fake answer uses document-style language even when the query does not, so it lands closer to the right chunks in vector space. The fake document itself is discarded — only its embedding is used.\n\n**Three-bullet takeaway:**\n- Real documents are embedded normally at index time; at query time the LLM writes a hypothetical answer and that gets embedded instead of the raw query.\n- Gains are largest when queries are short and informal but documents are long and formal (API docs, support tickets, legal text). Elastic Search Labs reported a 50% precision improvement on short-query retrieval in Elasticsearch.\n- **Limit:** adds one LLM call per retrieval — budget for the latency and cost. The generated text can also mislead if the LLM writes a confident but wrong hypothetical. For simple keyword lookups, the overhead is rarely worth it.\n\n**LangChain implementation:**\n\n```python\nfrom langchain.chains import HypotheticalDocumentEmbedder\nfrom langchain_openai import OpenAIEmbeddings, ChatOpenAI\nfrom langchain_chroma import Chroma\n\nllm = ChatOpenAI(model=\"gpt-4o-mini\")\nbase_embeddings = OpenAIEmbeddings()\n\n# \"web_search\" is a built-in prompt that tells the LLM\n# to write a paragraph a search result might look like.\n# Other prompt keys: \"python_repl\", \"science\", \"fiqa\", etc.\nhyde_embedder = HypotheticalDocumentEmbedder.from_llm(\n    llm, base_embeddings, \"web_search\"\n)\n\n# Use it wherever you'd pass a standard Embeddings object\nvectorstore = Chroma.from_documents(docs, embedding=hyde_embedder)\nretriever = vectorstore.as_retriever(search_kwargs={\"k\": 4})\n\n# At query time, the embedder generates a hypothetical answer\n# and embeds that instead of the raw query string\ndocs = retriever.invoke(\"how do I fix authentication errors?\")\n```\n\nThe `HypotheticalDocumentEmbedder` wraps any LangChain `Embeddings` object. At index time it embeds real documents normally; at query time it generates a hypothetical answer, embeds that, and runs the similarity search.\n\n**Check your import path:** in LangChain v0.3+, `HypotheticalDocumentEmbedder` lives in `langchain.chains.hyde.base`. Older tutorials may use a different path — verify against the [API reference](https://python.langchain.com/api_reference/_modules/langchain/chains/hyde/base.html) for your installed version.\n\n**Sources:** [LangChain HyDE template docs](https://python.langchain.com/docs/templates/hyde) · [Elastic Search Labs: HyDE in Elasticsearch — 50% precision improvement on short queries](https://www.elastic.co/search-labs/blog/hyde-semantic-search-elasticsearch) · [Original paper — Gao et al. arXiv:2212.10496](https://arxiv.org/abs/2212.10496)"
+  },
+  {
     "id": "2026-11-11-07-claude-code-compact-context-compaction-what-survives",
     "title": "Your Claude Code Session Auto-Compacts Mid-Task at 95% Context — Run /compact Yourself at a Natural Break to Control What Gets Summarized Away",
     "excerpt": "/compact summarizes your session and resets the context window; path-scoped CLAUDE.md rules disappear in the summary unless you anchor them in the project root or add a Compact Instructions section.",
