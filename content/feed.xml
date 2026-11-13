@@ -10,7 +10,147 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 12 Nov 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 13 Nov 2026 04:15:00 +0000</lastBuildDate>
+
+<item>
+    <title><![CDATA[Your Claude Code Settings Reference `ANTHROPIC_SMALL_FAST_MODEL`, Which Is Deprecated — Pin Background-Task Model Aliases With `ANTHROPIC_DEFAULT_HAIKU_MODEL` Instead]]></title>
+    <link>https://code.claude.com/docs/en/env-vars</link>
+    <guid isPermaLink="false">2026-11-13-03-anthropic-default-haiku-model-env-var-deprecated-small-fast</guid>
+    <pubDate>Fri, 13 Nov 2026 04:15:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[ANTHROPIC_SMALL_FAST_MODEL (the env var for Claude Code's background side-queries) is deprecated; use ANTHROPIC_DEFAULT_HAIKU_MODEL and set all three alias vars to pin your model tier choices explicitly.]]></description>
+    <content:encoded><![CDATA[**`ANTHROPIC_SMALL_FAST_MODEL` — the env var that controlled which model Claude Code used for background side-queries — is deprecated. Set `ANTHROPIC_DEFAULT_HAIKU_MODEL`, `ANTHROPIC_DEFAULT_SONNET_MODEL`, and `ANTHROPIC_DEFAULT_OPUS_MODEL` instead to pin alias resolution explicitly.**
+
+Claude Code uses a Haiku-class model for background side-queries and certain built-in subagent tasks (file scanning, quick lookups) rather than your main session model. The original variable for that slot was `ANTHROPIC_SMALL_FAST_MODEL`. It still works but is listed as deprecated in the official env-vars reference; the replacement is `ANTHROPIC_DEFAULT_HAIKU_MODEL`.
+
+The full trio of alias variables:
+
+```bash
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="claude-haiku-5-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5-5"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-5-5"
+```
+
+Or in `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5"
+  }
+}
+```
+
+When you don't set these, Claude Code resolves the `haiku`, `sonnet`, and `opus` aliases to Anthropic's current defaults, which change when new models release. Setting them explicitly pins the resolution — a Haiku 5.5 model you have tested and verified keeps running even after a new Haiku releases and becomes the new default.
+
+**Where this matters most:**
+
+- **Bedrock and gateway deployments.** On Amazon Bedrock, the Haiku-class background model defaults to your primary Sonnet model when Haiku is not enabled in the account. Setting `ANTHROPIC_DEFAULT_HAIKU_MODEL` to a Bedrock model ID you have actually enabled prevents the silent fallback and the cost increase that comes with it.
+- **Cost predictability.** Background tasks that run on the Haiku slot are roughly one-tenth the per-token cost of Sonnet (per Anthropic's published pricing). Pinning the alias means those tasks won't silently shift to Sonnet rates after a default rotation.
+- **Auditability.** Some built-in Claude Code subagents use the Haiku slot. Pinning the variable makes their model choice explicit and verifiable via `claude --verbose`.
+
+**Limits:** Setting `ANTHROPIC_DEFAULT_HAIKU_MODEL` pins the alias at the env layer, but subagents with an explicit `model:` field in their `.claude/agents/` frontmatter still override it — the per-agent setting takes precedence over the alias. The variables affect alias resolution only; they won't make a model available on a provider that hasn't enabled it in the account. The deprecated `ANTHROPIC_SMALL_FAST_MODEL` is still read but expect it to be removed in a future release.
+
+**Sources:** [Claude Code environment variables — code.claude.com](https://code.claude.com/docs/en/env-vars) · [Claude Code model config — docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code/model-config) · [3 ways to switch Claude Code models instantly — dev.to](https://dev.to/gentic_news/3-ways-to-switch-claude-code-models-instantly-model-flag-and-env-variables-3b1c)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[OpenAI Cuts Off Cursor as of Yesterday — GPT Models Are Gone From the Tool After SpaceX Acquisition]]></title>
+    <link>https://cybernews.com/ai-news/openai-cursor-spacex-contract-termination/</link>
+    <guid isPermaLink="false">2026-11-13-02-cursor-openai-models-removed-spacex-acquisition</guid>
+    <pubDate>Fri, 13 Nov 2026 04:14:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Developer Tools</category>
+    <category>LLM</category>
+    <category>Frontier</category>
+    <description><![CDATA[OpenAI terminated its model supply agreement with Cursor (now SpaceX-owned) on November 12; engineers who used GPT models in Cursor's Composer must now switch to Claude-based options.]]></description>
+    <content:encoded><![CDATA[**OpenAI terminated its model supply agreement with Cursor effective November 12; GPT-4o and other OpenAI models are no longer selectable in Cursor's Composer or inline chat as of yesterday.**
+
+OpenAI notified Anysphere — Cursor's parent company, acquired by SpaceX in August 2026 for a reported $60 billion — that it would end the arrangement supplying GPT models to the coding tool. OpenAI's stated reason, per reporting, was concerns about whether SpaceX would honor its usage terms after Elon Musk's other company, xAI, was found to have breached them. Future OpenAI models, including unreleased ones, are also excluded from the arrangement.
+
+For engineers using Cursor alongside Claude Code: if your team had prompts, context windows, or model selection logic optimized for GPT behavior in Cursor, those need to be revised for Claude. Teams already using Cursor solely for Claude-backed completions are unaffected. Cursor still runs on Anthropic's Claude models and its own in-house Composer engine.
+
+**Why it matters:** Cursor is now a single-vendor shop for external model access, with Anthropic as that vendor. For engineers deciding between Cursor and Claude Code, the underlying model is now identical — the distinction is entirely in tooling, IDE integration, and workflow. If your team had been using GPT models in Cursor specifically to compare outputs against Claude Code sessions, that comparison path is gone.
+
+No independent confirmation of OpenAI's exact termination terms was publicly available at time of writing; the November 12 effective date was widely reported starting in August 2026 based on company communications.
+
+**Sources:** [OpenAI pulls the plug on Cursor following SpaceX acquisition — cybernews.com](https://cybernews.com/ai-news/openai-cursor-spacex-contract-termination/) · [SpaceX acquires Cursor: $60B deal — techspot.com](https://www.techspot.com/news/112784-spacex-acquires-ai-coding-startup-cursor-60-billion.html) · [OpenAI Terminates Cursor Collab Following SpaceX Acquisition — crowdfundinsider.com](https://www.crowdfundinsider.com/2026/08/303081-openai-terminates-cursor-collab-following-spacex-acquisition/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Every RAG Tutorial Calls `model.encode()` Without Explaining What Shape It Returns — Three Lines Show You the Float Array That Makes Semantic Search Work]]></title>
+    <link>https://sbert.net/docs/quickstart.html</link>
+    <guid isPermaLink="false">2026-11-13-01-sentence-transformers-encode-dense-vector-foundations</guid>
+    <pubDate>Fri, 13 Nov 2026 04:13:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Embeddings</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[SentenceTransformer("all-MiniLM-L6-v2").encode(sentences) returns a NumPy array of shape (n, 384): one fixed-length float vector per sentence where close vectors mean related meaning.]]></description>
+    <media:content url="https://huggingface.co/front/thumbnails/v2-2.png" medium="image"/>
+    <media:thumbnail url="https://huggingface.co/front/thumbnails/v2-2.png"/>
+    <content:encoded><![CDATA[**`SentenceTransformer("all-MiniLM-L6-v2").encode(sentences)` returns a NumPy array of shape `(n, 384)` — one fixed-length float vector per input, where semantically similar sentences cluster close together in that space.**
+
+**What you'll be able to do after this:**
+- Load any SBERT model, encode a batch of text, and inspect the resulting embedding matrix
+- Compute cosine similarity between two texts without a vector database
+- Understand why document chunking happens before encoding — not as an optimization, but because of a hard model limit
+
+## The three-line foundation
+
+```bash
+pip install sentence-transformers
+```
+
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+sentences = [
+    "Claude Code agents can run tasks in parallel using git worktrees.",
+    "Parallel agents on the same repo need file isolation to avoid conflicts.",
+    "Fine-tuning a model teaches new behaviour; RAG teaches it new facts.",
+]
+
+embeddings = model.encode(sentences)
+print(embeddings.shape)  # (3, 384)
+```
+
+The `384` is not a property of the text — it is a property of the model. `all-MiniLM-L6-v2` always produces a 384-dimensional vector regardless of input length or content. Larger models like `all-mpnet-base-v2` produce 768 dimensions; API embedding models typically produce 1024 or 3072. When you pick a model, you are also fixing the width of every column in your vector store permanently — switching models later requires re-encoding and re-indexing all stored documents.
+
+## Similarity falls out of geometry
+
+```python
+from sklearn.metrics.pairwise import cosine_similarity
+
+# sentence 0 (parallel worktrees) vs sentence 1 (file isolation): same topic
+print(cosine_similarity(embeddings[:1], embeddings[1:2]))  # ~0.76
+
+# sentence 0 vs sentence 2 (fine-tuning): different topic
+print(cosine_similarity(embeddings[:1], embeddings[2:3]))  # ~0.21
+```
+
+Two sentences about the same thing produce vectors that point in similar directions. Cosine similarity measures that alignment: 1.0 is identical direction, 0.0 is perpendicular (unrelated). A vector database stores these embeddings and returns the rows with the highest cosine similarity to a query embedding — which is all retrieval-augmented search is doing at its core.
+
+## The constraint that drives chunking
+
+`all-MiniLM-L6-v2` truncates input silently at 256 tokens (~190 words). Text beyond that is dropped, not summarized or carried over. This is not a performance optimization you can tune around — it is the model's architectural limit. Document chunking therefore happens before encoding because the model cannot encode more in a single call, not as a separate speed-up. Your chunk size is partly determined by which model you choose; check `model.max_seq_length` before setting your splitter's `chunk_size`.
+
+**Limits:** Switching models after indexing requires re-encoding and re-indexing all stored documents — the vector dimensions are fixed at index-creation time and dimensions from different models are not interchangeable. `encode()` runs on CPU by default; pass `device="cuda"` when a GPU is available, or tune `batch_size` for throughput on large corpora. Embedding quality varies significantly by domain: `all-MiniLM-L6-v2` was trained on general English and underperforms on code, medical text, and other specialized domains. Use the [MTEB Retrieval leaderboard](https://huggingface.co/spaces/mteb/leaderboard) to benchmark alternatives for your specific use case before committing to an index schema.
+
+**Sources:** [sentence-transformers quickstart — sbert.net](https://sbert.net/docs/quickstart.html) · [How to Generate and Visualize Text Embeddings in Python — thepythoncode.com](https://thepythoncode.com/article/generate-visualize-text-embeddings-python) · [Sentence Transformers: Meanings in Disguise — Pinecone Learn](https://www.pinecone.io/learn/series/nlp/sentence-embeddings/)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your ESLint Errors Wait Until CI Because Claude Code Writes Files Without Running the Linter — Add a PostToolUse Hook and It Fixes Them in the Same Turn]]></title>
@@ -6243,180 +6383,8 @@ inspect-ai is maintained by the UK AI Security Institute and ships with 200+ pre
 **Sources:** [inspect-ai Tutorial — inspect.aisi.org.uk](https://inspect.aisi.org.uk/tutorial.html) · [Inspect AI: An OSS Python Library For LLM Evals — hamel.dev](https://hamel.dev/notes/llm/evals/inspect.html) (independent practitioner review with creator guest lecture video)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Complex Analysis Keeps Returning a Flat Wrong Answer — `thinking: {"type": "enabled", "budget_tokens": N}` Shows the Full Reasoning Chain Before the Final Response]]></title>
-    <link>https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking</link>
-    <guid isPermaLink="false">2026-10-27-03-extended-thinking-budget-tokens-reasoning-trace</guid>
-    <pubDate>Tue, 27 Oct 2026 04:12:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Add thinking: {type: "enabled", budget_tokens: 10000} to your Messages API call; Claude returns thinking blocks with its full reasoning before the answer — useful for debugging incorrect analysis and auditing multi-step decisions.]]></description>
-    <content:encoded><![CDATA[**Add `thinking: {"type": "enabled", "budget_tokens": N}` to your Messages API call; Claude returns `thinking` content blocks showing its full reasoning chain before the final answer — useful for debugging incorrect analysis, auditing multi-step decisions, and understanding where a complex call went wrong.**
+  
 
-When Claude gives a wrong or unexpectedly shallow answer to a complex problem — code review, multi-document analysis, a logic chain — the response alone does not show where the reasoning broke down. Extended thinking surfaces the internal scratchpad so you can inspect the path, not just the conclusion.
-
-**Enable it in Python:**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-response = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=16000,
-    thinking={
-        "type": "enabled",
-        "budget_tokens": 10000   # reasoning scratchpad budget; soft target
-    },
-    messages=[{
-        "role": "user",
-        "content": "Review this function for subtle bugs and edge cases: ..."
-    }]
-)
-
-for block in response.content:
-    if block.type == "thinking":
-        print("Reasoning:", block.thinking)   # the trace — store this alongside the answer
-    elif block.type == "text":
-        print("Answer:", block.text)
-```
-
-**Track actual token spend:**
-
-```python
-thinking_tokens = response.usage.output_tokens_details.thinking_tokens
-print(f"Used {thinking_tokens} thinking tokens out of {10000} budget")
-```
-
-Thinking tokens count toward your output total. Set `budget_tokens` to match problem complexity: skip it for fast lookups, use 5,000–16,000 for long-form code review or multi-document analysis.
-
-**When the trace pays off:**
-
-- Debugging wrong conclusions: the trace shows the exact step where the reasoning went sideways, which is faster to fix than re-prompting blind
-- Multi-step reasoning where intermediate conclusions matter: store the thinking block alongside the answer for audit
-- Validating that Claude found the right sub-problem before it answered the main one
-
-**Limits:** `budget_tokens` is a minimum target, not a ceiling — actual thinking token use may exceed it, raising costs proportionally. Extended thinking increases latency; a 10,000-token budget adds roughly 5–15 seconds to a typical call. The `thinking` parameter is not available on all model versions; on Claude 5.x, thinking is adaptive by default and the parameter format differs — check the [extended thinking models docs](https://docs.anthropic.com/en/docs/about-claude/models/extended-thinking-models) for version-specific details. A wrong conclusion that persists through extended thinking is a harder problem: the trace gives you the failure mode, but fixing it still requires a better prompt or a different approach.
-
-**Sources:** [Extended thinking — docs.anthropic.com](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking) · [Extended thinking on Amazon Bedrock — docs.aws.eu](https://docs.aws.eu/bedrock/latest/userguide/claude-messages-extended-thinking.html) (independent implementation reference)]]></content:encoded>
-</item>
-
-<item>
-    <title><![CDATA[Anthropic Filed Its Public S-1 With the SEC on October 26]]></title>
-    <link>https://www.anthropic.com/news/s1-sec</link>
-    <guid isPermaLink="false">2026-10-27-02-anthropic-s1-sec-ipo-public-filing</guid>
-    <pubDate>Tue, 27 Oct 2026 04:11:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Developer Tools</category>
-    <category>LLM</category>
-    <description><![CDATA[Anthropic filed a public Form S-1 with the SEC on October 26. For engineers building on the Claude API, the risk factors section is the most useful 20 minutes in the filing — it enumerates model availability, pricing, and export constraints as legally-disclosed risks.]]></description>
-    <content:encoded><![CDATA[**Anthropic filed its public Form S-1 with the SEC on October 26, beginning the formal IPO process. For engineers building products on the Claude API, the risk factors section is the most useful part — legally required to enumerate every material uncertainty the company faces.**
-
-After a confidential draft filed in June 2026, Anthropic published the full prospectus on October 26 ([anthropic.com/news/s1-sec](https://www.anthropic.com/news/s1-sec)), with the filing available on EDGAR.
-
-Unlike a vendor blog post, a prospectus enumerates material risks in a legally binding document: API availability, pricing methodology, model availability under export controls (Fable 5 was suspended under US export rules in June before being reinstated in July), and the cost basis of maintaining the safety infrastructure underlying all models.
-
-The company most recently raised at a roughly $965 billion valuation (per its Series H round), with reportedly more than $60 billion sought in the offering.
-
-**Why it matters:** A publicly listed Anthropic has investor-facing accountability for API reliability and pricing that a private company's published policies do not carry. The risk factors section shows what Anthropic itself considers the main threats to continuity of its API business — which is the right starting point for any serious dependency risk analysis on Claude-backed products.
-
-**Sources:** [Anthropic S-1 announcement — anthropic.com](https://www.anthropic.com/news/s1-sec) · [Anthropic set to go public — engadget.com](https://engadget.com/2184970/anthropic-is-set-to-go-public-after-filing-paperwork-with-the-sec) · [IPO coverage — shacknews.com](https://www.shacknews.com/article/149384/anthropic-ipo-filing-official)]]></content:encoded>
-</item>
-
-<item>
-    <title><![CDATA[Your Cloud Inference Meter Keeps Running During Development — Ollama Runs Any Open Model Locally in One Command With a Drop-In OpenAI-Compatible Python API]]></title>
-    <link>https://docs.ollama.com/api/introduction</link>
-    <guid isPermaLink="false">2026-10-27-01-ollama-local-models-python-openai-compatible</guid>
-    <pubDate>Tue, 27 Oct 2026 04:10:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Self-Hosting</category>
-    <category>Local AI</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Ollama downloads and runs Llama, Gemma, Qwen, and 200+ open models locally — no API key, no per-token billing. One command installs the model; the Python library mirrors the OpenAI SDK interface exactly.]]></description>
-    <media:content url="https://ollama.com/public/ollama.png" medium="image" />
-    <media:thumbnail url="https://ollama.com/public/ollama.png" />
-    <content:encoded><![CDATA[**Ollama runs any open model — Llama, Gemma, Qwen, DeepSeek, and 200+ others — on your own hardware with a single CLI command. No API key, no per-token billing during development, and a Python client whose interface mirrors the OpenAI SDK.**
-
-## What you will be able to do after this:
-- Pull and run an open model in under 60 seconds with `ollama pull llama3.2`
-- Call it from Python with the native `ollama` library or the OpenAI-compatible endpoint at `localhost:11434/v1`
-- Swap between local models by changing a string — no code restructuring
-
-## Install and pull a model
-
-```bash
-# macOS / Linux
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Windows: MSI installer at ollama.com/download/windows
-ollama pull llama3.2        # ~2 GB, Q4_K_M quantization by default
-ollama run llama3.2         # verify it works interactively
-```
-
-Ollama stores models in `~/.ollama/models` and serves them at `http://localhost:11434`. It selects the fastest backend automatically — Metal on Apple Silicon, CUDA on NVIDIA, CPU otherwise.
-
-## Call it from Python — native library
-
-```bash
-pip install ollama
-```
-
-```python
-import ollama
-
-response = ollama.chat(
-    model='llama3.2',
-    messages=[{'role': 'user', 'content': 'Explain vector similarity in two sentences.'}]
-)
-print(response.message.content)
-```
-
-`ollama.chat()` is synchronous; the async variant is `ollama.AsyncClient().chat()`. For single-turn completions without message history, use `ollama.generate()`.
-
-## Drop-in OpenAI SDK swap
-
-Ollama exposes an OpenAI-compatible endpoint at `:11434/v1`. Existing code that uses the OpenAI Python SDK works with a `base_url` change:
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url='http://localhost:11434/v1',
-    api_key='ollama',   # required field; value is ignored locally
-)
-
-response = client.chat.completions.create(
-    model='llama3.2',
-    messages=[{'role': 'user', 'content': 'Explain vector similarity.'}]
-)
-print(response.choices[0].message.content)
-```
-
-LangChain, LlamaIndex, and other OpenAI-compatible wrappers work the same way — swap `base_url` and `model`, keep everything else.
-
-## Browse available models
-
-```bash
-ollama pull qwen2.5:7b      # Alibaba Qwen 2.5 at 7B
-ollama pull gemma3:4b       # Google Gemma 3 at 4B; fits in ~6 GB VRAM
-ollama pull deepseek-r1     # DeepSeek R1 distilled variants
-```
-
-Full catalog at [ollama.com/search](https://ollama.com/search). Use `:tag` for size variants: `llama3.2:1b` vs `llama3.2:3b`.
-
-**Limits:** The first request after an idle period loads the model from disk into VRAM — 5–15 seconds for 7B+ models. Ollama runs one model per GPU by default, so concurrent requests queue. If you need high-throughput serving, multi-model GPU sharing, or concurrent users, vLLM ([covered Oct 24](https://cloudcodetree.com/ai-news/2026-10-24-04-vllm-eagle3-speculative-decoding-draft-tokens-latency)) handles that better. Ollama is purpose-built for single-developer local use, not multi-user production serving.
-
-**Sources:** [Ollama API docs](https://docs.ollama.com/api/introduction) · [ollama-python GitHub](https://github.com/ollama/ollama-python) · [Run LLMs Locally — analyticsvidhya.com](https://www.analyticsvidhya.com/blog/2025/01/how-to-run-llm-locally/) (independent walkthrough)]]></content:encoded>
-</item>
 
 
 
