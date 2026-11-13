@@ -10,7 +10,88 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 13 Nov 2026 12:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 13 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+<item>
+    <title><![CDATA[Claude Code v2.1.321 Patches an MCP OAuth Bug That Could Send Refresh Tokens to a Redirect Host]]></title>
+    <link>https://code.claude.com/docs/en/changelog</link>
+    <guid isPermaLink="false">2026-11-13-07-claude-code-2-1-321-mcp-oauth-token-redirect-security</guid>
+    <pubDate>Fri, 13 Nov 2026 20:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>Security</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[v2.1.321 (Nov 10) patches an MCP OAuth bug where token refreshes could forward credentials to a redirect host—update if you have OAuth-authenticated remote MCP servers.]]></description>
+    <content:encoded><![CDATA[**Claude Code v2.1.321 (November 10) fixes an MCP OAuth vulnerability where token refreshes could follow a redirect and send credentials to the redirect target — update if you use authenticated remote MCP servers.**
+
+The bug: when an OAuth remote MCP server responded with a redirect during token refresh, Claude Code would follow the redirect and send the refresh token (and potentially the access token) to the new host. If your MCP server or any upstream system was misconfigured or compromised, long-lived credentials could reach an unintended recipient.
+
+**What to do:** run `claude --version` — if you're below 2.1.321, update now (`npm install -g @anthropic-ai/claude-code@latest`). Then check your OAuth MCP servers: `claude mcp list`. If you have any, treat the tokens as potentially exposed and re-authenticate after updating.
+
+The same release makes Claude Fable 5.2 the new default Fable model and closes three permission gaps that allowed sandboxed processes to spawn subprocesses outside the sandbox boundary.
+
+**Limit:** The specific fix details come from a third-party release summary (ai-tldr.dev), not official GitHub release notes — verify against the [official changelog](https://code.claude.com/docs/en/changelog) or the v2.1.321 npm tag before acting on this.
+
+**Why it matters:** MCP OAuth is new enough that most users haven't audited their token storage. A redirect token leak is subtle — it doesn't cause immediate breakage, it silently copies credentials. This is the class of bug that only surfaces after a security review or an incident.
+
+**Sources:** [Claude Code 2.1.321 — ai-tldr.dev](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-321/) · [Claude Code has an MCP security problem — Pulse Bot](https://www.pulse.bot/cybersecurity/news/claude-code-has-an-mcp-security-problem-and-your-developers-are-already-using-it-26088aa8-b930-4d5b-9954-f34c9a2b151e/) · [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog)]]></content:encoded>
+</item>
+
+<item>
+    <title><![CDATA[Every Hand-Written JSON Parser in Your Claude App Is a Validation Liability — `client.messages.parse()` Returns a Typed Pydantic Object Directly]]></title>
+    <link>https://platform.claude.com/docs/en/build-with-claude/structured-outputs</link>
+    <guid isPermaLink="false">2026-11-13-06-anthropic-sdk-messages-parse-pydantic-structured-output</guid>
+    <pubDate>Fri, 13 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[The Anthropic Python SDK's client.messages.parse() returns a validated Pydantic object from Claude—no JSON parsing, no schema wrangling, no silent type errors downstream.]]></description>
+    <content:encoded><![CDATA[**The Anthropic Python SDK's `client.messages.parse()` returns a validated Pydantic object — skip `json.loads()` entirely and get a typed result with schema validation built in.**
+
+**What you'll be able to do after this:** call Claude with any Pydantic model and get a typed, validated instance back — your type checker, your linter, and your downstream code all see real types, not strings.
+
+- Under the hood, `messages.parse()` translates your Pydantic schema to a tool definition, calls Claude with it, and validates the response — all in one call. No intermediate JSON, no manual `.model_validate()`.
+- If Claude returns a refusal, `response.parsed_output` is `None` rather than raising an exception — guard it explicitly.
+- Doesn't combine with streaming (the parse waits for the full response) or with citations (use LangChain's `.with_structured_output()` for the citations case, covered [here](https://cloudcodetree.com/ai-news/2026-11-07-05-langchain-cited-answer-structured-output-rag-citations)).
+
+```python
+from anthropic import Anthropic
+from pydantic import BaseModel
+
+class PullRequestReview(BaseModel):
+    verdict: str              # "approve" | "request_changes" | "comment"
+    summary: str
+    blocking_issues: list[str]
+
+client = Anthropic()
+
+response = client.messages.parse(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    output_format=PullRequestReview,
+    messages=[{
+        "role": "user",
+        "content": f"Review this diff:\n\n{diff_text}",
+    }],
+)
+
+review = response.parsed_output
+if review is None:
+    raise ValueError("Model refused to review this diff")
+
+if review.blocking_issues:
+    print(f"Blocking: {review.blocking_issues}")
+```
+
+**SDK version note:** `client.messages.parse()` with `output_format` is the current stable path. Code using `client.beta.messages.parse()` with a `structured-outputs-2025-11-13` beta header still works during the transition but is deprecated — migrate to the stable path.
+
+**Sources:** [Structured outputs — Anthropic docs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) · [Hands-on with Anthropic's new structured output capabilities — Towards Data Science](https://towardsdatascience.com/hands-on-with-anthropics-new-structured-output-capabilities/) · [Claude API structured outputs walkthrough — Classmethod](https://dev.classmethod.jp/en/articles/claude-api-structured-outputs/)]]></content:encoded>
+</item>
 
 <item>
     <title><![CDATA[Your Copilot Session and Your Claude Session Are in Separate Windows — VS Code 1.145 Preview Lets You Nest Them in One Agent Run]]></title>
@@ -6244,107 +6325,8 @@ One real limit: the spend cap does not distinguish between per-token cost and pe
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Embedding Search Scans Every Vector on Every Query — FAISS's Two-Index Trade-off Cuts That to a Fixed Cluster Search]]></title>
-    <link>https://github.com/facebookresearch/faiss/wiki/Getting-started</link>
-    <guid isPermaLink="false">2026-10-27-08-faiss-indexflatl2-ivfflat-nprobe-in-memory-similarity-search</guid>
-    <pubDate>Tue, 27 Oct 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Vectors</category>
-    <category>Embeddings</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[IndexFlatL2 gives exact nearest-neighbor search with zero training; IndexIVFFlat partitions vectors into cells and searches only nprobe of them — trade a fraction of recall for speed.]]></description>
-    <content:encoded><![CDATA[**FAISS's two indexes trade recall for speed: IndexFlatL2 scans every vector (exact, no training); IndexIVFFlat partitions into cells and searches nprobe of them (approximate, fast).**
-
-**What you'll be able to do after this:** Build an in-memory vector similarity index with FAISS — from exact search for small collections to cell-partitioned approximate search for millions of vectors — and understand the one parameter (`nprobe`) that controls the recall/speed trade-off.
-
-- **IndexFlatL2** computes distance from the query to every vector in the index. Recall is always 100%; cost scales linearly with collection size. Correct choice up to ~100k vectors.
-- **IndexIVFFlat** partitions the space into `nlist` Voronoi cells at training time and assigns each vector to its nearest cell. At query time it searches only the nearest `nprobe` cells. Typical result at `nprobe=10` with `nlist=256`: 95–99% recall at a fraction of the brute-force cost.
-- **The `nprobe` dial**: higher = more recall, more compute. Start with `nprobe=10` and benchmark against a ground-truth set before setting a production value.
-
-**Walk-through:**
-
-```python
-import faiss
-import numpy as np
-
-# 50,000 embeddings at 768 dimensions (e.g. from sentence-transformers)
-d = 768
-n = 50_000
-rng = np.random.default_rng(42)
-vecs = rng.random((n, d)).astype("float32")  # FAISS requires float32
-
-# ── Exact search (IndexFlatL2) ──────────────────────────────────────────────
-flat = faiss.IndexFlatL2(d)
-flat.add(vecs)                          # no training required
-D, I = flat.search(vecs[:5], k=3)      # top-3 nearest neighbors
-
-# ── Approximate search (IndexIVFFlat) ──────────────────────────────────────
-nlist = 256          # cells; rule of thumb: sqrt(n) to 4*sqrt(n)
-quantizer = faiss.IndexFlatL2(d)       # coarse quantizer assigns vectors to cells
-ivf = faiss.IndexIVFFlat(quantizer, d, nlist, faiss.METRIC_L2)
-
-assert not ivf.is_trained
-ivf.train(vecs)                        # required: learns cell centroids from data
-ivf.add(vecs)
-
-ivf.nprobe = 10                        # search 10 of 256 cells; tune for recall
-D_ivf, I_ivf = ivf.search(vecs[:5], k=3)
-
-# ── Save / reload ───────────────────────────────────────────────────────────
-faiss.write_index(ivf, "index.faiss")
-loaded = faiss.read_index("index.faiss")
-```
-
-**When FAISS fits:** FAISS is pure in-process RAM — no server, no HTTP calls, no schema. It is the right tool for a prototype, a batch pipeline that rebuilds the index on every run, or a service where the full vector set fits in memory. Once the collection grows past available RAM, you need live updates, or you need metadata filtering (e.g. "only documents tagged topic:rag"), reach for Qdrant, Chroma, or pgvector instead — each of which was covered in earlier posts in this series.
-
-Install: `pip install faiss-cpu` (CPU-only); `faiss-gpu` for GPU acceleration on CUDA hardware.
-
-**Sources:** [FAISS Getting Started](https://github.com/facebookresearch/faiss/wiki/Getting-started), [PyImageSearch: Vector Search with FAISS — ANN Explained](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/), [Pinecone FAISS Tutorial](https://pinecone.io/learn/faiss-tutorial)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Claude Code Monitor Commands Were Silently No-Ops on Bedrock and Vertex — v2.1.307 Fixes That and Brings Cross-Session Messaging to Enterprise Deployments]]></title>
-    <link>https://code.claude.com/docs/en/changelog</link>
-    <guid isPermaLink="false">2026-10-27-04-claude-code-monitor-bedrock-vertex-foundry</guid>
-    <pubDate>Tue, 27 Oct 2026 12:29:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Claude Code v2.1.307 (Oct 23) enables Monitor, SendMessage, and ListAgents on Bedrock, Vertex AI, and Microsoft Foundry — Monitor was silently inoperable on these backends until now.]]></description>
-    <content:encoded><![CDATA[**Claude Code v2.1.307 (Oct 23) enables Monitor, plugin monitors, SendMessage, and ListAgents on Bedrock, Vertex AI, and Microsoft Foundry — Monitor was previously silently inoperable on these backends.**
-
-If your organization routes Claude Code through AWS Bedrock or Google Vertex (as most enterprise deployments do), Monitor calls were accepted without error but doing nothing. The same was true in sessions where nonessential traffic is disabled. As of Oct 23, all behaviors match the direct Anthropic API.
-
-**What Monitor actually does:** it runs a command in the background and feeds each line of output back to Claude as the command runs — not after it finishes. Claude Code invokes it as a first-class tool call during a session:
-
-```
-Monitor(command="pytest --tb=short -q", timeout=120)
-# Claude sees each test result as it streams; it can start fixing failures
-# before the full suite finishes, rather than reading the dump at the end
-```
-
-A Claude Code session watching `pytest` in real time can iterate on failures inline rather than running the full suite, reading output, then fixing — cutting the outer loop from minutes to seconds on large test suites.
-
-**Cross-session messaging on enterprise backends:** `SendMessage` (send a message to a named running session) and `ListAgents` (enumerate active sessions) also work now on Bedrock/Vertex/Foundry. Multi-agent workflows that coordinate across sessions work the same behind an enterprise backend as they do with a direct API key.
-
-**What also changed in the same update:** auto mode on Bedrock/Vertex/Foundry now uses the same classifier defaults as the Anthropic API. Long foreground `sleep` commands are blocked on these platforms (same behavior as the direct API now). If you have an automation that `sleep`s between steps, replace it with a Monitor poll:
-
-```
-Monitor(command="until [ -f .done ]; do sleep 2; done")
-```
-
-**Limits:** Monitor still doesn't work in `claude mcp serve` mode. Auto mode Monitor allow-rules are set aside while auto mode is active, so Monitor commands on Bedrock go through the same classifier review as Bash commands — allow rules you set for Monitor don't bypass auto-mode review.
-
-**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Monitor tool reference — code.claude.com](https://code.claude.com/docs/en/tools-reference)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
