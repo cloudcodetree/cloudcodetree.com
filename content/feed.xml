@@ -10,7 +10,125 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 13 Nov 2026 04:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 13 Nov 2026 12:15:00 +0000</lastBuildDate>
+
+<item>
+    <title><![CDATA[Your Copilot Session and Your Claude Session Are in Separate Windows — VS Code 1.145 Preview Lets You Nest Them in One Agent Run]]></title>
+    <link>https://code.visualstudio.com/updates/v1_145</link>
+    <guid isPermaLink="false">2026-11-13-05-vscode-1-145-mixed-agent-harness-claude-copilot-nested</guid>
+    <pubDate>Fri, 13 Nov 2026 12:15:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Developer Tools</category>
+    <category>Claude Code</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[VS Code 1.145 adds a preview setting that lets you nest Claude or Codex inside a running Copilot agent session, so you can delegate review and planning tasks across harnesses without switching windows.]]></description>
+    <content:encoded><![CDATA[**VS Code 1.145 (November 4) adds a preview setting that lets you route subtasks to Claude, Codex, or other agent harnesses from inside a running Copilot session — no separate window, no context switch.**
+
+**What you'll be able to do after this:** have Copilot plan and scaffold, then drop Claude in for a code-review pass or a spec critique, all within the same VS Code workspace and without manually copying output between sessions.
+
+VS Code's Agent Host runs agent sessions in a dedicated process separate from the editor. As of 1.144 (October 28), Copilot became the default harness for new sessions. 1.145 adds a preview on top of that: a single setting enables the ability to pick a different harness for a *nested* session — so a Copilot-driven agent loop can delegate a subtask to Claude mid-run and have its result returned inline.
+
+**Enable the preview:**
+
+```json
+// settings.json
+{
+  "chat.agentHost.multipleChatProviders.enabled": true
+}
+```
+
+Once on, the Agents window shows a harness picker when you start a nested session. Copilot remains the outer default; Claude and Codex appear as options for inner sessions.
+
+**Practical patterns:**
+
+- Run a Copilot agent to draft implementation steps for a feature; then nest a Claude session to critique the plan against your existing architecture before writing any code.
+- Delegate code review of a generated diff to Claude while Copilot continues the scaffolding loop on another task.
+- Use Codex for a task that runs better on its training data, then fold the output back into the Copilot session that owns the working tree.
+
+**Three limits worth knowing:**
+
+1. **Enterprise-managed settings disable non-Copilot harnesses.** If your organization uses enterprise-managed Copilot policies, the Claude and Codex pickers do not appear — the setting is overridden silently. Check via `Help → Developer Tools → Console` for a blocked-harness log.
+2. **Preview only — the API can change.** The `multipleChatProviders` flag is undocumented and subject to removal. If it disappears in a future update, sessions fall back to single-harness.
+3. **Background cloud sessions don't carry harness choices.** Remote agent sessions started from VS Code and continued on GitHub.com or GitHub Mobile run in the Copilot harness only; the nested-harness setting applies to the local VS Code editor session exclusively.
+
+**Sources:** [VS Code 1.145 release notes — code.visualstudio.com](https://code.visualstudio.com/updates/v1_145) · [VS Code 1.145 expands remote agent workflows — Visual Studio Magazine](https://visualstudiomagazine.com/articles/2026/11/04/vs-code-1-145-expands-remote-agent-workflows-adds-cron-automations.aspx) · [VS Code 1.145 Lets You Run Claude, Codex, and Copilot in the Same Agent Session — Windows Report](https://windowsreport.com/?p=1514664)]]></content:encoded>
+</item>
+
+<item>
+    <title><![CDATA[Your Local Dev Loop Still Calls the OpenAI API on Every Test Run — Ollama Runs Any Pulled Model at `localhost:11434/v1` With a Two-Line Setup]]></title>
+    <link>https://github.com/ollama/ollama/blob/main/docs/openai.md</link>
+    <guid isPermaLink="false">2026-11-13-04-ollama-openai-compatible-local-model-pull-run-code</guid>
+    <pubDate>Fri, 13 Nov 2026 12:14:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>Local AI</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Ollama serves any pulled model at http://localhost:11434/v1. Point your existing openai Python client there and your app talks to a local model — no rewrite needed.]]></description>
+    <content:encoded><![CDATA[**Ollama serves any pulled model at `http://localhost:11434/v1` — point your existing `openai` Python client there and your app talks to a local model, with no network calls and no API bill.**
+
+**What you'll be able to do after this:** run your RAG chain, agent loop, or embedding pipeline entirely on-device during development — no API key rotation, no rate limits, no bill for test runs. When you're ready to ship, swap the `base_url` back to your production provider.
+
+### Three takeaways
+
+- Ollama exposes an OpenAI-compatible HTTP API — same routes (`/v1/chat/completions`, `/v1/embeddings`), same JSON shape, same streaming behavior — so code written for `openai.ChatCompletion` works without modification.
+- The model library at [ollama.com/models](https://ollama.com/models) includes Llama 3.2, Qwen 3, Gemma 3, Mistral, and embedding models like `nomic-embed-text` — pull any of them with one command.
+- The API key is ignored by Ollama; pass any placeholder string to satisfy the SDK's required field.
+
+### Walk-through
+
+**1. Install Ollama**
+
+```bash
+# macOS
+brew install ollama
+
+# Linux (requires curl)
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+After install, Ollama starts automatically at `http://localhost:11434`. Confirm with `ollama list`.
+
+**2. Pull a model**
+
+```bash
+ollama pull llama3.2          # 2GB, 3B, fast on most laptops
+ollama pull nomic-embed-text  # 274MB embedding model
+```
+
+The first pull downloads the GGUF weights; subsequent runs use the cache.
+
+**3. Point your existing openai client at it**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",          # ignored, any string works
+)
+
+response = client.chat.completions.create(
+    model="llama3.2",
+    messages=[{"role": "user", "content": "Summarize this diff in one sentence."}],
+)
+print(response.choices[0].message.content)
+```
+
+For embeddings, the same client and the same `base_url` work — just call `client.embeddings.create(model="nomic-embed-text", input=texts)`.
+
+**What doesn't work:**
+
+- **Structured outputs (`response_format: json_schema`)** — partial support; some models handle `json_object` mode but `json_schema` with strict field validation may fail depending on the model. Test before relying on it.
+- **Vision** — multimodal calls work only for models that include a vision encoder (e.g., `llama3.2-vision`). Sending an image to a text-only model returns an error rather than silently dropping the image.
+- **Tool call reliability** — function calling works on models trained for it (Qwen 3, Llama 3.2) but smaller models often hallucinate tool arguments. Use a 7B+ model for tool-use tests.
+- **No auth** — Ollama binds to localhost by default. Setting `OLLAMA_HOST=0.0.0.0` to expose it on your LAN means anyone on the network can call it; add a reverse proxy with auth if that matters.
+
+**Sources:** [Ollama OpenAI compatibility — github.com/ollama](https://github.com/ollama/ollama/blob/main/docs/openai.md) · [Ollama model library — ollama.com/models](https://ollama.com/models) · [Running Local LLMs With Ollama — KodeKloud](https://notes.kodekloud.com/docs/Running-Local-LLMs-With-Ollama/Building-AI-Applications/OpenAI-Compatibility-for-Ollama)]]></content:encoded>
+</item>
 
 <item>
     <title><![CDATA[Your Claude Code Settings Reference `ANTHROPIC_SMALL_FAST_MODEL`, Which Is Deprecated — Pin Background-Task Model Aliases With `ANTHROPIC_DEFAULT_HAIKU_MODEL` Instead]]></title>
@@ -6227,162 +6345,8 @@ Monitor(command="until [ -f .done ]; do sleep 2; done")
 **Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Monitor tool reference — code.claude.com](https://code.claude.com/docs/en/tools-reference)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your LangGraph Agent Crashes the Whole Graph When One Node Times Out — v1.2 Adds Per-Node Timeouts and Error Handlers That Route to Recovery Nodes]]></title>
-    <link>https://docs.langchain.com/oss/python/langgraph/fault-tolerance</link>
-    <guid isPermaLink="false">2026-10-27-05-langgraph-node-timeout-error-handler-fault-tolerance</guid>
-    <pubDate>Tue, 27 Oct 2026 12:28:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Agents</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[LangGraph v1.2 ships per-node timeouts, error handlers that route to recovery nodes, and graceful shutdown that saves a resumable checkpoint — a stuck node no longer crashes the whole graph.]]></description>
-    <content:encoded><![CDATA[**LangGraph v1.2 ships per-node timeouts, error handlers that route to recovery nodes instead of crashing the whole graph, and graceful shutdown that saves a resumable checkpoint.**
-
-Before v1.2, an unhandled exception or stuck API call in any node crashed the entire graph unless you wrapped every node in `try/except`. The new fault-tolerance primitives handle this at the graph level.
-
-**Per-node timeout — async nodes only:**
-
-```python
-from datetime import timedelta
-
-builder.add_node(
-    "call_external_api",
-    call_api_node,
-    timeout=timedelta(seconds=30)  # raises NodeTimeoutError after 30s
-)
-```
-
-`NodeTimeoutError` subclasses Python's built-in `TimeoutError`, so existing retry policies catch it by default. Adding a timeout to a sync node raises an error at `compile()` time — async-only.
-
-**Node-level error handler with routing:**
-
-```python
-from langgraph.types import Command, NodeError
-
-async def handle_api_failure(state: MyState, error: NodeError) -> Command:
-    return Command(
-        update={"last_error": str(error.original_error)},
-        goto="fallback_node"   # route to a recovery node
-    )
-
-builder.add_node(
-    "call_external_api",
-    call_api_node,
-    timeout=timedelta(seconds=30),
-    error_handler=handle_api_failure
-)
-```
-
-The handler runs only after all retries are exhausted. If the process crashes before the handler finishes, the failure context is saved in the checkpoint — on resume, the handler sees the same `NodeError`.
-
-**Graph-wide defaults and graceful shutdown:**
-
-```python
-# Set defaults for all nodes; per-node values override at compile time
-builder.set_node_defaults(timeout=60.0, retry=RetryPolicy(max_attempts=3))
-
-# Graceful shutdown on SIGTERM
-from langgraph.types import RunControl
-control = RunControl()
-signal.signal(signal.SIGTERM, lambda *_: control.request_drain())
-# request_drain() waits for the current superstep, saves a resumable
-# checkpoint, and raises GraphDrained — no lost work
-```
-
-**Why it matters for this reader:** LangGraph graphs that call external APIs, run unattended in CI, or span overnight runs previously needed per-node defense. Now the graph itself handles failures, and a SIGTERM during a long agent run doesn't mean starting over from scratch.
-
-**Caveats:** Timeouts are async-only; error handlers can't themselves have error handlers (prevents recursion); graceful shutdown requires wiring in `RunControl`, which is a new setup step.
-
-**Sources:** [Fault tolerance in LangGraph — docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/fault-tolerance) · [LangChain October 2026 newsletter — langchain.com/blog](https://www.langchain.com/blog/october-2026-langchain-newsletter) · [Community thread on parallel-node failures — forum.langchain.com](https://forum.langchain.com/t/parallel-nodes-how-to-manage-failures-or-exceptions/3226)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your LLM App Has No Regression Tests — inspect-ai Writes an Eval in 30 Lines: Task, Solver, Scorer, Run]]></title>
-    <link>https://inspect.aisi.org.uk/tutorial.html</link>
-    <guid isPermaLink="false">2026-10-27-06-inspect-ai-llm-eval-task-solver-scorer</guid>
-    <pubDate>Tue, 27 Oct 2026 12:27:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[pip install inspect-ai; define a @task returning Task(dataset, solver, scorer); run inspect eval to grade any model against your inputs and catch regressions before users do.]]></description>
-    <content:encoded><![CDATA[**pip install inspect-ai; define a @task returning Task(dataset, solver, scorer); run `inspect eval` to grade any model against your inputs and catch regressions before they reach users.**
-
-**What you'll be able to do after this:**
-- Write a repeatable LLM eval that runs against Claude, OpenAI, or a local Ollama model with one flag swap
-- Grade model outputs against expected answers — exact match, substring, or a second model as judge
-- Spot regressions when you change a system prompt, swap models, or update your context pipeline
-
-## The 30-line eval
-
-```python
-from inspect_ai import task
-from inspect_ai.dataset import Sample
-from inspect_ai.solver import generate, system_message
-from inspect_ai.scorer import includes, model_graded_qa
-from inspect_ai.task import Task
-
-@task
-def qa_regression():
-    return Task(
-        dataset=[
-            Sample(
-                input="What is the output of list(range(3))?",
-                target="[0, 1, 2]"
-            ),
-            Sample(
-                input="Write a one-liner to reverse a Python list.",
-                target="returns reversed list"
-            ),
-        ],
-        solver=[
-            system_message("Answer concisely and precisely."),
-            generate()
-        ],
-        scorer=includes()   # target string must appear in the model output
-    )
-```
-
-Run it: `inspect eval qa_regression.py --model anthropic/claude-sonnet-4-6`
-
-Swap models without touching the file: `--model openai/gpt-4o` or `--model ollama/llama3.2`.
-
-## Scorers: choosing the right one
-
-| Scorer | Use when | Cost |
-|---|---|---|
-| `match()` | Exact or case-insensitive string | None |
-| `includes()` | Target appears anywhere in output | None |
-| `model_graded_qa()` | No single correct string; prose or code | One model call per sample |
-
-```python
-# Use a cheaper model to grade to keep costs manageable
-scorer=model_graded_qa(
-    model="anthropic/claude-haiku-5-5",
-    instructions="Grade: does the response correctly solve the task?"
-)
-```
-
-## Reviewing runs
-
-`inspect view` opens a local web UI showing per-sample grading, the full conversation, and scorer reasoning — useful for finding systematic failure patterns.
-
-## Three limits to know
-
-1. `model_graded_qa()` adds a model call per sample; grading cost can match eval cost at scale. Use `includes()` or `match()` where possible.
-2. Pin your `inspect-ai` version — the scorer API changed between 0.3.x releases.
-3. Multi-agent evals with sandboxed tool use require Docker or another sandbox provider as an extra setup step.
-
-inspect-ai is maintained by the UK AI Security Institute and ships with 200+ pre-built eval sets (Inspect Evals), including MMLU, HumanEval, and the safety benchmarks the institute uses for its own frontier-model testing.
-
-**Sources:** [inspect-ai Tutorial — inspect.aisi.org.uk](https://inspect.aisi.org.uk/tutorial.html) · [Inspect AI: An OSS Python Library For LLM Evals — hamel.dev](https://hamel.dev/notes/llm/evals/inspect.html) (independent practitioner review with creator guest lecture video)]]></content:encoded>
-  </item>
-
+  
+  
   
 
 
