@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-14-02-claude-api-per-message-effort-mid-conversation-output-config",
+    "title": "Every Agent Turn Runs the Same Thinking Budget Including Simple Retrieval Calls — output_config.effort in an Empty System Message Scales It Per Turn",
+    "excerpt": "Anthropic's per-message effort beta (Nov 12) lets agent loops dial reasoning up or down per turn. Send the mid-conversation-output-config-2026-07-01 beta header and an empty output_config system me…",
+    "author": "Chris Harper",
+    "date": "11-14-2026",
+    "publishedAt": "2026-11-14T04:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Agents",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/build-with-claude/effort-per-message",
+    "content": "**Add `output_config.effort` to an empty-content system message and send the `mid-conversation-output-config-2026-07-01` beta header to dial reasoning up or down per turn — your agent no longer has to run full thinking on tool-call confirmations.**\n\nIf your agent runs the same thinking budget on every message — including retrieval confirmations, brief summaries, and boilerplate acknowledgments — you're burning extended thinking tokens on turns that don't need them.\n\nAnthropic's per-message effort beta (shipped November 12) lets you change the effort level mid-conversation. The mechanism: insert an empty-content system message directly before the message where the new level takes effect, and include the beta header `mid-conversation-output-config-2026-07-01`.\n\n```python\nmessages = [\n    # ... prior turns\n    {\n        \"role\": \"user\",\n        \"content\": [{\"type\": \"output_config\", \"effort\": \"low\"}]\n    },\n    {\"role\": \"user\", \"content\": \"Summarize the retrieved context in two sentences.\"}\n]\n\nresponse = client.messages.create(\n    model=\"claude-opus-5-5\",\n    messages=messages,\n    betas=[\"mid-conversation-output-config-2026-07-01\"]\n)\n```\n\nThe practical pattern: start the session with `thinking: {budget_tokens: 20000}` at the top level, then insert low-effort markers around retrieval/formatting turns and high-effort markers around decision or synthesis turns. The override stays in effect until another empty marker changes it.\n\n**Limits and gotchas:**\n\n- `claude-fable-5-2` returns a 400 error — only the Claude 5.5 family (Opus 5.5, Sonnet 5.5, Haiku 5.5) supports per-turn effort.\n- LangChain and several other proxies silently strip empty-content system messages before the request reaches the API ([issue #40892](https://github.com/langchain-ai/langchain/issues/40892)). The feature will appear to do nothing — log the raw request body before it goes out.\n- The `clear_at` field, which pins when the override expires, is also dropped by some client libraries ([Bifrost #9729](https://github.com/maximhq/bifrost/issues/9729)).\n\nThis is most useful in long agent chains where you can clearly separate cheap turns from expensive ones. For single-turn requests, top-level `thinking` is simpler and doesn't require the beta header.\n\n**Sources:** [Anthropic per-message effort docs](https://platform.claude.com/docs/en/build-with-claude/effort-per-message) · [LangChain issue #40892](https://github.com/langchain-ai/langchain/issues/40892) · [Bifrost issue #9729](https://github.com/maximhq/bifrost/issues/9729)"
+  },
+  {
+    "id": "2026-11-14-01-claude-design-regenerate-vs-edit-decision-rule",
+    "title": "Your Regenerated Artboard Overwrites the Code-Side Fixes You Already Merged — Three Questions Route Every Change to the Right Tool",
+    "excerpt": "Structure changes go back to Claude Design; behavior and data wiring go to Claude Code — a three-question rule routes every iteration so the two tools stop overwriting each other.",
+    "author": "Chris Harper",
+    "date": "11-14-2026",
+    "publishedAt": "2026-11-14T04:02:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://support.claude.com/en/articles/14604416-get-started-with-claude-design",
+    "content": "**Structure changes go back to Claude Design; behavior, data wiring, and component property swaps go to Claude Code — a three-question rule routes every change so the two tools stop undoing each other's work.**\n\n**What you'll be able to do after this:**\n- Route any design iteration to the right tool in 30 seconds\n- Stop regenerating full artboards for changes Claude Code handles in a single prompt\n- Keep changes from each tool from overwriting the other during active iteration\n\nAfter handing off from Claude Design to Claude Code, most teams settle into one of two broken patterns: regenerating everything when they want any visual change, or making structural edits in Claude Code and wondering why the layout looks wrong. The fix is a decision rule, not a workflow hack.\n\n**Resource:** Anthropic's [Get started with Claude Design](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) on support.claude.com covers both the handoff and the `/design` reverse flow. The [Claude Design → Claude Code Handoff guide](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) is a practitioner walkthrough of the same path.\n\n**Three questions:**\n\n1. **Does this change affect layout, component arrangement, or visual hierarchy?** → Claude Design. These changes live in the design intent; Claude Code can't reconstruct them from a text prompt without structural drift.\n\n2. **Does this change affect behavior, state, or data wiring?** → Claude Code. Claude Design doesn't know your backend exists; ask it to generate validation logic and it generates mock logic.\n\n3. **Is this a property swap on a component that's already in your codebase?** → Claude Code. A button variant, a color token, an icon change — Claude Code modifies the component in place; a regeneration rebuilds the visual layer and overwrites what you already fixed.\n\n**Walk-through — a form page, one change of each type:**\n\n```\nChange A: \"Add a two-column layout for address fields\"       → Claude Design (structural)\nChange B: \"Show inline validation error on bad postal code\"  → Claude Code (behavior)\nChange C: \"Switch submit from filled to outline variant\"     → Claude Code (component prop)\n```\n\nFor Change B in Claude Code: `\"Add inline validation for postal-code — show ValidationMessage in error state when the value isn't a valid postal code.\"` Claude Code knows the component; Claude Design would generate mock logic that doesn't connect to your form state.\n\n**The reverse path:** Run `/design` in Claude Code to push an existing component into Claude Design when you want to explore a structural change without editing the artboard manually.\n\n**Limits:** Every regeneration in Claude Design starts from the visual spec, not from your component tree. It has no awareness of code-side changes since the last handoff — if you've fixed a responsive layout or swapped a dependency, regenerating overwrites those changes. The bundle doesn't track code-side drift; merging is your responsibility.\n\n**Sources:** [Get started with Claude Design (support.claude.com)](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design handoff guide (claude-code-playbook)](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [/design command docs](https://code.claude.com/docs/en/slash-commands/design)"
+  },
+  {
     "id": "2026-11-13-07-claude-code-2-1-321-mcp-oauth-token-redirect-security",
     "title": "Claude Code v2.1.321 Patches an MCP OAuth Bug That Could Send Refresh Tokens to a Redirect Host",
     "excerpt": "v2.1.321 (Nov 10) patches an MCP OAuth bug where token refreshes could forward credentials to a redirect host—update if you have OAuth-authenticated remote MCP servers.",
