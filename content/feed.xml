@@ -10,7 +10,64 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 14 Nov 2026 12:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 14 Nov 2026 20:03:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Agent Unlocks New Tools Mid-Conversation — the inline-tools Beta Adds Them Without Busting the Cache]]></title>
+    <link>https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages</link>
+    <guid isPermaLink="false">2026-11-14-05-inline-tools-add-tool-definition-mid-conversation-cache</guid>
+    <pubDate>Sat, 14 Nov 2026 20:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Add a fully-defined new tool to a Claude conversation after it starts, with the cache prefix preserved — the tools array stays fixed, only a tool_addition block changes.]]></description>
+    <content:encoded><![CDATA[**Your agent can't add a brand-new tool mid-conversation without changing `tools`, and changing `tools` busts the prompt cache — until now. The `inline-tools-2026-09-15` beta header lets a `tool_addition` block carry a full tool definition so the cached prefix stays intact.**
+
+The problem: Claude's prompt cache is keyed on the `tools` array. Add a tool mid-conversation and you rewrite the cache prefix, paying full uncached token cost on the next turn. For agents with long system prompts and many tools, that penalty compounds across every dynamic expansion.
+
+The fix: keep `tools` fixed with at least one non-deferred tool (to establish the cache prefix), then inject new tool definitions exactly when needed via a mid-conversation system message.
+
+**How to add a tool mid-conversation:**
+
+```python
+# Initial request — tools array stays fixed for the whole session
+response = client.messages.create(
+    model="claude-opus-5-5",
+    system="You are a workflow assistant.",
+    tools=[{"name": "search_docs", ...}],  # anchors the cache
+    messages=conversation,
+    betas=["inline-tools-2026-09-15"],
+)
+
+# Later — user authenticates; unlock billing tools without touching tools[]
+conversation.append({
+    "role": "system",
+    "content": [{
+        "type": "tool_addition",
+        "tool": {
+            "name": "submit_billing_update",
+            "description": "Submit a billing change for the authenticated user.",
+            "input_schema": {
+                "type": "object",
+                "properties": {"amount": {"type": "number"}},
+                "required": ["amount"]
+            }
+        }
+    }]
+})
+```
+
+Remove a tool that's no longer relevant with `{"type": "tool_removal", "name": "search_docs"}` in the same block shape.
+
+**Why this matters:** agents that unlock capabilities based on context — after authentication, after a workflow step, after a user confirms scope — no longer pay cache-bust penalties on every expansion. The `tools` array establishes the cache once; `tool_addition` appends without touching it.
+
+**Limits:** Currently Claude API only — Amazon Bedrock and Google Cloud are not listed in the current docs. Requires at least one non-deferred tool in `tools` to anchor the cache. Compaction requests must include the same beta header to carry tool changes forward through context compression.
+
+**Sources:** [Anthropic: Mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages), [Start Debugging: Add a tool mid-conversation without breaking the cache](https://startdebugging.net/2026/11/add-a-tool-mid-conversation-without-breaking-the-claude-prompt-cache/), [ByteIota: Claude API inline tools mid-conversation](https://byteiota.com/claude-api-inline-tools-mid-conversation/)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Agent Loop Reviews Nothing Until the Code Is Written — Approving a Plan Before Build Runs Cuts the Cost of a Wrong Direction by an Order of Magnitude]]></title>
@@ -6306,52 +6363,7 @@ You can also ask Claude verbally — "use worktrees for your agents" — without
 **Sources:** [Run parallel sessions with worktrees — Claude Code Docs](https://code.claude.com/docs/en/worktrees) · [Create custom subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Git Worktrees with Claude Code — Better Stack](https://betterstack.com/community/guides/ai/git-worktrees-claude/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Vector Store Returns the Documents That Mention Your Query — A Cross-Encoder Scores Pairs to Find the Ones That Actually Answer It]]></title>
-    <link>https://www.deeplearning.ai/courses/advanced-retrieval-for-ai</link>
-    <guid isPermaLink="false">2026-10-28-05-cross-encoder-reranking-sentence-transformers-two-stage-rag</guid>
-    <pubDate>Wed, 28 Oct 2026 12:11:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Two-stage RAG: vector search retrieves the top 20-50 candidates, then a CrossEncoder scores each (query, doc) pair to surface the 5-10 that truly answer the query.]]></description>
-    <content:encoded><![CDATA[**Two-stage RAG: fast vector search retrieves 20–50 candidates, then a cross-encoder scores each (query, document) pair to surface the 5–10 that genuinely answer the query.**
-
-**What you'll be able to do after this:** take the candidates your vector store returns, rerank them against the query using a cross-encoder, and cut the noise before the LLM ever sees the context.
-
-**Three things to take away:**
-
-- A bi-encoder embeds query and document independently — fast for full-corpus search, but blind to the relationship between them. A cross-encoder sees both together, so it scores true relevance rather than vector proximity.
-- The two-stage pipeline resolves the tradeoff: vector search for recall (retrieve top 20–50), cross-encoder for precision (rerank to top 5–10), then generate.
-- Every query runs the full model over each candidate pair with no caching between queries. At N=50 on CPU, expect 200–500ms of reranking latency on top of retrieval — keep stage-1 N small and use batching for production.
-
-**Running it with sentence-transformers:**
-
-```python
-from sentence_transformers import CrossEncoder
-
-model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-
-# candidates: list of strings from your vector store's top-N results
-pairs = [(query, doc) for doc in candidates]
-scores = model.predict(pairs)          # shape: (len(candidates),)
-
-ranked = sorted(zip(scores, candidates), reverse=True)
-top_k  = [doc for _, doc in ranked[:5]]
-```
-
-`cross-encoder/ms-marco-MiniLM-L-6-v2` is the standard English starting point (~22M parameters, fast for small batches). For multilingual use or higher accuracy, `BAAI/bge-reranker-v2-m3` is the common upgrade — it supports multiple languages but runs slower per pair.
-
-**What it costs you:** the CrossEncoder has no vector index — it runs inference on every (query, doc) pair on each request. There is no pre-computation shortcut. For N > a few hundred, the latency becomes the bottleneck; batch-process pairs and run on GPU to stay practical.
-
-**Anchor resource:** [Cross-Encoder Re-Ranking — Advanced Retrieval for AI with Chroma, DeepLearning.AI (free, ~1h)](https://learn.deeplearning.ai/courses/advanced-retrieval-for-ai/lesson/5/cross-encoder-re-ranking) — lesson 5 builds the two-stage retriever end to end in a runnable notebook.
-
-**Sources:** [Advanced Retrieval for AI — DeepLearning.AI](https://www.deeplearning.ai/courses/advanced-retrieval-for-ai) · [CrossEncoder reranker — LangChain docs](https://docs.langchain.com/oss/python/integrations/document_transformers/cross_encoder_reranker) · [cross-encoder models — Hugging Face](https://huggingface.co/cross-encoder) · [RAG Complete Tutorial Part 4: Reranking — GopenAI](https://blog.gopenai.com/rag-complete-tutorial-part-04-f89f5c076744)]]></content:encoded>
-  </item>
-
+  
   
   
   

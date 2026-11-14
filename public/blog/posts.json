@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-11-14-05-inline-tools-add-tool-definition-mid-conversation-cache",
+    "title": "Your Agent Unlocks New Tools Mid-Conversation — the inline-tools Beta Adds Them Without Busting the Cache",
+    "excerpt": "Add a fully-defined new tool to a Claude conversation after it starts, with the cache prefix preserved — the tools array stays fixed, only a tool_addition block changes.",
+    "author": "Chris Harper",
+    "date": "11-14-2026",
+    "publishedAt": "2026-11-14T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Agents",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages",
+    "content": "**Your agent can't add a brand-new tool mid-conversation without changing `tools`, and changing `tools` busts the prompt cache — until now. The `inline-tools-2026-09-15` beta header lets a `tool_addition` block carry a full tool definition so the cached prefix stays intact.**\n\nThe problem: Claude's prompt cache is keyed on the `tools` array. Add a tool mid-conversation and you rewrite the cache prefix, paying full uncached token cost on the next turn. For agents with long system prompts and many tools, that penalty compounds across every dynamic expansion.\n\nThe fix: keep `tools` fixed with at least one non-deferred tool (to establish the cache prefix), then inject new tool definitions exactly when needed via a mid-conversation system message.\n\n**How to add a tool mid-conversation:**\n\n```python\n# Initial request — tools array stays fixed for the whole session\nresponse = client.messages.create(\n    model=\"claude-opus-5-5\",\n    system=\"You are a workflow assistant.\",\n    tools=[{\"name\": \"search_docs\", ...}],  # anchors the cache\n    messages=conversation,\n    betas=[\"inline-tools-2026-09-15\"],\n)\n\n# Later — user authenticates; unlock billing tools without touching tools[]\nconversation.append({\n    \"role\": \"system\",\n    \"content\": [{\n        \"type\": \"tool_addition\",\n        \"tool\": {\n            \"name\": \"submit_billing_update\",\n            \"description\": \"Submit a billing change for the authenticated user.\",\n            \"input_schema\": {\n                \"type\": \"object\",\n                \"properties\": {\"amount\": {\"type\": \"number\"}},\n                \"required\": [\"amount\"]\n            }\n        }\n    }]\n})\n```\n\nRemove a tool that's no longer relevant with `{\"type\": \"tool_removal\", \"name\": \"search_docs\"}` in the same block shape.\n\n**Why this matters:** agents that unlock capabilities based on context — after authentication, after a workflow step, after a user confirms scope — no longer pay cache-bust penalties on every expansion. The `tools` array establishes the cache once; `tool_addition` appends without touching it.\n\n**Limits:** Currently Claude API only — Amazon Bedrock and Google Cloud are not listed in the current docs. Requires at least one non-deferred tool in `tools` to anchor the cache. Compaction requests must include the same beta header to carry tool changes forward through context compression.\n\n**Sources:** [Anthropic: Mid-conversation system messages](https://platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages), [Start Debugging: Add a tool mid-conversation without breaking the cache](https://startdebugging.net/2026/11/add-a-tool-mid-conversation-without-breaking-the-claude-prompt-cache/), [ByteIota: Claude API inline tools mid-conversation](https://byteiota.com/claude-api-inline-tools-mid-conversation/)"
+  },
+  {
     "id": "2026-11-14-04-plan-build-verify-observe-agentic-engineering-loop-github",
     "title": "Your Agent Loop Reviews Nothing Until the Code Is Written — Approving a Plan Before Build Runs Cuts the Cost of a Wrong Direction by an Order of Magnitude",
     "excerpt": "GitHub's four-stage agentic loop — Plan, Build, Verify, Observe — restructures where human judgment enters so a direction mistake costs minutes rather than a large refactor.",
