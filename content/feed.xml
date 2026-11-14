@@ -10,7 +10,91 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 14 Nov 2026 04:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 14 Nov 2026 12:12:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Agent Loop Reviews Nothing Until the Code Is Written — Approving a Plan Before Build Runs Cuts the Cost of a Wrong Direction by an Order of Magnitude]]></title>
+    <link>https://github.blog/ai-and-ml/github-copilot/beyond-code-generation-a-developers-guide-to-agentic-engineering/</link>
+    <guid isPermaLink="false">2026-11-14-04-plan-build-verify-observe-agentic-engineering-loop-github</guid>
+    <pubDate>Sat, 14 Nov 2026 12:12:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[GitHub's four-stage agentic loop — Plan, Build, Verify, Observe — restructures where human judgment enters so a direction mistake costs minutes rather than a large refactor.]]></description>
+    <content:encoded><![CDATA[**GitHub's four-stage agentic loop — Plan, Build, Verify, Observe — restructures where human judgment enters the pipeline. A direction mistake rejected at Plan costs five minutes; the same mistake caught at Build costs hours plus a revert.**
+
+GitHub's ["Beyond code generation" guide](https://github.blog/ai-and-ml/github-copilot/beyond-code-generation-a-developers-guide-to-agentic-engineering/) names the principal failure mode of agent-first development: code generation accelerated, but every other part of the engineering loop — planning, review, and production investigation — did not. The fix isn't adding more reviews; it's moving judgment to the stage where it's cheapest.
+
+**The four stages:**
+
+**Plan** — the agent researches the codebase and proposes a spec; you approve or reject it before any code runs. Rejecting a plan costs five minutes. Redirecting an agent mid-build costs two hours plus a revert.
+
+**Build** — the agent writes, tests, and iterates within the approved boundary. Human involvement is interrupt-on-failure, not line-by-line review. This is where most agents run today, with no approved plan behind them.
+
+**Verify** — structured gates: type checks, unit tests, integration tests, linting. You review test results, not raw diffs. When CI is red, the agent retries; when it's consistently green, you review the diff against the plan.
+
+**Observe** — production signals (errors, latency, feature flags) feed back into the next Plan cycle. The loop closes; you're operating a system, not maintaining code that an agent wrote.
+
+**What this doesn't solve:**
+Agents can pass their own tests if the tests weren't written independently of the code. Plan approval only works when the spec is specific enough to evaluate — a vague brief still leads to a bad build. The Plan stage also slows down exploratory work where the right path isn't known until you've tried three options; reserve it for well-scoped tasks, not spikes. And the Verify stage still requires meaningful test coverage — this framework does not substitute for it.
+
+**Sources:** [Beyond code generation: A developer's guide to agentic engineering — GitHub Blog](https://github.blog/ai-and-ml/github-copilot/beyond-code-generation-a-developers-guide-to-agentic-engineering/) · [From vibe coding to agentic engineering — Human Coder](https://humancoder.substack.com/p/from-vibe-coding-to-agentic-engineering) · [Agentic Engineering: What Agents Need Besides the Model — Unblocked](https://getunblocked.com/blog/agentic-engineering-what-agents-need/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your RAG Retriever Misses Context That Spans Two Chunks Because chunk_overlap Is Zero — RecursiveCharacterTextSplitter's Two Parameters Determine Whether an Answer Survives a Split]]></title>
+    <link>https://python.langchain.com/docs/how_to/recursive_text_splitter</link>
+    <guid isPermaLink="false">2026-11-14-03-recursive-character-text-splitter-chunk-size-overlap-rag-langchain</guid>
+    <pubDate>Sat, 14 Nov 2026 12:11:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[RecursiveCharacterTextSplitter cuts a document at paragraph breaks, then newlines, then words — always at a natural boundary. chunk_overlap keeps context from disappearing at every split.]]></description>
+    <content:encoded><![CDATA[**RecursiveCharacterTextSplitter uses a priority hierarchy — paragraphs, newlines, words — so splits land at natural boundaries. `chunk_overlap` controls how many characters of context carry across each boundary; zero overlap is the most common RAG configuration mistake.**
+
+**What you'll be able to do after this:**
+- Configure `chunk_size` and `chunk_overlap` based on your embedding model's actual token limit, not arbitrary defaults
+- Understand why the recursive splitter performs comparably to or better than semantic chunking on most real documents
+- Avoid two common mistakes: zero overlap (context lost at boundaries) and character-counted chunk sizes on models with different token ratios
+
+**The core setup:**
+
+```python
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+splitter = RecursiveCharacterTextSplitter(
+    chunk_size=1000,       # characters, not tokens
+    chunk_overlap=200,     # overlap between consecutive chunks
+    add_start_index=True,  # preserves position in original document
+)
+
+docs = splitter.create_documents([long_text])
+# Returns list of Document(page_content=..., metadata={'start_index': N})
+```
+
+**Why "recursive" matters:**
+The splitter works through a separator priority list: `["\n\n", "\n", " ", ""]`. It tries paragraph breaks first; if a paragraph is still too large, it splits at newlines; then words; finally individual characters as a last resort. A sentence is never split mid-word unless that word alone exceeds `chunk_size`.
+
+**Setting chunk_size correctly:**
+`chunk_size` is in **characters**, not tokens. `all-MiniLM-L6-v2` has a 256-token limit (~1000–1300 characters); `text-embedding-3-small` handles 8191 tokens. Set your chunk size to stay comfortably under your embedding model's limit — check `model.max_seq_length` before choosing. For sentence-transformers models on English prose, 400–600 tokens (~2000–3000 characters) works well.
+
+**Why chunk_overlap matters:**
+An answer that spans the boundary between two chunks will be in neither chunk at retrieval time. `chunk_overlap=200` means each chunk starts 200 characters before where the previous ended, so boundary context appears in both. Zero overlap is the default in many tutorials and the most common source of "my RAG retrieves something close but not quite right" failures.
+
+**When RecursiveCharacterTextSplitter is good enough (which is most of the time):**
+A February 2026 FloTorch benchmark on 50 academic papers found fixed-size chunking within 15 percentage points of the best strategy tested — and semantic chunking underperformed it at 54% accuracy versus 69% for recursive splitting ([PremAI benchmark report](https://blog.premai.io/rag-chunking-strategies-the-2026-benchmark-guide)). An [IBM LangChain tutorial](https://www.ibm.com/think/tutorials/chunking-strategies-for-rag-with-langchain-watsonx-ai) reaches the same conclusion for structured documents. Semantic chunking adds 2–5× latency per chunk at index time by embedding each sentence before deciding where to split — that cost is rarely justified until you've measured a retrieval quality problem the recursive splitter doesn't solve.
+
+**Where this breaks down:**
+RecursiveCharacterTextSplitter doesn't understand your document format. PDFs with tables, code blocks, or multi-column layouts can produce nonsense splits — use a structure-aware loader (e.g., `PyPDFLoader` with `mode="layout"`) before splitting. And `chunk_size` in characters varies by language: Chinese text at 1000 characters is 300–400 tokens; English prose at 1000 characters is typically 200–300 tokens.
+
+**Sources:** [Recursive text splitter — LangChain Python docs](https://python.langchain.com/docs/how_to/recursive_text_splitter) · [RAG chunking strategies benchmark — PremAI Blog](https://blog.premai.io/rag-chunking-strategies-the-2026-benchmark-guide) · [Implement RAG chunking with LangChain and watsonx.ai — IBM Think](https://www.ibm.com/think/tutorials/chunking-strategies-for-rag-with-langchain-watsonx-ai)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Every Agent Turn Runs the Same Thinking Budget Including Simple Retrieval Calls — output_config.effort in an Empty System Message Scales It Per Turn]]></title>
@@ -6268,67 +6352,8 @@ top_k  = [doc for _, doc in ranked[:5]]
 **Sources:** [Advanced Retrieval for AI — DeepLearning.AI](https://www.deeplearning.ai/courses/advanced-retrieval-for-ai) · [CrossEncoder reranker — LangChain docs](https://docs.langchain.com/oss/python/integrations/document_transformers/cross_encoder_reranker) · [cross-encoder models — Hugging Face](https://huggingface.co/cross-encoder) · [RAG Complete Tutorial Part 4: Reranking — GopenAI](https://blog.gopenai.com/rag-complete-tutorial-part-04-f89f5c076744)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude Code Session Doesn't Show You Which Permission Rules Are Firing — `claude_code.safety_event` Puts Every Block Into Your OTel Trace]]></title>
-    <link>https://cloudcodetree.com/ai-news/2026-10-28-02-claude-code-safety-event-otel-permission-governance</link>
-    <guid isPermaLink="false">2026-10-28-02-claude-code-safety-event-otel-permission-governance</guid>
-    <pubDate>Wed, 28 Oct 2026 04:07:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[claude_code.safety_event (Oct 21 changelog) fires on every tool call a permission rule, hook, auto mode, or sandbox blocks or prompts — attributes include category, rule_source, grant_scope, and circuit_breaker.]]></description>
-    <content:encoded><![CDATA[**Every tool call Claude Code blocks or prompts now emits a `claude_code.safety_event` OpenTelemetry span — the Oct 21 changelog addition that closes the governance gap between "we have rules" and "we know what they're doing."**
-
-Without this, a team deploying Claude Code through Bedrock or Vertex with a managed settings file had no visibility into which rules were actually triggering — or whether auto mode's classifier was being too conservative. They saw Claude stop or ask; they did not see what stopped it.
-
-The new span fires on every blocked or prompted tool call and carries four key attributes:
-
-- **`category`**: `permission_rule` (a deny/ask rule outside managed settings), `managed_policy` (from managed settings), `auto_mode` (the classifier decided), `hook` (a hook returned an error or deny), or `sandbox` (sandboxing blocked the call)
-- **`rule_source`**: which settings file the triggering rule came from — useful when rules merge from user, project, and managed layers
-- **`grant_scope`**: for prompted calls, whether the user approved once or for the full session
-- **`circuit_breaker`**: for built-in safety checks, the check name — `dangerousRemoval`, `outsideReadsBlocked`, `claudeSettingsFile`, etc.
-
-**Correlating to the tool call**: match the `tool_use_id` on the safety event to the `claude_code.tool_decision` span for that call. `tool_decision` now also carries `classifier_verdict` and `permission_mode`, so you can distinguish auto mode blocks from explicit rules.
-
-**Three practical uses:**
-
-1. **Governance audit**: count events by `category` and `rule_source` over a day. If `managed_policy` events are sparse, your org-level rules may not be covering what people actually do.
-2. **Auto mode tuning**: if `auto_mode` events dominate your blocked calls, the classifier is blocking more than your explicit rules do. Check `classifier_category` (requires `OTEL_LOG_TOOL_DETAILS=1` to include) to see what the classifier named.
-3. **Per-session debugging**: a developer whose session is unusually slow can look for unexpected `hook` or `permission_rule` events in the trace waterfall.
-
-**Limits**: Not every refused call emits a safety event — calls rejected before a `tool_use_id` is assigned have none. The standard OTEL exporter environment variables are ignored in repo-scoped settings files; configure them in managed or personal settings instead. And `classifier_category` is redacted by default; `OTEL_LOG_TOOL_DETAILS=1` exposes it, but also logs more sensitive decision context, so enable it deliberately.
-
-**Sources:** [Claude Code changelog — Oct 21 `claude_code.safety_event` entry](https://code.claude.com/docs/en/changelog) · [Monitoring and observability docs](https://code.claude.com/docs/en/monitoring-usage) · [Observability with OpenTelemetry](https://code.claude.com/docs/en/agent-sdk/observability)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[vLLM v0.32.0 Raises the Floor to Python 3.11 and Locks Down CORS Origins — Check These Three Breaking Changes Before Upgrading]]></title>
-    <link>https://github.com/vllm-project/vllm/releases/tag/v0.32.0</link>
-    <guid isPermaLink="false">2026-10-28-01-vllm-0-32-0-breaking-changes-python-311-cors-cascade</guid>
-    <pubDate>Wed, 28 Oct 2026 04:06:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Self-Hosting</category>
-    <category>LLM</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[vLLM v0.32.0 (Oct 18, 814 commits) drops Python 3.10, restricts default CORS to same-origin, and removes cascade attention — three things to audit before running pip install --upgrade vllm.]]></description>
-    <content:encoded><![CDATA[**vLLM v0.32.0 shipped October 18 with 814 commits from 363 contributors. Three of them break existing deployments without an obvious error at startup.**
-
-**Python 3.11 minimum.** Python 3.10 support is dropped. If your container image pins `python:3.10` — or inherits it from a base image — the package install may succeed but C-extension bindings will likely crash at import time. Audit your Dockerfile before upgrading the package.
-
-**Default CORS restricted to same-origin.** vLLM's built-in HTTP server previously accepted cross-origin requests by default. v0.32.0 tightens the default to same-origin only. If your frontend or API gateway calls the vLLM endpoint from a different origin and relied on the open default, add `--allowed-origins "*"` (or your specific origins) explicitly to the serve command.
-
-**Cascade attention removed.** The `--use-cascade-attention` flag still parses without error in v0.32.0 — it is silently a no-op. The flag is scheduled for full removal in v0.33.0. Remove it from start scripts now to avoid a hard error on the next upgrade.
-
-**Why it matters:** Python 3.11 is required for the next generation of vLLM's C extensions; projects still on 3.10 need a base-image update before the package upgrade.
-
-**Sources:** [vLLM v0.32.0 release notes](https://github.com/vllm-project/vllm/releases/tag/v0.32.0)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
