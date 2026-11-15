@@ -10,8 +10,137 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 15 Nov 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 15 Nov 2026 20:07:00 +0000</lastBuildDate>
 
+  <item>
+    <title><![CDATA[Your Agent SDK Loop Keeps Running Until Context Runs Out Because No Cap Was Set — `maxTurns` Limits Tool-Use Turns and `error_max_turns` Signals Truncation]]></title>
+    <link>https://code.claude.com/docs/en/agent-sdk/agent-loop</link>
+    <guid isPermaLink="false">2026-11-15-06-agent-sdk-max-turns-error-max-turns-loop-cap-truncation</guid>
+    <pubDate>Sun, 15 Nov 2026 20:07:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <description><![CDATA[Set maxTurns on every Agent SDK run call or your unattended loop will keep burning tool calls until it hits a context limit. Check error_max_turns in the result to distinguish a clean finish from a truncated one.]]></description>
+    <content:encoded><![CDATA[**Set `maxTurns` on every Agent SDK call or a runaway loop will burn tool calls until context runs out — `error_max_turns` in the result distinguishes a clean finish from a cut-short one.**
+
+An agent launched without a turn cap runs until one of three things happens: Claude returns `end_turn` with no pending tool calls, the session context fills up, or a network timeout kills it. For short interactive tasks, that is fine. For unattended or background agents — processing a large directory, running a long refactor — a missing cap means a silent runaway you will not notice until the usage bill arrives.
+
+Add `maxTurns` to your `run` call and check `result.stop_reason` after:
+
+```python
+from claude_code_sdk import ClaudeCodeOptions, run
+
+result = await run(
+    prompt="Refactor all tests in src/tests/ to use the new fixture API",
+    options=ClaudeCodeOptions(max_turns=20),   # tool-use turns only
+)
+
+if result.stop_reason == "error_max_turns":
+    # Loop was truncated — task likely incomplete
+    logger.warning("Hit turn cap — retry with narrower scope or higher cap")
+elif result.stop_reason == "end_turn":
+    # Clean finish
+    process(result.text)
+```
+
+**What counts as a turn.** `maxTurns` counts tool-use rounds: each time Claude calls a tool and receives the result is one turn. Conversational exchanges with no tool calls do not count. A task that reads 8 files, edits 3, and runs a test command uses roughly 12 turns.
+
+**Picking the right cap.** Two times the median expected tool calls, plus 5 buffer turns, is a reasonable starting point. "Edit one file": 10–15. "Process this directory": 40–80. Too low truncates real tasks; too high defeats the protection. Tune it after you have production traces.
+
+**When the cap triggers.** `error_max_turns` is a clean stop at a turn boundary — not a crash. The result still contains whatever the agent produced up to that point. Inspect it, log the incomplete state, and retry with a narrower scope rather than restarting blind.
+
+The SDK default is `None` — no cap. Set it explicitly on every loop you deploy outside interactive mode.
+
+**Sources:** [Claude Agent SDK — Agent Loop](https://code.claude.com/docs/en/agent-sdk/agent-loop) (official docs); [Claude Code agent loop control surface checklist](https://toolhalla.ai/blog/claude-code-agent-loop-control-surface-checklist) (independent practitioner checklist)
+]]></content:encoded>
+  </item>
+  <item>
+    <title><![CDATA[Your LLM App Traces Show What Happened But Not What Failed — Phoenix Instruments Anthropic API Calls With OpenTelemetry and Scores Each Span for Hallucination With a Built-In LLM Judge]]></title>
+    <link>https://docs.arize.com/phoenix/integrations/llm-providers/anthropic/anthropic-tracing</link>
+    <guid isPermaLink="false">2026-11-15-07-arize-phoenix-anthropic-opentelemetry-span-eval-llm-judge</guid>
+    <pubDate>Sun, 15 Nov 2026 20:06:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Arize Phoenix instruments your Anthropic app in three lines via OpenTelemetry, then runs LLM-as-judge hallucination and QA-correctness scores on every span — no test cases required.]]></description>
+    <content:encoded><![CDATA[**Arize Phoenix traces every Anthropic API call as an OpenTelemetry span and scores them for hallucination and relevance using an LLM judge — adding evaluation to your existing observability in one afternoon.**
+
+**What you will be able to do after this:**
+- See every `client.messages.create()` call as a span with its full input, output, tokens, and latency — no manual logging required
+- Run automated hallucination and QA-correctness evals against live traces using an LLM judge, without writing explicit test assertions
+- Identify which calls failed and why by clicking into flagged spans in the Phoenix UI
+
+---
+
+### Setup (10 minutes)
+
+```bash
+pip install arize-phoenix arize-phoenix-evals openinference-instrumentation-anthropic
+uvx arize-phoenix serve   # starts Phoenix + UI at localhost:6006
+```
+
+Add these three lines before any Anthropic calls in your application code:
+
+```python
+from phoenix.otel import register
+from openinference.instrumentation.anthropic import AnthropicInstrumentor
+
+register(endpoint="http://localhost:6006/v1/traces")
+AnthropicInstrumentor().instrument()
+```
+
+Every subsequent `client.messages.create()` call now emits an OpenInference-formatted span to Phoenix. The span carries the full messages array, model, usage, latency, and stop reason. No changes to your production code path.
+
+---
+
+### Running evaluations
+
+After collecting traces, use Phoenix's eval library to score them. Use Claude as the judge model:
+
+```python
+import anthropic
+from phoenix.evals import (
+    HallucinationEvaluator,
+    QAEvaluator,
+    run_evals,
+    AnthropicModel,
+)
+import phoenix as px
+from datetime import datetime, timedelta
+
+judge = AnthropicModel(model="claude-haiku-5-5")  # cheap; works well as judge
+evaluators = [HallucinationEvaluator(judge), QAEvaluator(judge)]
+
+client = px.Client()
+spans_df = client.query_spans(
+    start_time=datetime.now() - timedelta(hours=24),
+    project_name="default",
+)
+
+eval_df = run_evals(
+    dataframe=spans_df,
+    evaluators=evaluators,
+    provide_explanation=True,
+)
+px.Client().log_evaluations(eval_df)   # writes scores back onto spans in the UI
+```
+
+Each span now shows a hallucination score and an explanation you can click through. Flagged spans sort to the top. The underlying transport is OpenTelemetry — the same spans Phoenix receives can also go to any OTel-compatible backend by adding a second exporter to `register()`.
+
+---
+
+### Limits to know
+
+Phoenix stores traces locally by default; for persistent storage in production you need Phoenix Cloud or a self-hosted Postgres backend. The UI annotation workflow is built for review sessions, not high-volume automated workflows — the docs note it is not optimized for high-volume trace workflows. License is Elastic License 2.0, which restricts using Phoenix itself as a managed service for third parties; check that before commercializing a build on top of it.
+
+**Sources:** [Arize Phoenix — Anthropic tracing](https://docs.arize.com/phoenix/integrations/llm-providers/anthropic/anthropic-tracing) (official integration docs); [I tried observability and evaluation of LLM apps with Arize Phoenix](https://dev.classmethod.jp/en/articles/arize-phoenix-otel-llm-observability-handson/) (independent practitioner walkthrough)
+]]></content:encoded>
+  </item>
   <item>
     <title><![CDATA[Your Parallel Subagents All Write to the Same Checkout and Step on Each Other — `isolation: "worktree"` Routes Each Agent to Its Own Git Branch]]></title>
     <link>https://code.claude.com/docs/en/worktrees</link>
@@ -6330,76 +6459,8 @@ RAM budget: Q4_K_M on an 8 B model needs ~5 GB; a 70 B model at Q4 needs ~40 GB.
 **Sources:** [llama.cpp REST API reference — ggml.ai](https://www.mintlify.com/ggml-org/llama.cpp/api/rest/overview) · [Starting with llama.cpp — Open WebUI docs](https://docs.openwebui.com/getting-started/quick-start/starting-with-llama-cpp) · [llama-server tutorial — Arm Learning Path](https://learn.arm.com/learning-paths/servers-and-cloud-computing/llama-cpu/llama-server)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Subagent Starts Fresh Every Session — Add `memory: project` to Its Frontmatter and Claude Code Creates a Persistent Memory Directory]]></title>
-    <link>https://code.claude.com/docs/en/sub-agents</link>
-    <guid isPermaLink="false">2026-10-29-02-claude-code-subagent-memory-frontmatter-persistent-scope</guid>
-    <pubDate>Thu, 29 Oct 2026 04:06:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Add `memory: project` to your .claude/agents frontmatter and the subagent gets a persistent directory — MEMORY.md loads (200 lines or 25 KB) into its context on the next session.]]></description>
-    <content:encoded><![CDATA[**Add `memory: project` to a `.claude/agents/*.md` file and Claude Code creates `.claude/agent-memory/<name>/` — the subagent can write what it learns to `MEMORY.md` there, and the first 200 lines (or 25 KB) load back into its context next session.**
-
-A Claude Code subagent's context resets with every new session. If your reviewer agent discovered last week that the helpers in `tests/utils.py` are deprecated, it will discover them again Monday — because there is no connection between sessions unless you explicitly create one.
-
-The `memory` frontmatter field creates that connection:
-
-```yaml
----
-name: code-reviewer
-description: Review changed code for correctness and style issues
-memory: project
----
-```
-
-With `memory: project`, Claude Code creates `.claude/agent-memory/code-reviewer/` and injects that path into the subagent's system prompt. The subagent can write a `MEMORY.md` there — conventions to enforce, patterns that have gone wrong, team norms it has inferred — and the first 200 lines (or 25 KB, whichever comes first) load into its context automatically on the next session.
-
-**Three scope choices:**
-
-| Scope | Path | Use for |
-|---|---|---|
-| `user` | `~/.claude/agent-memory/<name>/` | Personal agents used across projects |
-| `project` | `.claude/agent-memory/<name>/` | Shared team knowledge — commit it |
-| `local` | `.claude/agent-memory-local/<name>/` | Project knowledge that stays gitignored |
-
-`project` is the recommended default. Commit `.claude/agent-memory/` and the whole team starts each session with what the subagent has learned.
-
-**Two gotchas:**
-1. If auto memory is disabled (`autoMemoryEnabled: false` or `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`), the `memory` field has no effect.
-2. A write that pushes `MEMORY.md` past the 200-line read limit now throws an explicit error instead of silently truncating — prune old entries when it gets long.
-
-Requires Claude Code v2.1.277 or later.
-
-**Sources:** [Create custom subagents — code.claude.com](https://code.claude.com/docs/en/sub-agents) · [How Claude remembers your project — code.claude.com](https://code.claude.com/docs/en/memory)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Computer Use Agent Defaults to the Most Expensive Model — GPT-6.1 Terra Targets That Work at $1/$5 per Million Tokens]]></title>
-    <link>https://openai.com/index/introducing-gpt-6-1-terra/</link>
-    <guid isPermaLink="false">2026-10-29-01-openai-gpt-6-1-terra-visual-reasoning-computer-use-api</guid>
-    <pubDate>Thu, 29 Oct 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[OpenAI released GPT-6.1 Terra on October 26 — a fast visual reasoning and computer use model at $1/$5 per million tokens. Vendor-reported benchmarks only; no independent data published yet.]]></description>
-    <content:encoded><![CDATA[**OpenAI released GPT-6.1 Terra on October 26 — a fast model for visual reasoning and computer use, priced at $1/$5 per million input/output tokens (vendor-reported).**
-
-Terra is designed for tasks that combine screen reading, clicking, and form interaction with lightweight reasoning. OpenAI reports that at medium reasoning effort it surpasses GPT-5.6 Terra on its OSWorld 2.1 benchmark at roughly one-third the per-task cost of GPT-6 Astra. All performance figures come from OpenAI's own launch post; no independent benchmark has been published. It is available as `gpt-6.1-terra` in the API.
-
-One limit: Terra does not support UAE inference residency. It is also rolling out in ChatGPT Work and Codex contexts first, not the general Chat interface.
-
-**Why it matters:** Computer use tasks vary widely in complexity — many don't need a top-tier model. Terra adds a less expensive tier worth benchmarking against your actual task distribution before defaulting to Astra for everything.
-
-**Sources:** [Introducing GPT-6.1 Terra — openai.com](https://openai.com/index/introducing-gpt-6-1-terra/) · [Model reference — developers.openai.com](https://developers.openai.com/api/docs/models/gpt-6.1-terra)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
