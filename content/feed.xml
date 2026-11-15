@@ -10,7 +10,163 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 14 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 15 Nov 2026 04:06:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Agent SDK Validation Hook Crashes Silently and the Loop Keeps Going — Set onFailure: 'block' to Stop on a Failed Check]]></title>
+    <link>https://code.claude.com/docs/en/agent-sdk/hooks</link>
+    <guid isPermaLink="false">2026-11-15-03-agent-sdk-onfailure-block-hook-validation-fail-closed</guid>
+    <pubDate>Sun, 15 Nov 2026 04:06:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <description><![CDATA[Add onFailure: 'block' to any Agent SDK hook callback to convert a crashing or rejecting check into a hard stop — your validation gate actually closes instead of silently skipping.]]></description>
+    <content:encoded><![CDATA[**TL;DR:** Add `onFailure: "block"` to any hook callback in the Claude Agent SDK to make a crashing or rejecting validator stop the agent rather than silently continue.
+
+## What you'll be able to do after this
+
+By the end you'll know how to wire a fail-closed validation gate so your agent actually stops when a check fails — not just logs it and keeps running.
+
+**Key takeaways:**
+- By default a hook that throws or rejects is treated as a non-fatal error — the agent loop continues
+- `onFailure: "block"` converts that into a hard stop at the hook boundary
+- Use `"block"` for safety-critical checks; leave the default (`"continue"`) for logging and telemetry
+
+---
+
+## The problem: silent skip
+
+The Claude Agent SDK lets you attach hook callbacks to events like `post_tool_use`. The intent is usually to validate what the agent just did before it proceeds. But if the callback throws, the default behaviour is to log the error internally and move on. Your validation gate is open.
+
+## The fix: `onFailure: "block"`
+
+```python
+from anthropic.agents import ClaudeCode
+
+def validate_no_destructive_ops(event):
+    if event.tool_name in ("bash", "computer") and "rm -rf" in event.tool_input.get("command", ""):
+        raise ValueError("Destructive operation blocked by policy")
+
+agent = ClaudeCode(
+    system_prompt="You are a code reviewer.",
+    hooks=[{
+        "event": "post_tool_use",
+        "handler": validate_no_destructive_ops,
+        "onFailure": "block",
+    }]
+)
+
+result = agent.run("Review this codebase for security issues.")
+```
+
+When `validate_no_destructive_ops` raises, the loop stops and surfaces the exception rather than continuing. Swap `"block"` for `"continue"` (or omit `onFailure` entirely) on a logging hook that you don't want to interrupt the run.
+
+## Known limit
+
+`dangerouslyDisableSandbox` can bypass `PreToolUse` hooks in some execution environments — don't rely on hooks alone as your only security boundary for untrusted inputs.
+
+---
+
+*Sources: [Agent SDK hooks docs](https://code.claude.com/docs/en/agent-sdk/hooks); practitioner notes at nerdleveltech.com and developersdigest.tech.*]]></content:encoded>
+    <media:content url="https://img.cloudcodetree.com/2026-11-15-03.jpg" medium="image" />
+    <media:thumbnail url="https://img.cloudcodetree.com/2026-11-15-03.jpg" />
+  </item>
+
+  <item>
+    <title><![CDATA[Anthropic Launches Claude for Manufacturing With 17 Skills for Quoting, Quality, and Production Reporting]]></title>
+    <link>https://the-decoder.com/anthropic-launches-claude-for-manufacturing/</link>
+    <guid isPermaLink="false">2026-11-15-02-anthropic-claude-for-manufacturing-17-skills-launch</guid>
+    <pubDate>Sun, 15 Nov 2026 04:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Agents</category>
+    <category>LLM</category>
+    <description><![CDATA[Anthropic released Claude for Manufacturing Nov 12 — a Team/Enterprise plugin with 17 skills for quoting, quality investigation, production reporting, and maintenance diagnosis.]]></description>
+    <content:encoded><![CDATA[Anthropic announced **Claude for Manufacturing** on November 12, 2026 — an enterprise plugin available on the Team and Enterprise tiers. It ships with 17 pre-built workflow skills covering the core pain points manufacturers bring to AI: RFQ quoting, quality investigation, production reporting, maintenance diagnosis, and shift handoff summaries.
+
+The plugin connects to common manufacturing platforms — Autodesk Fusion, Infor, Microsoft 365, Oracle NetSuite — via read-only connectors. It surfaces information from those systems inside a conversation rather than acting on it; it reads and synthesises, it does not write back to your ERP or CAD environment.
+
+**Why it matters for engineers building domain-specific tools:**
+
+The 17-skill structure is a usable reference architecture for how Anthropic packages a vertical. Each skill is a named, bounded task with a fixed input schema and curated tool connections — closer to a structured workflow than a freeform agent. If you're designing your own domain plugin or agentic workflow suite, the grouping (quote → quality → production → maintenance → handoff) mirrors how a practitioner actually sequences a shift, and that sequencing is where the real design work is.
+
+Coverage from The Decoder, Unite.AI, and Advanced Manufacturing confirms the November 12 launch date and connector list.]]></content:encoded>
+    <media:content url="https://img.cloudcodetree.com/2026-11-15-02.jpg" medium="image" />
+    <media:thumbnail url="https://img.cloudcodetree.com/2026-11-15-02.jpg" />
+  </item>
+
+  <item>
+    <title><![CDATA[One Query Is What Your User Typed — MultiQueryRetriever Rephrases It Three Ways and Takes the Union, Raising Recall Without Touching Your Index]]></title>
+    <link>https://python.langchain.com/docs/how_to/MultiQueryRetriever/</link>
+    <guid isPermaLink="false">2026-11-15-01-multiquery-retriever-rephrase-union-recall-rag</guid>
+    <pubDate>Sun, 15 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Embeddings</category>
+    <description><![CDATA[Generate 3 query variants for each question using an LLM, run all against your vector store, and return the unique-union of results to cover different phrasings and angles.]]></description>
+    <content:encoded><![CDATA[**TL;DR:** `MultiQueryRetriever` sends your question through an LLM to produce N rephrasings, runs all of them, and returns the unique-union — more recall, same index.
+
+## What you'll be able to do after this
+
+By the end you'll know how to drop `MultiQueryRetriever` into an existing LangChain retrieval chain, understand when it helps and when it's overkill, and tune it without changing your vector store.
+
+**Key takeaways:**
+- Embedding similarity is phrasing-sensitive — a synonym your user didn't use can miss relevant chunks
+- `MultiQueryRetriever` generates N query variants, retrieves for each, and deduplicates the union
+- Each question costs N LLM calls + N retrieval calls; use Haiku for the rewriter to keep it cheap
+
+---
+
+## Why one query isn't enough
+
+When a user asks *"How do I set up authentication?"*, your embedding space may store the answer under *"configuring OAuth"*, *"user sign-in flow"*, or *"auth middleware setup"* — none of which are lexically close to the question. Semantic similarity helps, but it's directional: the query's embedding is a single point.
+
+`MultiQueryRetriever` sidesteps this by generating three rephrasings of the original question with an LLM, running each through the retriever independently, and returning the set-union of unique documents. The index is untouched — you're widening the probe, not reindexing.
+
+## Code
+
+```python
+from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_anthropic import ChatAnthropic
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+
+embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
+vectorstore = Chroma(embedding_function=embedding, persist_directory="./db")
+base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
+retriever = MultiQueryRetriever.from_llm(
+    retriever=base_retriever, llm=llm
+)
+
+docs = retriever.invoke("How do I set up authentication?")
+```
+
+`from_llm` wires up the default prompt that asks Claude to produce three alternative phrasings. It returns `List[Document]` — same interface as any other LangChain retriever, so it slots into existing `RetrievalQA` or LCEL chains with no other changes.
+
+## Tradeoffs
+
+| | Baseline retriever | MultiQueryRetriever |
+|---|---|---|
+| Calls per query | 1 retrieval | 1 LLM + 3 retrieval |
+| Latency | Low | ~2–3× higher |
+| Recall | Phrasing-dependent | More robust to synonyms |
+| Index changes needed | — | No |
+
+Doesn't help if the index itself is sparse — if the content isn't there, more queries won't surface it. For high-volume pipelines, cache the LLM-generated variants if the same questions recur.
+
+---
+
+*Sources: [LangChain MultiQueryRetriever how-to](https://python.langchain.com/docs/how_to/MultiQueryRetriever/); [LangChain query transformations](https://blog.langchain.dev/query-transformations/); James Briggs walkthrough via Class Central.*]]></content:encoded>
+    <media:content url="https://img.cloudcodetree.com/2026-11-15-01.jpg" medium="image" />
+    <media:thumbnail url="https://img.cloudcodetree.com/2026-11-15-01.jpg" />
+  </item>
 
   <item>
     <title><![CDATA[Your Agent Unlocks New Tools Mid-Conversation — the inline-tools Beta Adds Them Without Busting the Cache]]></title>
@@ -6230,139 +6386,9 @@ The script echoes `{"updatedInput": {"file_path": "/sandbox/myfile.txt", "conten
 **Sources:** [Automate actions with hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks-guide) · [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Claude Platform Is Now Available as Anthropic-Managed on Google Cloud — GCP IAM and Marketplace Billing, Feature Parity, but No VPC SC or CMEK]]></title>
-    <link>https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/overview</link>
-    <guid isPermaLink="false">2026-10-28-06-claude-platform-gcp-anthropic-managed-iam-billing</guid>
-    <pubDate>Wed, 28 Oct 2026 20:09:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Claude Code</category>
-    <category>Cloud</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[As of Oct 22, Anthropic runs its own managed Claude service on Google Cloud with GCP IAM and Marketplace billing. New Claude Platform features reach it same-day — but no VPC SC, CMEK, or regional data residency.]]></description>
-    <content:encoded><![CDATA[**As of October 22, Anthropic runs its own managed Claude service on Google Cloud with GCP IAM and Marketplace billing — new Claude Platform features land there the same day they reach the direct API, but VPC Service Controls, CMEK, and regional data residency are not available on this option.**
-
-Anthropic launched a managed Claude endpoint that lives inside Google Cloud on October 22. Access uses GCP IAM: grant project members `roles/claude.user` for API access, `roles/claude.admin` for quota requests, and `roles/claude.viewer` for usage monitoring. Usage and spend appear in GCP Marketplace and draw down existing Google Cloud commitments.
-
-The main case for this over the already-available Google-managed (Vertex) option: same-day feature parity. Anthropic says new Claude Platform capabilities — including Claude Managed Agents, skills, code execution, and Fast Mode for Opus 5.5 — reach the GCP-hosted endpoint on the same day they reach the direct API.
-
-**Which option to use:**
-
-- **Anthropic-managed (this):** GCP-integrated billing and IAM; full Claude Platform feature roadmap.
-- **Google-managed (Vertex):** VPC Service Controls, CMEK, and regional data residency — for teams with strict data governance or compliance requirements.
-
-**Why it matters:** If your organization has GCP purchase commitments, this keeps Claude on the same billing and IAM surface as the rest of your stack, without splitting spend between Anthropic's dashboard and GCP.
-
-**Limits:** Max and Team plan API credits don't apply to GCP Marketplace usage. The usage API on this endpoint exposes only the usage endpoint (the cost endpoint omits Priority Tier spend). No VPC SC, CMEK, or Anthropic-managed regional data residency — those remain Google-operated on the Vertex path.
-
-**Sources:** [Claude Models on Google Cloud — Claude Platform Docs](https://platform.claude.com/docs/en/build-with-claude/claude-models-on-google-cloud/overview) · [Google Cloud docs](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/anthropic-managed) · [Google Cloud blog](https://cloud.google.com/blog/products/ai-machine-learning/expanding-claude-availability-on-google-cloud)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your LangGraph Agent Forgets Everything When the Process Restarts — Three Lines Replace MemorySaver With a Persistent Backend]]></title>
-    <link>https://docs.langchain.com/oss/python/langgraph/persistence</link>
-    <guid isPermaLink="false">2026-10-28-08-langgraph-sqlitesaver-postgresaver-checkpointer-persistence</guid>
-    <pubDate>Wed, 28 Oct 2026 20:08:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[LangGraph has three checkpointer backends: MemorySaver (dev only), SqliteSaver (local file), and PostgresSaver (production). Swapping them is one line; thread_id scopes state to a conversation.]]></description>
-    <content:encoded><![CDATA[**LangGraph has three checkpointer backends: MemorySaver for dev, SqliteSaver for local persistence, PostgresSaver for production. Swapping them is one line; `thread_id` in each call scopes state to a conversation.**
-
-**What you'll be able to do after this:** Make any LangGraph agent's state survive process restarts — resume interrupted conversations, serve multiple users with separate state, and recover from failures at the last successful checkpoint.
-
-**The three-tier progression:**
-
-```python
-from langgraph.checkpoint.memory import MemorySaver            # built-in
-from langgraph.checkpoint.sqlite import SqliteSaver            # pip install langgraph-checkpoint-sqlite
-from langgraph.checkpoint.postgres import PostgresSaver        # pip install langgraph-checkpoint-postgres psycopg[binary]
-
-# Development / testing — in-process only, lost on restart
-checkpointer = MemorySaver()
-
-# Local development — file-backed, single process, persists across restarts
-checkpointer = SqliteSaver.from_conn_string("checkpoints.db")
-
-# Production — survives restarts, safe for multi-process deploys
-checkpointer = PostgresSaver.from_conn_string(os.environ["DATABASE_URL"])
-checkpointer.setup()   # run once per new database; creates the required tables and indexes
-```
-
-Wire the checkpointer into the compiled graph:
-
-```python
-graph = builder.compile(checkpointer=checkpointer)
-```
-
-Every invocation scopes its state to a `thread_id`:
-
-```python
-result = graph.invoke(
-    {"messages": [HumanMessage(content=user_input)]},
-    config={"configurable": {"thread_id": session_id}}
-)
-```
-
-Different `thread_id`s get separate histories. The same one picks up where the last call left off — including across process restarts with SqliteSaver or PostgresSaver.
-
-**Three gotchas before you deploy:**
-
-1. **`checkpointer.setup()` is required once.** It creates the tables and indexes PostgresSaver needs. The official examples have it commented out — run it on any new database, or writes will silently fail.
-2. **Raw `psycopg` connections need two options.** If you pass a raw connection instead of using `from_conn_string()`, set `autocommit=True` and `row_factory=dict_row` — without them, operations can raise a `TypeError`.
-3. **No built-in checkpoint retention.** Thread histories accumulate indefinitely. Add a cleanup job that prunes checkpoints older than a threshold, or the database grows without bound.
-
-For async agents: use `AsyncPostgresSaver` from `langgraph.checkpoint.postgres.aio` and `AsyncSqliteSaver` from `langgraph.checkpoint.sqlite.aio` — same API, async context managers.
-
-**Sources:** [LangGraph Persistence — LangChain Docs](https://docs.langchain.com/oss/python/langgraph/persistence) · [How to add memory — LangChain Docs](https://docs.langchain.com/oss/python/langgraph/add-memory) · [LangChain Support: checkpointer patterns](https://support.langchain.com/articles/6253531756-understanding-checkpointers-databases-api-memory-and-ttl)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Parallel Subagents Edit the Same Files and Undo Each Other's Work — Add `isolation: worktree` to Their Frontmatter]]></title>
-    <link>https://code.claude.com/docs/en/worktrees</link>
-    <guid isPermaLink="false">2026-10-28-04-claude-code-subagent-isolation-worktree-frontmatter</guid>
-    <pubDate>Wed, 28 Oct 2026 12:12:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Set isolation: worktree in .claude/agents/<name>.md frontmatter to give each subagent a private git checkout; parallel sessions write separate file trees and can't overwrite each other.]]></description>
-    <content:encoded><![CDATA[**Set `isolation: worktree` in `.claude/agents/<name>.md` to give each subagent invocation a private git checkout; parallel sessions write to separate file trees and can't overwrite each other.**
-
-When two or more subagents run on the same repo at the same time, they share the same working tree. One agent's file changes overwrite another's — whichever runs second wins, silently discarding the first agent's edits. The problem scales with how many files your subagents touch.
-
-The fix is one frontmatter field. Open `.claude/agents/<name>.md` and add:
-
-```yaml
----
-name: refactorer
-description: Refactors a module in isolation
-isolation: worktree
----
-```
-
-Claude Code provisions each invocation in its own git worktree: a separate checkout branched from your default branch. The two sessions see different file trees and cannot collide.
-
-**Three things to know:**
-
-1. **Base branch defaults to your repo's default branch.** If you need the subagent to see your local uncommitted changes, set `worktree.baseRef: "head"` in your session settings. Without it, the worktree branches from origin/main (or equivalent), so any unmerged local edits are invisible to it.
-
-2. **Agent teams don't use worktrees.** The experimental agent teams feature doesn't isolate teammates in worktrees — partition the work so each teammate owns a different set of files instead.
-
-3. **Cleanup is automatic.** A worktree with no changes is removed when the subagent exits. One with changes stays on disk until a periodic sweep can remove it without losing work; you don't need to clean up manually.
-
-You can also ask Claude verbally — "use worktrees for your agents" — without editing any frontmatter. The frontmatter version persists the behavior for every future invocation of that agent.
-
-**Sources:** [Run parallel sessions with worktrees — Claude Code Docs](https://code.claude.com/docs/en/worktrees) · [Create custom subagents — Claude Code Docs](https://code.claude.com/docs/en/sub-agents) · [Git Worktrees with Claude Code — Better Stack](https://betterstack.com/community/guides/ai/git-worktrees-claude/)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
