@@ -10,7 +10,140 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 15 Nov 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 15 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Parallel Subagents All Write to the Same Checkout and Step on Each Other — `isolation: "worktree"` Routes Each Agent to Its Own Git Branch]]></title>
+    <link>https://code.claude.com/docs/en/worktrees</link>
+    <guid isPermaLink="false">2026-11-15-04-subagent-isolation-worktree-git-branch-parallel-edits</guid>
+    <pubDate>Sun, 15 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <description><![CDATA[Set isolation: "worktree" on a Claude Code subagent to route each parallel agent to its own git branch; Edit and Write on the main checkout are blocked for that session.]]></description>
+    <content:encoded><![CDATA[**Set `isolation: "worktree"` on a Claude Code subagent to give each parallel agent its own git branch — Edit and Write on the main checkout are blocked for that session.**
+
+When you fan out subagents with the Agent tool (or in a Workflow script), they all share the same working tree by default. Two agents editing different files usually stay out of each other's way, but two agents touching the same file or the same generated output silently overwrite each other's work. The collision arrives at merge time, often as a lost diff.
+
+## The fix: one parameter
+
+```javascript
+// Agent tool call in a Workflow script
+Agent({
+  isolation: "worktree",
+  prompt: "Migrate the payment module to the v3 token format"
+})
+```
+
+```yaml
+# Or set it permanently in .claude/agents/my-agent.md frontmatter:
+---
+isolation: worktree
+---
+```
+
+Claude Code runs `git worktree add` under `.claude/worktrees/`, creates a new temporary branch, and runs the agent's entire session there. It also enforces the boundary: Edit, Write, and NotebookEdit calls that target the main checkout from within an isolated session are blocked — not advisory.
+
+**What you get back:** when the agent completes with changes, the result includes the worktree path and branch name. When it completes with no changes, the worktree is cleaned up automatically.
+
+## After the agents finish
+
+Isolation guarantees no collisions *during* the run. After, you have N branches to review and merge:
+
+```bash
+git worktree list                          # see active worktrees
+git diff main...<branch-name>              # review one agent's work
+git merge <branch-name>                    # merge when satisfied
+git worktree remove .claude/worktrees/<dir>  # clean up
+```
+
+Use this pattern when agents' scopes genuinely don't overlap — different modules, different features, different files. When agents need to coordinate on the same files, isolation won't help; model the dependency instead.
+
+## Limits
+
+- Requires Claude Code v2.1.198+. Shell commands run inside the agent's own worktree directory since v2.1.203 — check the changelog for your version, since this changed without a headline.
+- Each isolated session multiplies API usage proportionally to the number of parallel agents.
+- The N branches are yours to merge after the run. Isolation makes parallel execution safe; it does not make the merge trivial.
+
+**Sources:** [Claude Code Worktrees — code.claude.com](https://code.claude.com/docs/en/worktrees) · [Git worktrees with Claude Code walkthrough — BetterStack](https://betterstack.com/community/guides/ai/git-worktrees-claude/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Fine-Tune Scores Higher on Your Own Test Set But Dropped Two MMLU Points — `lm_eval` Takes 10 Minutes to Measure Whether Training Helped or Regressed General Capability]]></title>
+    <link>https://github.com/EleutherAI/lm-evaluation-harness</link>
+    <guid isPermaLink="false">2026-11-15-05-lm-eval-harness-finetune-vs-base-mmlu-regression</guid>
+    <pubDate>Sun, 15 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Use lm-evaluation-harness to benchmark a fine-tuned model against its base; the delta — not the absolute score — tells you whether training helped or traded general reasoning for task performance.]]></description>
+    <content:encoded><![CDATA[**Use `lm-evaluation-harness` to run the same benchmark on the base model and your fine-tune — the delta (not the absolute score) tells you whether training improved or regressed general capability.**
+
+**What you'll be able to do after this:** benchmark a fine-tuned model against its base, catch capability regression before shipping, and read the delta rather than the absolute score.
+
+Fine-tuning sharpens a model on your task. It also degrades general skills — what the literature calls catastrophic forgetting. A 2024 arXiv study ("Fine-Tuning or Fine-Failing?", 2406.11201) found that across most benchmark tasks, the untuned base model outperformed its fine-tuned counterpart. That's not unusual; it is the default risk of a fine-tune that isn't evaluated properly. The fix is two runs of the same benchmark, one before and one after.
+
+## Install and run
+
+```bash
+pip install lm_eval[hf]
+```
+
+**Run 1 — the base model:**
+```bash
+lm_eval \
+  --model hf \
+  --model_args pretrained=meta-llama/Llama-3.1-8B \
+  --tasks mmlu,hellaswag,arc_challenge \
+  --num_fewshot 5 \
+  --output_path results/base.json
+```
+
+**Run 2 — your fine-tuned model:**
+```bash
+lm_eval \
+  --model hf \
+  --model_args pretrained=./my-finetuned-model \
+  --tasks mmlu,hellaswag,arc_challenge \
+  --num_fewshot 5 \
+  --output_path results/finetuned.json
+```
+
+Compare: `jq '.results' results/base.json results/finetuned.json`.
+
+## Three things to look for
+
+1. **Task score** (the reason you fine-tuned): confirm it went up. If not, the training data or hyperparams need work.
+2. **General capability delta**: a drop of 2–4+ MMLU points after a small fine-tune is a warning sign that you've narrowed the model — check learning rate, epoch count, and dataset size.
+3. **Formatting regression**: fine-tuned models sometimes produce structurally correct output but fail instruction-following for tasks outside training. HellaSwag and ARC-Challenge catch this better than MMLU alone.
+
+## LoRA adapters: merge first
+
+If you trained with LoRA/QLoRA, merge the adapter before evaluation:
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM
+
+base = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B")
+model = PeftModel.from_pretrained(base, "./my-lora-adapter")
+model = model.merge_and_unload()
+model.save_pretrained("./merged-model")
+```
+
+Point `lm_eval` at `./merged-model`. Some harness versions accept `--model_args pretrained=base,peft=adapter` directly, but merge-first is more reliable across versions.
+
+## Limit: benchmarks measure the gap, not production quality
+
+Standard benchmarks like MMLU are in the training data of most large models — high scores can reflect memorisation rather than capability. Use benchmark deltas to catch regressions, not to prove production quality. Pair them with a task-specific held-out eval set and an LLM-as-judge; if you use a judge model, pick one from a different model family to avoid same-family score inflation.
+
+**Sources:** [lm-evaluation-harness quickstart — lm-evaluation-harness.readthedocs.io](https://lm-evaluation-harness.readthedocs.io/getting_started/quickstart/) · [EleutherAI/lm-evaluation-harness — GitHub](https://github.com/EleutherAI/lm-evaluation-harness) · [Fine-Tuning or Fine-Failing? — arXiv 2406.11201](https://arxiv.org/abs/2406.11201)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Agent SDK Validation Hook Crashes Silently and the Loop Keeps Going — Set onFailure: 'block' to Stop on a Failed Check]]></title>
@@ -6267,125 +6400,8 @@ One limit: Terra does not support UAE inference residency. It is also rolling ou
 **Sources:** [Introducing GPT-6.1 Terra — openai.com](https://openai.com/index/introducing-gpt-6-1-terra/) · [Model reference — developers.openai.com](https://developers.openai.com/api/docs/models/gpt-6.1-terra)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your AI-Generated Components Ship With Accessibility Violations Claude Code Can't See — `@axe-core/playwright` Catches Them Automatically Before Code Review]]></title>
-    <link>https://playwright.dev/docs/accessibility-testing</link>
-    <guid isPermaLink="false">2026-10-29-03-axe-playwright-accessibility-ai-generated-ui-ci</guid>
-    <pubDate>Thu, 29 Oct 2026 04:02:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Design-to-Code</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Add @axe-core/playwright to your test suite and AI-generated components are checked for aria labels, color contrast, and focus order automatically in CI — axe throws on any violation.]]></description>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** run automated accessibility checks on every AI-generated component as part of your existing Playwright suite, with the violated rule and failing element named in the test output.
-
-AI-generated components are produced by sampling from training data — they write code that looks like UI, but they have no rendering feedback loop. Common outputs: buttons with no accessible label, form fields missing `<label>` associations, color combinations that fail WCAG AA contrast, and interactive elements that never show focus styles. A visual review in the design tool or Claude Code misses most of these.
-
-**Three takeaways:**
-- `@axe-core/playwright` is a three-line addition to any existing Playwright test that asserts zero accessibility violations on a rendered page
-- When it fails, it names the violated rule and each failing element — enough to fix or regenerate the component before code review
-- It is a static DOM scan: it catches rule violations but not all usability issues; run it alongside, not instead of, keyboard and screen reader testing
-
-**Walk-through**
-
-Install:
-
-```bash
-npm install --save-dev @axe-core/playwright
-```
-
-Add a scan to any component page test:
-
-```typescript
-import { checkA11y } from '@axe-core/playwright';
-
-test('generated card passes accessibility', async ({ page }) => {
-  await page.goto('/components/card');
-  await checkA11y(page);
-});
-```
-
-`checkA11y` throws a formatted assertion error if axe finds violations — the test output names each rule ID and failing element. For a suite of generated components:
-
-```typescript
-const components = ['card', 'modal', 'dropdown', 'form-field'];
-
-for (const name of components) {
-  test(`${name} passes axe scan`, async ({ page }) => {
-    await page.goto(`/components/${name}`);
-    await checkA11y(page);
-  });
-}
-```
-
-**Most common violations in AI-generated UI** — check these first when the scan fails:
-- `button-name`: icon-only `<button>` with no `aria-label`
-- `label`: `<input>` or `<select>` with no associated `<label>`
-- `color-contrast`: background/foreground pair failing WCAG AA (4.5:1 for normal text)
-- `focus-visible`: `:focus` suppressed with `outline: none` and no replacement
-
-Wire this into your Claude Code handoff routine: after landing a generated component, add it to `a11y.spec.ts` before marking the task done. CI catches any violation on the next push.
-
-**Sources:** [Accessibility testing — playwright.dev](https://playwright.dev/docs/accessibility-testing) · [`@axe-core/playwright` — github.com/dequelabs/axe-playwright](https://github.com/dequelabs/axe-playwright)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your PreToolUse Hook Blocks the Turn — `continueOnBlock: true` Feeds the Rejection Reason Back to Claude Instead]]></title>
-    <link>https://code.claude.com/docs/en/hooks-guide</link>
-    <guid isPermaLink="false">2026-10-28-07-claude-code-hook-continueonblock-updatedinput-feedback-loop</guid>
-    <pubDate>Wed, 28 Oct 2026 20:10:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Two hook fields that change blocking from a turn-ender into a feedback signal: continueOnBlock: true lets Claude recover from a rejected tool call; updatedInput silently rewrites tool inputs before they execute.]]></description>
-    <content:encoded><![CDATA[**Two hook fields that change blocking from a turn-ender into a feedback signal: `continueOnBlock: true` lets Claude recover from a rejected tool call; `updatedInput` silently rewrites tool inputs before they execute.**
-
-A PreToolUse or PostToolUse hook that returns `{ok: false, reason: "..."}` ends the turn by default — Claude gets no information about what went wrong. `continueOnBlock: true` on the hook changes this: the rejection reason is fed back to Claude as a tool error, and the turn continues. Claude can then try a different path, ask a clarifying question, or adjust its approach.
-
-```json
-{
-  "PreToolUse": [{
-    "matcher": "Bash",
-    "hooks": [{
-      "type": "command",
-      "command": "check-risky-commands.sh",
-      "continueOnBlock": true
-    }]
-  }]
-}
-```
-
-The shell script exits with code 2 (block) and prints a reason if the command matches a risky pattern. Claude sees the reason as a tool error and can adapt — without the user having to restart the turn.
-
-**`updatedInput`** rewrites a tool's inputs before execution. Useful for silently redirecting writes to a sandbox:
-
-```json
-{
-  "PreToolUse": [{
-    "matcher": "Write",
-    "hooks": [{"type": "command", "command": "redirect-to-sandbox.sh"}]
-  }]
-}
-```
-
-The script echoes `{"updatedInput": {"file_path": "/sandbox/myfile.txt", "content": "..."}}`. Claude Code replaces the original input with the rewritten one and calls the tool with the new values.
-
-**`updatedToolOutput`** does the same for PostToolUse: replace what Claude sees after the tool ran — useful for stripping secrets from shell output before they enter Claude's context.
-
-**Limits:**
-
-- `updatedInput` replaces the *entire* input object — you must echo back every field, not just the ones you changed. Omit a field and it disappears from the tool call.
-- Having multiple PreToolUse hooks rewrite the same tool's input is undefined behavior — only one rewrite wins, and the docs do not specify which. Chain multiple checks in one script instead.
-- `continueOnBlock` applies to `command` and `http` hook types on PreToolUse and PostToolUse; agent hooks do not support it.
-
-**Sources:** [Automate actions with hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks-guide) · [Hooks reference — Claude Code Docs](https://code.claude.com/docs/en/hooks)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
