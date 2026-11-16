@@ -10,7 +10,119 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 15 Nov 2026 20:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 16 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Imported AI-Generated Component Looks Fine Visually But Has WCAG Violations — `@axe-core/playwright` Finds Them Before They Reach Users]]></title>
+    <link>https://playwright.dev/docs/accessibility-testing</link>
+    <guid isPermaLink="false">2026-11-16-01-axe-core-playwright-ai-generated-ui-wcag-ci-accessibility</guid>
+    <pubDate>Mon, 16 Nov 2026 04:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Design</category>
+    <category>Developer Tools</category>
+    <description><![CDATA[AI design tools generate visually correct HTML but inconsistently correct HTML semantics. One Playwright test file with @axe-core/playwright gates CI on WCAG 2.2 AA violations before they ship.]]></description>
+    <content:encoded><![CDATA[**AI design tools generate visually correct output reliably — semantically correct output inconsistently. One Playwright test file running axe-core WCAG 2.2 AA scans catches the gap before it ships.**
+
+**What you'll be able to do after this:** Add a Playwright test that runs axe-core WCAG 2.2 AA scans against newly imported AI-generated components, block CI on critical violations, and understand what automated testing catches versus what still needs a human pass.
+
+**Three-bullet takeaway:**
+- `npm install @axe-core/playwright` wires automated accessibility scans into any existing Playwright setup in one file
+- `.withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa'])` targets WCAG 2.2 A/AA criteria only — avoiding vendor-default extra rules that your team has not agreed to enforce
+- Automation reliably catches missing alt text, broken form labels, contrast failures, and misused ARIA — it does not catch logical focus order, motion sensitivity, or screen-reader narrative flow; those need a manual pass
+
+**Setup:**
+
+```bash
+npm install @axe-core/playwright
+```
+
+**Test file:**
+
+```ts
+// tests/a11y.spec.ts
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+
+test('imported AI component passes WCAG 2.2 AA scan', async ({ page }) => {
+  await page.goto('/components/preview');
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const critical = results.violations.filter(
+    v => v.impact === 'critical' || v.impact === 'serious'
+  );
+  expect(critical).toHaveLength(0);
+});
+```
+
+**Workflow:** Run this against each newly imported AI-generated component before merging. The most common failures from Claude Design and v0 output: images without `alt`, form inputs without `<label>`, interactive `<div>` elements missing `role` and `tabindex`, and color contrast violations in generated dark-mode variants.
+
+**Gate incrementally:** Filter by `impact === 'critical'` first to unblock today; add `'serious'` once the backlog is cleared. Do not comment out the test to pass CI — that is a signal the generated component needs a regeneration pass, not a test-silencing pass. Claude Code can fix most axe violations in a single prompt once you paste in the violation report.
+
+**The limit:** axe-core catches roughly 40–57% of WCAG criteria automatically — Deque's own measurement. It cannot see keyboard focus order, screen-reader reading order, or whether button labels communicate purpose in context. Pair the scan with a ten-minute keyboard navigation check on any component before it goes into a design system.
+
+**Sources:** [Official Playwright accessibility testing docs — playwright.dev](https://playwright.dev/docs/accessibility-testing) · [axe-core WCAG coverage research — deque.com](https://www.deque.com/axe/core-documentation/) · [AI accessibility testing CI workflow — developertoolkit.ai](https://developertoolkit.ai/en/workflows/test/accessibility-testing/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code v2.1.325 Closes Sandbox Escape Gaps; Anthropic ANT Prices November 18 and Trades November 19]]></title>
+    <link>https://code.claude.com/docs/en/changelog</link>
+    <guid isPermaLink="false">2026-11-16-02-claude-code-2-1-325-sandbox-permission-ant-ipo-nov19</guid>
+    <pubDate>Mon, 16 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>News</category>
+    <category>Claude Code</category>
+    <category>Developer Tools</category>
+    <description><![CDATA[Claude Code 2.1.325 closes three sandbox escape permission gaps and fixes a zstd vulnerability. Anthropic ANT prices November 18 and trades November 19 — not November 16 as earlier estimates said.]]></description>
+    <content:encoded><![CDATA[**Claude Code 2.1.325 closes three sandbox escape permission gaps and fixes a zstd vulnerability; Anthropic ANT prices November 18 and starts Nasdaq trading November 19.**
+
+**Claude Code 2.1.325 — permission fixes**
+Claude Code 2.1.325 (November 13) closes three permission gaps that allowed sandboxed processes to spawn subprocesses outside the sandbox boundary, fixes a zstd decoding vulnerability, and makes Claude Fable 5.2 the default Fable model in Claude Code's model routing. If you use `--permission-mode auto` in scripts or CI, run `claude update` before the next unattended deploy — the stricter prompting is the noticeable change. Some workflows that previously auto-approved sandboxed commands will now prompt for confirmation.
+
+**ANT — November 19 is the actual first trade date**
+An earlier post here estimated "around November 16" for a first trade. The confirmed schedule: Anthropic prices on November 18, trading starts on Nasdaq under "ANT" on November 19. The offering of 825 million shares at $70–78 implies a valuation of $1.3–1.45 trillion (Anthropic's own filing figures, not independently verified). For teams building on the Claude API, the S-1 risk factors section — which confirms Anthropic reserves the right to change pricing and rate limits, and that two unnamed customers account for ~20% of revenue — remains the more useful read than the valuation headline.
+
+**Why it matters:** The 2.1.325 permission tightening may surface prompts in automated workflows you assumed were silent; test before the next unattended run. The IPO's public debut Thursday is a known milestone — quarterly SEC filings will become a new signal layer for API platform risk.
+
+**Sources:** [Claude Code 2.1.323–325 release analysis — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261113-cc-updates-v2-1-323/) · [Anthropic ANT IPO pricing — CNBC](https://www.cnbc.com/2026/11/10/anthropic-sets-price-range-of-70-to-78-in-upcoming-ipo.html) · [Anthropic S-1 — anthropic.com](https://www.anthropic.com/news/s1-sec)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Claude Code's Experimental Code Mode Rewrites How Tools Are Called — One JavaScript Pass Instead of Sequential Round-Trips]]></title>
+    <link>https://clauding.de/en/posts/claude-code-code-mode-2-1-323/</link>
+    <guid isPermaLink="false">2026-11-16-03-claude-code-mode-javascript-tool-calls-one-pass-experimental</guid>
+    <pubDate>Mon, 16 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <description><![CDATA[Code Mode (opt-in, v2.1.323+) lets Claude write JavaScript that calls multiple tools in one execution pass. Enable with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 and confirm at the prompt.]]></description>
+    <content:encoded><![CDATA[**Code Mode (opt-in, v2.1.323+) lets Claude write JavaScript that calls multiple tools in one execution pass instead of sequential round-trips — enable with `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`.**
+
+Claude Code v2.1.323 (November 12) ships an experimental opt-in feature: Code Mode. Under normal operation, Claude calls tools one by one — read file, wait for result; edit file, wait for confirmation; run test, wait. Under Code Mode, Claude instead writes a small JavaScript program that calls its tools in a single execution pass, batching reads and writes before you review the result.
+
+**Enable it:**
+
+```bash
+export CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1
+claude
+```
+
+Confirm when Claude Code offers to switch modes. Unset the variable to revert. For organization-wide disable, there is reportedly a Claude Code enterprise config setting — see the official release notes (note: the dedicated docs page at `code.claude.com/docs/en/code-mode` returned 404 as of this writing; details may appear there once the feature exits experimental).
+
+**What changes:** Instead of approving each tool call separately, you review a JS script that describes the full operation before it runs. For multi-file refactors or directory-wide reads, this can surface the complete plan before any change is made. You approve the script; Claude runs it.
+
+**What to watch out for:** You are approving more at once. A script that reads 20 files and edits 15 of them is harder to verify than 15 individual approval prompts you can skip or reject selectively. Build a habit of reading the script's target paths before approving, the same way you'd review a `git diff` before merging.
+
+**What's not confirmed:** Anthropic has not published measurements of token savings or latency improvements. The feature is experimental and may change in subsequent releases. `claude -p` (non-interactive) calls and subagent invocations are reported to skip Code Mode even when the env var is set.
+
+**Sources:** [Code Mode release analysis — clauding.de](https://clauding.de/en/posts/claude-code-code-mode-2-1-323/) · [v2.1.322–323 changes breakdown — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261113-cc-updates-v2-1-323/) · [Simon Willison on the new JS execution model — simonw.substack.com](https://simonw.substack.com/p/the-new-claude-analysis-javascript)]]></content:encoded>
+  </item>
+
 
   <item>
     <title><![CDATA[Your Agent SDK Loop Keeps Running Until Context Runs Out Because No Cap Was Set — `maxTurns` Limits Tool-Use Turns and `error_max_turns` Signals Truncation]]></title>
@@ -6214,77 +6326,7 @@ Add `strict: True` to the tool definition to get guaranteed schema-conformant in
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your LoRA Adapter Disappears When the Colab Session Closes — `model.push_to_hub()` Persists It to HuggingFace in Two Lines]]></title>
-    <link>https://huggingface.co/docs/peft/main/en/quicktour</link>
-    <guid isPermaLink="false">2026-10-29-07-peft-push-to-hub-lora-adapter-huggingface-share-persist</guid>
-    <pubDate>Thu, 29 Oct 2026 20:06:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[PEFT's push_to_hub() uploads only the adapter weights — often under 50 MB — not the full base model. AutoPeftModel.from_pretrained() reconstructs the full model at load time from the adapter and the base model's Hub weights.]]></description>
-    <content:encoded><![CDATA[**PEFT's `model.push_to_hub()` saves only the adapter weights — often under 50 MB instead of gigabytes — and `AutoPeftModel.from_pretrained()` reconstructs the full model at load time.**
-
-**What you'll be able to do after this:**
-- Persist a fine-tuned LoRA adapter from a Colab session to HuggingFace Hub so it survives the runtime closing
-- Share just the adapter (not the 7B base weights) with your team or load it in a different environment
-- Reload the full fine-tuned model in a single line from any machine that has Hub access
-
----
-
-After a QLoRA training run, the trained adapter lives in memory (or in `/tmp`). The Colab session will eventually disconnect. The common mistake is to forget the upload step until after the runtime is gone.
-
-**Path 1: Adapter-only upload (PEFT model object)**
-
-```python
-from peft import AutoPeftModelForCausalLM
-
-# model is your PeftModelForCausalLM (the object returned by get_peft_model or loaded via PEFT)
-model.push_to_hub("your-username/llama-3-lora-finetune")
-tokenizer.push_to_hub("your-username/llama-3-lora-finetune")
-```
-
-This uploads `adapter_config.json` and `adapter_model.safetensors` — typically 10–100 MB depending on `r` and `target_modules`. The base model weights stay on Hub under their original repo.
-
-**Loading it back:**
-
-```python
-from peft import AutoPeftModelForCausalLM
-
-model = AutoPeftModelForCausalLM.from_pretrained(
-    "your-username/llama-3-lora-finetune",
-    torch_dtype="auto",
-    device_map="auto",
-)
-```
-
-PEFT resolves the base model automatically from `adapter_config.json`'s `base_model_name_or_path` field and downloads it from Hub if not cached.
-
-**Path 2: Upload the merged model**
-
-If you've already called `merge_and_unload()` (the full weights are in memory), push the merged model directly:
-
-```python
-merged = model.merge_and_unload()
-merged.save_pretrained("./merged-model")       # local fallback
-merged.push_to_hub("your-username/llama-3-finetuned-merged")
-tokenizer.push_to_hub("your-username/llama-3-finetuned-merged")
-```
-
-The merged upload is the full model size (7B ≈ 14 GB in bf16). Use Path 1 for sharing; use Path 2 when you want a self-contained deployment artifact.
-
-**Limits to know:**
-- A Hub write token is required (`huggingface_hub.login(token="hf_...")` or `huggingface-cli login`). Hub tokens are scoped: a "read" token cannot push.
-- Private repos require a Pro account or an Organization with private model capacity. Public uploads are unlimited.
-- `adapter_config.json` records the original base model ID — if the recipient does not have that base model licensed (e.g. Llama 3 gated access), `AutoPeftModelForCausalLM.from_pretrained()` will fail on the base model download. Adapter-only sharing is not a license workaround.
-- Large merged models (>10 GB) benefit from `--lfs-migrate` chunking if you hit Git LFS push timeouts.
-
-**Sources:** [PEFT quicktour — huggingface.co/docs/peft](https://huggingface.co/docs/peft/main/en/quicktour), [Share a model — huggingface.co/docs/transformers](https://huggingface.co/docs/transformers/en/model_sharing), [Fine-tune SmolLM on synthetic data (community walkthrough, David Berenstein) — huggingface.co/blog](https://huggingface.co/blog/davidberenstein1957/fine-tune-a-smollm-on-synthetic-data-of-llm) (end-to-end pipeline including the Hub push step)]]></content:encoded>
-  </item>
-
+  
   <item>
     <title><![CDATA[Your Headless Claude Code Run Has Full Write Access When You Only Needed Read — `--allowedTools` Scopes the Tool Palette Before the First Call]]></title>
     <link>https://code.claude.com/docs/en/headless</link>
@@ -6339,126 +6381,8 @@ The prefix match is a prefix, not a glob — `Bash(npm:*)` allows `npm test`, `n
 **Sources:** [Headless mode reference — code.claude.com/docs/en/headless](https://code.claude.com/docs/en/headless), [Claude Code CLI flags — code.claude.com/docs/en/cli-reference](https://code.claude.com/docs/en/cli-reference), [OWASP LLM Top 10: LLM06 Excessive Agency](https://genai.owasp.org/llmrisk/llm06-excessive-agency/) (the principle behind least-privilege tool grants)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude Code Agent Polls for Completion With Sleep Loops — Monitor Streams Every Background Process Line as a Live Event Instead]]></title>
-    <link>https://code.claude.com/docs/en/tools-reference</link>
-    <guid isPermaLink="false">2026-10-29-04-claude-code-monitor-tool-background-process-stream-events</guid>
-    <pubDate>Thu, 29 Oct 2026 12:15:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[The Monitor tool runs a command and delivers each stdout line back as a separate notification — the agent reacts to test failures or deploy completions in real time instead of polling with sleep loops.]]></description>
-    <content:encoded><![CDATA[**The Monitor tool feeds each stdout line from a background command back as a separate notification — the agent reacts to completions and failures without sleep loops, polling Bash calls, or missed intermediate output.**
-
-When a Claude Code workflow kicks off a long-running task — a test suite, a deploy script, a server start — the common pattern is `Bash("sleep 10 && check-status.sh")`. It fires after an arbitrary wait, misses output emitted between checks, and costs a round-trip per poll. A missed failure message means the agent retries unnecessarily; an early check means it runs the command again before the first finishes.
-
-**Monitor replaces polling with a direct event stream.** It runs a command and delivers each stdout line back as its own notification in the conversation transcript. The agent reads each line and decides: keep watching, stop the task, or trigger a follow-up.
-
-```bash
-# Watch a test suite as it runs — react on each line
-Monitor("pnpm test --reporter=verbose 2>&1")
-# Notifications arrive live:
-#   "✓ auth.spec.ts (5 tests passed)"
-#   "✗ billing.spec.ts FAILED: timeout after 5000ms"
-# The agent calls TaskStop(task_id) the moment it sees the failure
-```
-
-**WebSocket sources** — for dev servers or event buses, pass a `ws://` URL and each incoming message becomes a notification:
-
-```bash
-Monitor("ws://localhost:3000/events")
-```
-
-**Plugin monitors** — declare a background watcher in your plugin's manifest and it starts automatically when the plugin activates:
-
-```json
-"monitors": [{"command": "node scripts/watch-ci.mjs", "label": "CI watch"}]
-```
-
-**Limits:**
-- Default timeout: 300 s. Configurable up to 1800 s; requests above that are capped at the maximum.
-- Monitors are session-scoped — background tasks and monitors do not carry over on session resume.
-- WebSocket watches require a separate permission approval from command watches.
-- **Oct 23, 2026:** Monitor now works when Claude Code is deployed through AWS Bedrock, Google Vertex AI, and Azure Foundry — previously it was limited to direct API sessions and claude.ai/code.
-
-Stop an active monitor with `TaskStop(task_id)` once the agent has seen what it needs.
-
-**Sources:** [Tools reference — code.claude.com/docs/en/tools-reference](https://code.claude.com/docs/en/tools-reference) · [Changelog Oct 23 — code.claude.com/docs/en/changelog](https://code.claude.com/docs/en/changelog)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Local Model Dev Loop Has No HTTP Endpoint — `llama-server` Turns Any GGUF Into a Local OpenAI-Compatible API in One Command]]></title>
-    <link>https://www.mintlify.com/ggml-org/llama.cpp/api/rest/overview</link>
-    <guid isPermaLink="false">2026-10-29-05-llama-cpp-server-gguf-local-openai-api-http</guid>
-    <pubDate>Thu, 29 Oct 2026 12:14:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Self-Hosting</category>
-    <category>Local AI</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Run `llama-server -m model.gguf` and get a localhost:8080 OpenAI-compatible endpoint — point your existing openai Python client at it with base_url changed and no API key needed.]]></description>
-    <content:encoded><![CDATA[**Run `llama-server -m model.gguf --port 8080` and your existing OpenAI client works against a local model by changing `base_url` to `http://localhost:8080/v1` and setting `api_key="none"`.**
-
-**What you'll be able to do after this:** run any GGUF-format quantized model as a local HTTP server, iterate on prompts and tool-calling without API credit meters or internet access, and reuse your existing `openai` Python client unchanged — except for one parameter.
-
-## Install and start the server
-
-```bash
-# macOS
-brew install llama.cpp
-
-# Ubuntu — build from source
-git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp
-cmake -B build && cmake --build build --config Release -j$(nproc)
-cp build/bin/llama-server /usr/local/bin/
-
-# Download a quantized GGUF from HuggingFace
-huggingface-cli download bartowski/Llama-3.1-8B-Instruct-GGUF   --include "Llama-3.1-8B-Instruct-Q4_K_M.gguf"   --local-dir ./models
-
-# Start the server
-llama-server -m ./models/Llama-3.1-8B-Instruct-Q4_K_M.gguf   --host 127.0.0.1 --port 8080   --ctx-size 8192   --n-gpu-layers 99      # push all layers to VRAM; 0 = CPU-only
-```
-
-## Point your OpenAI client at it
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="http://localhost:8080/v1",
-    api_key="none"   # llama-server accepts any non-empty string
-)
-
-response = client.chat.completions.create(
-    model="any",     # server ignores this — uses the loaded model
-    messages=[{"role": "user", "content": "Explain RAG in one sentence."}]
-)
-print(response.choices[0].message.content)
-```
-
-The server also accepts tool definitions and returns structured outputs — useful for testing your agent's tool-calling logic locally before sending to a hosted model.
-
-## Three flags that matter
-
-| Flag | Default | What to change |
-|---|---|---|
-| `--ctx-size` | 4096 | Match your actual use case; larger needs more VRAM/RAM |
-| `--n-gpu-layers` | 0 (CPU) | `-ngl 99` to push all layers to GPU |
-| `--parallel` | 1 | Set `--parallel 4` if your code makes concurrent requests |
-
-## Limits vs Ollama
-
-llama.cpp server is more direct but less managed than Ollama: you download and reference GGUF files manually, there is no model registry or pull command, and single-threaded generation queues requests unless you set `--parallel`. Ollama is easier for day-to-day use; llama.cpp server is better when you want finer control over context size, GPU offload layers, or you're scripting server startup in CI.
-
-RAM budget: Q4_K_M on an 8 B model needs ~5 GB; a 70 B model at Q4 needs ~40 GB. Do not expose `--host 0.0.0.0` on an untrusted network — there is no built-in authentication.
-
-**Sources:** [llama.cpp REST API reference — ggml.ai](https://www.mintlify.com/ggml-org/llama.cpp/api/rest/overview) · [Starting with llama.cpp — Open WebUI docs](https://docs.openwebui.com/getting-started/quick-start/starting-with-llama-cpp) · [llama-server tutorial — Arm Learning Path](https://learn.arm.com/learning-paths/servers-and-cloud-computing/llama-cpu/llama-server)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   

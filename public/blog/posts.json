@@ -1,5 +1,59 @@
 [
   {
+    "id": "2026-11-16-03-claude-code-mode-javascript-tool-calls-one-pass-experimental",
+    "title": "Claude Code's Experimental Code Mode Rewrites How Tools Are Called — One JavaScript Pass Instead of Sequential Round-Trips",
+    "excerpt": "Code Mode (opt-in, v2.1.323+) lets Claude write JavaScript that calls multiple tools in one execution pass. Enable with CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1 and confirm at the prompt.",
+    "author": "Chris Harper",
+    "date": "11-16-2026",
+    "publishedAt": "2026-11-16T04:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://clauding.de/en/posts/claude-code-code-mode-2-1-323/",
+    "content": "**Code Mode (opt-in, v2.1.323+) lets Claude write JavaScript that calls multiple tools in one execution pass instead of sequential round-trips — enable with `CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1`.**\n\nClaude Code v2.1.323 (November 12) ships an experimental opt-in feature: Code Mode. Under normal operation, Claude calls tools one by one — read file, wait for result; edit file, wait for confirmation; run test, wait. Under Code Mode, Claude instead writes a small JavaScript program that calls its tools in a single execution pass, batching reads and writes before you review the result.\n\n**Enable it:**\n\n```bash\nexport CLAUDE_CODE_EXPERIMENTAL_CODE_MODE=1\nclaude\n```\n\nConfirm when Claude Code offers to switch modes. Unset the variable to revert. For organization-wide disable, there is reportedly a Claude Code enterprise config setting — see the official release notes (note: the dedicated docs page at `code.claude.com/docs/en/code-mode` returned 404 as of this writing; details may appear there once the feature exits experimental).\n\n**What changes:** Instead of approving each tool call separately, you review a JS script that describes the full operation before it runs. For multi-file refactors or directory-wide reads, this can surface the complete plan before any change is made. You approve the script; Claude runs it.\n\n**What to watch out for:** You are approving more at once. A script that reads 20 files and edits 15 of them is harder to verify than 15 individual approval prompts you can skip or reject selectively. Build a habit of reading the script's target paths before approving, the same way you'd review a `git diff` before merging.\n\n**What's not confirmed:** Anthropic has not published measurements of token savings or latency improvements. The feature is experimental and may change in subsequent releases. `claude -p` (non-interactive) calls and subagent invocations are reported to skip Code Mode even when the env var is set.\n\n**Sources:** [Code Mode release analysis — clauding.de](https://clauding.de/en/posts/claude-code-code-mode-2-1-323/) · [v2.1.322–323 changes breakdown — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261113-cc-updates-v2-1-323/) · [Simon Willison on the new JS execution model — simonw.substack.com](https://simonw.substack.com/p/the-new-claude-analysis-javascript)"
+  },
+  {
+    "id": "2026-11-16-02-claude-code-2-1-325-sandbox-permission-ant-ipo-nov19",
+    "title": "Claude Code v2.1.325 Closes Sandbox Escape Gaps; Anthropic ANT Prices November 18 and Trades November 19",
+    "excerpt": "Claude Code 2.1.325 closes three sandbox escape permission gaps and fixes a zstd vulnerability. Anthropic ANT prices November 18 and trades November 19 — not November 16 as earlier estimates said.",
+    "author": "Chris Harper",
+    "date": "11-16-2026",
+    "publishedAt": "2026-11-16T04:03:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Claude Code",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/changelog",
+    "content": "**Claude Code 2.1.325 closes three sandbox escape permission gaps and fixes a zstd vulnerability; Anthropic ANT prices November 18 and starts Nasdaq trading November 19.**\n\n**Claude Code 2.1.325 — permission fixes**\nClaude Code 2.1.325 (November 13) closes three permission gaps that allowed sandboxed processes to spawn subprocesses outside the sandbox boundary, fixes a zstd decoding vulnerability, and makes Claude Fable 5.2 the default Fable model in Claude Code's model routing. If you use `--permission-mode auto` in scripts or CI, run `claude update` before the next unattended deploy — the stricter prompting is the noticeable change. Some workflows that previously auto-approved sandboxed commands will now prompt for confirmation.\n\n**ANT — November 19 is the actual first trade date**\nAn earlier post here estimated \"around November 16\" for a first trade. The confirmed schedule: Anthropic prices on November 18, trading starts on Nasdaq under \"ANT\" on November 19. The offering of 825 million shares at $70–78 implies a valuation of $1.3–1.45 trillion (Anthropic's own filing figures, not independently verified). For teams building on the Claude API, the S-1 risk factors section — which confirms Anthropic reserves the right to change pricing and rate limits, and that two unnamed customers account for ~20% of revenue — remains the more useful read than the valuation headline.\n\n**Why it matters:** The 2.1.325 permission tightening may surface prompts in automated workflows you assumed were silent; test before the next unattended run. The IPO's public debut Thursday is a known milestone — quarterly SEC filings will become a new signal layer for API platform risk.\n\n**Sources:** [Claude Code 2.1.323–325 release analysis — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20261113-cc-updates-v2-1-323/) · [Anthropic ANT IPO pricing — CNBC](https://www.cnbc.com/2026/11/10/anthropic-sets-price-range-of-70-to-78-in-upcoming-ipo.html) · [Anthropic S-1 — anthropic.com](https://www.anthropic.com/news/s1-sec)"
+  },
+  {
+    "id": "2026-11-16-01-axe-core-playwright-ai-generated-ui-wcag-ci-accessibility",
+    "title": "Your Imported AI-Generated Component Looks Fine Visually But Has WCAG Violations — `@axe-core/playwright` Finds Them Before They Reach Users",
+    "excerpt": "AI design tools generate visually correct HTML but inconsistently correct HTML semantics. One Playwright test file with @axe-core/playwright gates CI on WCAG 2.2 AA violations before they ship.",
+    "author": "Chris Harper",
+    "date": "11-16-2026",
+    "publishedAt": "2026-11-16T04:02:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://playwright.dev/docs/accessibility-testing",
+    "content": "**AI design tools generate visually correct output reliably — semantically correct output inconsistently. One Playwright test file running axe-core WCAG 2.2 AA scans catches the gap before it ships.**\n\n**What you'll be able to do after this:** Add a Playwright test that runs axe-core WCAG 2.2 AA scans against newly imported AI-generated components, block CI on critical violations, and understand what automated testing catches versus what still needs a human pass.\n\n**Three-bullet takeaway:**\n- `npm install @axe-core/playwright` wires automated accessibility scans into any existing Playwright setup in one file\n- `.withTags(['wcag2a','wcag2aa','wcag21a','wcag21aa'])` targets WCAG 2.2 A/AA criteria only — avoiding vendor-default extra rules that your team has not agreed to enforce\n- Automation reliably catches missing alt text, broken form labels, contrast failures, and misused ARIA — it does not catch logical focus order, motion sensitivity, or screen-reader narrative flow; those need a manual pass\n\n**Setup:**\n\n```bash\nnpm install @axe-core/playwright\n```\n\n**Test file:**\n\n```ts\n// tests/a11y.spec.ts\nimport { test, expect } from '@playwright/test';\nimport AxeBuilder from '@axe-core/playwright';\n\ntest('imported AI component passes WCAG 2.2 AA scan', async ({ page }) => {\n  await page.goto('/components/preview');\n  const results = await new AxeBuilder({ page })\n    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])\n    .analyze();\n  const critical = results.violations.filter(\n    v => v.impact === 'critical' || v.impact === 'serious'\n  );\n  expect(critical).toHaveLength(0);\n});\n```\n\n**Workflow:** Run this against each newly imported AI-generated component before merging. The most common failures from Claude Design and v0 output: images without `alt`, form inputs without `<label>`, interactive `<div>` elements missing `role` and `tabindex`, and color contrast violations in generated dark-mode variants.\n\n**Gate incrementally:** Filter by `impact === 'critical'` first to unblock today; add `'serious'` once the backlog is cleared. Do not comment out the test to pass CI — that is a signal the generated component needs a regeneration pass, not a test-silencing pass. Claude Code can fix most axe violations in a single prompt once you paste in the violation report.\n\n**The limit:** axe-core catches roughly 40–57% of WCAG criteria automatically — Deque's own measurement. It cannot see keyboard focus order, screen-reader reading order, or whether button labels communicate purpose in context. Pair the scan with a ten-minute keyboard navigation check on any component before it goes into a design system.\n\n**Sources:** [Official Playwright accessibility testing docs — playwright.dev](https://playwright.dev/docs/accessibility-testing) · [axe-core WCAG coverage research — deque.com](https://www.deque.com/axe/core-documentation/) · [AI accessibility testing CI workflow — developertoolkit.ai](https://developertoolkit.ai/en/workflows/test/accessibility-testing/)"
+  },
+  {
     "id": "2026-11-15-06-agent-sdk-max-turns-error-max-turns-loop-cap-truncation",
     "title": "Your Agent SDK Loop Keeps Running Until Context Runs Out Because No Cap Was Set — `maxTurns` Limits Tool-Use Turns and `error_max_turns` Signals Truncation",
     "excerpt": "Set maxTurns on every Agent SDK run call or your unattended loop will keep burning tool calls until it hits a context limit. Check error_max_turns in the result to distinguish a clean finish from a…",
