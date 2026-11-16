@@ -10,7 +10,164 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 16 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 16 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Tool-Using Claude App Shows a Spinner Until Every Call Finishes — `content_block_start` Events Carry the Tool Name the Moment Claude Decides to Call It]]></title>
+    <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/fine-grained-tool-streaming</link>
+    <guid isPermaLink="false">2026-11-16-04-claude-api-stream-events-tool-use-content-block-start-progress</guid>
+    <pubDate>Mon, 16 Nov 2026 12:05:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Agents</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[When Claude calls a tool, the streaming API emits content_block_start with the tool name before any input_json_delta events stream — intercept it to surface real-time progress instead of a spinner.]]></description>
+    <content:encoded><![CDATA[**When Claude calls a tool, `content_block_start` fires with `content_block.name` before any input streams — catch it to show users "Searching for X…" in real time rather than a silent spinner.**
+
+When you use `stream.text_stream` for a plain-text app, `client.messages.stream()` works fine. Add tools and the user experience degrades: nothing visible happens between the user's message and Claude's final answer. Every tool call runs silently.
+
+The raw streaming event sequence for a tool call is:
+1. `content_block_start` — `type: "content_block_start"`, `content_block.type == "tool_use"`, `content_block.name == "get_weather"`, `content_block.input == {}`
+2. Series of `input_json_delta` events — each carries a `partial_json` string fragment
+3. `content_block_stop`
+
+The tool name arrives on step 1, before any inputs stream. Use `stream.stream_events()` to intercept it:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+tools = [
+    {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    }
+]
+
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    tools=tools,
+    messages=[{"role": "user", "content": "What's the weather in London?"}],
+) as stream:
+    for event in stream.stream_events():
+        if (
+            event.type == "content_block_start"
+            and hasattr(event, "content_block")
+            and event.content_block.type == "tool_use"
+        ):
+            # fires immediately — before any input streams
+            print(f"\n⚙ Calling {event.content_block.name}…", flush=True)
+        elif (
+            event.type == "content_block_delta"
+            and event.delta.type == "input_json_delta"
+        ):
+            # accumulate partial_json if you need the args live
+            pass
+        elif event.type == "text":
+            print(event.text, end="", flush=True)
+```
+
+For even finer control — streaming individual parameter values token by token as Claude generates them — set `eager_input_streaming: true` on each tool definition and pass `betas=["fine-grained-tool-streaming-2025-05-14"]` in your request. Without it, `input_json_delta` events arrive in bursts.
+
+**Limits:** `stream.text_stream` is a text-only view; `stream_events()` is required for tool events. `input_json_delta` fragments are partial JSON — not individually parseable; accumulate them into a string and parse on `content_block_stop`. `eager_input_streaming` is a beta feature with a dated API header; check the docs before shipping to production.
+
+**Sources:** [Fine-grained tool streaming — platform.claude.com](https://platform.claude.com/docs/en/agents-and-tools/tool-use/fine-grained-tool-streaming) · [Messages streaming reference — platform.claude.com](https://platform.claude.com/docs/en/api/messages-streaming) · [Claude API Tool Use Tutorial 2026 — gilricardo.com](https://www.gilricardo.com/blog/claude-api-tool-use-tutorial-2026)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your 7B Fine-Tune Requires 24GB of VRAM in Full Precision — Unsloth's Pre-Quantized 4-Bit Checkpoint Runs the Same Training on a Free Colab T4]]></title>
+    <link>https://docs.unsloth.ai/get-started/fine-tuning-guide</link>
+    <guid isPermaLink="false">2026-11-16-05-qlora-4bit-unsloth-free-colab-t4-llama-fine-tune</guid>
+    <pubDate>Mon, 16 Nov 2026 12:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Fine-Tuning</category>
+    <category>HuggingFace</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[QLoRA runs LoRA adapters on a 4-bit quantized base model, cutting VRAM roughly fourfold. Unsloth's free Colab notebook fine-tunes Llama 3.1 8B on the T4's 15GB in under an hour.]]></description>
+    <content:encoded><![CDATA[**QLoRA = LoRA adapters on a 4-bit quantized base model, which cuts VRAM roughly fourfold. Unsloth's free Colab T4 notebook fine-tunes Llama 3.1 8B in under an hour without any paid GPU.**
+
+**What you'll be able to do after this:** fine-tune a 7–8B open model on the free Colab T4 GPU (~15GB VRAM) using QLoRA and save only the adapter (~100MB), not the full 15GB base model.
+
+**Three-bullet takeaway:**
+- QLoRA (Quantized LoRA) = standard LoRA on top of a 4-bit quantized base; the base weights stay frozen and 4-bit, while only the small LoRA matrices train in fp16
+- Unsloth provides pre-quantized `bnb-4bit` checkpoints for Llama, Qwen, Gemma, and Mistral — they download and load faster than quantizing on the fly
+- The free Colab T4 (15GB) fits Llama 3.1 8B QLoRA; the saved adapter is ~100MB and loads onto any copy of the same base at inference time
+
+**Steps:**
+
+```python
+# In a Colab cell (T4 runtime): suppress noisy pip output
+%%capture
+!pip install unsloth
+
+from unsloth import FastLanguageModel
+
+# 1. Load the pre-quantized 4-bit checkpoint
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/Meta-Llama-3.1-8B-bnb-4bit",  # pre-quantized hub checkpoint
+    max_seq_length=2048,
+    load_in_4bit=True,   # QLoRA: base stays 4-bit throughout training
+    dtype=None,          # auto-detect (float16 on T4)
+)
+
+# 2. Attach LoRA adapters — only these matrices train
+model = FastLanguageModel.get_peft_model(
+    model,
+    r=16,                # rank; increase for harder tasks (try 32–64 on larger GPUs)
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj"],
+    lora_alpha=16,
+    lora_dropout=0,      # 0 = Unsloth's optimised kernel path
+    bias="none",
+)
+
+# 3. Train with TRL's SFTTrainer
+from trl import SFTTrainer
+from transformers import TrainingArguments
+
+trainer = SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    train_dataset=your_dataset,   # an HF Dataset with a "text" column
+    dataset_text_field="text",
+    max_seq_length=2048,
+    args=TrainingArguments(
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
+        warmup_steps=5,
+        max_steps=60,
+        learning_rate=2e-4,
+        fp16=True,                   # T4 is fp16; bf16 for A100/H100
+        optim="adamw_8bit",          # 8-bit Adam saves VRAM on the optimiser states
+        logging_steps=10,
+        output_dir="outputs",
+        save_steps=30,               # checkpoint mid-run; free Colab sessions disconnect
+    ),
+)
+trainer.train()
+
+# 4. Save the adapter only — not the 15GB base
+model.save_pretrained("my_lora_adapter")
+tokenizer.save_pretrained("my_lora_adapter")
+```
+
+Load the adapter at inference time with `PeftModel.from_pretrained(base_model, "my_lora_adapter")`.
+
+**Limits:** 4-bit quantization introduces a small accuracy penalty. Unsloth reports the gap is "mostly closed" by their dynamic quants — that claim comes from Unsloth and hasn't been independently benchmarked; treat it as vendor-reported until you run your own eval (the previous post on `lm_eval` covers exactly this). Free Colab T4 sessions disconnect after 12 hours or on inactivity; `save_steps=30` checkpoints mitigate loss but don't eliminate it. Llama 3.1 is a gated model on Hugging Face — you must accept Meta's license before the checkpoint will download. Unsloth's official notebook targets Llama 3.1 (8B); for Llama 3.2 (3B) or Qwen 2.5, check the [notebooks index](https://docs.unsloth.ai/get-started/unsloth-notebooks) for the matching bnb-4bit checkpoint name.
+
+**Sources:** [Unsloth fine-tuning guide — docs.unsloth.ai](https://docs.unsloth.ai/get-started/fine-tuning-guide) · [Free Colab Llama 3.1 (8B) QLoRA notebook — Unsloth/GitHub](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/Llama3.1_(8B)-Alpaca.ipynb) · [Fine-tune Llama 3.1 with Unsloth — Hugging Face blog](https://huggingface.co/blog/mlabonne/sft-llama3)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Imported AI-Generated Component Looks Fine Visually But Has WCAG Violations — `@axe-core/playwright` Finds Them Before They Reach Users]]></title>
@@ -6225,162 +6382,9 @@ Or manage from the Installed tab of `/plugin`.
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude App Returns Text When the Question Needs a Live Lookup — Tool Use Gives Claude a Typed JSON Schema, Gets a `tool_use` Block Back, and Lets Your Code Handle the Rest]]></title>
-    <link>https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/implement-tool-use</link>
-    <guid isPermaLink="false">2026-10-30-01-claude-tool-use-json-schema-tool-result-five-step-loop</guid>
-    <pubDate>Fri, 30 Oct 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Define a function with a JSON Schema, pass it as tools[], handle the tool_use response block, run your code, return a tool_result — Claude then finishes its answer. Every Claude-based agent uses this five-step loop.]]></description>
-    <content:encoded><![CDATA[**Define a function with a JSON Schema, pass it as `tools[]`, check `stop_reason == "tool_use"`, run your function, send a `tool_result` — Claude finishes its answer. Five steps, every agent app uses this loop.**
-
-**What you'll be able to do after this:**
-- Wire any Python function into a Claude conversation so Claude calls it when a question needs live data or computation
-- Implement the full `tool_use` → `tool_result` round-trip without guessing about message format
-- Control call behavior: require a specific tool, require any tool, or let Claude decide with `tool_choice`
-
----
-
-Claude's Messages API returns text by default. Tool use (function calling) adds a richer exchange: you describe functions with JSON Schema and pass them as `tools`. When Claude decides a function is needed, it returns a `tool_use` block instead of (or before) its text. Your code runs the function and sends back a `tool_result`. Claude uses that result to finish the answer.
-
-Every Claude-based agent — whether it queries a database, calls an API, runs a shell command, or routes to another service — is built on this loop.
-
-**Step 1 — Define a tool with a JSON Schema:**
-
-```python
-tools = [{
-    "name": "get_weather",
-    "description": "Get the current weather for a city",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "location": {
-                "type": "string",
-                "description": "City and state, e.g. 'Austin, TX'"
-            },
-            "unit": {"type": "string", "enum": ["celsius", "fahrenheit"]}
-        },
-        "required": ["location"]
-    }
-}]
-```
-
-**Step 2 — Make the first request with `tools` attached:**
-
-```python
-import anthropic
-client = anthropic.Anthropic()
-msg1 = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    tools=tools,
-    messages=[{"role": "user", "content": "What's the weather in Austin right now?"}]
-)
-```
-
-**Step 3 — Check whether Claude called a tool:**
-
-```python
-if msg1.stop_reason == "tool_use":
-    call = next(b for b in msg1.content if b.type == "tool_use")
-    # call.name == "get_weather"
-    # call.input == {"location": "Austin, TX"}
-    # call.id == "toolu_01..."
-```
-
-**Step 4 — Run your function and send the result back:**
-
-```python
-    result = fetch_weather(call.input["location"], call.input.get("unit", "fahrenheit"))
-
-    msg2 = client.messages.create(
-        model="claude-sonnet-5-5",
-        max_tokens=1024,
-        tools=tools,
-        messages=[
-            {"role": "user",      "content": "What's the weather in Austin right now?"},
-            {"role": "assistant", "content": msg1.content},
-            {"role": "user",      "content": [{
-                "type":        "tool_result",
-                "tool_use_id": call.id,
-                "content":     result
-            }]}
-        ]
-    )
-    print(msg2.content[0].text)
-    # "It's currently 72°F and partly cloudy in Austin."
-```
-
-**Controlling when Claude calls tools.** Default `tool_choice={"type": "auto"}` lets Claude decide. `{"type": "any"}` requires at least one call this turn. `{"type": "tool", "name": "get_weather"}` forces that specific function. `{"type": "none"}` passes tools for reference only — Claude won't call them.
-
-**The limit that catches people first.** The example above handles one tool call per turn. A real task may need several — Claude calls a function, you return the result, it calls another. Loop until `msg.stop_reason == "end_turn"`. The SDK's `ToolRunner` (available in beta via `client.beta.messages.tool_runner`) handles this loop automatically if you pass a Python callable alongside each tool definition, which removes the message-building bookkeeping entirely.
-
-Add `strict: True` to the tool definition to get guaranteed schema-conformant inputs from Claude, preventing malformed calls from reaching your function at the cost of some extra prompt tokens.
-
-**Sources:** [Tool use overview — docs.anthropic.com](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Implement tool use — docs.anthropic.com](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/implement-tool-use)
-]]></content:encoded>
-  </item>
-
   
-  <item>
-    <title><![CDATA[Your Headless Claude Code Run Has Full Write Access When You Only Needed Read — `--allowedTools` Scopes the Tool Palette Before the First Call]]></title>
-    <link>https://code.claude.com/docs/en/headless</link>
-    <guid isPermaLink="false">2026-10-29-06-claude-code-allowedtools-headless-scoped-permissions-ci</guid>
-    <pubDate>Thu, 29 Oct 2026 20:07:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Pass --allowedTools Read,Glob,Bash to a headless Claude Code run and every unlisted tool fails immediately — no permission prompt, no silent file edit. Scoped entries like Bash(npm test:*) restrict individual commands.]]></description>
-    <content:encoded><![CDATA[**Pass `--allowedTools Read,Glob,Bash` to any headless run and Claude Code rejects every unlisted tool call immediately — no permission prompt, no accidental file edit, no waiting on approval in CI.**
-
-When you use Claude Code in headless mode (`-p` / `--print`), it has the same tool access as an interactive session by default. A CI analysis step, a code-review pass, or a documentation audit might call `Edit` or `Write` when you only wanted reads. In non-interactive mode there is no "ask" prompt — the action simply runs.
-
-**The flag:**
-
-```bash
-# Analysis only: Claude can read and run commands, but cannot write files
-claude --allowedTools "Read,Glob,Bash" \
-       --print "Find the three files with the most TODO comments and report them."
-```
-
-If Claude tries to call `Write` or `Edit`, the call fails immediately with a permission error that Claude sees as a tool result and can reason about (it will not retry silently).
-
-**Scoped tool names** lock Claude down even further — each entry is `ToolName(allowed-prefix:*)`:
-
-```bash
-# Can only run npm test and git log, nothing else in Bash
-claude --allowedTools "Read,Glob,Bash(npm test:*),Bash(git log:*)" \
-       --print "Run tests and summarise any new failures vs the last commit."
-```
-
-The prefix match is a prefix, not a glob — `Bash(npm:*)` allows `npm test`, `npm run build`, etc., but not `rm`.
-
-**Common patterns:**
-
-| Use case | `--allowedTools` value |
-|---|---|
-| Read-only audit / code review | `Read,Glob` |
-| Test runner + log reader | `Bash(npm test:*),Bash(jest:*),Read,Glob` |
-| Git analysis only | `Bash(git:*),Read,Glob` |
-| Full analysis, no writes | `Read,Glob,Bash` |
-
-**Limits:**
-- Every tool the task needs must be explicitly listed. A missing tool fails the call; Claude reports the failure and may abort the task entirely rather than working around it.
-- `--allowedTools` is a whitelist, not a transformer — you cannot use it to redirect a tool call to a different tool.
-- Tool names are case-sensitive (`Read` not `read`; `Bash` not `bash`).
-- MCP tools are referenced by their server-prefixed names: `mcp__github__get_file_contents`, not `get_file_contents`.
-
-**Sources:** [Headless mode reference — code.claude.com/docs/en/headless](https://code.claude.com/docs/en/headless), [Claude Code CLI flags — code.claude.com/docs/en/cli-reference](https://code.claude.com/docs/en/cli-reference), [OWASP LLM Top 10: LLM06 Excessive Agency](https://genai.owasp.org/llmrisk/llm06-excessive-agency/) (the principle behind least-privilege tool grants)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
