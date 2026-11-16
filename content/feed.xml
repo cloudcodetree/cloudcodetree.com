@@ -10,7 +10,103 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 16 Nov 2026 12:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 16 Nov 2026 20:02:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Subagents All Inherit the Default Tools and Scope — A .claude/agents/*.md File With YAML Frontmatter Gives Each One Its Own System Prompt, Toolset, and Model]]></title>
+    <link>https://code.claude.com/docs/en/subagents</link>
+    <guid isPermaLink="false">2026-11-16-06-claude-code-custom-subagent-definition-agents-md-frontmatter</guid>
+    <pubDate>Mon, 16 Nov 2026 20:02:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Agents</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Drop a Markdown file with YAML frontmatter into .claude/agents/ and Claude Code routes to that agent automatically — description governs selection, body is the system prompt, tools: limits its reach.]]></description>
+    <content:encoded><![CDATA[**Drop a Markdown file with YAML frontmatter into `.claude/agents/` and Claude Code treats it as a named subagent type — the `description` field governs when Claude picks it, the body is its full system prompt, and `tools:` hard-caps what it can touch.**
+
+The built-in general-purpose subagent can read, write, and run anything. That scope is intentional for ad-hoc sessions, but too wide when you want a code reviewer that must never commit, a schema inspector that should only read, or a documentation writer that works strictly from your existing files.
+
+Create `.claude/agents/code-reviewer.md`:
+
+```yaml
+---
+description: Reviews staged code changes for correctness, test coverage, and regressions. Never modifies files.
+tools: Read, Glob, Grep, Bash
+model: claude-haiku-5-5
+---
+You are a focused code reviewer. Report issues as: file:line — severity (critical|warning|suggestion) — what and why.
+Report only what you find. Do not suggest refactors unless asked.
+```
+
+Two locations control availability:
+- **`.claude/agents/<name>.md`** — project-level; present only in this repo
+- **`~/.claude/agents/<name>.md`** — user-level; available across all projects
+
+The `description` field is the routing key. Claude reads it when deciding whether to use your agent versus the general-purpose fallback. Write it to describe the trigger ("reviews staged changes for correctness") rather than capabilities ("has Grep and Read") — the former matches the moment a reviewer is needed; the latter describes an implementation detail Claude doesn't need to reason about.
+
+The `tools:` list is a hard cap. Omit `Write` and the subagent cannot write files regardless of what the body says — which matters in unattended sessions where a reviewer accidentally patching what it found is a real failure mode.
+
+The `model:` key overrides the session default for this agent only. A quick file scanner that doesn't need heavy reasoning is a good fit for Haiku 5.5; spending Sonnet tokens on it in every loop is avoidable once the agent has its own model setting.
+
+**One real constraint:** a custom agent is addressable by its filename as a `subagent_type` value. If the orchestrating session doesn't explicitly pass the type name, it falls back to the general-purpose agent. Document your custom types in `CLAUDE.md` so the LLM knows to reach for them.
+
+**Sources:** [Custom subagents — code.claude.com/docs](https://code.claude.com/docs/en/subagents) · [Agent SDK subagents — docs.claude.com](https://docs.claude.com/en/api/agent-sdk/subagents) · [Claude Code subagents guide — alexcloudstar.com](https://alexcloudstar.com/blog/claude-code-subagents-guide-2026/)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your Dense Retriever Returns 100 Candidates But Only 3 Are Actually Relevant — Add a Cross-Encoder Reranker After First-Stage Retrieval to Score Query-Document Pairs Jointly]]></title>
+    <link>https://sbert.net/docs/cross_encoder/usage/usage.html</link>
+    <guid isPermaLink="false">2026-11-16-07-cross-encoder-reranking-sentence-transformers-ms-marco-rag</guid>
+    <pubDate>Mon, 16 Nov 2026 20:01:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>RAG</category>
+    <category>Best Practices</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[Bi-encoders rank by vector similarity alone; a cross-encoder sees query and document jointly for real relevance scoring. Add it after first-stage retrieval and your RAG precision improves measurably.]]></description>
+    <content:encoded><![CDATA[**Bi-encoders are fast but rank by embedding distance alone — a cross-encoder processes query and document together and scores actual relevance. Run it on your top-100 candidates and pass only the best 5 to the LLM.**
+
+**What you'll be able to do after this:** Build a two-stage RAG retrieval pipeline where a fast bi-encoder fetches the top-100 candidates and a cross-encoder reranks them to the top-5 most relevant, without changing your existing embedding setup.
+
+**Three things to know first:**
+- A bi-encoder embeds query and document independently, then scores by cosine similarity — fast (one forward pass per document), but it misses fine-grained lexical overlap.
+- A cross-encoder concatenates query and document and runs them through the model together — far more precise, but O(n) in your candidate count. That is why you combine them: bi-encoder for recall, cross-encoder for precision.
+- Independent benchmarks (and the sentence-transformers BEIR evaluation) show reranking from 100 to 5 typically gains 5–8 NDCG@10 points on MS MARCO, with diminishing returns past the top-5.
+
+**Add it to an existing retriever in three steps:**
+
+```python
+from sentence_transformers import CrossEncoder
+
+# Load once — keep this alive between requests
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L6-v2")
+
+def rerank(query: str, candidates: list[str], top_k: int = 5) -> list[str]:
+    pairs = [(query, doc) for doc in candidates]
+    scores = reranker.predict(pairs)          # returns a float per pair
+    ranked = sorted(zip(scores, candidates), reverse=True)
+    return [doc for _, doc in ranked[:top_k]]
+```
+
+Or use the built-in `.rank()` method which does the same thing:
+
+```python
+results = reranker.rank(query, candidates, top_k=5, return_documents=True)
+top_docs = [r["text"] for r in results]
+```
+
+**Model choices by use case:**
+- `cross-encoder/ms-marco-MiniLM-L6-v2` — 22 MB, runs fine on CPU, good for local dev and CI evals
+- `BAAI/bge-reranker-v2-m3` — stronger across non-English queries; worth the extra size in production
+- Cohere Rerank API (`rerank-v3.5`) — hosted, no GPU needed, but adds a network round-trip and an API key dependency
+
+**The real constraint:** reranker latency scales with candidate count. At 100 candidates on CPU, `ms-marco-MiniLM` takes roughly 200–400 ms per query — acceptable for a search bar, too slow inside a tight agent loop. Keep candidates ≤ 50 on CPU or move to a GPU or a hosted API for latency-sensitive paths.
+
+**Sources:** [CrossEncoder usage — sbert.net/docs](https://sbert.net/docs/cross_encoder/usage/usage.html) · [Pretrained cross-encoder models — sbert.net](https://sbert.net/docs/cross_encoder/pretrained_models.html) · [RAG reranking with cross-encoders — bigdataboutique.com](https://bigdataboutique.com/blog/rag-reranking-improving-retrieval-quality-with-cross-encoders)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Tool-Using Claude App Shows a Spinner Until Every Call Finishes — `content_block_start` Events Carry the Tool Name the Moment Claude Decides to Call It]]></title>
@@ -6286,102 +6382,9 @@ const report = await agent(
 **Sources:** [Claude Code Agent tool reference](https://code.claude.com/docs/en/agent-sdk/agents) · [Subagent effort control — community guide](https://wmedia.es/es/tips/claude-code-subagentes-effort-bajo) · [Claude Code v2.1.292 release notes](https://aiweekly.co/alerts/claude-code-21302-turns-on-fork-subagents-in-sdk-and-apps)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[You Download GGUF Weights From Someone Else's Compression Run Because Converting Your Own Looks Complicated — Two llama.cpp Commands Turn Any HuggingFace Checkpoint Into Q4_K_M in 20 Minutes]]></title>
-    <link>https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md</link>
-    <guid isPermaLink="false">2026-10-30-03-gguf-quantize-llama-cpp-convert-hf-q4km</guid>
-    <pubDate>Fri, 30 Oct 2026 12:19:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Self-Hosting</category>
-    <category>Local AI</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Convert any HuggingFace checkpoint to a 4-bit GGUF for local use: convert_hf_to_gguf.py → llama-quantize Q4_K_M → Ollama. Three commands, no GPU needed for the quantization step.]]></description>
-    <content:encoded><![CDATA[**You download GGUF weights from someone else's compression run because converting a model yourself looks complicated — `convert_hf_to_gguf.py` and `llama-quantize` do it in three commands.**
+  
 
-**What you'll be able to do after this:** Convert any HuggingFace model checkpoint — including your own fine-tuned ones — to a 4-bit GGUF file, then run it with Ollama or llama-server without waiting for someone else to cut a release.
-
-**Three things worth knowing before you start:**
-
-1. **Q4_K_M is the right default.** The K-quant series uses per-block scale factors, averaging ~4.5 bits/weight rather than a hard 4 bits. Compared to legacy Q4_0, it scores measurably better on benchmarks at the same file size. Q8_0 halves full-precision size with nearly lossless quality but doubles Q4_K_M's file size — save it for models you're actively evaluating, not deploying.
-
-2. **Budget 3–4× the target model's final GGUF size in temporary disk space.** The pipeline keeps the original weights, an F16 intermediate, and the final GGUF on disk at the same time. For a 7B model the F16 intermediate alone is ~14 GB.
-
-3. **Conversion needs no GPU.** `llama-quantize` runs on CPU and finishes in 5–15 minutes for a 7B model. You only need a GPU if you want to run inference afterward.
-
-**The recipe (Qwen2.5-3B as example — works for any supported architecture):**
-
-```bash
-# 1. Build llama.cpp
-git clone https://github.com/ggml-org/llama.cpp && cd llama.cpp
-cmake -B build && cmake --build build --config Release -j$(nproc)
-
-# 2. Download from HuggingFace
-pip install huggingface_hub
-huggingface-cli download Qwen/Qwen2.5-3B-Instruct --local-dir ../Qwen2.5-3B
-
-# 3. Convert to F16 GGUF (keep this — re-quantize to other formats without re-downloading)
-python3 convert_hf_to_gguf.py ../Qwen2.5-3B   --outfile ../Qwen2.5-3B-f16.gguf --outtype f16
-
-# 4. Quantize to Q4_K_M
-./build/bin/llama-quantize   ../Qwen2.5-3B-f16.gguf   ../Qwen2.5-3B-Q4_K_M.gguf Q4_K_M
-
-# 5a. Run directly
-./build/bin/llama-cli -m ../Qwen2.5-3B-Q4_K_M.gguf -p "Hello" -n 128
-
-# 5b. Register with Ollama and run via its API
-printf 'FROM ../Qwen2.5-3B-Q4_K_M.gguf
-' > Modelfile
-ollama create qwen2.5-3b-q4 -f Modelfile && ollama run qwen2.5-3b-q4
-```
-
-**The limit that matters:** `convert_hf_to_gguf.py` handles most transformer architectures, but Mixture-of-Experts models (Mixtral, DeepSeek-MoE) need `--split-max-tensors` and convert more slowly. Check the [llama.cpp issues](https://github.com/ggml-org/llama.cpp/issues) for your architecture before starting a large download. If conversion errors with "type not supported", try `--outtype bf16` first. Quantization degrades reasoning tasks more than factual recall — test on your actual workload before switching a production pipeline.
-
-**Sources:** [llama.cpp quantize README](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md) · [llama.cpp imatrix README](https://github.com/ggml-org/llama.cpp/blob/master/tools/imatrix/README.md) · [Quantizing LLMs with llama.cpp — practitioner walk-through](https://medium.com/@dogucuburak/quantizing-llms-with-llama-cpp-6eb9f48d1819)]]></content:encoded>
-  </item>
-
-
-  <item>
-    <title><![CDATA[Claude Code Works Through Long Tasks Without Volunteering What It Noticed Along the Way — `cc-plugin-you-should-know@builtin` Adds a Side Agent That Flags Those Observations]]></title>
-    <link>https://code.claude.com/docs/en/plugins/mods/overview</link>
-    <guid isPermaLink="false">2026-10-30-02-cc-plugin-you-should-know-builtin-mod-side-agent-proactive-flag</guid>
-    <pubDate>Fri, 30 Oct 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[A built-in, off-by-default Claude Code mod adds a background side agent that surfaces missed observations above your prompt during long sessions — one command to enable, no configuration needed.]]></description>
-    <content:encoded><![CDATA[**A built-in Claude Code mod adds a background side agent that flags observations you might have missed — things it noticed but wasn't asked about. One command to enable, no configuration.**
-
-Claude Code doesn't interrupt a running task to surface a concern it noticed while doing something else. If it spots a constraint conflict or a pattern that may cause trouble later, it typically finishes what it was asked and moves on — you get the result but not the flag.
-
-`cc-plugin-you-should-know` is a built-in mod that adds a background side agent to every session. While Claude works on a long task, the side agent rereads the conversation and posts a note above your prompt when it finds something worth flagging — an instruction from earlier that the current approach may violate, an assumption that no longer holds, a pattern it noticed that wasn't the subject of any specific ask.
-
-Enable it:
-
-```
-/plugin enable cc-plugin-you-should-know@builtin
-```
-
-Disable it:
-
-```
-/plugin disable cc-plugin-you-should-know@builtin
-```
-
-Or manage from the Installed tab of `/plugin`.
-
-**What it sees — and doesn't.** The side agent has no tools. No file reads, no shell access, no ability to affect what Claude does next. Its only input is the conversation thread. It catches things visible in that thread: a constraint you set at the start that a later step quietly ignored, an instruction your latest request contradicts, something you said you wanted that the current approach abandoned. For anything that requires reading the filesystem or running a command, it won't catch what hasn't been told to it.
-
-**Real limits to know before you enable it.** On a long, dense session it runs a separate model request each turn — added latency and token cost proportional to your context length. The mod is off by default precisely for this reason. It's designed for interactive long sessions, not headless or CI runs where you want minimal overhead. Requires Claude Code v2.1.287+. Built-in mods are not blocked by `--safe-mode` or `disableAllHooks` — worth noting if you restrict third-party plugins for security, since this one cannot be turned off at the org level.
-
-**Sources:** [Mods overview — code.claude.com](https://code.claude.com/docs/en/plugins/mods/overview) · [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog)
-]]></content:encoded>
-  </item>
-
+  
   
   
   
