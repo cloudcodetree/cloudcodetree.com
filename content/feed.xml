@@ -10,7 +10,144 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 16 Nov 2026 20:02:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 17 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+  <item>
+    <title><![CDATA[Your Claude Code Session Has Already Rewritten Four Files by the Time You Notice the Approach Is Wrong — Run /plan to Lock In the Strategy Before Any Edits Start]]></title>
+    <link>https://code.claude.com/docs/en/best-practices.md</link>
+    <guid isPermaLink="false">2026-11-17-02-claude-code-plan-mode-review-approach-before-edits</guid>
+    <pubDate>Tue, 17 Nov 2026 04:04:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Workflow</category>
+    <category>Claude Code</category>
+    <category>Best Practices</category>
+    <description><![CDATA[Claude Code's /plan command is a read-only phase where Claude proposes the full approach before touching any file — redirect it once instead of reverting after.]]></description>
+    <content:encoded><![CDATA[**Claude Code's `/plan` command opens a read-only phase: Claude proposes the approach as a text artifact before it has write access to anything. Redirect once here instead of reverting after.**
+
+The default Claude Code flow is effective for small changes, but for a multi-file refactor, a schema migration, or anything where the right sequence matters, the first edits often reveal a misunderstanding about the architecture — after several files have already been touched. Plan mode puts that discovery earlier.
+
+### How it works
+
+Type your task description, then type `/plan` before submitting (or press `Shift+Tab` from the input field — this cycles through available modes, one of which is plan mode). Claude reads your files, proposes a step-by-step approach, and stops. It has not written anything.
+
+You can:
+- Ask questions about the plan in the same session
+- Tell it the approach is wrong ("Don't modify the base class — extend it instead")
+- Ask it to consider a constraint it missed ("The API version must stay at v2")
+- Request an alternative ("What if we used a migration script instead of modifying the model?")
+
+Once you're satisfied, reply "looks good" or "proceed" and Claude executes from that plan.
+
+### When to use it
+
+Plan mode earns its time on:
+- **Multi-file refactors** where edit order matters (renaming an interface used in 12 places, restructuring a service layer)
+- **Schema changes** that require a migration + model update + test update in a specific sequence
+- **Integrations** where the wrong approach will require substantial cleanup (adding a third-party SDK, switching authentication strategy)
+
+For a single-file fix or a one-line change, it adds friction with no benefit.
+
+### What a plan review looks like
+
+```
+> Refactor the auth service to use JWTs instead of sessions. All existing tests must pass.
+
+/plan
+```
+
+Claude produces something like:
+1. Read `src/auth/service.ts`, `src/middleware/session.ts`, and all files importing them
+2. Identify all session-dependent paths
+3. Add a JWT sign/verify utility in `src/auth/jwt.ts`
+4. Replace session creation in `service.ts` with JWT issuance
+5. Update `session.ts` middleware to validate JWTs
+6. Update affected tests
+
+You review step 2 and notice it missed `src/websocket/handlers.ts`, which also uses sessions. You say so. Claude revises the plan to include it. Then you let it execute.
+
+That revision costs 10 seconds. Catching it after execution would cost a failed test run, a revert, and a second run.
+
+**Limits:** A plan can still be wrong or overconfident about what a file contains — it is a proposal based on what Claude can read, not a guarantee. Unusual project structures or implicit dependencies (env-var–driven behavior, runtime configuration) can fool it. Plan mode is a Claude Code CLI feature; it is not available in the web interface or Workbench. If you are using Claude Code as an SDK-driven headless agent, the equivalent is a plan-turn → approve-turn → execute-turn structure in your loop, not this slash command. A very long plan across many files can fill the context window before execution begins, leaving less room for the actual edits; for very large scopes, break the plan into phases.
+
+**Sources:** [Claude Code plan mode — DataCamp](https://www.datacamp.com/tutorial/claude-code-plan-mode) · [Plan Mode task delegation — CodeSignal](https://codesignal.com/learn/courses/advanced-claude-code-features/lessons/plan-mode-task-delegation) · [Claude Code best practices — code.claude.com](https://code.claude.com/docs/en/best-practices.md)]]></content:encoded>
+  </item>
+
+  <item>
+    <title><![CDATA[Your 7B Model Weighs 14 GB in Float16 and Requires a Cloud GPU — llama.cpp Quantizes It to Q4_K_M at 4 GB and Runs at Full Token Rate on a Laptop CPU]]></title>
+    <link>https://mintlify.com/ggml-org/llama.cpp/models/quantizing-models</link>
+    <guid isPermaLink="false">2026-11-17-01-gguf-quantize-llama-cpp-q4-k-m-imatrix-local-inference</guid>
+    <pubDate>Tue, 17 Nov 2026 04:03:00 +0000</pubDate>
+    <dc:creator>Chris Harper</dc:creator>
+    <category>AI</category>
+    <category>Tutorial</category>
+    <category>Self-Hosting</category>
+    <category>Local AI</category>
+    <category>Building AI Products</category>
+    <description><![CDATA[llama.cpp's two-step workflow converts any HuggingFace checkpoint to FP16 GGUF then quantizes it; Q4_K_M shrinks a 7B to ~4 GB and runs on a laptop CPU with no cloud GPU required.]]></description>
+    <content:encoded><![CDATA[**llama.cpp converts any HuggingFace checkpoint to GGUF, then a one-line `llama-quantize` call shrinks it to Q4_K_M — roughly 4 GB for a 7B model — and runs on a laptop CPU with no cloud GPU required.**
+
+**What you'll be able to do after this:**
+Run any publicly available model locally without cloud costs, quantize a fine-tuned checkpoint for edge or offline deployment, and choose between quant levels based on your actual accuracy vs. RAM tradeoff rather than a tutorial's default.
+
+- Float16 GGUF is the intermediate format, not the final one — always convert from the original weights first, then quantize; re-quantizing an already-quantized file compounds error across two lossy passes
+- An importance matrix (`imatrix`) reduces the perplexity hit at Q4 and below by calibrating per-layer quantization against representative text from your domain; skip it at Q8_0 where the gap is small
+- Q4_K_M is the practical default: ~4 GB for a 7B model, well-preserved reasoning ability, and runs on most consumer hardware; Q8_0 is near-lossless at ~7.6 GB when you need higher fidelity
+
+---
+
+### Walk-through: Llama 3.2 3B to Q4_K_M
+
+```bash
+# 1. Build llama.cpp (macOS/Linux; for Windows use CMakePresets or WSL)
+git clone https://github.com/ggerganov/llama.cpp && cd llama.cpp
+cmake -B build && cmake --build build --config Release -j$(nproc)
+pip install -r requirements/requirements-convert-hf-to-gguf.txt
+
+# 2. Download a model (Llama 3.2 is gated — accept Meta's license on HF first)
+huggingface-cli login
+huggingface-cli download meta-llama/Llama-3.2-3B-Instruct --local-dir ./models/llama3-3b
+
+# 3. Convert to FP16 GGUF (always from original weights, never from a prior quant)
+python convert_hf_to_gguf.py ./models/llama3-3b \
+  --outfile ./models/llama3-3b-f16.gguf \
+  --outtype f16
+
+# 4. Build an importance matrix using calibration text
+#    Use domain-specific text for a domain-specific model (code, legal, medical, etc.)
+curl -sL https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt \
+  > calib.txt
+./build/bin/llama-imatrix \
+  -m ./models/llama3-3b-f16.gguf \
+  -f calib.txt \
+  -o ./models/llama3-3b.imatrix
+
+# 5. Quantize to Q4_K_M using the imatrix
+./build/bin/llama-quantize \
+  --imatrix ./models/llama3-3b.imatrix \
+  ./models/llama3-3b-f16.gguf \
+  ./models/llama3-3b-q4_k_m.gguf \
+  Q4_K_M
+
+# 6. Test
+./build/bin/llama-cli \
+  -m ./models/llama3-3b-q4_k_m.gguf \
+  -p "What is GGUF quantization in one sentence?" \
+  -n 60
+```
+
+| Quant type | 7B size | 3B size | When to use |
+|---|---|---|---|
+| Q8_0 | ~7.6 GB | ~3.3 GB | Near-lossless; worth it if RAM allows |
+| Q4_K_M | ~4.1 GB | ~2.0 GB | Daily driver; best accuracy/size tradeoff |
+| Q3_K_M | ~3.3 GB | ~1.6 GB | Very tight RAM; noticeable quality drop |
+
+**Once you have the GGUF, Ollama can run it directly** — `ollama run --path ./models/llama3-3b-q4_k_m.gguf` skips the CLI and gives you a chat interface and an OpenAI-compatible local API at `localhost:11434/v1`.
+
+**Limits:** Q4 quantization introduces a real perplexity increase — independent benchmarks show roughly 5–8% on standard evals vs. float16; Q3 and below compound this meaningfully. The imatrix helps but does not eliminate the gap. Calibration text matters: a code model calibrated on Shakespeare prose will produce a worse imatrix than one calibrated on actual code. GGUF format and `convert_hf_to_gguf.py` are updated frequently — script names and quant type names have changed between releases; always use the script from the same commit as the binary you built. llama.cpp's default build targets CPU; for Metal (macOS GPU) or CUDA, pass `-DGGML_METAL=ON` or `-DGGML_CUDA=ON` to CMake.
+
+**Sources:** [llama.cpp quantization guide — ggml-org docs](https://mintlify.com/ggml-org/llama.cpp/models/quantizing-models) · [GGUF quantization for fast and memory-efficient inference — The Kaitchup](https://kaitchup.substack.com/p/gguf-quantization-for-fast-and-memory) · [How to Convert Models to GGUF Format — Analytics Vidhya](https://www.analyticsvidhya.com/blog/2024/10/convert-models-to-gguf-format/) · [GGUF quantization concept deep-dive — Mistral AI](https://docs.mistral.ai/resources/cookbooks/concept-deep-dive-quantization-methods-gguf)]]></content:encoded>
+  </item>
 
   <item>
     <title><![CDATA[Your Subagents All Inherit the Default Tools and Scope — A .claude/agents/*.md File With YAML Frontmatter Gives Each One Its Own System Prompt, Toolset, and Model]]></title>
@@ -6264,124 +6401,8 @@ final = graph.invoke(Command(resume="approve"), config=config)
 **Sources:** [Interrupts and Commands in LangGraph — DEV Community](https://dev.to/jamesbmour/interrupts-and-commands-in-langgraph-building-human-in-the-loop-workflows-4ngl) · [Building a human-in-the-loop approval gate — Machine Learning Mastery](https://machinelearningmastery.com/building-a-human-in-the-loop-approval-gate-for-autonomous-agents/) · [Human-in-the-Loop Patterns — LangGraph docs](https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your RAG Pipeline Has No Objective Quality Signal — RAGAS Scores Context Recall, Faithfulness, and Precision in One Call and Points to Whether Your Retriever or Generator Is the Problem]]></title>
-    <link>https://docs.ragas.io/en/stable/getstarted/rag_eval/</link>
-    <guid isPermaLink="false">2026-10-30-05-ragas-evaluate-rag-context-recall-faithfulness-pipeline</guid>
-    <pubDate>Fri, 30 Oct 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[RAGAS scores your RAG pipeline on four metrics using an LLM judge — and the combination of scores points directly to whether your retriever or generator is the problem.]]></description>
-    <content:encoded><![CDATA[**RAGAS scores your RAG pipeline on four metrics in one call — and the combination tells you whether a low score is your retriever's problem or your generator's.**
-
-After building a RAG pipeline, "it seems to work" is the only quality signal you have until users complain. RAGAS fixes that with four metrics, each measured by an LLM judge against your retrieved context and final answer:
-
-| Metric | What it measures | Ground truth needed? |
-|---|---|---|
-| **Context recall** | Did the retriever return enough of what the question needed? | Yes |
-| **Context precision** | Did the retrieved chunks stay on-topic, or did noise get through? | No |
-| **Faithfulness** | Does the answer stick to the retrieved context, or is the model adding unsupported claims? | No |
-| **Answer relevancy** | Does the answer actually address the question? | No |
-
-**Why all four matter together.** High precision + low faithfulness → your retriever is fine, your generator is hallucinating. Low context recall → the evidence never arrived, so the answer can't be correct regardless of the generator. The combination directs the fix.
-
-**Install and run:**
-```bash
-pip install ragas langchain-anthropic
-```
-
-```python
-from ragas import evaluate, EvaluationDataset, SingleTurnSample
-from ragas.metrics import LLMContextRecall, Faithfulness, LLMContextPrecisionWithoutReference
-from langchain_anthropic import ChatAnthropic
-from ragas.llms import LangchainLLMWrapper
-
-judge = LangchainLLMWrapper(ChatAnthropic(model="claude-sonnet-4-5"))
-
-samples = [
-    SingleTurnSample(
-        user_input="What storage does Chroma use by default?",
-        retrieved_contexts=[
-            "Chroma uses in-memory storage by default. "
-            "Pass a path to PersistentClient to keep data on disk."
-        ],
-        response="Chroma stores data in memory by default.",
-        reference="Chroma uses in-memory storage by default.",  # needed for LLMContextRecall
-    ),
-]
-dataset = EvaluationDataset(samples=samples)
-result = evaluate(
-    dataset,
-    metrics=[LLMContextRecall(), Faithfulness(), LLMContextPrecisionWithoutReference()],
-    llm=judge,
-)
-print(result)  # {'context_recall': 1.0, 'faithfulness': 1.0, 'context_precision': 1.0}
-```
-
-Build your eval set from real user queries where you know the correct answer. Run it after every retrieval change — chunk size, embedding model, reranker threshold — to catch regressions before users do.
-
-**The costs.** Context recall makes one judge call per sample; faithfulness makes two. A 100-sample eval set costs 300 LLM API calls. Price the eval set before committing to a judge model choice. The more critical limit: **hold the judge model and version fixed across every run you compare.** Swapping the judge changes the scores — not the pipeline — and the numbers become meaningless across runs.
-
-**What RAGAS can't catch:** whether your chunking strategy preserves enough context (that's a pre-retrieval problem), and whether the ground-truth references you wrote are actually correct (garbage in, garbage out).
-
-**Sources:** [Evaluate a simple RAG system — docs.ragas.io](https://docs.ragas.io/en/stable/getstarted/rag_eval/) · [RAG Evaluation with RAGAS — DataCamp](https://www.datacamp.com/tutorial/rag-evaluation-with-ragas) · [Ragas: how to measure your RAG pipeline — DEV Community](https://dev.to/m_t_ramkrushna/ragas-how-to-actually-measure-your-rag-pipeline-faithfulness-context-precisionrecall-relevancy-26)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Every Subagent in Your Workflow Runs at the Same Effort Level Whether It's Doing a Simple Lookup or a Complex Synthesis — The `effort:` Parameter Matches Cost to Task]]></title>
-    <link>https://code.claude.com/docs/en/agent-sdk/agents</link>
-    <guid isPermaLink="false">2026-10-30-04-subagent-effort-param-agent-tool-cost-complexity</guid>
-    <pubDate>Fri, 30 Oct 2026 12:20:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Claude Code v2.1.292 adds per-call effort control for subagents — set effort: 'low' on routine lookups and save the full reasoning budget for synthesis steps that actually need it.]]></description>
-    <content:encoded><![CDATA[**Every subagent in a workflow inherits the session's effort level by default — set `effort:` per-call to run lookups cheap and reserve the reasoning budget for synthesis steps.**
-
-When you fan out subagents in a Claude Code workflow, they all inherit the session's effort level. If your session runs at `high`, the agent doing a simple schema check burns the same compute budget as the one writing an architectural analysis. Claude Code v2.1.292 added per-call control.
-
-**The resolution order** (highest precedence wins):
-1. `CLAUDE_CODE_EFFORT_LEVEL` env var — session-wide override
-2. `effort:` on the `Agent` tool call — per-call override
-3. Agent definition's `effort:` field in `.claude/agents/<name>.md` frontmatter — per-type default
-4. Session effort level — the fallback
-
-**In practice** — a two-phase pipeline with differentiated effort:
-
-```javascript
-// Phase 1: cheap parallel checks
-const verdicts = await parallel(
-  candidates.map(c => () =>
-    agent(`Does ${c.name} match the schema? Return {match: bool}`, {
-      effort: "low",   // boolean check — no nuanced reasoning needed
-      schema: VERDICT_SCHEMA,
-    })
-  )
-)
-
-const matches = candidates.filter((_, i) => verdicts[i].match)
-
-// Phase 2: expensive synthesis only on what passed
-const report = await agent(
-  `Summarise the ${matches.length} matching candidates and recommend next steps`,
-  { effort: "high" }   // full reasoning budget for the decision output
-)
-```
-
-**For CI pipelines**, set `CLAUDE_CODE_EFFORT_LEVEL=medium` in the environment to cap costs across the whole run. Accept that very complex tasks may occasionally need a manual rerun at higher effort.
-
-**The limit:** `effort: "low"` cuts the reasoning budget and can miss edge cases or subtleties a `medium` or `high` run would catch. Use it only for tasks with a clear correct/incorrect output — format validation, schema checks, simple lookups. Tasks requiring judgment about ambiguous inputs should stay at `medium` or higher.
-
-**Sources:** [Claude Code Agent tool reference](https://code.claude.com/docs/en/agent-sdk/agents) · [Subagent effort control — community guide](https://wmedia.es/es/tips/claude-code-subagentes-effort-bajo) · [Claude Code v2.1.292 release notes](https://aiweekly.co/alerts/claude-code-21302-turns-on-fork-subagents-in-sdk-and-apps)]]></content:encoded>
-  </item>
-
+  
+  
   
 
   
