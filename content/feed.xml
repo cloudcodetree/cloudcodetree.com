@@ -10,7 +10,112 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 17 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 17 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Changes Files While You Watch It Do Something Else — AgentMon Live Puts Every Tool Call on a Live Dashboard]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-17-05-agentmon-live-claude-code-realtime-dashboard-tool-calls</link>
+      <guid isPermaLink="false">2026-11-17-05-agentmon-live-claude-code-realtime-dashboard-tool-calls</guid>
+      <pubDate>Tue, 17 Nov 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[AgentMon Live is a free, open-source Claude Code plugin that streams every tool call, file write, and bash command to a live dashboard — one install command, no configuration, requires 2.1.308+.]]></description>
+      <content:encoded><![CDATA[**AgentMon Live is an open-source Claude Code plugin that streams every tool call, bash command, and file write to a live dashboard — one install command and zero configuration.**
+
+Claude Code sessions are powerful but hard to watch. The session reports what it did after the turn ends, not while it's running. If a session touches the wrong file, skips a test run, or quietly fails mid-task, the first sign is usually the broken state it left behind.
+
+AgentMon Live is an open-source plugin (Apache 2.0) that surfaces this in real time. It requires Claude Code 2.1.308 or later and installs with one command:
+
+```bash
+/plugin install agentmon-live --marketplace codenotary/agentmon-live
+```
+
+Once active, it opens a dashboard panel showing:
+- Every tool call as it fires (read, write, bash, MCP)
+- Files touched in the current session
+- A "Done Gate" that runs at session end — if a file was changed but its tests have not re-run since, Claude Code is prompted to finish the work or explain what remains
+
+This matters most on long-running sessions with broad file scope, agentic workflows that run unattended, or any codebase where unexpected changes are hard to spot quickly.
+
+**Limits:** The dashboard only captures what appears in the tool log — a logic error that never triggers a tool call is invisible here. The project is recent and the interface will evolve. Codenotary also sells a separate enterprise monitoring product at a separate price; this open-source plugin is not that tier.
+
+**Sources:** [AgentMon Live — codenotary.com](https://codenotary.com/agentmon) · [SD Times: Codenotary Releases Open-Source AgentMon Live](https://sdtimes.com/open-source-ai/codenotary-releases-open-source-agentmon-live-to-improve-ai-coding-productivity/) · [DevOps Digest](https://devopsdigest.com/codenotary-releases-agentmon-live)
+]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+    </item>
+    <item>
+      <title><![CDATA[Every RAG Tutorial Assumes You Already Know What a Vector Store Retrieves — Here's the Minimal Working Pipeline That Makes Each Step Visible]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-17-06-rag-pipeline-minimal-end-to-end-langchain-sentence-transformers</link>
+      <guid isPermaLink="false">2026-11-17-06-rag-pipeline-minimal-end-to-end-langchain-sentence-transformers</guid>
+      <pubDate>Tue, 17 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[A minimal RAG pipeline — chunk documents, embed with sentence-transformers, store in FAISS, retrieve top chunks, pass to an LLM — fits in 50 lines of Python. Here's the full walkthrough.]]></description>
+      <content:encoded><![CDATA[**A minimal RAG pipeline — chunk documents, embed with sentence-transformers, store in FAISS, retrieve top chunks, pass to an LLM — fits in 50 lines of Python.**
+
+**What you'll be able to do after this:** Build and run a working RAG pipeline from documents to answered questions, with every step (chunk → embed → store → retrieve → prompt) explicit in your code.
+
+Three takeaways:
+- The mental model of RAG's data flow and what each stage contributes
+- A reference implementation you can run and modify
+- The two specific failure modes that trip up first builds
+
+**Walk-through**
+
+LangChain engineer Lance Martin's freeCodeCamp tutorial covers the full pipeline from indexing through query translation. The companion Jupyter notebooks (github.com/langchain-ai/rag-from-scratch) are the working code, with each notebook isolating one stage.
+
+```python
+from langchain_community.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# 1. Load and chunk your documents
+loader = TextLoader("./docs.txt")
+docs = loader.load()
+splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+chunks = splitter.split_documents(docs)
+
+# 2. Embed into FAISS
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+vectorstore = FAISS.from_documents(chunks, embeddings)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 4})
+
+# 3. Retrieve + prompt chain
+prompt = ChatPromptTemplate.from_template(
+    "Answer based only on this context:\n{context}\n\nQuestion: {question}"
+)
+chain = (
+    {"context": retriever, "question": lambda x: x}
+    | prompt
+    | llm
+    | StrOutputParser()
+)
+result = chain.invoke("What is covered in the docs?")
+```
+
+**Two failure modes for first builds:**
+
+1. **chunk_overlap too small.** Overlap is what prevents an answer from splitting across two adjacent chunks and being missed by both. Start at 10–15% of chunk_size — `chunk_overlap=50` on a `chunk_size=500` is the floor, not the default.
+
+2. **k too low.** Retrieving 4 chunks works for single-topic questions; a broader question needs 6–10. Set k too low and your answer exists in the index but never reaches the prompt.
+
+The freeCodeCamp video spends its first 25 minutes on exactly these two steps — indexing and retrieval — before touching generation.
+
+**Sources:** [Learn RAG From Scratch — freeCodeCamp / Lance Martin (YouTube)](https://www.youtube.com/watch?v=sVcwVQRHIc8) · [rag-from-scratch Jupyter notebooks — langchain-ai/rag-from-scratch](https://github.com/langchain-ai/rag-from-scratch)
+]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <media:content url="https://i.ytimg.com/vi/sVcwVQRHIc8/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://i.ytimg.com/vi/sVcwVQRHIc8/maxresdefault.jpg" />
+    </item>
 
       <item>
       <title><![CDATA[Your CLAUDE.md Has 200 Lines but Claude Code Still Gets the ORM Wrong — Put the Constraints Your Linter Can't See, Leave Out the Rules It Already Enforces]]></title>
@@ -6323,81 +6428,8 @@ SFTTrainer accepts Alpaca records via a `formatting_func`; the Hub auto-renders 
     <media:thumbnail url="https://huggingface.co/front/thumbnails/v2-2.png"/>
   </item>
 
-  <item>
-    <title><![CDATA[Your CLAUDE.md Loads the Same 800 Lines Into Every Turn — The @import Syntax Splits It Into Subdirectory Files That Only Load When Claude Enters That Path]]></title>
-    <link>https://code.claude.com/docs/en/memory</link>
-    <guid isPermaLink="false">2026-10-31-03-claudemd-import-modular-subdirectory-context-scope</guid>
-    <pubDate>Sat, 31 Oct 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[A monolithic CLAUDE.md loads every line into every turn — the @import syntax splits it into subdirectory files that load only when Claude enters that path.]]></description>
-    <content:encoded><![CDATA[**A monolithic CLAUDE.md loads every line into every turn — the `@path/to/file` import syntax splits it into subdirectory files that load only when Claude enters that path.**
-
-Claude Code reads every loaded CLAUDE.md at the start of every session. A 600-line file that mixes your testing conventions, API patterns, and front-end component rules loads even when you are working on the database layer. The `@import` syntax lets you break that apart.
-
-**How it works:**
-
-In any CLAUDE.md, `@relative/path/to/file.md` expands that file inline at load time. Subdirectory CLAUDE.md files load automatically when Claude is working in that subtree — and nowhere else.
-
-```
-# CLAUDE.md (root — keep under ~80 lines)
-See architecture overview: @docs/claude/architecture.md
-Testing conventions: @docs/claude/testing.md
-```
-
-```
-# app/CLAUDE.md (loads only when Claude is in app/)
-@app/docs/component-conventions.md
-Use RTL for component tests, not Playwright.
-```
-
-```
-# worker/CLAUDE.md (loads only when Claude is in worker/)
-@worker/docs/edge-runtime-constraints.md
-No Node.js-only APIs in this directory.
-```
-
-When Claude is in `app/`, it reads the root CLAUDE.md plus `app/CLAUDE.md`. When it is in `worker/`, it reads the root plus `worker/CLAUDE.md`. Rules for a subsystem never pollute another subsystem's session.
-
-**Setup steps:**
-1. Run `/init` to generate a starting root CLAUDE.md from your codebase.
-2. Identify your largest sections (architecture, testing, API patterns) and move each into a dedicated file under `docs/claude/`.
-3. Replace those sections in the root with `@docs/claude/section.md` references.
-4. Add per-subdirectory CLAUDE.md files for context that only applies in that tree.
-5. Run `/context` to verify which files actually loaded in the current session.
-
-**Limits:** `@import` is an inline expansion at load time, not lazy loading — imported content still counts toward your context window. The benefit is *scoping* (directory-specific rules stay out of unrelated sessions), not compression. Recursion depth is capped at five hops; a circular import fails silently without an error message.
-
-**Sources:** [Claude Code memory docs — code.claude.com](https://code.claude.com/docs/en/memory) · [CLAUDE.md import patterns — morphllm.com](https://morphllm.com/claude-md-examples) · [Modular CLAUDE.md hierarchy guide — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-claude-md-too-long-hierarchy-guide-2026)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Apple Adds MCP Support to Keynote, Pages, and Numbers — External Agents Can Read and Edit Documents Starting November]]></title>
-    <link>https://www.ithinkdiff.com/keynote-pages-numbers-mcp-support-keyx/</link>
-    <guid isPermaLink="false">2026-10-31-02-apple-iwork-mcp-keynote-pages-numbers-agent-automation</guid>
-    <pubDate>Sat, 31 Oct 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Claude Code Tree</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>MCP</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Starting November, MCP-compliant servers can read and edit Keynote, Pages, and Numbers documents on macOS 27 — Apple's first-party productivity suite adopts the protocol.]]></description>
-    <content:encoded><![CDATA[**Starting November, any MCP-compliant server can read document content, trigger edits, and run automated actions inside Keynote, Pages, and Numbers on macOS 27.**
-
-Apple announced October 27 that iWork will ship MCP support as part of Creator Studio. A document-summarizer or slide-generator you expose as an MCP server will be able to read and write `.key`, `.pages`, and `.numbers` files directly — no intermediate export to PDF or HTML needed.
-
-**Limits:** Requires macOS 27; U.S. English only at launch; ships in November. The embedded AI assistants run on Apple's and OpenAI's models, not Claude. Only Keynote gets a new open file format (`.keyx`); Pages and Numbers don't receive a matching interchange format in this release. Creator Studio requires a paid subscription.
-
-**Why it matters:** MCP is now the integration protocol for Apple's first-party document suite — if you build document-automation agents, iWork is part of your target surface in November.
-
-**Sources:** [Apple ships MCP support in Keynote, Pages, Numbers — aiweekly.co](https://aiweekly.co/alerts/apple-ships-beta-keynote-pages-numbers-ai-assistant-on-apple-openai-models-with) · [Keynote, Pages, and Numbers Add MCP Support and an Open File Format — ithinkdiff.com](https://www.ithinkdiff.com/keynote-pages-numbers-mcp-support-keyx/)]]></content:encoded>
-  </item>
-
+  
+  
   
 
   
