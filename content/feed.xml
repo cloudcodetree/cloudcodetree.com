@@ -10,7 +10,72 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 18 Nov 2026 12:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 18 Nov 2026 20:08:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Hand-Written Prompts Don't Get Better When Your Task Changes — DSPy Compiles LLM Pipelines Into Optimized Instructions Automatically]]></title>
+      <link>https://dspy.ai/tutorials/</link>
+      <guid isPermaLink="false">2026-11-18-06-dspy-signature-optimizer-auto-prompt-compilation</guid>
+      <pubDate>Wed, 18 Nov 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[DSPy replaces hand-tuned prompts with typed Signatures; a Bayesian optimizer finds better instructions and few-shot examples from 20–50 labeled examples — no prompt engineering required.]]></description>
+      <content:encoded><![CDATA[**DSPy replaces hand-tuned prompt strings with typed Signatures; run BootstrapFewShot or MIPROv2 against 20–50 labeled examples and the optimizer finds better instructions automatically — no prompt engineering session required.**
+
+**What you'll be able to do after this:**
+Write LLM pipelines where the instructions are discovered from your data rather than written by hand, so when your task distribution shifts you re-optimize rather than re-word.
+
+- **Signatures are typed I/O contracts.** `dspy.Signature("ticket -> severity")` declares what flows in and out; the actual instructions are found by the Optimizer, not written by you.
+- **BootstrapFewShot works from 10–20 examples.** It samples the highest-scoring few-shot demos from your training set and injects them automatically. MIPROv2 also tunes the instruction text and benefits from 50+ examples.
+- **Compile once, save to JSON, load on deployment.** `program.save("optimized.json")` captures the found prompt so you skip optimization costs in production.
+
+**Walk-through — optimize a ticket-severity classifier:**
+
+```bash
+pip install dspy
+```
+
+```python
+import dspy
+
+# 1. Set the language model
+dspy.configure(lm=dspy.LM("anthropic/claude-sonnet-4-6"))
+
+# 2. Declare what your module does — no prompt text, just types
+class Classify(dspy.Signature):
+    """Classify customer-support ticket severity."""
+    ticket: str = dspy.InputField()
+    severity: str = dspy.OutputField(desc="low, medium, or high")
+
+# 3. Wrap it in a module (ChainOfThought adds step-by-step reasoning)
+classifier = dspy.Predict(Classify)
+
+# 4. Write a metric function
+def accuracy(example, pred, trace=None):
+    return example.severity == pred.severity
+
+# 5. Optimize against ~50 labeled examples
+trainset = [
+    dspy.Example(ticket="Can't log in", severity="high").with_inputs("ticket"),
+    # ... more examples ...
+]
+optimizer = dspy.BootstrapFewShot(metric=accuracy, max_bootstrapped_demos=4)
+compiled = optimizer.compile(classifier, trainset=trainset)
+
+# 6. Save compiled program; load later without re-optimizing
+compiled.save("severity_classifier.json")
+```
+
+For 50+ examples, swap in `dspy.MIPROv2(metric=accuracy, auto="light")` — it uses Bayesian optimization to tune both the instruction text and the few-shot demos.
+
+**Limits:** Every optimization run makes tens to hundreds of LLM calls — plan for $1–$10 for a light run, more for `auto="heavy"`. Compiled prompts can overfit: if your training examples aren't representative of production input, accuracy will drop on out-of-distribution cases. Version your training sets the same way you version code.
+
+**Sources:** [DSPy official tutorials](https://dspy.ai/tutorials/) · [DSPy optimizer guide](https://dspy.ai/learn/optimization/optimizers) · [Stop hand-tuning prompts: auto-optimize an LLM classifier with DSPy — Codecut newsletter](https://newsletter.codecut.ai/p/stop-hand-tuning-prompts-auto-optimize) · [DEV Community: DSPy 3.x compile and optimize LLM pipelines](https://dev.to/jangwook_kim_e31e7291ad98/dspy-3x-compile-and-optimize-llm-pipelines-automatically-1n5h)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Claude Code Session Ends When Claude Runs Out of Steps, Not When Work Is Done — Exit Code 2 From a Stop Hook Blocks Completion Until Your Tests Pass]]></title>
@@ -6359,46 +6424,7 @@ The exploration took 15 minutes; the brief took five; Claude Code works from a c
 **Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [CLAUDE.md context file — code.claude.com](https://code.claude.com/docs/en/claude-md) · [Design Sprint methodology — designsprintkit.withgoogle.com](https://designsprintkit.withgoogle.com/methodology/overview)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Whole Workflow Runs at Session Effort Because There's No Per-Process Override — CLAUDE_CODE_SUBAGENT_EFFORT and CLAUDE_CODE_DISABLE_ULTRATHINK Ship in v2.1.316]]></title>
-    <link>https://code.claude.com/docs/en/model-config</link>
-    <guid isPermaLink="false">2026-11-01-03-cc-subagent-effort-ultrathink-disable-v2-1-316</guid>
-    <pubDate>Sun, 01 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[v2.1.316 ships two cost controls: CLAUDE_CODE_SUBAGENT_EFFORT sets a process-level default effort for all subagents; CLAUDE_CODE_DISABLE_ULTRATHINK removes the keyword-triggered extended thinking for managed installs.]]></description>
-    <content:encoded><![CDATA[**TL;DR: Claude Code v2.1.316 (Oct 31) ships two cost-control env vars — `CLAUDE_CODE_SUBAGENT_EFFORT` caps subagent effort at the process level, and `CLAUDE_CODE_DISABLE_ULTRATHINK` removes the keyword shortcut for managed or unattended installs.**
-
-**CLAUDE_CODE_SUBAGENT_EFFORT**
-
-Before v2.1.316, every subagent inherited the parent session's effort level. A session running at `xhigh` for complex reasoning also spawned file-read subagents at `xhigh` — paying full-effort inference for tasks that don't need it. Setting `CLAUDE_CODE_SUBAGENT_EFFORT` in the environment overrides that default for all subagents in the process:
-
-```bash
-# In your CI environment or .env:
-CLAUDE_CODE_SUBAGENT_EFFORT=medium   # low | medium | high | xhigh | max
-```
-
-The parent session still runs at whatever effort you specified there. Only subagents change. Useful for: unattended CI runs where the orchestrator needs max context but workers do scoped, well-defined tasks; shared team installations where you want a cost ceiling by default.
-
-**CLAUDE_CODE_DISABLE_ULTRATHINK**
-
-`ultrathink` typed in a prompt triggers extended thinking at xhigh effort for that turn. It's a useful interactive shortcut but can fire accidentally in managed installs when a user pastes a log, a commit message, or a doc that happens to contain the word. Setting `CLAUDE_CODE_DISABLE_ULTRATHINK=1` disables the keyword trigger entirely — extended thinking is still available via the session `effort` setting, just not via this shortcut.
-
-```bash
-CLAUDE_CODE_DISABLE_ULTRATHINK=1
-```
-
-**Limit:** `CLAUDE_CODE_SUBAGENT_EFFORT` is a default, not a ceiling — a subagent's own `effort:` frontmatter or an explicit `effort` parameter in an Agent tool call still takes precedence. Use it to lower the floor on un-configured subagents, not to cap carefully tuned ones.
-
-**Timing:** Opus 4.8 Fast Mode retires November 30. If you have workflows that rely on fast-mode costs, now is the right time to audit effort settings and migrate to Opus 5.5 before the deadline.
-
-**Sources:** [Claude Code 2.1.316: subagent effort becomes a setting, ultrathink gets a kill switch — dev.to/piekwerk](https://dev.to/piekwerk/claude-code-21316-subagent-effort-becomes-a-setting-ultrathink-gets-a-kill-switch-and-opus-16e) · [Claude Code model config — code.claude.com](https://code.claude.com/docs/en/model-config) · [clauding.de v2.1.316 walkthrough](https://clauding.de/en/posts/claude-code-2-1-316-ultrathink-subagent-effort/)]]></content:encoded>
-  </item>
-
+  
   
   
   
