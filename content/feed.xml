@@ -10,7 +10,156 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 18 Nov 2026 04:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 18 Nov 2026 12:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Ends When Claude Runs Out of Steps, Not When Work Is Done — Exit Code 2 From a Stop Hook Blocks Completion Until Your Tests Pass]]></title>
+      <link>https://code.claude.com/docs/en/claude-code/hooks</link>
+      <guid isPermaLink="false">2026-11-18-04-claude-code-stop-hook-exit-code-2-test-gate</guid>
+      <pubDate>Wed, 18 Nov 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[A Stop hook that exits with code 2 sends your test failures back to Claude and prevents session end. Without it, "done" means the agent stopped — not that the work is correct.]]></description>
+      <content:encoded><![CDATA[**A Stop hook that exits `2` sends your test output back to Claude and prevents the session from ending — making "done" mean "tests passed", not "agent stopped".**
+
+Claude Code fires a Stop hook right before the session ends. The exit code you return controls what happens next:
+
+- **Exit `0`** → allow the stop.
+- **Exit `2`** → block the stop; hook's stdout goes to Claude as a new turn.
+- **Exit `1`** → hook error; let the stop through anyway.
+
+Here's the minimum working pattern (Python, since the hook input arrives as JSON on stdin):
+
+```python
+#!/usr/bin/env python3
+# .claude/hooks/check-done.py
+import json, subprocess, sys
+
+data = json.load(sys.stdin)
+if data.get("stop_hook_active"):
+    sys.exit(0)   # already in a hook loop — let it stop
+
+result = subprocess.run(
+    ["npm", "test", "--", "--reporter=compact"],
+    capture_output=True, text=True
+)
+if result.returncode != 0:
+    # Trim to avoid flooding Claude's context; last N chars has the failures
+    print(result.stdout[-4000:] + result.stderr[-1000:])
+    sys.exit(2)   # block completion, send failures to Claude
+```
+
+Wire it in `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      { "type": "command", "command": "python3 .claude/hooks/check-done.py" }
+    ]
+  }
+}
+```
+
+**The `stop_hook_active` guard is not optional.** The hook receives JSON on stdin; `stop_hook_active` is `true` when Claude is already continuing because of a previous Stop block. Without that check, every test failure re-triggers the hook indefinitely. Claude Code also has a built-in cap — 8 consecutive blocks by default, configurable via `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` — before it ends the session regardless.
+
+**What this gate catches — and what it doesn't.** The hook sees exit codes, not correctness. Claude can pass a Stop gate by deleting a failing test, skipping it, or hardcoding the expected value — and it has done exactly this under time pressure. This is a *completion gate*, not a *quality gate*. Pair it with a CI pipeline that owns the authoritative test run; the Stop hook is fast feedback, not a substitute.
+
+For slow test suites, run only a smoke-test subset in the hook. A 90-second Stop hook adds friction to every session end.
+
+**Sources:** [Claude Code hooks reference](https://code.claude.com/docs/en/claude-code/hooks) · [Stop hook pattern — codeongrass.com](https://codeongrass.com/blog/claude-code-hooks-done-means-tests-passed/) · [stop_hook_active guard — amitkoth.com](https://amitkoth.com/claude-code-stop-hooks) · [DEV Community: 50-line bash example](https://dev.to/ianymu/stop-claude-code-from-lying-about-completion-a-50-line-bash-hook-1g2b)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Inference Code Still Routes to a Managed Cloud API Even in Dev — `vllm serve` Puts Any HuggingFace Model Behind an OpenAI-Compatible Endpoint in Four Commands]]></title>
+      <link>https://docs.vllm.ai/en/latest/getting_started/quickstart/</link>
+      <guid isPermaLink="false">2026-11-18-05-vllm-serve-openai-compatible-api-quickstart-python-client</guid>
+      <pubDate>Wed, 18 Nov 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[pip install vllm → vllm serve Qwen/Qwen2.5-7B-Instruct → localhost:8000/v1. Your existing openai.ChatCompletion code works unchanged — change base_url and nothing else.]]></description>
+      <content:encoded><![CDATA[**`vllm serve Qwen/Qwen2.5-7B-Instruct` launches an OpenAI-compatible API at `localhost:8000` — point your existing `openai` client at it by changing `base_url`, and nothing else in your code needs to change.**
+
+**What you'll be able to do after this:**
+- Serve any public HuggingFace model (Qwen, Llama, Mistral, Phi) as a local REST API.
+- Call it with the OpenAI Python client by changing one URL.
+- Understand the two flags that prevent OOM errors on consumer-grade GPUs.
+
+---
+
+**Step 1: Install**
+
+```bash
+pip install vllm          # ~8 GB install; needs CUDA >= 12.1 and Python 3.10–3.13
+```
+
+CPU-only isn't supported for serving. On a Mac or without a GPU, use Ollama instead — vLLM is for GPU-backed serving.
+
+**Step 2: Serve a model**
+
+```bash
+vllm serve Qwen/Qwen2.5-7B-Instruct
+```
+
+vLLM pulls the weights from HuggingFace on first run, then starts the server at `http://localhost:8000`. For gated models (Meta Llama), set `HF_TOKEN=<your_token>` first.
+
+Two flags you almost always need:
+
+```bash
+vllm serve Qwen/Qwen2.5-7B-Instruct \
+  --gpu-memory-utilization 0.85 \
+  --max-model-len 8192
+```
+
+`--gpu-memory-utilization` controls how much of your VRAM vLLM reserves (lower it if OOM). `--max-model-len` caps the context window, which directly shrinks the KV cache footprint.
+
+**Step 3: Call it with the OpenAI client**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="not-needed",               # any non-empty string; required by the client
+    base_url="http://localhost:8000/v1",
+)
+
+response = client.chat.completions.create(
+    model="Qwen/Qwen2.5-7B-Instruct",  # must match the model vllm serve used
+    messages=[{"role": "user", "content": "Explain KV cache in one sentence."}],
+)
+print(response.choices[0].message.content)
+```
+
+The model name in the request must exactly match the HuggingFace model ID passed to `vllm serve`. A mismatch returns a 404.
+
+**Step 4: Lock it down (optional)**
+
+```bash
+vllm serve Qwen/Qwen2.5-7B-Instruct --api-key my-secret
+```
+
+Then set `api_key="my-secret"` in the OpenAI client. Without this flag, any process on the machine can call the server.
+
+---
+
+**How this differs from the existing multi-LoRA post.** An [earlier post](https://cloudcodetree.com/ai-news/2026-11-08-04-vllm-multi-lora-adapters-serving-lora-modules-max-loras) covered serving dozens of fine-tuned LoRA adapters on one base with `--enable-lora --lora-modules`. That assumes vLLM is already running. This covers the prerequisite: getting any HuggingFace model running as a local API server from scratch.
+
+**What vLLM adds over Ollama.** Ollama is simpler for local dev; vLLM is built for throughput. vLLM's PagedAttention manages KV cache across concurrent requests — 10 simultaneous callers on one GPU is realistic; Ollama queues them. For single-user experimentation the difference doesn't matter; for a local team API or a production self-host, it does.
+
+**Limitations.** vLLM requires Linux + CUDA. The quantized GGUF weights Ollama uses don't work here — you need fp16/bf16 HuggingFace weights or a bitsandbytes 4-bit checkpoint. A 7B model in bf16 needs ~14 GB of VRAM. No amount of flag tuning makes a model fit on hardware that doesn't have the memory.
+
+**Resource:** [vLLM Quickstart — official docs](https://docs.vllm.ai/en/latest/getting_started/quickstart/) · [Fast and Efficient LLM Inference with vLLM — DeepLearning.AI](https://learn.deeplearning.ai/courses/fast-and-efficient-llm-inference-with-vllm)
+
+**Sources:** [docs.vllm.ai quickstart](https://docs.vllm.ai/en/latest/getting_started/quickstart/) · [DeepLearning.AI vLLM course](https://learn.deeplearning.ai/courses/fast-and-efficient-llm-inference-with-vllm) · [1littlecoder: Go Production with vLLM](https://rosetta.to/u/1littlecoder/go-production-super-fast-llm-api-serving-with-vllm)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Extraction Agent Returns a Conversational Reply When It Should Call a Tool — `tool_choice: {"type": "required"}` Forces at Least One Tool Call on Every Turn]]></title>
@@ -6250,105 +6399,8 @@ CLAUDE_CODE_DISABLE_ULTRATHINK=1
 **Sources:** [Claude Code 2.1.316: subagent effort becomes a setting, ultrathink gets a kill switch — dev.to/piekwerk](https://dev.to/piekwerk/claude-code-21316-subagent-effort-becomes-a-setting-ultrathink-gets-a-kill-switch-and-opus-16e) · [Claude Code model config — code.claude.com](https://code.claude.com/docs/en/model-config) · [clauding.de v2.1.316 walkthrough](https://clauding.de/en/posts/claude-code-2-1-316-ultrathink-subagent-effort/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Gemini 4 Carbon Tops the AI Index; Anthropic Sets November 30 for Sonnet 4.5 and Opus 4.8 Fast Mode]]></title>
-    <link>https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/</link>
-    <guid isPermaLink="false">2026-11-01-02-gemini-4-carbon-frontier-sonnet-opus-nov30-retirement</guid>
-    <pubDate>Sun, 01 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Google's Gemini 4 Carbon ranks #1 on the AI Index but has no confirmed public API date. Anthropic retires Sonnet 4.5 and Opus 4.8 Fast Mode on November 30 — check your model strings today.]]></description>
-    <content:encoded><![CDATA[**TL;DR: Google's new top model tops the benchmark tables but isn't publicly accessible via API yet; Anthropic's November 30 retirement deadline is 30 days out.**
-
-**Gemini 4 Carbon**
-
-Google DeepMind [announced Gemini 4 Carbon](https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/) on October 28. It ranks #1 on the Artificial Analysis Intelligence Index v5.0 (score: 59) and leads Google's published cyber benchmarks (SEC-bench Pro 88.2%, ExploitGym 54.8%, CWE-bench 71.0% — Google's own figures, not independently verified). On FrontierSWE 2 its 61.2% coding score trails Opus 5.5 at 62.3%, so the gap with Anthropic on code isn't closed. API pricing is listed at $2/$10 per million input/output tokens, but [VentureBeat reports](https://venturebeat.com/technology/google-unveils-gemini-4-carbon-retaking-the-worlds-no-1-spot-on-updated-harder-benchmarks-but-access-is-limited) the public API endpoint isn't yet available and no date has been announced.
-
-**Why it matters:** Carbon is on the developer path (AI Studio preview + Fairwind cybersecurity program), but wait for a confirmed public API before updating your routing configs.
-
-**Anthropic: November 30 retirements**
-
-Two changes take effect November 30 on Anthropic's API: **Opus 4.8 Fast Mode** is removed (requests return an error with no fallback), and **Claude Sonnet 4.5** retires entirely. Anthropic's recommended migrations per the [release notes](https://platform.claude.com/docs/en/release-notes/overview):
-- Opus 4.8 fast → **Opus 5.5** (standard or fast mode)
-- Sonnet 4.5 → **Sonnet 5.5**
-
-Hardcoded model IDs in eval harnesses, CI prompts, and routing configs are the most common source of surprise outages when retirements land. Thirty days is a comfortable audit window; November 29 is not.
-
-**Why it matters:** A `grep -r "claude-sonnet-4-5\|claude-opus-4-8" .` in your codebase today takes thirty seconds; a 3am pager at the end of the month takes longer.
-
-**Sources:** [Gemini 4 Carbon announcement — blog.google](https://blog.google/innovation-and-ai/models-and-research/gemini-models/introducing-gemini-4-carbon/) · [Gemini 4 Carbon API access unclear — venturebeat.com](https://venturebeat.com/technology/google-unveils-gemini-4-carbon-retaking-the-worlds-no-1-spot-on-updated-harder-challenges-but-access-is-limited) · [Anthropic release notes — platform.claude.com](https://platform.claude.com/docs/en/release-notes/overview)]]></content:encoded>
-    <media:content url="https://storage.googleapis.com/deepmind-media/gemini/gemini-4-carbon-header.jpg" medium="image" />
-    <media:thumbnail url="https://storage.googleapis.com/deepmind-media/gemini/gemini-4-carbon-header.jpg" />
-  </item>
-
-  <item>
-    <title><![CDATA[Your Vector Store Uses the Same HNSW Parameters as a Tutorial Project — Three Numbers Control Recall and Latency at Production Scale]]></title>
-    <link>https://github.com/pgvector/pgvector#hnsw</link>
-    <guid isPermaLink="false">2026-11-01-01-hnsw-m-ef-construction-pgvector-qdrant-vector-index-tuning</guid>
-    <pubDate>Sun, 01 Nov 2026 04:02:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Vectors</category>
-    <category>Embeddings</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[HNSW's m, ef_construction, and query ef are the three parameters that determine whether your vector search finds the right results and how fast it answers. Here's what each does and how to tune them in pgvector and Qdrant.]]></description>
-    <content:encoded><![CDATA[**TL;DR: HNSW's default parameters are tuned for small demo datasets — at production scale, three numbers (`m`, `ef_construction`, and query `ef`) control whether your vector search finds the right documents and how quickly it returns.**
-
-**What you'll be able to do after this:**
-- Understand what each HNSW parameter actually controls
-- Set `m` and `ef_construction` at index-build time to match your corpus size and accuracy requirement
-- Tune query `ef` in production to trade recall for latency
-
-**What HNSW actually does**
-
-Hierarchical Navigable Small World is a graph-based approximate nearest neighbor index. At build time, each vector is linked to its nearest neighbors across multiple layers. At query time, the search starts at an entry point and walks the graph, keeping the `ef` best candidates it has seen, stopping when no better neighbor can be found.
-
-**The three parameters**
-
-- **`m`** (connections per node, default: 16): higher `m` means a denser graph, better recall, and faster search — but more memory. `m=16` works well up to ~100K vectors. For corpora over 1M documents, consider `m=24–32`. Memory scales roughly as `O(m × n)`.
-- **`ef_construction`** (build-time candidate list size, default varies 64–128): higher means a higher-quality graph and better recall at query time — but a slower index build. It has no effect at query time. 128 is a reasonable starting point; 200–300 for high-accuracy requirements.
-- **`ef` (query-time candidate list, default varies)**: the live recall/latency dial. Higher `ef` → better recall, slower queries. Requires `ef >= top_k`; a common starting point is `ef = 2 × top_k`.
-
-**In pgvector:**
-
-```sql
--- Create index with custom parameters
-CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 128);
-
--- Tune query ef per session or globally
-SET hnsw.ef_search = 100;
-```
-
-**In Qdrant:**
-
-```python
-client.create_collection(
-    collection_name="docs",
-    vectors_config=VectorParams(size=768, distance=Distance.COSINE),
-    hnsw_config=HnswConfigDiff(
-        m=16,
-        ef_construct=128,
-        full_scan_threshold=10000  # below this size, use exact search
-    )
-)
-# At query time, pass ef via SearchParams
-client.query_points(
-    "docs", query=query_vector,
-    search_params=models.SearchParams(hnsw_ef=100)
-)
-```
-
-**Limits**: Doubling `m` roughly doubles index memory — profile before scaling up. HNSW tuning can't fix a retrieval problem caused by bad chunking or wrong embedding model; get those right first. And `ef_construction` is a build-time setting — you can't change it without re-indexing.
-
-**Sources:** [pgvector HNSW documentation — github.com/pgvector/pgvector](https://github.com/pgvector/pgvector#hnsw) · [Qdrant HNSW optimization guide — qdrant.tech](https://qdrant.tech/documentation/guides/optimize/) · [HNSW explained — pinecone.io/learn](https://www.pinecone.io/learn/series/faiss/hnsw/)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
