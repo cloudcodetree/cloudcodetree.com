@@ -10,7 +10,183 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 17 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 18 Nov 2026 04:08:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Extraction Agent Returns a Conversational Reply When It Should Call a Tool — `tool_choice: {"type": "required"}` Forces at Least One Tool Call on Every Turn]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-18-03-anthropic-api-tool-choice-required-force-tool-call-extraction</link>
+      <guid isPermaLink="false">2026-11-18-03-anthropic-api-tool-choice-required-force-tool-call-extraction</guid>
+      <pubDate>Wed, 18 Nov 2026 04:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[tool_choice: required forces Claude to respond with at least one tool call, never plain text — use it for structured extraction, classification, and verification steps where a text reply breaks your pipeline.]]></description>
+      <content:encoded><![CDATA[**`tool_choice: {"type": "required"}` forces Claude to call at least one of the available tools instead of replying in text — use it for extraction, classification, and any pipeline step where a text reply breaks the shape you need.**
+
+By default, the Anthropic API lets Claude decide whether to call a tool or answer in text. For conversational agents that is the right behavior. For structured pipelines — extracting entities, classifying intent, running verification checks — a text reply is a failure mode. Claude often chooses text when the user message reads like a question ("What are the entities in this paragraph?") even when the system prompt says to always call the tool.
+
+**Three modes:**
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+# 1. Force at least one tool call (Claude picks which one)
+response = client.messages.create(
+    model="claude-fable-5-2",
+    max_tokens=1024,
+    tools=[entity_extractor_tool, classifier_tool],
+    tool_choice={"type": "required"},
+    messages=[{"role": "user", "content": text}],
+)
+
+# 2. Force a specific tool call
+response = client.messages.create(
+    model="claude-fable-5-2",
+    max_tokens=1024,
+    tools=[entity_extractor_tool],
+    tool_choice={"type": "tool", "name": "extract_entities"},
+    messages=[{"role": "user", "content": text}],
+)
+
+# 3. Default behavior — Claude decides (use this for chat)
+response = client.messages.create(
+    model="claude-fable-5-2",
+    max_tokens=1024,
+    tools=[entity_extractor_tool],
+    tool_choice={"type": "auto"},  # this is the default; you can omit it
+    messages=[{"role": "user", "content": text}],
+)
+```
+
+The response `stop_reason` will always be `tool_use` (not `end_turn`) when `type: required` or `type: tool` is set, so you can assert on it in tests:
+
+```python
+assert response.stop_reason == "tool_use", f"Expected tool call, got: {response.stop_reason}"
+```
+
+**Where to use it:**
+- Extraction pipelines where every document produces a structured record
+- Classification steps inside a larger agent loop
+- Verification agents that must always return a verdict, never a "I think"
+- Batch evaluation jobs where consistent output shapes matter for downstream code
+
+**Where not to use it:**
+- Conversational agents — forcing tools on every turn produces odd UX and wastes tokens on tool-call overhead for simple replies
+- When Claude genuinely cannot fill the tool's required parameters from the input — it will hallucinate values to satisfy the constraint
+
+**Limit:** With an extended-thinking model, `tool_choice: required` or `tool_choice: {"type": "tool"}` runs thinking tokens before the forced tool call, which can noticeably increase costs. Test on a sample set before enabling at scale.
+
+**Sources:** [Anthropic API docs: Tool use — controlling output](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview#controlling-claudes-output) · [Anthropic API reference: messages.create](https://platform.claude.com/docs/en/api-reference/messages-create)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Anthropic's IPO Pricing Window Is Open This Week — Multiple Reports Put Its Target Valuation Between $1.4 and $2 Trillion]]></title>
+      <link>https://aljazeera.com/economy/2026/11/10/anthropic-targets-1-4-trillion-valuation-in-massive-stock-market-debut</link>
+      <guid isPermaLink="false">2026-11-18-02-anthropic-ipo-nasdaq-valuation-november-2026</guid>
+      <pubDate>Wed, 18 Nov 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Anthropic's IPO is expected to price and begin trading this week. Al Jazeera (Nov 10) reported a $1.4T target; other sources cite up to $2T. Last private round valued it at $965B in May 2026.]]></description>
+      <content:encoded><![CDATA[**Anthropic's IPO pricing window is open and trading is expected this week, with Al Jazeera reporting a $1.4 trillion valuation target and other sources citing figures up to $2 trillion — none confirmed directly by Anthropic.**
+
+Al Jazeera reported November 10 that Anthropic is targeting a $1.4 trillion valuation with up to $64 billion in new capital. Multiple other outlets cite a range extending to $2 trillion. The company's last private round in May 2026 set a $965 billion valuation. No specific IPO date, final price, or exchange ticker has been confirmed in an official Anthropic filing; all specific figures in this item come from secondary reporting.
+
+**Why it matters:** A public Anthropic changes nothing about Claude's API in the short term. What it does change is accountability: as a public company, Anthropic must file quarterly financials, which will reveal how much of its revenue comes from the API and enterprise customers versus consumer Claude subscriptions — data that teams building production systems on the platform have never been able to see. It also creates a public market signal for how much the developer ecosystem is worth, and pricing changes will face scrutiny from public shareholders. That cuts both ways: more pressure to maintain stable pricing, and more pressure to monetize.
+
+**Limit:** The engineering impact is entirely downstream of the financial close. The product roadmap and pricing implications won't be visible for months.
+
+**Sources:** [Al Jazeera: Anthropic targets $1.4 trillion valuation](https://aljazeera.com/economy/2026/11/10/anthropic-targets-1-4-trillion-valuation-in-massive-stock-market-debut) · [The Next Web: Anthropic confidential IPO filing at $965B](https://thenextweb.com/news/anthropic-ipo-confidential-filing-openai-race-965-billion)]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your RAG Dev Stack Is Running a Separate Vector Database Alongside Postgres — `pgvector` Adds Vector Columns and Cosine Search to the Database You Already Have]]></title>
+      <link>https://www.datacamp.com/tutorial/pgvector-tutorial</link>
+      <guid isPermaLink="false">2026-11-18-01-pgvector-postgres-vector-column-cosine-search-psycopg2</guid>
+      <pubDate>Wed, 18 Nov 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[pgvector turns any Postgres table into a vector store: CREATE EXTENSION, add a vector(384) column, insert with psycopg2, and query with <=>. One database handles both rows and embeddings.]]></description>
+      <content:encoded><![CDATA[**pgvector adds a `vector(N)` column type and approximate nearest-neighbor search to any Postgres database — if you already run Postgres, there is no separate service to run.**
+
+**What you will be able to do after this:** store sentence-transformers embeddings in a Postgres table, run cosine-similarity queries using `<=>`, and add an IVFFlat or HNSW index to serve thousands of queries per second — all from your existing psycopg2 connection.
+
+**Three things to know first:**
+- `all-MiniLM-L6-v2` outputs 384 dimensions; your column must match: `vector(384)`. Use `model.get_sentence_embedding_dimension()` to confirm before you create the table.
+- pgvector is pre-installed on Supabase and available on RDS; for local dev, the `pgvector/pgvector:pg17` Docker image is the fastest path (`docker run -e POSTGRES_PASSWORD=pw -p 5432:5432 pgvector/pgvector:pg17`).
+- Cosine distance (`<=>`) is the right operator for sentence-transformers embeddings. `<->` is L2 distance; `<#>` is inner product. Use the wrong one and similarity rankings are wrong.
+
+**Step-by-step setup:**
+
+```sql
+-- 1. Install the extension (once per database)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- 2. Create a table with a vector column
+CREATE TABLE documents (
+  id SERIAL PRIMARY KEY,
+  content TEXT,
+  embedding vector(384)
+);
+```
+
+```python
+import psycopg2
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+conn = psycopg2.connect("postgresql://localhost/mydb")
+cur = conn.cursor()
+
+# Insert a document
+text = "Claude Code plan mode separates exploration from execution."
+embedding = model.encode(text).tolist()
+cur.execute(
+    "INSERT INTO documents (content, embedding) VALUES (%s, %s)",
+    (text, embedding)
+)
+conn.commit()
+
+# Query: find the 5 most similar documents
+query = "how do I review a plan before Claude edits files"
+q_emb = model.encode(query).tolist()
+cur.execute(
+    "SELECT content, 1 - (embedding <=> %s::vector) AS similarity "
+    "FROM documents ORDER BY embedding <=> %s::vector LIMIT 5",
+    (q_emb, q_emb)
+)
+print(cur.fetchall())
+```
+
+**Add an index before scaling past a few thousand rows:**
+
+```sql
+-- IVFFlat: faster to build, good for static datasets
+CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- HNSW: faster queries, better recall, slower to build
+CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops);
+```
+
+Rule of thumb: `lists = sqrt(row_count)` for IVFFlat. For HNSW parameter tuning at scale, see the [index tuning post](/ai-news/2026-11-01-01-hnsw-m-ef-construction-pgvector-qdrant-vector-index-tuning).
+
+**Limits:** pgvector runs on a single Postgres server — it scales to tens of millions of vectors on a well-resourced machine, but you will hit a single-node ceiling before a managed service like Pinecone or Qdrant does. The `ivfflat` index requires a full rebuild when your dataset grows by more than roughly 20%; plan for that in your maintenance window. Exact search with no index scans every row — add an index before you have more than a few thousand rows.
+
+**Sources:** [pgvector GitHub](https://github.com/pgvector/pgvector) · [DataCamp: pgvector similarity search tutorial](https://www.datacamp.com/tutorial/pgvector-tutorial) · [18 Months of pgvector Learnings in 47 Minutes — Avthar Sewrathan (Timescale)](https://www.youtube.com/watch?v=Ua6LDIOVN1s)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Vectors</category>
+      <category>Building AI Products</category>
+      <media:content url="https://img.youtube.com/vi/Ua6LDIOVN1s/maxresdefault.jpg" medium="image"/>
+      <media:thumbnail url="https://img.youtube.com/vi/Ua6LDIOVN1s/maxresdefault.jpg"/>
+    </item>
 
       <item>
       <title><![CDATA[Your Claude Code Session Changes Files While You Watch It Do Something Else — AgentMon Live Puts Every Tool Call on a Live Dashboard]]></title>
@@ -6173,261 +6349,9 @@ client.query_points(
 **Sources:** [pgvector HNSW documentation — github.com/pgvector/pgvector](https://github.com/pgvector/pgvector#hnsw) · [Qdrant HNSW optimization guide — qdrant.tech](https://qdrant.tech/documentation/guides/optimize/) · [HNSW explained — pinecone.io/learn](https://www.pinecone.io/learn/series/faiss/hnsw/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude App Receives Descriptions of Images It Has Never Seen — Pass a URL or Base64 Source Block for Direct Pixel-Level Analysis]]></title>
-    <link>https://docs.anthropic.com/en/docs/build-with-claude/vision</link>
-    <guid isPermaLink="false">2026-10-31-05-claude-sdk-vision-image-url-base64-file-analysis</guid>
-    <pubDate>Sat, 31 Oct 2026 20:12:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>VLM</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Pass images to the Messages API as URL or base64 content blocks; use the Files API when the same image recurs across turns.]]></description>
-    <content:encoded><![CDATA[**Your Claude app is responding to "describe this image" with text that shows it never saw the image. Add an image source block to the content array and Claude analyses the actual pixels.**
-
-**What you'll be able to do after this:** Send any image — a screenshot, diagram, chart, or document page — directly to the Claude Messages API from a URL, a local file, or the Files API for reuse.
-
-- Three source types cover every case: **URL** (`{"type":"url","url":"…"}`) for images already on the web with no authentication required; **base64** for local files or dynamically generated images; **file_id** via the Files API when the same image appears across multiple turns or requests — upload once, reference many times
-- Limits that bite: URL source must be a public URL (basic auth, signed URLs, and redirect chains often fail silently); base64 images must fit in the request body (practical limit ~5 MB before encoding overhead); total images per request are capped at 20 standard or up to 100 with long-context; Claude can't read PDFs via the image API — use the document source type for PDF pages
-- Image tokens count against your context window — a 1568×1568 image costs ~1600 tokens; resize large screenshots to 1568 px on the long edge before sending to keep inference costs predictable
-
-**Walk-through:**
-
-```python
-import anthropic, base64, pathlib
-
-client = anthropic.Anthropic()
-
-# 1. URL source — fastest path for images already on the web
-response = client.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "image",
-                "source": {
-                    "type": "url",
-                    "url": "https://example.com/architecture-diagram.png"
-                }
-            },
-            {"type": "text", "text": "List any single points of failure you see."}
-        ]
-    }]
-)
-print(response.content[0].text)
-
-# 2. Base64 source — for local files and generated images
-img_bytes = pathlib.Path("screenshot.png").read_bytes()
-img_b64   = base64.standard_b64encode(img_bytes).decode()
-
-response = client.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=1024,
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": img_b64
-                }
-            },
-            {"type": "text", "text": "List accessibility issues you see."}
-        ]
-    }]
-)
-
-# 3. Files API — upload once, reuse across requests
-with open("company-logo.png", "rb") as f:
-    file_obj = client.beta.files.upload(
-        file=("company-logo.png", f, "image/png")
-    )
-
-# reference by file_id — no repeated base64 overhead
-response = client.messages.create(
-    model="claude-opus-5-5",
-    max_tokens=512,
-    messages=[{
-        "role": "user",
-        "content": [
-            {
-                "type": "image",
-                "source": {"type": "file", "file_id": file_obj.id}
-            },
-            {"type": "text", "text": "Does this logo read clearly at 32×32 px?"}
-        ]
-    }]
-)
-```
-
-**The limits that matter:**
-
-- Supported formats: JPEG, PNG, GIF, WebP — not SVG, not TIFF
-- Max image size: 8000×8000 pixels or 20 MB (5 MB on Bedrock)
-- URL source fails silently when the server returns a redirect, an auth challenge, or a non-image content-type — use base64 when you aren't certain the URL is stable and public
-- The Files API (`client.beta.files`) is in beta; the `betas=["files-api-2025-04-14"]` header is required for the upload call but not for the reference
-
-**Sources:** [Claude Vision documentation](https://docs.anthropic.com/en/docs/build-with-claude/vision) · [Files API reference](https://docs.anthropic.com/en/docs/build-with-claude/files)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Single Agent Does Everything Itself Until Context Balloons — A LangGraph Supervisor Delegates via Tool Calls to Specialist Workers That Each See Their Own Slice]]></title>
-    <link>https://langchain-ai.github.io/langgraph/tutorials/multi_agent/agent_supervisor/</link>
-    <guid isPermaLink="false">2026-10-31-06-langgraph-supervisor-tool-calling-specialist-workers</guid>
-    <pubDate>Sat, 31 Oct 2026 20:11:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <media:content url="https://img.youtube.com/vi/KAwiykWkQ5Q/maxresdefault.jpg" medium="image" />
-    <media:thumbnail url="https://img.youtube.com/vi/KAwiykWkQ5Q/maxresdefault.jpg" />
-    <description><![CDATA[Wire a LangGraph supervisor that hands off tasks to specialist workers via tool calls; each worker sees only its own message slice, keeping context tight.]]></description>
-    <content:encoded><![CDATA[**Your single ReAct agent handles everything — and at some point its context fills with every prior sub-task and it starts confusing its own steps. A supervisor that delegates via tool calls gives each specialist its own clean context window.**
-
-**What you'll be able to do after this:** Build a multi-agent graph where a supervisor routes tasks to specialist workers by calling tools; each worker sees only its own input, not the accumulated history of every prior delegation.
-
-- A supervisor is a `create_react_agent` that treats each worker as a **tool** — it calls `transfer_to_researcher(query)` or `transfer_to_writer(draft)` rather than invoking the workers directly, which means the LLM decides when and how to delegate
-- Each worker is a compiled sub-graph or a plain Python function; wrapping it as a `@tool` is the only coupling point — change the worker internals without touching the supervisor
-- Three limits to build around: workers cannot see each other's state directly (the supervisor relays); the supervisor loops until `END` is reached (add `recursion_limit` to the config); and graph state is in-memory only — add a LangGraph checkpointer if you need persistence across requests
-
-**Walk-through:**
-
-```python
-from langchain_anthropic import ChatAnthropic
-from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
-
-llm = ChatAnthropic(model="claude-opus-5-5")
-
-# --- specialist workers (each gets its own message slice) ---
-
-def _run_researcher(query: str) -> str:
-    agent = create_react_agent(llm, tools=[])   # add web-search tools here
-    result = agent.invoke({"messages": [{"role": "user", "content": query}]})
-    return result["messages"][-1].content
-
-def _run_writer(request: str) -> str:
-    agent = create_react_agent(llm, tools=[])
-    result = agent.invoke({"messages": [{"role": "user", "content": request}]})
-    return result["messages"][-1].content
-
-# --- expose workers as tools so the supervisor can call them ---
-
-@tool
-def transfer_to_researcher(query: str) -> str:
-    """Research a topic and return a summary of findings."""
-    return _run_researcher(query)
-
-@tool
-def transfer_to_writer(request: str) -> str:
-    """Draft or refine a piece of text given the request."""
-    return _run_writer(request)
-
-# --- supervisor: a react agent that calls the worker tools ---
-
-supervisor = create_react_agent(
-    llm,
-    tools=[transfer_to_researcher, transfer_to_writer],
-)
-
-# --- run it ---
-result = supervisor.invoke(
-    {
-        "messages": [{
-            "role": "user",
-            "content": "Research the pros and cons of vector DBs vs graph DBs for RAG, then write a two-paragraph comparison."
-        }]
-    },
-    config={"recursion_limit": 20},
-)
-print(result["messages"][-1].content)
-```
-
-**Patterns that help in practice:**
-
-- **Narrow tool docstrings** drive good delegation — the supervisor reads the docstring to decide which tool to call, so "Research a topic and return findings" outperforms "call researcher"
-- **Add a `FINISH` tool** that returns the final answer, so the supervisor can signal completion explicitly rather than relying on `END` propagation
-- **Parallel workers** require a different topology — if your workers can run concurrently, look at `langgraph-swarm` (fan-out/fan-in) rather than serial tool-call delegation
-- **State isolation is a feature** — each `create_react_agent` call gets a fresh `MessagesState`; if a worker needs shared context (a database schema, a user profile), pass it explicitly in the tool argument string
-
-**Sources:** [LangGraph multi-agent supervisor tutorial](https://langchain-ai.github.io/langgraph/tutorials/multi_agent/agent_supervisor/) · [LangGraph prebuilt reference](https://langchain-ai.github.io/langgraph/reference/prebuilt/)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Every Fine-Tuning Walkthrough Opens With `load_dataset('tatsu-lab/alpaca')` — Format Your Own Pairs as Alpaca or Messages JSONL and Push Them to the Hub in Three Steps]]></title>
-    <link>https://huggingface.co/docs/datasets/share</link>
-    <guid isPermaLink="false">2026-10-31-04-instruction-dataset-alpaca-messages-push-to-hub-fine-tuning</guid>
-    <pubDate>Sat, 31 Oct 2026 12:08:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Your QLoRA or SFT run assumes training data you never built. Format your instruction pairs as Alpaca or messages JSONL and push them to the Hub in three steps for any trainer.]]></description>
-    <content:encoded><![CDATA[**Every fine-tuning walkthrough opens with someone else's dataset. Format your own instruction pairs and push them to the HuggingFace Hub in three steps so any trainer can use them.**
-
-**What you'll be able to do after this:** Convert your own (instruction, response) pairs into a training dataset in either Alpaca or messages format, and publish it to the Hub so SFTTrainer, Unsloth, and torchtune can `load_dataset()` it from anywhere.
-
-- Two formats cover almost all cases: flat **Alpaca** (`instruction`/`input`/`output`) for single-turn tasks like classification or summarization; a **messages array** (user/assistant turns) for conversational instruction-following — SFTTrainer, torchtune, and Unsloth all accept both
-- Quality beats volume: per the machinelearningplus dataset curation guide, 1,000 carefully curated examples consistently outperform 50,000 noisy ones; inconsistent formatting teaches the model inconsistent behavior
-- `dataset.push_to_hub("username/dataset-name")` publishes in one authenticated call; the dataset then loads identically from any Colab, VM, or CI training job
-
-**Walk-through:**
-
-```python
-import json
-from datasets import load_dataset
-
-# 1. Build records — messages format for instruction-following models
-records = [
-    {
-        "messages": [
-            {"role": "user",      "content": "Summarize this support ticket in one sentence."},
-            {"role": "assistant", "content": "The user cannot reset their password via email."}
-        ]
-    },
-    # repeat for each instruction/response pair
-]
-
-# 2. Write to JSONL
-with open("train.jsonl", "w") as f:
-    for r in records:
-        f.write(json.dumps(r) + "\n")
-
-# 3. Load and publish
-ds = load_dataset("json", data_files="train.jsonl", split="train")
-ds.push_to_hub("your-username/my-instruction-dataset", private=True)
-
-# In any training script afterwards:
-# dataset = load_dataset("your-username/my-instruction-dataset", split="train")
-```
-
-For single-turn tasks with no conversational context, Alpaca format is simpler:
-
-```json
-{"instruction": "Translate to French:", "input": "Hello, how are you?", "output": "Bonjour, comment allez-vous ?"}
-```
-
-SFTTrainer accepts Alpaca records via a `formatting_func`; the Hub auto-renders a dataset preview for both formats after the push.
-
-**Limit:** For datasets over a few GB, add `max_shard_size="500MB"` to split into shards — the Hub uses Git LFS and single-file upload limits apply. More critically: vague instructions ("write code for X") produce vague model responses. Fix the lowest-quality 10% of your examples before adding more volume.
-
-**Sources:** [HuggingFace Datasets — Share a dataset to the Hub](https://huggingface.co/docs/datasets/share) · [HuggingFace Hub LLM dataset upload guide](https://huggingface.co/docs/hub/datasets-upload-guide-llm) · [machinelearningplus — Build instruction datasets for LLM fine-tuning](https://machinelearningplus.com/?p=35309)]]></content:encoded>
-    <media:content url="https://huggingface.co/front/thumbnails/v2-2.png" medium="image"/>
-    <media:thumbnail url="https://huggingface.co/front/thumbnails/v2-2.png"/>
-  </item>
-
+  
+  
+  
   
   
   
