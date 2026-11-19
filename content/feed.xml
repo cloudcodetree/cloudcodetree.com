@@ -10,7 +10,156 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 18 Nov 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 19 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Opus 5.5 Session Spawns Subagents That Default to Fable 5.2 — CLAUDE_CODE_SUBAGENT_MODEL Routes Them Anywhere, _FORCE Overrides Even Frontmatter]]></title>
+      <link>https://code.claude.com/docs/en/subagents</link>
+      <guid isPermaLink="false">2026-11-19-03-claude-code-subagent-model-route-force-env-var</guid>
+      <pubDate>Thu, 19 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Set CLAUDE_CODE_SUBAGENT_MODEL to route spawned subagents to a specific model; add CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 to override custom agents with their own frontmatter.]]></description>
+      <content:encoded><![CDATA[**Since v2.1.251, any Agent tool call in Claude Code defaults the spawned subagent to Fable 5.2, regardless of the model running in your session. CLAUDE_CODE_SUBAGENT_MODEL lets you route every subagent to a specific model; CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 overrides even custom agents with their own frontmatter `model:` field.**
+
+**What you'll be able to do after this:**
+Control exactly which model handles each subagent in a Claude Code session so you can match capability to cost — Opus for reasoning-heavy agents, Haiku for fast file searches — without changing your agent definitions.
+
+- **Default is Fable 5.2 as of v2.1.251.** If you are running an Opus 5.5 session and launch a subagent without setting the env var, it silently uses Fable 5.2. Many teams discovered this via unexpected costs in the other direction: expensive Opus subagents where they expected Haiku.
+- **CLAUDE_CODE_SUBAGENT_MODEL takes any model ID.** Set it to `claude-haiku-5-5` and every spawned subagent — Agent tool calls, `/fork`, parallel agents — uses that model. The session model is unaffected.
+- **CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 (v2.1.257) ignores frontmatter.** Custom agents in `.claude/agents/*.md` can declare `model: claude-opus-5-5` in their frontmatter. Without FORCE, that declaration wins. With FORCE, your env var wins. Useful when you want a fleet-wide cost ceiling with no per-file edits.
+
+**Two common patterns:**
+
+```bash
+# Match subagents to the session model (Opus session → Opus subagents)
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-opus-5-5
+
+# Cost-split: fast scouts on Haiku, main session on Sonnet
+export CLAUDE_CODE_SUBAGENT_MODEL=claude-haiku-5-5
+export CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1
+claude  # start Claude Code; subagents use Haiku regardless of agent frontmatter
+```
+
+**When to use FORCE:**
+| Situation | Use FORCE? |
+|---|---|
+| All custom agents should use a cheaper model | Yes |
+| Some agents need Opus by design | No — let their frontmatter win |
+| You don't use custom agents | Doesn't matter |
+
+**Limits:** FORCE only controls the model; it does not change tool access or context. A Haiku subagent still has access to the same tools as an Opus one. Per-call `model` overrides passed to the Agent tool are also overridden by FORCE (this is the bug reported in issue #57718).
+
+*Sources: [Claude Code subagents docs](https://code.claude.com/docs/en/subagents) · [GitHub issue #80902](https://claudeissues.com/issue/80902-subagents-default-to-claude-fable-5-while-session-model-is-opus-silent-more-expe) · [Vincent Schmalbach](https://www.vincentschmalbach.com/how-to-set-which-model-claude-code-subagents-use/)*]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Anthropic Starts Trading on NASDAQ as ANT at $83 — Above the $70–$78 Range, Valuation Near $1.5 Trillion on Day One]]></title>
+      <link>https://www.aninews.in/news/business/anthropic-shares-to-debut-on-nasdaq-on-november-19-at-ipo-price-of-usd-83-per-share20261119055325/</link>
+      <guid isPermaLink="false">2026-11-19-02-anthropic-ipo-ant-trading-day-one-83-above-range</guid>
+      <pubDate>Thu, 19 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Anthropic priced its IPO at $83/share, above the $70-78 range, and starts trading on NASDAQ as ANT today. At $83, the valuation is approximately $1.4-1.5 trillion.]]></description>
+      <content:encoded><![CDATA[**Anthropic priced its IPO at $83/share — above the $70–$78 range set last week — and begins trading on NASDAQ today under the ticker ANT. The company raised approximately $81 billion, making this one of the largest technology IPOs in history.**
+
+Previous coverage: [Nov 16](https://cloudcodetree.com/ai-news/2026-11-16-02-anthropic-ipo-ant-nasdaq-november-19-2026-pricing-window) set the date and range; [Nov 18](https://cloudcodetree.com/ai-news/2026-11-18-02-anthropic-ipo-ant-priced-november-18) covered pricing day.
+
+**What actually changed today:**
+- **$83 final price vs $70–78 range.** Strong demand pushed the IPO price 6–18% above the high end of the range. For perspective, the Nov 10 CNBC report priced the range at $70–$78; today's $83 reflects oversubscription.
+- **~980 million shares sold.** At $83/share, Anthropic raised approximately $81 billion. Some reports estimate total valuation (fully diluted) near $1.4–1.5 trillion.
+- **Day one trading opens.** Prior coverage was about the IPO process; today is the first day the stock is accessible to public market investors.
+
+**Why it matters for developers:**
+Public company status changes the accountability model. Pricing changes, API deprecations, and model availability decisions now face quarterly earnings scrutiny. This is likely net-positive for API stability — stealth price increases are harder when you're reporting to public markets. It doesn't change anything about the API today.
+
+*Sources: [ANI News](https://www.aninews.in/news/business/anthropic-shares-to-debut-on-nasdaq-on-november-19-at-ipo-price-of-usd-83-per-share20261119055325/) · [CNBC](https://www.cnbc.com/2026/11/10/anthropic-sets-price-range-of-70-to-78-in-upcoming-ipo.html) · [TradingView: NASDAQ:ANT](https://www.tradingview.com/symbols/NASDAQ-ANT/)*]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Frontier</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Fine-Tuning Run Fails Because the Dataset Is Noisy, Not the Model — Build Alpaca-Format Instruction Data in Three Steps]]></title>
+      <link>https://www.youtube.com/watch?v=8iwxM6XRpVQ</link>
+      <guid isPermaLink="false">2026-11-19-01-fine-tuning-dataset-alpaca-sharegpt-instruction-tuning-jsonl</guid>
+      <pubDate>Thu, 19 Nov 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Build Alpaca or ShareGPT-format instruction datasets for fine-tuning: format selection, quality filtering, three-step JSONL workflow, and when to use each with Unsloth or TRL's SFTTrainer.]]></description>
+      <media:content url="https://img.youtube.com/vi/8iwxM6XRpVQ/maxresdefault.jpg" medium="image" />
+      <media:thumbnail url="https://img.youtube.com/vi/8iwxM6XRpVQ/maxresdefault.jpg" />
+      <content:encoded><![CDATA[**Most fine-tuning failures happen in the dataset, not the training run. The model learns whatever distribution you give it — if your instruction examples are inconsistent, the model learns inconsistency. Building a clean Alpaca-format JSONL file before you ever touch the training loop saves hours of debugging loss curves.**
+
+**What you'll be able to do after this:**
+Write a three-step Python pipeline that turns raw examples into a valid Alpaca or ShareGPT JSONL file, ready to load directly into Unsloth or TRL's SFTTrainer.
+
+- **Alpaca format is for single-turn tasks.** Each record has `instruction`, optional `input`, and `output`. Use it for classification, extraction, summarization, QA, and anything where the interaction is one shot. It's the default format for most tutorials and the simplest to debug.
+- **ShareGPT format is for multi-turn conversation.** Each record has a `conversations` array of `{from, value}` pairs (`human`/`gpt` roles). Use it when your target behavior involves follow-up questions, clarifications, or tool calls. TRL's SFTTrainer accepts both via `dataset_text_field` or a formatting function.
+- **Quality filtering matters more than quantity.** A 500-example dataset where every example is unambiguous outperforms a 5,000-example dataset with 30% label noise. The W&B tutorial demonstrates this directly with accuracy vs. dataset-size plots.
+
+**Three-step Alpaca pipeline:**
+
+```python
+import json
+
+# Step 1: collect raw examples (here from a list; in practice, from logs, annotations, etc.)
+raw = [
+    {"prompt": "Classify: 'The service was broken for 3 hours'", "label": "outage"},
+    {"prompt": "Classify: 'Added dark mode'", "label": "feature"},
+    # ... your examples
+]
+
+# Step 2: quality filter — remove examples where the output is ambiguous or empty
+def is_clean(ex):
+    return ex["label"].strip() and len(ex["prompt"]) > 10
+
+filtered = [ex for ex in raw if is_clean(ex)]
+
+# Step 3: write Alpaca JSONL
+with open("dataset.jsonl", "w") as f:
+    for ex in filtered:
+        record = {
+            "instruction": "Classify this customer support ticket as outage, feature, or billing.",
+            "input": ex["prompt"],
+            "output": ex["label"]
+        }
+        f.write(json.dumps(record) + "\n")
+
+print(f"Wrote {len(filtered)} examples")
+```
+
+**Loading into TRL SFTTrainer:**
+
+```python
+from datasets import load_dataset
+from trl import SFTTrainer, SFTConfig
+
+dataset = load_dataset("json", data_files="dataset.jsonl", split="train")
+
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=dataset,
+    args=SFTConfig(
+        dataset_text_field="output",   # for Alpaca, TRL needs a formatting_func instead
+        max_seq_length=512,
+        output_dir="./output",
+    ),
+)
+```
+
+**Limits:** Alpaca format does not naturally handle system prompts — add a `system` key and use a formatting function. ShareGPT is better when you need a persistent system persona across turns. Neither format encodes tool call schemas; for that, see the TRL function-calling docs.
+
+*Sources: [YouTube — Instruction Tuning](https://www.youtube.com/watch?v=8iwxM6XRpVQ) · [Unsloth Datasets 101](https://docs.unsloth.ai/basics/datasets-101) · [W&B: Preparing a Dataset for Instruction Tuning](https://wandb.ai/capecape/alpaca_ft/reports/How-to-Fine-Tune-an-LLM-Part-1-Preparing-a-Dataset-for-Instruction-Tuning--Vmlldzo1NTcxNzE2)*]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Hand-Written Prompts Don't Get Better When Your Task Changes — DSPy Compiles LLM Pipelines Into Optimized Instructions Automatically]]></title>
@@ -6273,157 +6422,10 @@ grep -nE "^[-*] (Always|Never|Do not|Make sure|Use .* for)" CLAUDE.md
 **Sources:** [The new rules of context engineering for Claude 5 generation models — claude.com](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) · [Context Engineering for Coding Agents — martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html) · [Claude Code memory — code.claude.com](https://code.claude.com/docs/en/memory)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[The Claude Design Export Bundle Carries the Component Map But Not Your API — One Line Before the Handoff Prompt Points Claude Code to Your Actual Components]]></title>
-    <link>https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux</link>
-    <guid isPermaLink="false">2026-11-01-06-claude-design-export-bundle-claude-code-component-handoff</guid>
-    <pubDate>Sun, 01 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[The Claude Design handoff bundle contains a component map and design tokens but not your component API. One priming sentence before the bundle prompt points Claude Code to your actual library instead of shadcn defaults.]]></description>
-    <content:encoded><![CDATA[**The export bundle carries your component map and design tokens — one sentence in the handoff prompt tells Claude Code which library to use instead of defaulting to shadcn.**
+  
 
-**What you'll be able to do after this:**
-- Get the Claude Design export bundle into Claude Code and prime it to use your component library
-- Understand what the bundle contains (and what it deliberately omits)
-- Know when to go back to Claude Design vs. when to iterate in Claude Code
-
----
-
-When you click Export → "Hand off to Claude Code" in Claude Design, the bundle contains:
-- A machine-readable component structure (which elements are containers, buttons, cards, lists)
-- Color tokens, typography, and spacing values used in the design
-- Layout hierarchy and component states you specified
-- A README and a pre-written prompt to paste into Claude Code
-
-**What the bundle does not contain:** your component library's API. Claude Code knows a `Button[primary]` belongs here, but it has no idea whether your button is `<Button variant="primary">`, `<PrimaryButton>`, or `<btn class="btn-primary">`. Without a hint, it defaults to whatever library it associates with your stack.
-
-**One sentence closes that gap.** Before pasting the bundle prompt, add:
-
-```
-Implement this design using the existing React components in src/components/.
-Do not introduce any new component library or install new packages.
-For unfamiliar component names, check src/components/index.ts.
-```
-
-**The handoff flow:**
-
-1. Complete the design canvas in Claude Design (a full viewport, not a sketch).
-2. Click Export → "Hand off to Claude Code."
-3. Open Claude Code at your repo root.
-4. Paste your component-library sentence, then paste the bundle prompt Claude Design generated.
-5. Claude Code downloads the bundle, reads the component map and tokens, and starts implementing.
-
-**When to go back to Claude Design:** when layout, information hierarchy, or the interaction model needs to change. When only implementation details need adjustment — correct props, event handlers, responsive variants — stay in the editor. The fastest convergence happens when each tool handles the layer it understands.
-
-**Limits:** The bundle URL is temporary; download the `.zip` for long-lived work. Even with the priming sentence, Claude Code cannot infer your component prop names or variant signature — review generated prop usage against your actual interface. The handoff works best from a linked codebase (connect it in Claude Design settings) so the canvas has already tried to match your tokens.
-
-**Sources:** [Using Claude Design for prototypes and UX — claude.com](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design → Claude Code handoff guide — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)]]></content:encoded>
-  </item>
-
-
-  <item>
-    <title><![CDATA[Your Formatter Isn't Running After Claude Code Edits — A PostToolUse Hook With a Write|Edit Matcher Calls Prettier, Black, or gofmt Automatically]]></title>
-    <link>https://docs.anthropic.com/en/docs/claude-code/hooks</link>
-    <guid isPermaLink="false">2026-11-01-05-post-tool-use-hook-auto-format-prettier-black</guid>
-    <pubDate>Sun, 01 Nov 2026 12:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[A PostToolUse hook with a Write|Edit matcher in .claude/settings.json runs your formatter silently after every Claude Code edit — no manual step, no style drift accumulating across a session.]]></description>
-    <content:encoded><![CDATA[**A `PostToolUse` hook in `.claude/settings.json` with a `Write|Edit` matcher runs your formatter automatically after every Claude Code edit — no manual step, no style drift accumulating across a session.**
-
-Claude Code writes syntactically correct code but doesn't know about your project's formatter. After a session touching 20 files, a batch `prettier --write .` at commit time rewrites the diff in ways that mix real changes with noise, obscuring what actually moved.
-
-A `PostToolUse` hook fixes this at the source. Add to `.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [{
-      "matcher": "Write|Edit",
-      "hooks": [{
-        "type": "command",
-        "command": "bash .claude/hooks/autoformat.sh"
-      }]
-    }]
-  }
-}
-```
-
-The script reads the edited file path from stdin (Claude Code passes the full tool JSON there) and dispatches by extension:
-
-```bash
-#!/usr/bin/env bash
-FILE=$(jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
-[[ -z "$FILE" ]] && exit 0
-
-case "$FILE" in
-  *.ts|*.tsx|*.js|*.jsx|*.json|*.css)
-    npx prettier --write "$FILE" 2>/dev/null || true ;;
-  *.py)
-    ruff format "$FILE" 2>/dev/null || true ;;
-  *.go)
-    gofmt -w "$FILE" 2>/dev/null || true ;;
-esac
-```
-
-The `|| true` on every branch is deliberate. A `PostToolUse` hook can't block or revert the edit — it already ran. A non-zero exit sends formatter error output into Claude's context, which turns a missing `.prettierrc` into a stream of complaints on every edit. Silencing formatter failures keeps the loop clean; real style issues will surface in CI.
-
-Supabase's `studio` repo committed exactly this pattern — a `format_and_lint.sh` hook that reads stdin with `jq`, runs Prettier, then `eslint --fix` on TypeScript files. Their implementation is a useful reference for the stdin parsing and multi-tool chaining.
-
-**What doesn't work here:** `PostToolUse` hooks run synchronously, so budget around 5 seconds. Running `eslint .` (the whole project) instead of `eslint "$FILE"` (only the changed file) will visibly slow every single edit. Target only the changed file. If you need to veto a write before it happens — not just clean it up after — that's a `PreToolUse` hook, not a `PostToolUse` one.
-
-**Sources:** [Claude Code hooks — docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code/hooks) · [Practical hook configs — morphllm.com](https://www.morphllm.com/claude-code-hooks-examples) · [Supabase hooks commit — git.adamlamers.com](https://git.adamlamers.com/PublicArchive/supabase/commit/48e0b0c5592ffa80a6b95849430be2233d36120b)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Generate Three Rough Directions in Claude Design Before Writing a Line of Code — The Comparison Becomes the Constraint Brief Your Claude Code Session Needs]]></title>
-    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
-    <guid isPermaLink="false">2026-11-01-04-claude-design-explore-directions-spec-brief</guid>
-    <pubDate>Sun, 01 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Generating three architecturally distinct directions in Claude Design before coding externalizes layout and hierarchy choices. The comparison note becomes the constraint brief Claude Code needs to generate on-brand, on-spec components.]]></description>
-    <content:encoded><![CDATA[**TL;DR: Three design directions from Claude Design in 15 minutes surface layout and hierarchy conflicts you'd otherwise discover in code — and the comparison produces a constraint brief Claude Code can act on directly.**
-
-When you jump straight to implementation, you commit to implicit decisions — layout, information density, interaction model — without ever examining them. A short exploration in Claude Design, before any code is written, externalizes those choices and makes them negotiable.
-
-**What you'll be able to do after this:**
-- Generate three architecturally distinct directions for a feature from a single brief
-- Extract the surviving decisions as a constraint brief
-- Pass that brief to Claude Code and get components that stay within the chosen system
-
-**The workflow**
-
-Write a brief — 3–5 lines: what the feature does, who uses it, the one job it needs to do well, and the constraints (existing component library, color system, target screen sizes). In Claude Design (or a Claude artifact), ask for three distinct directions, not variations of one:
-
-> "Generate three distinct UI directions for [feature brief]. Make them architecturally different — different information hierarchy, different interaction model, not just different colors. Label each by its tradeoff: e.g., 'dense / scannable', 'guided / linear', 'ambient / low-interrupt'."
-
-Once you have three, write a comparison note: what each gets right, what it sacrifices, where each breaks. **That comparison is the spec.** The decisions that survive — "we need scannable density; primary action in one tap; use our existing Card and Button primitives" — become the constraint brief.
-
-Hand that brief directly to Claude Code:
-
-> "You're building [feature]. Constraints: [surviving list]. Components available: [library]. Generate the component tree starting with the container layout."
-
-The exploration took 15 minutes; the brief took five; Claude Code works from a concrete spec rather than a vague description.
-
-**Limits**: Claude Design explores layouts and hierarchy well but has no knowledge of your existing components unless you describe them. Generated directions tend toward clean, low-density layouts — if density matters, prompt for it explicitly. This workflow is strongest before the first line of code, not during iteration on something already built.
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [CLAUDE.md context file — code.claude.com](https://code.claude.com/docs/en/claude-md) · [Design Sprint methodology — designsprintkit.withgoogle.com](https://designsprintkit.withgoogle.com/methodology/overview)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
