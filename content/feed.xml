@@ -10,7 +10,101 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Nov 2026 12:13:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 19 Nov 2026 20:08:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Code Agent Runs Unattended But Checking In Means Reopening a Terminal — /remote-control Connects Any Live Session to Phone or Browser]]></title>
+      <link>https://code.claude.com/docs/en/remote-control</link>
+      <guid isPermaLink="false">2026-11-19-07-claude-code-remote-control-phone-browser-session-monitoring</guid>
+      <pubDate>Thu, 19 Nov 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[/remote-control streams a running Claude Code session to the Claude app on your phone or browser. As of Nov 17, replies stream in real time. For sessions that need to outlive your machine, start in the cloud and use --teleport to pull them local.]]></description>
+      <content:encoded><![CDATA[**`/remote-control` streams any live Claude Code session to your phone or browser; for sessions that must outlive your machine, start in the cloud and pull them down with `--teleport` when you're back at your desk.**
+
+Long agentic tasks often run while you're away from the terminal. Two distinct scenarios:
+
+**Scenario A — monitor/steer a local session from elsewhere**
+
+```
+# inside a running session:
+/remote-control          # or /rc
+
+# or start with remote access on:
+claude --remote-control  # or --rc
+```
+
+Your session appears in the Claude mobile app under the **Code** tab. As of the [Nov 17 changelog](https://code.claude.com/docs/en/changelog), replies stream to your phone as they are written, so you're watching real output rather than polling. You can send messages, approve tool calls, or give new instructions from your phone exactly as you would from the terminal.
+
+**Name your sessions so you can find them:**
+```
+claude --name "refactor-auth" --remote-control
+# or inside an existing session:
+/rename refactor-auth
+```
+
+Multiple sessions can run under remote control simultaneously — each shows up as a separate entry in the Code tab.
+
+**Scenario B — pick up a cloud session in your terminal**
+
+Cloud sessions keep running when your laptop is closed. When you return:
+
+```
+claude --teleport               # interactive session picker
+claude --teleport <session-id>  # resume a specific session
+# or inside a session:
+/teleport    # or /tp
+```
+
+Teleport imports the conversation history into your terminal so you can keep editing locally. It creates a local copy; new work doesn't sync back to the cloud session.
+
+**Limits:**
+- Remote Control requires your machine to stay on and the `claude` process running. If the machine sleeps or the process exits, the connection drops.
+- Commands that only work in the terminal interface (`/plugin`, `/resume`) don't work from the mobile or web client. Bypass permissions mode is also unavailable from the app.
+- `--teleport` requires the same `claude.ai` account as the cloud session; API-key auth won't work. You must `claude auth login` first.
+- Don't confuse `--teleport` with `--resume` — `--resume` reopens a conversation from your machine's local history only; it doesn't list cloud sessions.
+
+**Sources:** [Remote Control docs — code.claude.com](https://code.claude.com/docs/en/remote-control) · [Claude Code mobile — code.claude.com](https://code.claude.com/docs/en/mobile) · [Remote control guide — explainx.ai](https://www.explainx.ai/blog/claude-code-mobile-remote-control-phone-guide-2026) · [Claude Code from your phone — inventivehq.com](https://inventivehq.com/blog/claude-code-from-your-phone-remote)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      </item>
+
+      <item>
+      <title><![CDATA[GitHub Copilot Adds Regression Tests for Agent Customizations and Browser Automation at Ignite]]></title>
+      <link>https://github.blog/changelog/2026-11-17-github-copilot-evals-is-now-in-public-preview/</link>
+      <guid isPermaLink="false">2026-11-19-08-github-copilot-evals-browser-use-ignite-public-preview</guid>
+      <pubDate>Thu, 19 Nov 2026 20:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[GitHub Copilot Evals (public preview, Nov 17) writes repeatable tests for custom skills, agents, and MCP tools — checking the reasoning path, not just the final answer. Browser use gives Copilot agents control of a Chrome tab.]]></description>
+      <content:encoded><![CDATA[**Two Copilot features entered public preview at Ignite on November 17: Evals writes regression tests for your custom agent setups; browser use lets your agent open Chrome tabs, read pages, click, and fill forms.**
+
+**Copilot Evals**
+
+The gap this closes: when you modify a custom skill, agent, or MCP tool, there's been no repeatable way to verify the change didn't break existing behavior. Evals fills that.
+
+Create one via `/eval` or a prompt, then run it after any change to your Copilot setup. It checks both the final answer *and* how the agent got there — whether it called the right tools in the right order — not just whether the output looks plausible.
+
+You approve each run before it starts. The UI shows why a check failed and lets you compare runs before and after a customization edit. Engine is Vally, an extensible local eval runner.
+
+Available in VS Code (Marketplace extension), Copilot CLI (plugin), and the Copilot app.
+
+**Browser use**
+
+The Copilot agent can now open pages, read their content, click links, interact with buttons, and fill forms — with the GitHub Copilot Chrome extension installed and browser use enabled in settings. Works in Copilot CLI, app, VS Code, and JetBrains. Runs in an isolated Chromium tab group.
+
+**Why they matter:** Evals directly addresses the problem that one successful run doesn't tell you whether a customization is reliable. Browser use means Copilot can close a loop that previously required a human to open the app and verify it rendered — but it's not a headless testing framework; the browser must be open.
+
+**Limits:** Both are in public preview and subject to change. Evals requires approval before each run, so it doesn't work in a fully unattended pipeline yet. Browser use is Chromium-only. Neither is in the GitHub Enterprise Server extension as of launch.
+
+**Why it matters:** If your team maintains Copilot custom agents or MCP server configurations, Evals is the first tool that lets you gate on agent behavior rather than just on code style.
+
+**Sources:** [Copilot Evals public preview — github.blog](https://github.blog/changelog/2026-11-17-github-copilot-evals-is-now-in-public-preview/) · [Browser use — github.blog](https://github.blog/changelog/2026-11-17-let-github-copilot-interact-with-your-browser/) · [Copilot Ignite releases — github.blog](https://github.blog/changelog/2026-11-17-github-copilot-app-microsoft-ignite-releases/)]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Agents</category>
+      </item>
 
       <item>
       <title><![CDATA[Your Multi-Provider App Maintains Two Separate SDK Setups Because OpenAI and Anthropic Have Different Base URLs — Perplexity Orchestrator Accepts Both Message Formats Through One Endpoint]]></title>
@@ -6324,103 +6418,8 @@ Swap in any embedding model — `OpenAIEmbeddings()` works the same way; just no
 **Sources:** [SemanticChunker tutorial — LangChain Open Tutorial](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/07-textsplitter/04-semanticchunker) · [SemanticChunker API reference — LangChain experimental](https://python.langchain.com/api_reference/experimental/text_splitter/langchain_experimental.text_splitter.SemanticChunker.html) · [RAG chunking strategies compared — machinelearningplus.com](https://machinelearningplus.com/?p=26308)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude Code Session Signs Off Before Your Tests Pass — A Stop Hook That Exits 2 Blocks Completion and Sends Claude Back, With One Environment Check to Prevent an Infinite Loop]]></title>
-    <link>https://code.claude.com/docs/en/customization/hooks</link>
-    <guid isPermaLink="false">2026-11-02-04-stop-hook-exit-2-test-gate-stop-hook-active-guard</guid>
-    <pubDate>Mon, 02 Nov 2026 04:08:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[A Stop hook runs every time Claude tries to end its turn. Exit 2 blocks completion and sends it back; check CLAUDE_CODE_STOP_HOOK_ACTIVE first or the loop never ends. Concrete test-gate in 15 lines.]]></description>
-    <content:encoded><![CDATA[**A Stop hook that exits 2 sends Claude back for another attempt; checking `CLAUDE_CODE_STOP_HOOK_ACTIVE` is the one thing that keeps it from looping forever.**
-
-Your Claude Code session decides it's done whenever it runs out of obvious next steps — before you've confirmed whether the tests pass, the build is green, or the required output file was written. A **Stop hook** is how you add that gate.
-
-A Stop hook runs every time Claude tries to end its turn. Two exit codes matter:
-
-- **Exit 0:** all good — let it finish.
-- **Exit 2:** blocked — Claude reads your `reason` JSON from stdout and goes back for another pass.
-
-**The one guard you cannot skip — `CLAUDE_CODE_STOP_HOOK_ACTIVE`**
-
-Without this check, a hook that always exits 2 traps Claude in an infinite retry loop. The environment variable is set to `"1"` when a Stop hook is already blocking the current attempt — checking it first lets you fail open on the second pass and end the turn even if the check is still failing.
-
-**Wire it up:**
-
-```json
-// .claude/settings.json
-{
-  "hooks": {
-    "Stop": [{
-      "matcher": "",
-      "hooks": [{
-        "type": "command",
-        "command": "bash .claude/hooks/run-gate.sh"
-      }]
-    }]
-  }
-}
-```
-
-```bash
-#!/usr/bin/env bash
-# .claude/hooks/run-gate.sh
-
-# Fail open if a previous Stop hook already blocked this turn.
-# Without this, a failing test traps Claude in an infinite retry loop.
-if [ "$CLAUDE_CODE_STOP_HOOK_ACTIVE" = "1" ]; then
-  exit 0
-fi
-
-# Run your fast check — keep this under the hook timeout (~60 s).
-if ! pnpm test --silent 2>&1; then
-  printf '{"decision":"block","reason":"Test suite failed — fix before completing."}\n'
-  exit 2
-fi
-```
-
-Claude reads the JSON from stdout when exit 2 fires and feeds the `reason` back into the session. If the tests fail, Claude tries again. Once they pass (or after the first block), `exit 0` lets it finish.
-
-**What gates work well here:**
-
-- **Fast unit tests:** `pnpm test --silent` or `pytest -x -q`. Skip long integration suites — the hook timeout is 60 seconds.
-- **Lint as a gate:** `eslint --max-warnings 0` catches new violations Claude introduced in its last edit.
-- **File existence:** confirm a required output was written before sign-off: `[ -f dist/bundle.js ] || exit 2`.
-
-**Limits:** Stop hooks run in the shell environment and cannot see what Claude is thinking — only what exists on disk. If the test failure is in a module Claude didn't realize it affected, the loop may not converge. The default retry cap is 8 blocks (`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP`). Design the gate check to be idempotent and fast; a hook that takes 45 seconds delays every turn end.
-
-**Sources:** [Stop hooks reference — code.claude.com](https://code.claude.com/docs/en/customization/hooks) · [Stop hook task enforcement — claudefa.st](https://claudefa.st/blog/tools/hooks/stop-hook-task-enforcement) · [Deep dive: Stop hooks and the self-validation loop — besthub.dev](https://besthub.dev/articles/deep-dive-into-claude-code-hooks-stop-hooks-and-the-self-validation-loop-a3dfdda1397b)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[DeepSeek Open-Sources a Coding Agent That Monitors Your Team's Chat Without Being Summoned — A Research Prototype, but the Autonomous-Trigger Architecture Is Worth Watching]]></title>
-    <link>https://github.com/deepseek-ai/dsh-superagent</link>
-    <guid isPermaLink="false">2026-11-02-03-deepseek-super-agent-team-chat-monitoring-open-source</guid>
-    <pubDate>Mon, 02 Nov 2026 04:07:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Developer Tools</category>
-    <category>Agents</category>
-    <category>Frontier</category>
-    <description><![CDATA[DeepSeek released Super-Agent under MIT license on November 1: an autonomous coding agent that watches developer group chats for coding issues and proposes fixes without being invoked.]]></description>
-    <content:encoded><![CDATA[**DeepSeek released Super-Agent on November 1 — an MIT-licensed prototype of an autonomous coding agent that monitors developer group chats and proposes fixes without being explicitly invoked.**
-
-DeepSeek published [Super-Agent](https://github.com/deepseek-ai/dsh-superagent) (`dsh-superagent` on GitHub) as a research prototype explicitly aimed at competing with Claude Code. The distinctive design: instead of responding to explicit commands, it watches group chat conversations among developers, detects coding issues in the discussion, and suggests solutions on its own.
-
-DeepSeek calls it "not an official DeepSeek product" — a research prototype with no guaranteed stability or support.
-
-**Why it matters:** Claude Code and most coding agents operate on explicit invocation — you ask, they act. Super-Agent's trigger model is different: it monitors ambient conversation and intervenes when it judges the moment is right. The hard engineering problem here isn't the code generation (that's table stakes); it's knowing *when to interrupt*. Getting the trigger detection wrong produces either a useless agent that never fires or an annoying one that fires constantly. The MIT license means you can fork and retune the interrupt logic — which is more interesting than the prototype status suggests.
-
-**Limit:** It is a research prototype. The trigger detection is almost certainly rough at this stage, and deploying it in an active team chat without significant tuning risks it firing on every debugging thread. The architecture is worth watching; the current release is not production-ready.
-
-**Sources:** [DeepSeek Super-Agent on GitHub — github.com/deepseek-ai](https://github.com/deepseek-ai/dsh-superagent) · [DeepSeek Drops Enhanced Coding Agent With Aim to Rival Anthropic — Bloomberg](https://bloomberg.com/news/articles/2026-11-01/deepseek-drops-enhanced-coding-agent-with-aim-to-rival-anthropic) · [DeepSeek open-sources Super-Agent, a coding agent that reads team chats — The Next Web](https://thenextweb.com/news/deepseek-super-agent-open-source-coding-agent)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
