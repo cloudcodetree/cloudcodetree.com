@@ -10,7 +10,135 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 19 Nov 2026 12:13:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Multi-Provider App Maintains Two Separate SDK Setups Because OpenAI and Anthropic Have Different Base URLs — Perplexity Orchestrator Accepts Both Message Formats Through One Endpoint]]></title>
+      <link>https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference</link>
+      <guid isPermaLink="false">2026-11-19-04-perplexity-orchestrator-single-endpoint-openai-anthropic-failover</guid>
+      <pubDate>Thu, 19 Nov 2026 12:13:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Perplexity Orchestrator (launched Nov 17) accepts both OpenAI Chat Completions and Anthropic Messages requests at a single base URL and adds same-model provider failover. Currently in private preview.]]></description>
+      <content:encoded><![CDATA[**One base URL accepts both OpenAI Chat Completions and Anthropic Messages API calls; same-model provider failover retries on a different infrastructure deployment automatically — your existing SDK code changes in three places.**
+
+If your app calls both Anthropic and OpenAI you have two SDK setups: different base URLs, different client initialization, different response handling. Perplexity Orchestrator ([launched November 17](https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference)) routes both message formats through `https://api.perplexity.ai/orchestrator/v1`.
+
+**Switching an Anthropic client:**
+
+```python
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.perplexity.ai/orchestrator/v1",
+    api_key="pplx-...",          # Perplexity key replaces Anthropic key
+)
+
+# Model names, message structure, and response shape are unchanged
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+The same migration works for the OpenAI SDK: change `base_url` and `api_key`, leave the model name and message dict as-is.
+
+**What "failover" actually means:** Orchestrator routes across multiple infrastructure providers hosting the same model. If one returns a 5xx, it retries on another deployment of the same model. This is **same-model failover** — the model you specified is what you get. Cross-model fallback (switch to a cheaper model when the primary is overloaded) is not available.
+
+**Automatic routing:** A `perplexity/auto` model ID lets a decision model pick a route per request. Per the docs, adaptive speed-based routing is still in development — not ready for cost optimization workflows.
+
+**Limits:**
+- Currently in private preview; email api@perplexity.ai to request access
+- Context window overflows return HTTP 400, no retry
+- Published per-token rates apply regardless of which provider handles the request; no cost arbitrage
+
+**When to use it vs. OpenRouter:** Use Orchestrator when reliability matters and you're calling a specific model — it gives you provider failover without changing model. Use OpenRouter when model variety matters — routing between GPT-6.1 and Opus 5.5 based on task type, or cost/capability routing across 200+ options.
+
+**Sources:** [Orchestrator launch — perplexity.ai](https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference) · [Routing & reliability docs — docs.perplexity.ai](https://docs.perplexity.ai/docs/router/routing-and-reliability) · [Launch coverage — unite.ai](https://www.unite.ai/?p=522793)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>LLM</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[GitHub Copilot Gets Two New In-House Coding Models at Ignite; the Flash Variant Is Free on Every Plan Including the Free Tier]]></title>
+      <link>https://thenewstack.io/microsoft-mai-code-2/</link>
+      <guid isPermaLink="false">2026-11-19-05-microsoft-mai-code-2-flash-github-copilot-ignite</guid>
+      <pubDate>Thu, 19 Nov 2026 12:12:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Microsoft launched MAI Code 2 and Code 2 Flash at Ignite 2026 (Nov 17). Code 2 Flash lands on the free and student tiers; Code 2 targets enterprise cost-performance.]]></description>
+      <content:encoded><![CDATA[**Microsoft shipped MAI Code 2 and Code 2 Flash to GitHub Copilot at Ignite on November 17; Code 2 Flash is now available on the free and student tiers.**
+
+**MAI Code 2** is Microsoft's new flagship in-house coding model, available on Copilot Pro, Pro+, Max, Business, and Enterprise. **MAI Code 2 Flash** is the smaller, faster variant: free on all plans, including Copilot Free and Student — the first capable in-house Microsoft coding model on the free tier.
+
+Code 2 Flash is also in limited preview on Microsoft Foundry. OpenRouter, Vercel, and Kilo are listed as forthcoming integrations.
+
+Microsoft claims Code 2 scores 98% of GPT-6.1 Sol's performance at 40% of its cost, and 96% of Claude Opus 5.5's at 5% of its cost. These are vendor figures against Microsoft's own benchmarks; independent evals haven't published yet. Per the launch materials, the models are not tuned for fundamental science research or very long-horizon agentic work.
+
+**Why it matters:** Copilot Free users get a capable in-house coding model without upgrading. For teams on paid plans, the cost positioning makes Code 2 worth evaluating alongside Claude and GPT-6.1 for routine coding tasks — but verify on your own workloads before switching.
+
+**Sources:** [Microsoft MAI Code 2 — thenewstack.io](https://thenewstack.io/microsoft-mai-code-2/) · [Plan access details — cryptobriefing.com](https://cryptobriefing.com/microsoft-mai-code-2-flash-github-copilot/)]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Commits to Implementation Before You've Decided What You're Building — Generate Three Distinct Layout Directions in Claude Design First]]></title>
+      <link>https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux</link>
+      <guid isPermaLink="false">2026-11-19-06-claude-design-three-layout-directions-before-code</guid>
+      <pubDate>Thu, 19 Nov 2026 12:11:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Before handing a feature to Claude Code, use Claude Design to generate three visually distinct layout directions, choose one, then hand off only that direction — so Claude Code starts from a decision, not a guess.]]></description>
+      <content:encoded><![CDATA[**Before writing any implementation code, generate three distinct layout directions in Claude Design and choose one — so Claude Code starts from a decision, not from "I'll figure it out as I build."**
+
+**What you'll be able to do after this:**
+Generate and compare multiple layout directions in Claude Design before any implementation code is written — so your Claude Code sessions start from a chosen direction, not from "figure it out as you go."
+
+**Key takeaways:**
+- Claude Design generates faster than Claude Code commits to structure — use that asymmetry: iterate in the design surface until a direction is chosen, then switch to the editor
+- Explicitly prompting for three *distinct* directions ("make each feel like a different designer made different tradeoffs") gets you divergent options rather than three colorways of the same layout
+- The handoff is a one-time cost: Export → Claude Code brings only the chosen direction; all three are preserved as branches if you need to revisit
+
+**Walk-through:**
+
+```
+# In Claude Design — start with your design system linked if you have one
+# (run /design-sync in Claude Code first to upload your tokens/components)
+
+# 1. Prompt for distinct directions — describe the constraint, not the aesthetic
+"I need a checkout summary panel. Give me three distinct approaches:
+ one that minimizes scroll by collapsing line items,
+ one that groups items by product category with subtotals,
+ one that surfaces the total savings prominently above the item list.
+ Make each feel like a different designer made different tradeoffs —
+ not three colorways of the same layout."
+
+# 2. For each direction: annotate what works (Claude Design annotation tools)
+#    Use the branch feature to preserve all three before choosing
+
+# 3. Pick one direction; export it
+# In the browser: Export → Handoff to Claude Code
+# Or from Claude Code: /design import <project-id>
+```
+
+Claude Code reads the chosen bundle's HTML structure and rebuilds it as React/Next.js components using your Tailwind config and component vocabulary. Explorations start from your design system, not generic defaults, when `/design-sync` has run.
+
+**What doesn't survive the handoff:** behavior, event handlers, API calls. Each direction is a visual structure — wire state and logic in Claude Code after the import. Treat the import as a visual diff, not a finished component.
+
+**Limit:** Claude Design checks generated output against your component map but may not match your component API exactly — a `Button` with `variant="primary"` instead of your `intent="primary"`. Budget time to reconcile prop names after import. Per an [April 2026 hands-on review](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/), Claude Design reads your component files as design artifacts rather than a live component graph, so the round-trip is "visual diff to apply", not lossless sync.
+
+**Sources:** [Using Claude Design for Prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux) · [How the product designer who built Claude Design uses it — claude.com](https://claude.com/resources/articles/how-the-product-designer-who-built-claude-design-uses-it-to-explore-ideas-before-building-them) · [Claude Design hands-on review — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Opus 5.5 Session Spawns Subagents That Default to Fable 5.2 — CLAUDE_CODE_SUBAGENT_MODEL Routes Them Anywhere, _FORCE Overrides Even Frontmatter]]></title>
@@ -6293,135 +6421,9 @@ DeepSeek calls it "not an official DeepSeek product" — a research prototype wi
 **Sources:** [DeepSeek Super-Agent on GitHub — github.com/deepseek-ai](https://github.com/deepseek-ai/dsh-superagent) · [DeepSeek Drops Enhanced Coding Agent With Aim to Rival Anthropic — Bloomberg](https://bloomberg.com/news/articles/2026-11-01/deepseek-drops-enhanced-coding-agent-with-aim-to-rival-anthropic) · [DeepSeek open-sources Super-Agent, a coding agent that reads team chats — The Next Web](https://thenextweb.com/news/deepseek-super-agent-open-source-coding-agent)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Anthropic's November 12 Policy Update Adds a Kill-Switch Requirement for Claude Controlling Hardware and Mandates Human Review for Hiring, Loan, and Medical AI Decisions]]></title>
-    <link>https://anthropic.com/news/2026-usage-policy-update</link>
-    <guid isPermaLink="false">2026-11-02-02-anthropic-usage-policy-agentic-hardware-physical-actions-nov12</guid>
-    <pubDate>Mon, 02 Nov 2026 04:06:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Team Adoption</category>
-    <description><![CDATA[Effective Nov 12: Claude connected to hardware must have a qualified operator able to observe and halt it. High-risk domains (hiring, loans, medical) need human review plus AI-use disclosure.]]></description>
-    <content:encoded><![CDATA[**Anthropic's 2026 usage policy update (effective November 12 — ten days away) adds explicit requirements for Claude controlling hardware and for high-risk automated decisions in hiring, lending, and healthcare.**
-
-Announced October 8, this update is separate from the [Democratic Processes section](https://www.anthropic.com/news/election-safeguards-update) covered earlier. It adds obligations for commercial and API deployments that make autonomous decisions or control physical systems.
-
-**Physical actions (new):** When Claude controls hardware capable of causing physical harm, a qualified operator must be present and able to observe and stop the equipment at any time. The system must maintain a safe state if Claude disconnects. This applies to robots, industrial equipment, and any autonomous machinery where Claude drives the control loop.
-
-**High-risk automated decisions (clarified with new specificity):** Candidate screening, loan pricing, medical advice, and financial recommendations now explicitly require:
-1. A qualified human reviewer who can inspect and modify the output before it reaches the affected person.
-2. Disclosure to that person that AI was involved in the decision.
-
-**Agents and browser automation:** Users who build or deploy agents — including actions taken through tools, browsers, or connected systems — are responsible for ensuring those agents comply with the policy.
-
-**Limit:** Anthropic describes most changes as clarifications of existing rules, not new obligations. Third-party coverage conflicts on whether the requirements cover all deployments or only consumer-facing outputs — read the [official policy text](https://anthropic.com/aup) directly before drawing compliance conclusions.
-
-**Why it matters:** If you are deploying Claude via Bedrock or the API in any automated-decision or hardware-control context, November 12 is your deadline to confirm you have the required human oversight in place.
-
-**Sources:** [2026 usage policy update — anthropic.com](https://anthropic.com/news/2026-usage-policy-update) · [Anthropic's 2026 policy update targets agentic hardware — AI Weekly](https://aiweekly.co/alerts/anthropics-2026-policy-update-targets-agentic-hardware) · [Checking the Anthropic usage policy update (Bedrock Health notice) — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/anthropic-usage-policy-update-bedrock-health/)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Inference Code Has a Separate SDK Setup Per Provider — OpenRouter Puts 200+ Models Behind One OpenAI-Compatible Endpoint and Lets You Define Fallback Chains in the Request]]></title>
-    <link>https://openrouter.ai/docs</link>
-    <guid isPermaLink="false">2026-11-02-01-openrouter-multi-provider-routing-fallback-chain</guid>
-    <pubDate>Mon, 02 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>LLM</category>
-    <category>Self-Hosting</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[OpenRouter exposes any major hosted model through one OpenAI-compatible base_url. Declare a models fallback list in extra_body and the response field shows which provider actually served the call.]]></description>
-    <content:encoded><![CDATA[**OpenRouter gives you one OpenAI-compatible endpoint for 200+ hosted models — GPT, Claude, Gemini, Llama, Mistral, Qwen — with per-request fallback chains so a provider outage doesn't take your app down.**
-
-**What you'll be able to do after this:** call any major hosted model through your existing OpenAI SDK setup, declare ordered fallback providers in the same request, and log which provider actually served each call.
-
-- Model names follow `provider/model-id` format: `anthropic/claude-haiku-5-5`, `openai/gpt-4o-mini`, `meta-llama/llama-3.3-70b-instruct`.
-- OpenRouter's API is a drop-in: change `base_url` and pass your OpenRouter key. Every existing chat completion call works unchanged.
-- Fallback chains go in `extra_body` — the OpenAI SDK doesn't expose that field in its typed interface, so you pass it as a dict.
-
-**Setup:**
-
-```python
-from openai import OpenAI
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key="your-openrouter-key",   # from openrouter.ai/keys
-)
-
-response = client.chat.completions.create(
-    model="anthropic/claude-haiku-5-5",
-    messages=[{"role": "user", "content": "Summarize this pull request diff."}],
-    extra_body={
-        # If Claude Haiku is unavailable, fall through to Llama on Together AI.
-        "models": [
-            "anthropic/claude-haiku-5-5",
-            "meta-llama/llama-3.3-70b-instruct",
-        ],
-        "route": "fallback",
-    },
-)
-
-# Which provider actually served this call?
-print(response.model)   # e.g. "meta-llama/llama-3.3-70b-instruct" on fallback
-```
-
-**`openrouter/auto` — handle with care.** Setting `model="openrouter/auto"` lets OpenRouter choose per prompt. It works but tends to underestimate task complexity and select cheaper models; independent testing has found it reaches for lower-capacity options more often than expected. Use it in prototyping; for production, declare explicit fallback chains.
-
-**Check current model availability and pricing** at [openrouter.ai/models](https://openrouter.ai/models) — the catalog changes and listed prices can differ significantly between providers for the same model.
-
-**Limits:** OpenRouter is a meta-router, not a model provider — it resells capacity from underlying providers. Pricing has two layers (the provider rate plus OpenRouter's margin). Latency has an extra network hop. Rate limits are set by the underlying provider, not by OpenRouter, so high-throughput workloads can still hit per-provider ceilings. For maximum throughput or minimum latency, calling a provider directly is faster and cheaper. OpenRouter is the right tool for prototyping across models, building resilience against provider outages, or consolidating multiple provider accounts into one SDK setup.
-
-**Sources:** [OpenRouter docs — openrouter.ai](https://openrouter.ai/docs) · [OpenRouter API tutorial — DataCamp](https://www.datacamp.com/tutorial/openrouter) · [Together vs OpenRouter vs Fireworks — earlier in this series](https://cloudcodetree.com/ai-news/2026-10-22-01-together-ai-openai-sdk-base-url-open-models)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your CLAUDE.md Still Has 400 Lines of Rules a Claude 5 Model Doesn't Need — Move Knowledge to Skills, Replace Instructions With Tools, Keep Only Gotchas]]></title>
-    <link>https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models</link>
-    <guid isPermaLink="false">2026-11-01-07-claude5-context-engineering-skills-tools-replace-rules</guid>
-    <pubDate>Sun, 01 Nov 2026 20:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[For Claude 5 models, Anthropic reports cutting over 80% of Claude Code's built-in system prompt. Your CLAUDE.md should follow: move rules to skills, replace instructions with tools, keep only gotchas.]]></description>
-    <content:encoded><![CDATA[**For Claude 5 models, Anthropic (per its July 2026 guidance) reports cutting over 80% of Claude Code's built-in system prompt — replacing explicit rules with model judgment. Your CLAUDE.md should follow the same pattern.**
-
-**Three shifts that improve Claude Code sessions immediately:**
-
-**1. Replace rules with judgment.** Your CLAUDE.md likely has lines like "Always add error handling for API calls" or "Never use `var` in TypeScript." Opus 5 and Sonnet 5 already apply these conventions correctly without being told. Writing them as rules wastes tokens and, worse, forces the model to pattern-match against rules rather than think. Run this audit and move or delete every match:
-
-```bash
-# Find rule candidates to move out of CLAUDE.md:
-grep -nE "^[-*] (Always|Never|Do not|Make sure|Use .* for)" CLAUDE.md
-```
-
-**2. Move knowledge to skills; keep only gotchas in the root CLAUDE.md.** A skill at `.claude/skills/testing/SKILL.md` loads only when Claude is doing testing work. A 400-line root CLAUDE.md loads into every turn — including the ones where you are fixing a Worker with no relation to testing. Per the Anthropic guidance, target the root under ~80 lines:
-
-```
-# CLAUDE.md — keep this file to things that would surprise a senior engineer:
-#   gotchas, non-obvious constraints, unusual build steps
-#
-# Move out:
-#   testing conventions  → @.claude/skills/testing/
-#   API patterns         → @.claude/skills/api/
-#   architecture rules   → @docs/claude/architecture.md
-```
-
-**3. Give Claude a tool instead of an instruction.** "Check the design system before choosing colors" is always-on context that often gets ignored mid-session. A tool that reads `design-tokens.json` on demand is better — Claude calls it when it needs color values and skips it otherwise. If information only matters sometimes, it belongs in a lazily loaded tool, not always-on context.
-
-**Limits:** This calibration is for the Claude 5 family (Opus 5, Sonnet 5, Haiku 5, Fable 5.1). On Claude 4 models (Sonnet 4.5, Opus 4.8), explicit rules still provide measurable guidance — the capability level is the prerequisite. Reduce your CLAUDE.md gradually: remove a section, run real sessions, verify behavior before removing the next.
-
-**Sources:** [The new rules of context engineering for Claude 5 generation models — claude.com](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) · [Context Engineering for Coding Agents — martinfowler.com](https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html) · [Claude Code memory — code.claude.com](https://code.claude.com/docs/en/memory)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
 
   

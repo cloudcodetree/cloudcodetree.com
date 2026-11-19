@@ -1,5 +1,62 @@
 [
   {
+    "id": "2026-11-19-04-perplexity-orchestrator-single-endpoint-openai-anthropic-failover",
+    "title": "Your Multi-Provider App Maintains Two Separate SDK Setups Because OpenAI and Anthropic Have Different Base URLs — Perplexity Orchestrator Accepts Both Message Formats Through One Endpoint",
+    "excerpt": "Perplexity Orchestrator (launched Nov 17) accepts both OpenAI Chat Completions and Anthropic Messages requests at a single base URL and adds same-model provider failover. Currently in private preview.",
+    "author": "Chris Harper",
+    "date": "11-19-2026",
+    "publishedAt": "2026-11-19T12:13:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "LLM",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference",
+    "content": "**One base URL accepts both OpenAI Chat Completions and Anthropic Messages API calls; same-model provider failover retries on a different infrastructure deployment automatically — your existing SDK code changes in three places.**\n\nIf your app calls both Anthropic and OpenAI you have two SDK setups: different base URLs, different client initialization, different response handling. Perplexity Orchestrator ([launched November 17](https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference)) routes both message formats through `https://api.perplexity.ai/orchestrator/v1`.\n\n**Switching an Anthropic client:**\n\n```python\nimport anthropic\n\nclient = anthropic.Anthropic(\n    base_url=\"https://api.perplexity.ai/orchestrator/v1\",\n    api_key=\"pplx-...\",          # Perplexity key replaces Anthropic key\n)\n\n# Model names, message structure, and response shape are unchanged\nresponse = client.messages.create(\n    model=\"claude-sonnet-5-5\",\n    max_tokens=1024,\n    messages=[{\"role\": \"user\", \"content\": \"Hello\"}],\n)\n```\n\nThe same migration works for the OpenAI SDK: change `base_url` and `api_key`, leave the model name and message dict as-is.\n\n**What \"failover\" actually means:** Orchestrator routes across multiple infrastructure providers hosting the same model. If one returns a 5xx, it retries on another deployment of the same model. This is **same-model failover** — the model you specified is what you get. Cross-model fallback (switch to a cheaper model when the primary is overloaded) is not available.\n\n**Automatic routing:** A `perplexity/auto` model ID lets a decision model pick a route per request. Per the docs, adaptive speed-based routing is still in development — not ready for cost optimization workflows.\n\n**Limits:**\n- Currently in private preview; email api@perplexity.ai to request access\n- Context window overflows return HTTP 400, no retry\n- Published per-token rates apply regardless of which provider handles the request; no cost arbitrage\n\n**When to use it vs. OpenRouter:** Use Orchestrator when reliability matters and you're calling a specific model — it gives you provider failover without changing model. Use OpenRouter when model variety matters — routing between GPT-6.1 and Opus 5.5 based on task type, or cost/capability routing across 200+ options.\n\n**Sources:** [Orchestrator launch — perplexity.ai](https://www.perplexity.ai/hub/blog/orchestrator-one-api-for-reliable-inference) · [Routing & reliability docs — docs.perplexity.ai](https://docs.perplexity.ai/docs/router/routing-and-reliability) · [Launch coverage — unite.ai](https://www.unite.ai/?p=522793)"
+  },
+  {
+    "id": "2026-11-19-05-microsoft-mai-code-2-flash-github-copilot-ignite",
+    "title": "GitHub Copilot Gets Two New In-House Coding Models at Ignite; the Flash Variant Is Free on Every Plan Including the Free Tier",
+    "excerpt": "Microsoft launched MAI Code 2 and Code 2 Flash at Ignite 2026 (Nov 17). Code 2 Flash lands on the free and student tiers; Code 2 targets enterprise cost-performance.",
+    "author": "Chris Harper",
+    "date": "11-19-2026",
+    "publishedAt": "2026-11-19T12:12:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Developer Tools",
+      "LLM",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://thenewstack.io/microsoft-mai-code-2/",
+    "content": "**Microsoft shipped MAI Code 2 and Code 2 Flash to GitHub Copilot at Ignite on November 17; Code 2 Flash is now available on the free and student tiers.**\n\n**MAI Code 2** is Microsoft's new flagship in-house coding model, available on Copilot Pro, Pro+, Max, Business, and Enterprise. **MAI Code 2 Flash** is the smaller, faster variant: free on all plans, including Copilot Free and Student — the first capable in-house Microsoft coding model on the free tier.\n\nCode 2 Flash is also in limited preview on Microsoft Foundry. OpenRouter, Vercel, and Kilo are listed as forthcoming integrations.\n\nMicrosoft claims Code 2 scores 98% of GPT-6.1 Sol's performance at 40% of its cost, and 96% of Claude Opus 5.5's at 5% of its cost. These are vendor figures against Microsoft's own benchmarks; independent evals haven't published yet. Per the launch materials, the models are not tuned for fundamental science research or very long-horizon agentic work.\n\n**Why it matters:** Copilot Free users get a capable in-house coding model without upgrading. For teams on paid plans, the cost positioning makes Code 2 worth evaluating alongside Claude and GPT-6.1 for routine coding tasks — but verify on your own workloads before switching.\n\n**Sources:** [Microsoft MAI Code 2 — thenewstack.io](https://thenewstack.io/microsoft-mai-code-2/) · [Plan access details — cryptobriefing.com](https://cryptobriefing.com/microsoft-mai-code-2-flash-github-copilot/)"
+  },
+  {
+    "id": "2026-11-19-06-claude-design-three-layout-directions-before-code",
+    "title": "Your Claude Code Session Commits to Implementation Before You've Decided What You're Building — Generate Three Distinct Layout Directions in Claude Design First",
+    "excerpt": "Before handing a feature to Claude Code, use Claude Design to generate three visually distinct layout directions, choose one, then hand off only that direction — so Claude Code starts from a decisi…",
+    "author": "Chris Harper",
+    "date": "11-19-2026",
+    "publishedAt": "2026-11-19T12:11:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux",
+    "content": "**Before writing any implementation code, generate three distinct layout directions in Claude Design and choose one — so Claude Code starts from a decision, not from \"I'll figure it out as I build.\"**\n\n**What you'll be able to do after this:**\nGenerate and compare multiple layout directions in Claude Design before any implementation code is written — so your Claude Code sessions start from a chosen direction, not from \"figure it out as you go.\"\n\n**Key takeaways:**\n- Claude Design generates faster than Claude Code commits to structure — use that asymmetry: iterate in the design surface until a direction is chosen, then switch to the editor\n- Explicitly prompting for three *distinct* directions (\"make each feel like a different designer made different tradeoffs\") gets you divergent options rather than three colorways of the same layout\n- The handoff is a one-time cost: Export → Claude Code brings only the chosen direction; all three are preserved as branches if you need to revisit\n\n**Walk-through:**\n\n```\n# In Claude Design — start with your design system linked if you have one\n# (run /design-sync in Claude Code first to upload your tokens/components)\n\n# 1. Prompt for distinct directions — describe the constraint, not the aesthetic\n\"I need a checkout summary panel. Give me three distinct approaches:\n one that minimizes scroll by collapsing line items,\n one that groups items by product category with subtotals,\n one that surfaces the total savings prominently above the item list.\n Make each feel like a different designer made different tradeoffs —\n not three colorways of the same layout.\"\n\n# 2. For each direction: annotate what works (Claude Design annotation tools)\n#    Use the branch feature to preserve all three before choosing\n\n# 3. Pick one direction; export it\n# In the browser: Export → Handoff to Claude Code\n# Or from Claude Code: /design import <project-id>\n```\n\nClaude Code reads the chosen bundle's HTML structure and rebuilds it as React/Next.js components using your Tailwind config and component vocabulary. Explorations start from your design system, not generic defaults, when `/design-sync` has run.\n\n**What doesn't survive the handoff:** behavior, event handlers, API calls. Each direction is a visual structure — wire state and logic in Claude Code after the import. Treat the import as a visual diff, not a finished component.\n\n**Limit:** Claude Design checks generated output against your component map but may not match your component API exactly — a `Button` with `variant=\"primary\"` instead of your `intent=\"primary\"`. Budget time to reconcile prop names after import. Per an [April 2026 hands-on review](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/), Claude Design reads your component files as design artifacts rather than a live component graph, so the round-trip is \"visual diff to apply\", not lossless sync.\n\n**Sources:** [Using Claude Design for Prototypes and UX — Claude Academy](https://academy.claude.com/tutorials/using-claude-design-for-prototypes-and-ux) · [How the product designer who built Claude Design uses it — claude.com](https://claude.com/resources/articles/how-the-product-designer-who-built-claude-design-uses-it-to-explore-ideas-before-building-them) · [Claude Design hands-on review — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/)"
+  },
+  {
     "id": "2026-11-19-03-claude-code-subagent-model-route-force-env-var",
     "title": "Your Opus 5.5 Session Spawns Subagents That Default to Fable 5.2 — CLAUDE_CODE_SUBAGENT_MODEL Routes Them Anywhere, _FORCE Overrides Even Frontmatter",
     "excerpt": "Set CLAUDE_CODE_SUBAGENT_MODEL to route spawned subagents to a specific model; add CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 to override custom agents with their own frontmatter.",
