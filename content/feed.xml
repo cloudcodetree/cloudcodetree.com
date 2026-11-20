@@ -10,7 +10,171 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 20 Nov 2026 12:05:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your `.mcp.json` Has Bearer Tokens and Database URLs in Plain Text — `${VAR}` Expansion Lets You Commit the File Without the Credentials]]></title>
+      <link>https://code.claude.com/docs/en/mcp-configuration</link>
+      <guid isPermaLink="false">2026-11-20-05-mcp-json-env-var-expansion-commit-safe-credentials</guid>
+      <pubDate>Fri, 20 Nov 2026 12:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Code expands ${VAR} and ${VAR:-default} in every .mcp.json string at launch — commit server config with variable names, keep credentials in env vars or a secrets manager.]]></description>
+      <content:encoded><![CDATA[**Claude Code expands `${VAR}` and `${VAR:-default}` in every `.mcp.json` string value at server startup — credentials stay in env vars, the config file is safe to commit.**
+
+If you've ever pasted a database URL or API token directly into `.mcp.json` to get a server running, the expansion syntax removes the reason to do that. Claude Code substitutes every `${VAR}` reference before the server process starts.
+
+**The pattern:**
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "type": "http",
+      "url": "${MY_API_URL:-http://localhost:4000/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${MY_API_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_URL": "${DATABASE_URL}"
+      }
+    }
+  }
+}
+```
+
+Set `MY_API_TOKEN` and `DATABASE_URL` in your shell profile, in a `.env` file (kept in `.gitignore`), or via a secrets manager.
+
+**With 1Password CLI**, the `op run` wrapper sets variables from the vault just before Claude Code starts:
+
+```bash
+op run --env-file=.mcp.env -- claude
+```
+
+Where `.mcp.env` contains references like `MY_API_TOKEN=op://Vault/api-credentials/token`. The raw token never touches the filesystem outside the vault.
+
+**Where it breaks:**
+
+- Expansion runs once at startup. If a token rotates mid-session, restart Claude Code to pick up the new value.
+- A missing variable with no default expands to the literal `${VAR}` string — the server starts but every tool call fails at the connection step, not at launch. Use `${VAR:-}` (empty-string default) if you want an earlier failure, or validate the var in a shell script before invoking Claude Code.
+- The existing `.claude/settings.local.json` allow-rule problem (storing full shell commands including inline credentials) is a separate issue — `${VAR}` in `.mcp.json` does not protect against that path.
+
+**Sources:** [Claude Code MCP configuration docs — code.claude.com](https://code.claude.com/docs/en/mcp-configuration) · [Securing MCP credentials with 1Password — Towards AI](https://pub.towardsai.net/secure-your-mcp-credentials-2443b4eded34) · [MCP server setup guide — builder.io](https://www.builder.io/blog/claude-code-mcp-servers)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Claude Code</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Hugging Face Switched Language-Model Routing to OpenRouter — You Get Automatic Failover but Custom Provider Keys No Longer Work for LM Calls]]></title>
+      <link>https://openrouter.ai/blog/announcements/hugging-face-inference-providers/</link>
+      <guid isPermaLink="false">2026-11-20-04-huggingface-inference-providers-openrouter-routing-failover</guid>
+      <pubDate>Fri, 20 Nov 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[As of Nov 16, HuggingFace Inference Providers routes LM calls through OpenRouter, adding automatic failover — but custom per-provider keys stop working for language models.]]></description>
+      <content:encoded><![CDATA[**As of November 16, language-model calls via Hugging Face Inference Providers now route through OpenRouter — you get automatic provider failover, but custom provider keys stop working for LM calls.**
+
+Hugging Face handed language-model routing in its Inference Providers to OpenRouter. Where previously HF picked one provider per request and returned its error on failure, OpenRouter now selects the best available provider based on live price, speed, and reliability — and retries on another provider if one fails.
+
+The breaking change is narrower than it sounds. It affects only language models. Image, video, and audio generation still route directly through Inference Providers and are unaffected.
+
+If you had wired in a custom provider key — your own Together AI, Fireworks, or other provider token — that path breaks silently for LM calls. The InferenceClient still accepts a `provider=` argument, but the custom key is no longer forwarded.
+
+```python
+# This call now goes through OpenRouter, not your Together key
+from huggingface_hub import InferenceClient
+client = InferenceClient(provider="together", api_key="YOUR_HF_TOKEN")
+```
+
+If you rely on routing to a specific provider for cost control or compliance, check whether your existing code is now silently falling back to a different provider.
+
+**Why it matters:** Most developers gain free failover with no code change. If you depended on provider selection for a reason — cost ceiling, data-residency, latency budget — the routing is no longer in your hands for LM calls.
+
+**Limit:** Connecting an OpenRouter account to your HF account is listed as a next step in HF's announcement, but specific pricing and billing details are still being finalized. Verify costs against the HF docs before relying on specific per-token numbers.
+
+**Sources:** [OpenRouter: OpenRouter Now Powers Inference on Hugging Face](https://openrouter.ai/blog/announcements/hugging-face-inference-providers/) · [Hugging Face Inference Providers blog](https://huggingface.co/blog/inference-providers) · [TestingCatalog: HF moves Inference Providers routing to OpenRouter](https://www.testingcatalog.com/hugging-face-moves-inference-providers-routing-to-openrouter)]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>HuggingFace</category>
+      <category>Cloud</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your First FAISS Index Is `IndexFlatL2` Because Every Tutorial Uses It — Flat Is Exact and Right up to ~100K Vectors, but IVF and HNSW Scale Much Further]]></title>
+      <link>https://www.pinecone.io/learn/series/faiss/faiss-tutorial/</link>
+      <guid isPermaLink="false">2026-11-20-03-faiss-index-types-flat-ivf-hnsw-when-to-use-python</guid>
+      <pubDate>Fri, 20 Nov 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[IndexFlatL2 is exact and correct up to ~100K vectors; IndexIVFFlat trades a little recall for 10–100x speed at millions; IndexHNSWFlat is fastest with no training but uses more RAM.]]></description>
+      <content:encoded><![CDATA[**`IndexFlatL2` is exact nearest-neighbor search — right for prototypes and small collections; above ~100K vectors use `IndexIVFFlat` (cluster-and-search, needs training) or `IndexHNSWFlat` (graph, no training, fastest recall, more RAM).**
+
+**What you'll be able to do after this:** choose a FAISS index for your dataset size, build each type in Python, and understand the trade-off that makes approximate nearest-neighbor (ANN) search 10–100× faster than brute force.
+
+**Three takeaways:**
+- `IndexFlatL2` scans every vector per query — 100% recall, no training, but O(n) time; fine under ~100K vectors
+- `IndexIVFFlat` groups vectors into clusters, searches a subset (`nprobe` clusters) — tune for speed vs. recall; requires `train()`
+- `IndexHNSWFlat` uses a graph structure — no training, fastest lookup, but can't delete individual vectors and uses more memory
+
+**Walk-through:**
+
+```bash
+pip install faiss-cpu sentence-transformers numpy
+```
+
+```python
+import faiss, numpy as np
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")
+texts = ["first document", "second document"]   # your corpus
+vecs  = model.encode(texts).astype("float32")   # shape (N, 384)
+d     = vecs.shape[1]                            # embedding dimension: 384
+
+# --- Flat (exact, up to ~100K) ---
+idx_flat = faiss.IndexFlatL2(d)
+idx_flat.add(vecs)
+
+# --- IVF (trained, 100K–10M) ---
+nlist = max(4, int(len(vecs) ** 0.5))           # rule of thumb: sqrt(N)
+quantizer = faiss.IndexFlatL2(d)
+idx_ivf   = faiss.IndexIVFFlat(quantizer, d, nlist)
+idx_ivf.train(vecs)                              # requires >= 39 * nlist vectors
+idx_ivf.add(vecs)
+idx_ivf.nprobe = 10                              # search 10 of nlist clusters; raise for recall
+
+# --- HNSW (graph, no training) ---
+idx_hnsw = faiss.IndexHNSWFlat(d, 32)           # 32 = graph connectivity (M)
+idx_hnsw.add(vecs)                               # no train() call needed
+
+# Query any index identically
+D, I = idx_flat.search(vecs[:1], k=5)           # D = distances, I = indices
+```
+
+**Persist to disk** — in-memory only by default:
+
+```python
+faiss.write_index(idx_hnsw, "my.index")
+idx_loaded = faiss.read_index("my.index")
+```
+
+**Limits:**
+- HNSW cannot remove individual vectors (`remove_ids()` raises `NotImplementedError`) — rebuild the index to delete.
+- IVF requires at least `39 * nlist` training vectors; with `nlist=100` you need 3,900+ docs before `train()` succeeds.
+- HNSW stores the full graph in RAM alongside the vectors — expect roughly 1.5–2× the memory of Flat for the same dataset.
+- None of these is a persistent server; for concurrent reads, incremental adds, or metadata filtering, use a persistent store (ChromaDB, pgvector) on top.
+
+**Sources:** [Pinecone FAISS tutorial — step-by-step IndexFlatL2, IVF, search](https://www.pinecone.io/learn/series/faiss/faiss-tutorial/) · [FAISS wiki — index classes and factory strings](https://github.com/facebookresearch/faiss/wiki/Faiss-indexes) · [PyImageSearch: Vector Search with FAISS: ANN Explained (Feb 2026)](https://pyimagesearch.com/2026/02/16/vector-search-with-faiss-approximate-nearest-neighbor-ann-explained/)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+    </item>
+
 
 
       <item>
@@ -6245,156 +6409,10 @@ With `keep all modified file paths, known bugs, and the current task list`:
 **Sources:** [Claude Code docs — Memory and context](https://docs.anthropic.com/en/docs/claude-code/memory), [Claude Code changelog (context compaction controls, v2.1.293)](https://code.claude.com/docs/en/changelog), [Anthropic: Steering Claude Code (June 2026)](https://claude.com/blog/steering-claude-code-skills-hooks-rules-subagents-and-more)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Retrieved Chunks Are Half Irrelevant Text — Wrap Your Retriever in `ContextualCompressionRetriever` to Extract Only the Sentences That Answer the Query]]></title>
-    <link>https://python.langchain.com/docs/how_to/contextual_compression</link>
-    <guid isPermaLink="false">2026-11-03-01-contextual-compression-retriever-langchain-sentence-extract</guid>
-    <pubDate>Tue, 03 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[LangChain's ContextualCompressionRetriever strips irrelevant sentences from each retrieved chunk before they reach your answer model—pair k=10 for recall, let the compressor handle precision.]]></description>
-    <content:encoded><![CDATA[**LangChain's `ContextualCompressionRetriever` passes each retrieved chunk through an LLM that extracts only the relevant sentences, so your answer model gets 3 targeted sentences instead of 3 full paragraphs.**
+  
 
-**What you'll be able to do after this:** Route retrieved documents through a compression step that strips the sentences unrelated to the query, reducing the noise in your answer model's context window without cutting recall.
-
-**Three things to take away:**
-- Compression trades latency for signal quality: one LLM call per retrieved document—use a Haiku-class model for the compressor, not Opus
-- `LLMChainExtractor` returns the relevant sentences; `LLMChainFilter` is binary—keep or drop the whole chunk
-- Set `k=10` on the base retriever to favor recall; let the compressor handle precision—this is the division of labor LangChain's own launch post describes
-
-**Walk-through**
-
-```python
-pip install langchain langchain-anthropic langchain-community chromadb
-```
-
-```python
-from langchain.retrievers.contextual_compression import ContextualCompressionRetriever
-from langchain.retrievers.document_compressors import LLMChainExtractor
-from langchain_anthropic import ChatAnthropic
-from langchain_chroma import Chroma
-
-# Use a fast, cheap model for the compression pass—not your answer model
-llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
-compressor = LLMChainExtractor.from_llm(llm)
-
-base_retriever = Chroma(
-    collection_name="docs",
-    embedding_function=your_embedding_fn,
-).as_retriever(search_kwargs={"k": 10})
-
-compression_retriever = ContextualCompressionRetriever(
-    base_compressor=compressor,
-    base_retriever=base_retriever,
-)
-
-docs = compression_retriever.invoke("How do I configure the request timeout?")
-for doc in docs:
-    print(doc.page_content)  # 1–4 sentences, not a full chunk
-```
-
-Before compression, a question about a single config key returns chunks that mention it in three different contexts, each surrounded by unrelated setup steps. After compression, you get the sentences that state the value and explain it—and those are what the answer model reasons over.
-
-**Real limits:**
-- At one LLM call per retrieved document with `k=10`, that is 10 extra inference calls per query. LangChain runs them serially by default; use `ainvoke` if latency matters.
-- `LLMChainExtractor` can return an empty string if none of a chunk's sentences are relevant. Your downstream code must handle empty `page_content`.
-- The compressor can over-extract when chunks are dense—a sentence about timeouts might include the surrounding dependency context that the extractor drops. Watch for answers that are technically correct but miss the "why."
-
-**Sources:** [LangChain how-to: Contextual compression](https://python.langchain.com/docs/how_to/contextual_compression), [LangChain blog: Improving Document Retrieval with Contextual Compression](https://blog.langchain.com/improving-document-retrieval-with-contextual-compression)]]></content:encoded>
-  </item>
-
-
-  <item>
-    <title><![CDATA[Your Generated Components Use Tailwind Defaults When Your Design System Lives in a File Claude Code Has Never Seen — A CLAUDE.md Reference Puts Your Tokens in Every Session]]></title>
-    <link>https://code.claude.com/docs/en/core-concepts/memory</link>
-    <guid isPermaLink="false">2026-11-02-08-design-token-spec-claudemd-context-component-generation</guid>
-    <pubDate>Mon, 02 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Design-to-Code</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Generated components drift from your design system because Claude Code's session starts without your token file. A docs/design-tokens.md + one CLAUDE.md line fixes the drift.]]></description>
-    <content:encoded><![CDATA[**Generated components drift from your design system because Claude Code's session starts without your token file. A `docs/design-tokens.md` + one CLAUDE.md line fixes the drift.**
-
-When you hand off a Claude Design export to Claude Code for landing in your codebase, the new components it generates for nearby features often drift: `blue-500` where your system says `primary-600`, generic spacing where your base-8 scale lives. The export brought the component structure; it didn't bring your token vocabulary.
-
-**Make your token spec readable**
-
-Create `docs/design-tokens.md` with your resolved values — not your Tailwind config, which Claude Code can't execute, but the computed output:
-
-```markdown
-## Colors
-- primary-600: #2563eb
-- primary-700: #1d4ed8
-- surface-0:   #ffffff
-- surface-1:   #f9fafb
-- neutral-800: #1f2937
-
-## Spacing (base-8)
-- space-1: 8px  space-2: 16px  space-3: 24px  space-4: 32px
-
-## Type scale
-- size-sm: 14px  size-base: 16px  size-lg: 18px  size-xl: 20px
-- font-sans: "Inter", system-ui
-```
-
-If your tokens go through a `withOpacity()` helper or custom Tailwind plugin, run `npx tailwindcss --input globals.css > resolved.css` and pull out the custom properties — that's what Claude Code can actually read.
-
-**Tell Claude Code where to look**
-
-Add one section to `CLAUDE.md`:
-
-```markdown
-## Design system
-Before generating any UI component, read docs/design-tokens.md.
-Use these tokens for all colors, spacing, and type — never inline Tailwind utilities not mapped here.
-```
-
-From this point, every generation request starts from your vocabulary, not training-data defaults.
-
-**Where it breaks down:** aliases (`--color-primary: var(--color-brand-base)`) can resolve incompletely — Claude Code reads the spec, not your PostCSS pipeline. Flatten to hex/px values for reliability. The file also drifts if your design system evolves and you don't update it; treat it as a maintained artifact alongside your theme config.
-
-**Sources:** [Design Systems Collective: Using Claude Code as a design system designer](https://www.designsystemscollective.com/how-i-use-claude-code-agent-with-vs-code-as-a-design-system-designer-541e105c0c97), [claudify.tech: CLAUDE.md for Tailwind design systems](https://claudify.tech/blog/claude-code-tailwind), [combray.prose.sh: Capturing your design system for AI editors](https://combray.prose.sh/2025-11-28-design-system-capture-best-practices)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Anthropic Filed Its S-1 Last Week — The Prospectus Reports $16.3B H1 Revenue and 1,900 Enterprise API Customers; Going Public Changes the Economics for Everyone Building on Claude]]></title>
-    <link>https://anthropic.com/news/s1-sec</link>
-    <guid isPermaLink="false">2026-11-02-07-anthropic-s1-ipo-nasdaq-ant-api-platform</guid>
-    <pubDate>Mon, 02 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Policy</category>
-    <category>Frontier</category>
-    <description><![CDATA[Anthropic's October 26 S-1 shows $16.3B H1 revenue, 1,900+ enterprise API customers, and a Nasdaq listing as ANT. Going public changes how Anthropic makes pricing decisions.]]></description>
-    <content:encoded><![CDATA[**Anthropic's October 26 S-1 shows $16.3B H1 revenue, 1,900+ enterprise API customers, and a Nasdaq listing as ANT. Going public changes how Anthropic makes pricing decisions.**
-
-Anthropic filed its Form S-1 with the SEC on October 26, targeting a Nasdaq listing under the ticker **ANT**. Per the filing as reported, $16,286 million in H1 2026 revenue — roughly 14× the $1.2B in H1 2025 — with ~20% from two unnamed customers and more than 1,900 customers above the $1M/year mark.
-
-Three signals worth tracking as an API builder:
-
-**Platform continuity:** Access to public capital markets reduces reliance on strategic investment rounds from Amazon or Google to fund operations. That is a stability increase for the API.
-
-**Pricing trajectory:** Public companies answer to quarterly gross-margin targets in ways private ones don't. The aggressive free-tier expansions and new-customer discounts that fuel developer adoption become harder to sustain once earnings calls start. Watch the pricing-tier announcements in 2027 Q1.
-
-**Customer concentration:** ~20% of H1 revenue from two customers is a meaningful concentration; if either shrinks usage, Anthropic has less cushion to hold pricing flat.
-
-Net-loss figures vary widely across outlets — one reports $80.7B, another $109B. Do not quote either number without checking the actual [EDGAR filing](https://anthropic.com/news/s1-sec). The revenue growth figures are more consistent across sources.
-
-**Why it matters:** Anthropic's IPO path secures the platform long-term, but shareholder review of every pricing tier starts the moment the shares price — engineering teams depending on stable API costs should watch Q4 2026 pricing announcements closely.
-
-**Sources:** [Anthropic S-1 announcement](https://anthropic.com/news/s1-sec), [aiweekly coverage](https://aiweekly.co/alerts/anthropic-files-for-nasdaq-ipo-under-ant-h1-rev-163b), [Futurum analyst take](https://futurumgroup.com/insights/anthropic-files-for-ipo-looking-to-beat-openai-to-the-punch/), [DEV Community developer perspective](https://dev.to/max_quimby/anthropics-s1-what-a-965b-ipo-filing-changes-3egn)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
