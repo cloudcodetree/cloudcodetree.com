@@ -10,7 +10,114 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Nov 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 20 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+
+      <item>
+      <title><![CDATA[Your CI Pipeline Waits on Claude Code's Interactive Prompt Because You Launched It Without -p — That Flag Makes Every Run Non-Interactive and Exits With a Code Your Script Can Branch On]]></title>
+      <link>https://code.claude.com/docs/en/headless</link>
+      <guid isPermaLink="false">2026-11-20-02-claude-code-headless-print-ci-json-output-allowedtools</guid>
+      <pubDate>Fri, 20 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Run Claude Code non-interactively with -p, pre-approve tools with --allowedTools, cap spend with --max-budget-usd, and branch on exit codes — no hanging prompts, CI-safe.]]></description>
+      <content:encoded><![CDATA[**`claude -p "task" --allowedTools "Read,Grep,Bash"` runs Claude Code non-interactively; pipe input from a file, pipe output through `jq`, and branch on exit code — no session, no hanging prompts, CI-safe.**
+
+Claude Code's default mode is interactive — it pauses on permission prompts and waits for keystrokes. In a CI job or a Makefile target, that hangs indefinitely. The `-p` flag (long form: `--print`) changes all three behaviors: one turn, no prompts, clean exit.
+
+```bash
+# Single-turn, exits when done
+claude -p "Find the failing test in test/auth.test.ts and explain the root cause"   --allowedTools "Read,Grep"   --output-format json | jq -r '.result'
+
+# Pipe build errors in
+cat build-errors.log | claude -p "Concisely explain the root cause of these errors"
+
+# Branch on exit code
+if ! claude -p "Run the type-checker and confirm zero errors"      --allowedTools "Bash" --max-budget-usd 0.05; then
+  echo "Claude returned non-zero — check the output above"
+  exit 1
+fi
+```
+
+**Key flags:**
+
+- `--allowedTools "Read,Grep,Edit,Bash"` — pre-approve a whitelist; unapproved tool calls are denied outright (not prompted). Combine with `denyInsteadOfPrompting: true` in settings for a double fence on unattended runs.
+- `--output-format json` — structured response with `.result` (text), `.cost_usd` (float), `.is_error` (bool). Parse with `jq`.
+- `--max-budget-usd 0.10` — hard spend cap; exceeding it exits with a non-zero code. Protects CI budgets on agentic tasks that can spiral.
+- `--model claude-haiku-5-5` — route lightweight scripting tasks to a faster, cheaper model.
+- **Exit code 0** = success; **non-zero** = model error, budget exceeded, or unapproved tool. Script branches work as expected.
+
+**Limits:** No session persistence between `-p` calls; each invocation starts fresh with no prior context. Code Mode (the experimental JS tool chaining from v2.1.323) is skipped in `-p` mode even when the env var is set. The `--json-schema` flag for schema-validated structured output has changed between versions — verify the current signature with `claude --help` before relying on it in CI.
+
+**Sources:** [Claude Code headless mode — code.claude.com](https://code.claude.com/docs/en/headless) · [CI and automation guide — muhammadusmangm.github.io](https://muhammadusmangm.github.io/claude-code-best-practices/guides/ci-and-automation/) · [DEV: claude -p is all that stands between you and a hanging CI job](https://dev.to/creeta/claude-p-is-all-that-stands-between-you-and-a-hanging-ci-job-2peh)]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Fine-Tuned Model Needs a GPU to Serve But You Can't Justify a Reserved Instance — Modal Deploys a vLLM Endpoint as a Serverless Function and Charges Only While a Request Is Running]]></title>
+      <link>https://modal.com/blog/how-to-deploy-vllm</link>
+      <guid isPermaLink="false">2026-11-20-01-modal-vllm-serverless-gpu-inference-python-decorator-deploy</guid>
+      <pubDate>Fri, 20 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Modal runs a vLLM server on a serverless A10G with a Python class and one CLI command — no Kubernetes, no idle-instance cost. Cold start is 15–60 seconds; pricing is per GPU-second.]]></description>
+      <content:encoded><![CDATA[**Use Modal's Python class decorator to run a vLLM server on a serverless A10G — pay per GPU-second while a request is in flight, nothing while idle, and get an OpenAI-compatible endpoint in under 40 lines.**
+
+**What you'll be able to do after this:** serve any Hugging Face model (including a fine-tuned checkpoint) on serverless GPU compute, get a URL you can point any existing OpenAI SDK client at, and scale to zero when no requests are running.
+
+**The pattern:**
+
+```python
+import modal
+
+image = (
+    modal.Image.debian_slim()
+    .pip_install("vllm==0.6.6.post1", "huggingface_hub")
+)
+app = modal.App("vllm-server", image=image)
+
+# Volume persists model weights across cold starts
+vol = modal.Volume.from_name("model-weights", create_if_missing=True)
+
+@app.cls(gpu="a10g", volumes={"/models": vol}, timeout=300)
+class VLLMServer:
+    @modal.enter()
+    def load(self):
+        from vllm import LLM
+        self.llm = LLM(
+            model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+            download_dir="/models",
+        )
+
+    @modal.web_endpoint(method="POST")
+    def generate(self, body: dict):
+        from vllm import SamplingParams
+        out = self.llm.generate(body["prompt"], SamplingParams(max_tokens=512))
+        return {"text": out[0].outputs[0].text}
+```
+
+```bash
+modal deploy inference.py      # builds image, returns a live HTTPS URL
+```
+
+The deployed endpoint accepts POST requests and is OpenAI SDK-compatible when you add the right route — the Modal vLLM guide shows the full streaming chat-completions wrapper. For gated models (Llama, Mistral), store your HF token as a Modal secret: `modal secret create hf-secret HF_TOKEN=hf_...` and add `secrets=[modal.Secret.from_name("hf-secret")]` to the `@app.cls` decorator.
+
+**Three takeaways:**
+- `@modal.enter()` runs once per container startup — put model loading there, not inside the endpoint handler, or every request pays the full load time.
+- Weights in a `modal.Volume` survive container teardowns. Without a volume, every cold start re-downloads the full model from Hugging Face.
+- `modal serve inference.py` runs the server locally with live reload; `modal deploy` pushes it to production. Same code, two commands.
+
+**Limits:** Cold starts take 15–60 seconds to load a 7B model from the Volume (and 10–15 minutes without it, downloading from Hugging Face fresh). Modal lists its A10G pricing at $0.000463/GPU-second, billed per wall-second of inference, not per token — a 10-second generation on a 7B model costs roughly $0.005. The `web_endpoint` decorator serves one request at a time per container; for concurrent workloads, set `allow_concurrent_inputs` on the class. vLLM's PagedAttention manages multiple concurrent sequences efficiently within one container, but you need to wire in the concurrent_inputs setting and test your concurrency ceiling.
+
+**Sources:** [Modal vLLM deployment guide — modal.com](https://modal.com/blog/how-to-deploy-vllm) · [Modal Gemma/vLLM example — modal.com/docs/examples](https://modal.com/docs/examples/llm_inference) · [vLLM + Modal — docs.vllm.ai](https://docs.vllm.ai/deployment/frameworks/modal.html) · [Modal serverless GPU for vLLM, no YAML — DEV Community](https://dev.to/jangwook_kim_e31e7291ad98/modal-labs-serverless-gpu-for-vllm-with-no-yaml-le5)]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Claude Code Agent Runs Unattended But Checking In Means Reopening a Terminal — /remote-control Connects Any Live Session to Phone or Browser]]></title>
@@ -6288,136 +6395,8 @@ Net-loss figures vary widely across outlets — one reports $80.7B, another $109
 **Sources:** [Anthropic S-1 announcement](https://anthropic.com/news/s1-sec), [aiweekly coverage](https://aiweekly.co/alerts/anthropic-files-for-nasdaq-ipo-under-ant-h1-rev-163b), [Futurum analyst take](https://futurumgroup.com/insights/anthropic-files-for-ipo-looking-to-beat-openai-to-the-punch/), [DEV Community developer perspective](https://dev.to/max_quimby/anthropics-s1-what-a-965b-ipo-filing-changes-3egn)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude Code Agent Waits to Be Summoned — Wire a Webhook to `claude -p` and Let Any External Event Trigger an Autonomous Response]]></title>
-    <link>https://code.claude.com/docs/en/usage/cli-usage#print-mode</link>
-    <guid isPermaLink="false">2026-11-02-06-webhook-event-trigger-claude-print-autonomous-agent</guid>
-    <pubDate>Mon, 02 Nov 2026 12:06:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Parse a webhook payload, assemble context, run claude -p non-interactively, route the output back. Three constraints make it reliable in unattended mode: self-contained prompts, --max-turns cap, and minimum --allowedTools.]]></description>
-    <content:encoded><![CDATA[**Parse any webhook event into a context-rich prompt, run `claude -p` non-interactively, and route the output back — Claude acts when events happen, without you at the keyboard.**
-
-DeepSeek's [Super-Agent prototype](https://github.com/deepseek-ai/dsh-superagent) (covered earlier today) monitors team chats and acts without being summoned. The same pattern is available today with `claude -p`: a three-step pipeline turns any external event into an autonomous Claude action.
-
-**Step 1 — Receive and parse the event**
-
-A webhook handler (a Modal function, a Vercel serverless route, any HTTP endpoint) receives the payload and extracts what Claude needs. For a GitHub PR review comment:
-
-```bash
-REPO_NAME="$(jq -r .repository.full_name <<< "$PAYLOAD")"
-PR_NUMBER="$(jq -r .pull_request.number <<< "$PAYLOAD")"
-COMMENT_BODY="$(jq -r .comment.body <<< "$PAYLOAD")"
-COMMENT_AUTHOR="$(jq -r .comment.user.login <<< "$PAYLOAD")"
-```
-
-**Step 2 — Assemble a self-contained prompt**
-
-Claude can't ask clarifying questions in headless mode, so the prompt must be complete on its own. Include paths, error text, and exact context:
-
-```bash
-PROMPT=$(cat <<EOF
-REPO: $REPO_NAME  PR: #$PR_NUMBER  AUTHOR: $COMMENT_AUTHOR
-COMMENT: $COMMENT_BODY
-
-Task: If this comment requests a specific code change, apply it and run the tests.
-If it asks a question, answer directly from the code. Be concise.
-EOF
-)
-```
-
-**Step 3 — Run Claude and route the response**
-
-```bash
-RESPONSE=$(echo "$PROMPT" \
-  | claude -p \
-      --allowedTools "Read,Edit,Bash(pnpm test:*)" \
-      --max-turns 6 \
-      --output-format text 2>&1)
-
-# Route back to GitHub
-gh pr comment "$PR_NUMBER" \
-  --repo "$REPO_NAME" \
-  --body "$RESPONSE"
-```
-
-**Three things that make this reliable in unattended mode:**
-
-1. **Self-contained prompts over lazy delegation.** "Look at the PR and fix things" gives Claude nothing to work with. Include the exact comment text, relevant file paths, and any error output — the prompt is the only context it has.
-2. **Cap turns with `--max-turns`.** A runaway loop on every webhook is expensive. 4–8 turns handles most event-response tasks; raise it only for complex multi-file changes.
-3. **Scope `--allowedTools` to the minimum.** A PR comment responder needs `Read`, `Edit`, and maybe `Bash(pnpm test:*)`. Never give unattended agents unrestricted `Bash`.
-
-**Limits to know before you ship this:**
-
-- **Latency.** `claude -p` starts a full session; median response is 5–20 seconds. Don't use it where callers expect a sub-second reply (Slack slash commands, interactive UIs).
-- **Cost at volume.** Each event fires a session with full context. Rate-limit or deduplicate high-frequency event sources before wiring Claude to them.
-- **No interactive approval.** Design every action to be reversible — Claude cannot pause to ask you whether to proceed. Prefer `Edit` over `Bash(git push:*)` and let a human merge the result.
-
-**Sources:** [CLI print mode — Claude Code Docs](https://code.claude.com/docs/en/usage/cli-usage#print-mode) · [Claude Code headless patterns — Tembo](https://tembo.io/blog/claude-code-subagents) · [DeepSeek Super-Agent (autonomous-trigger reference) — GitHub](https://github.com/deepseek-ai/dsh-superagent)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Document Splitter Cuts Mid-Sentence Because It Counts Characters — `SemanticChunker` Embeds Sentences First and Splits Where Meaning Actually Shifts]]></title>
-    <link>https://langchain-opentutorial.gitbook.io/langchain-opentutorial/07-textsplitter/04-semanticchunker</link>
-    <guid isPermaLink="false">2026-11-02-05-langchain-semanticchunker-embeddings-percentile-breakpoint</guid>
-    <pubDate>Mon, 02 Nov 2026 12:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Embeddings</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[SemanticChunker embeds every sentence, computes similarity deltas between neighbors, and places splits where the delta exceeds a percentile threshold — topic boundaries instead of byte counts.]]></description>
-    <content:encoded><![CDATA[**LangChain's `SemanticChunker` embeds consecutive sentences, measures how much meaning changes between them, and places splits at the biggest semantic jumps — not at a fixed character count.**
-
-**What you'll be able to do after this:** split a multi-topic document so each chunk covers one coherent idea, rather than ending mid-argument because you hit 500 characters.
-
-**Three things to know before you run it:**
-
-1. **How the split decision works.** Every pair of adjacent sentences is embedded; the cosine distance between neighbors is computed. The splitter ranks all those distances, picks the ones above a chosen percentile (default: the 95th), and places a boundary there. A 70th-percentile threshold produces more, smaller chunks; 95th produces fewer, larger ones.
-2. **Four threshold types; start with `percentile`.** The API exposes `percentile`, `standard_deviation`, `interquartile`, and `gradient`. `percentile` at 90–95 is the safest default for general documents. Gradient is adaptive but less predictable until you know your content.
-3. **It lives in `langchain_experimental` — not the core package.** Treat that as a stability caveat: the API may change, and it isn't enabled by default even with `langchain` installed.
-
-**Walk-through:**
-
-```bash
-pip install langchain-experimental langchain-huggingface sentence-transformers
-```
-
-```python
-from langchain_experimental.text_splitter import SemanticChunker
-from langchain_huggingface import HuggingFaceEmbeddings
-
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-
-splitter = SemanticChunker(
-    embeddings,
-    breakpoint_threshold_type="percentile",
-    breakpoint_threshold_amount=90,  # split at the top 10% of semantic jumps
-)
-
-docs = splitter.create_documents([your_text])
-# docs is a list of Document objects, each with page_content and metadata
-print(f"{len(docs)} chunks")
-for i, d in enumerate(docs):
-    print(f"Chunk {i}: {len(d.page_content)} chars — {d.page_content[:80]}…")
-```
-
-Swap in any embedding model — `OpenAIEmbeddings()` works the same way; just note it calls the API for every sentence.
-
-**When NOT to use it:**
-
-- **Large corpora.** Every sentence in the document gets embedded. A 100-page PDF may spend 30–90 seconds in this splitter. For anything that needs to run quickly at scale, fall back to `RecursiveCharacterTextSplitter`.
-- **Structured documents.** Code files, Markdown with explicit sections, CSVs, and tables chunk better by structural delimiter than by semantic shift. `SemanticChunker` has nothing to act on when the "meaning" is in the schema, not the prose.
-- **Short texts.** If most of your documents are under 500 words, `RecursiveCharacterTextSplitter` at an appropriate chunk size produces almost the same result at a fraction of the cost.
-
-**Sources:** [SemanticChunker tutorial — LangChain Open Tutorial](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/07-textsplitter/04-semanticchunker) · [SemanticChunker API reference — LangChain experimental](https://python.langchain.com/api_reference/experimental/text_splitter/langchain_experimental.text_splitter.SemanticChunker.html) · [RAG chunking strategies compared — machinelearningplus.com](https://machinelearningplus.com/?p=26308)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   

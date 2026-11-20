@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-20-02-claude-code-headless-print-ci-json-output-allowedtools",
+    "title": "Your CI Pipeline Waits on Claude Code's Interactive Prompt Because You Launched It Without -p — That Flag Makes Every Run Non-Interactive and Exits With a Code Your Script Can Branch On",
+    "excerpt": "Run Claude Code non-interactively with -p, pre-approve tools with --allowedTools, cap spend with --max-budget-usd, and branch on exit codes — no hanging prompts, CI-safe.",
+    "author": "Chris Harper",
+    "date": "11-20-2026",
+    "publishedAt": "2026-11-20T04:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/headless",
+    "content": "**`claude -p \"task\" --allowedTools \"Read,Grep,Bash\"` runs Claude Code non-interactively; pipe input from a file, pipe output through `jq`, and branch on exit code — no session, no hanging prompts, CI-safe.**\n\nClaude Code's default mode is interactive — it pauses on permission prompts and waits for keystrokes. In a CI job or a Makefile target, that hangs indefinitely. The `-p` flag (long form: `--print`) changes all three behaviors: one turn, no prompts, clean exit.\n\n```bash\n# Single-turn, exits when done\nclaude -p \"Find the failing test in test/auth.test.ts and explain the root cause\"   --allowedTools \"Read,Grep\"   --output-format json | jq -r '.result'\n\n# Pipe build errors in\ncat build-errors.log | claude -p \"Concisely explain the root cause of these errors\"\n\n# Branch on exit code\nif ! claude -p \"Run the type-checker and confirm zero errors\"      --allowedTools \"Bash\" --max-budget-usd 0.05; then\n  echo \"Claude returned non-zero — check the output above\"\n  exit 1\nfi\n```\n\n**Key flags:**\n\n- `--allowedTools \"Read,Grep,Edit,Bash\"` — pre-approve a whitelist; unapproved tool calls are denied outright (not prompted). Combine with `denyInsteadOfPrompting: true` in settings for a double fence on unattended runs.\n- `--output-format json` — structured response with `.result` (text), `.cost_usd` (float), `.is_error` (bool). Parse with `jq`.\n- `--max-budget-usd 0.10` — hard spend cap; exceeding it exits with a non-zero code. Protects CI budgets on agentic tasks that can spiral.\n- `--model claude-haiku-5-5` — route lightweight scripting tasks to a faster, cheaper model.\n- **Exit code 0** = success; **non-zero** = model error, budget exceeded, or unapproved tool. Script branches work as expected.\n\n**Limits:** No session persistence between `-p` calls; each invocation starts fresh with no prior context. Code Mode (the experimental JS tool chaining from v2.1.323) is skipped in `-p` mode even when the env var is set. The `--json-schema` flag for schema-validated structured output has changed between versions — verify the current signature with `claude --help` before relying on it in CI.\n\n**Sources:** [Claude Code headless mode — code.claude.com](https://code.claude.com/docs/en/headless) · [CI and automation guide — muhammadusmangm.github.io](https://muhammadusmangm.github.io/claude-code-best-practices/guides/ci-and-automation/) · [DEV: claude -p is all that stands between you and a hanging CI job](https://dev.to/creeta/claude-p-is-all-that-stands-between-you-and-a-hanging-ci-job-2peh)"
+  },
+  {
+    "id": "2026-11-20-01-modal-vllm-serverless-gpu-inference-python-decorator-deploy",
+    "title": "Your Fine-Tuned Model Needs a GPU to Serve But You Can't Justify a Reserved Instance — Modal Deploys a vLLM Endpoint as a Serverless Function and Charges Only While a Request Is Running",
+    "excerpt": "Modal runs a vLLM server on a serverless A10G with a Python class and one CLI command — no Kubernetes, no idle-instance cost. Cold start is 15–60 seconds; pricing is per GPU-second.",
+    "author": "Chris Harper",
+    "date": "11-20-2026",
+    "publishedAt": "2026-11-20T04:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Self-Hosting",
+      "LLM",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://modal.com/blog/how-to-deploy-vllm",
+    "content": "**Use Modal's Python class decorator to run a vLLM server on a serverless A10G — pay per GPU-second while a request is in flight, nothing while idle, and get an OpenAI-compatible endpoint in under 40 lines.**\n\n**What you'll be able to do after this:** serve any Hugging Face model (including a fine-tuned checkpoint) on serverless GPU compute, get a URL you can point any existing OpenAI SDK client at, and scale to zero when no requests are running.\n\n**The pattern:**\n\n```python\nimport modal\n\nimage = (\n    modal.Image.debian_slim()\n    .pip_install(\"vllm==0.6.6.post1\", \"huggingface_hub\")\n)\napp = modal.App(\"vllm-server\", image=image)\n\n# Volume persists model weights across cold starts\nvol = modal.Volume.from_name(\"model-weights\", create_if_missing=True)\n\n@app.cls(gpu=\"a10g\", volumes={\"/models\": vol}, timeout=300)\nclass VLLMServer:\n    @modal.enter()\n    def load(self):\n        from vllm import LLM\n        self.llm = LLM(\n            model=\"meta-llama/Meta-Llama-3.1-8B-Instruct\",\n            download_dir=\"/models\",\n        )\n\n    @modal.web_endpoint(method=\"POST\")\n    def generate(self, body: dict):\n        from vllm import SamplingParams\n        out = self.llm.generate(body[\"prompt\"], SamplingParams(max_tokens=512))\n        return {\"text\": out[0].outputs[0].text}\n```\n\n```bash\nmodal deploy inference.py      # builds image, returns a live HTTPS URL\n```\n\nThe deployed endpoint accepts POST requests and is OpenAI SDK-compatible when you add the right route — the Modal vLLM guide shows the full streaming chat-completions wrapper. For gated models (Llama, Mistral), store your HF token as a Modal secret: `modal secret create hf-secret HF_TOKEN=hf_...` and add `secrets=[modal.Secret.from_name(\"hf-secret\")]` to the `@app.cls` decorator.\n\n**Three takeaways:**\n- `@modal.enter()` runs once per container startup — put model loading there, not inside the endpoint handler, or every request pays the full load time.\n- Weights in a `modal.Volume` survive container teardowns. Without a volume, every cold start re-downloads the full model from Hugging Face.\n- `modal serve inference.py` runs the server locally with live reload; `modal deploy` pushes it to production. Same code, two commands.\n\n**Limits:** Cold starts take 15–60 seconds to load a 7B model from the Volume (and 10–15 minutes without it, downloading from Hugging Face fresh). Modal lists its A10G pricing at $0.000463/GPU-second, billed per wall-second of inference, not per token — a 10-second generation on a 7B model costs roughly $0.005. The `web_endpoint` decorator serves one request at a time per container; for concurrent workloads, set `allow_concurrent_inputs` on the class. vLLM's PagedAttention manages multiple concurrent sequences efficiently within one container, but you need to wire in the concurrent_inputs setting and test your concurrency ceiling.\n\n**Sources:** [Modal vLLM deployment guide — modal.com](https://modal.com/blog/how-to-deploy-vllm) · [Modal Gemma/vLLM example — modal.com/docs/examples](https://modal.com/docs/examples/llm_inference) · [vLLM + Modal — docs.vllm.ai](https://docs.vllm.ai/deployment/frameworks/modal.html) · [Modal serverless GPU for vLLM, no YAML — DEV Community](https://dev.to/jangwook_kim_e31e7291ad98/modal-labs-serverless-gpu-for-vllm-with-no-yaml-le5)"
+  },
+  {
     "id": "2026-11-19-07-claude-code-remote-control-phone-browser-session-monitoring",
     "title": "Your Claude Code Agent Runs Unattended But Checking In Means Reopening a Terminal — /remote-control Connects Any Live Session to Phone or Browser",
     "excerpt": "/remote-control streams a running Claude Code session to the Claude app on your phone or browser. As of Nov 17, replies stream in real time. For sessions that need to outlive your machine, start in…",
