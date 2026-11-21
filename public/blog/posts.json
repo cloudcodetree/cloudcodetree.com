@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-11-21-06-claude-code-agent-teams-peer-to-peer-sibling-sessions",
+    "title": "Your Claude Code Subagents Can't Message Each Other — Agent Teams Enable the Peer-to-Peer Channel That Subagents Don't Have",
+    "excerpt": "Subagents report to a parent; agent teams let parallel Claude Code sessions message each other directly via ListAgents/SendMessage. Enable with CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 — but know the…",
+    "author": "Chris Harper",
+    "date": "11-21-2026",
+    "publishedAt": "2026-11-21T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Agents",
+      "Best Practices"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/agent-teams",
+    "content": "**Agent teams (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) let parallel Claude Code sessions send messages to each other directly — a different architecture from subagents, which can only report up to a single orchestrator.**\n\nThe fork/subagent pattern you already use is a hierarchy: one orchestrator spawns workers, workers report results back up, the orchestrator synthesizes. That's the right shape for most parallel work — independent tasks fanned out and collected. The gap it doesn't cover is when parallel investigators need to share a finding *mid-run* so that another agent can adjust its current approach. Subagents can't do that; they can only return at the end.\n\nAgent teams fill that gap. Each session in a team can call `ListAgents` to see its siblings and `SendMessage({to: \"<name>\", message: \"...\"})` to communicate. A code-review agent can tell a test-writing agent that module X has a bug before the test-writing agent finalizes its plan.\n\n**Enabling it:**\n\n```json\n// .claude/settings.json\n{\n  \"env\": {\n    \"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS\": \"1\"\n  }\n}\n```\n\nOr set it in your shell: `export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`\n\n**Two display modes:**\n\n- **In-process** (default): teammates run in the same terminal. Works everywhere, no extra setup.\n- **tmux**: teammates get their own split panes. Requires tmux; the official docs recommend iTerm2's native tmux integration (`tmux -CC`) on macOS for the smoothest experience.\n\n**When to use agent teams instead of subagents:**\n\nUse subagents (fork or fresh) when tasks are *independent* — each agent needs context from the parent but nothing from its siblings. Use agent teams when agents need to *coordinate mid-task*: parallel reviewers that catch each other's issues, two agents exploring different implementation paths where one's dead-end should stop the other early.\n\nFor simple parallelism (fan out tasks → collect results), subagents are simpler and have fewer rough edges.\n\n**Real limits (don't skip these):**\n\n- **Session resumption breaks**: `/resume` and `/rewind` don't restore in-process teammates. If a session ends, teammates don't come back.\n- **Practical max is 2–3 agents**: at 4+ parallel agents, coordination overhead accumulates and there are reported crashes; one GitHub issue shows a 4-agent run where agents failed mid-task.\n- **Still experimental**: the docs list known limitations in task coordination and shutdown behavior. Orphaned tmux panes remain after teammates exit.\n- **Silent mode fallback**: in-process mode runs in `-p` (pipe mode), and agent teams silently disable in some scripted contexts.\n\nThis is the right tool for a narrow set of patterns. For the overwhelming majority of parallel work, [fork/fresh subagents](https://code.claude.com/docs/en/sub-agents) — covered [here](https://cloudcodetree.com/ai-news/2026-11-21-03-claude-code-fork-vs-fresh-subagent-context-inheritance) — are simpler and more predictable.\n\n**Sources:** [Claude Code agent teams — official docs](https://code.claude.com/docs/en/agent-teams) · [Addy Osmani: Claude Code swarms in practice](https://addyosmani.com/blog/claude-code-agent-teams/) · [DEV: what the docs don't tell you](https://dev.to/mathieu_kessler_8712ec765/claude-code-agent-teams-what-the-docs-dont-tell-you-1iae) · [GitHub issue #23615 (4-agent crash report)](https://github.com/anthropics/claude-code/issues/23615)"
+  },
+  {
     "id": "2026-11-21-05-claude-code-pretooluse-hook-block-dangerous-bash-git-push-main",
     "title": "Your Claude Code Session Has No Guard Against Pushing to Main or Dropping a Table — A PreToolUse Hook Blocks Those Commands Before They Run",
     "excerpt": "Claude Code's PreToolUse hook fires before a tool runs; exit code 2 blocks it and sends the reason back to Claude. Here's the guard pattern for git push to main, database drops, and other irreversi…",
