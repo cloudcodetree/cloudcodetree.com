@@ -10,7 +10,188 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Fri, 20 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 21 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Research Subagent Re-Explains the Entire Codebase Each Time Because You Used Agent Instead of Fork — Fork Inherits the Full Session Context]]></title>
+      <link>https://code.claude.com/docs/en/sub-agents</link>
+      <guid isPermaLink="false">2026-11-21-03-claude-code-fork-vs-fresh-subagent-context-inheritance</guid>
+      <pubDate>Sat, 21 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[subagent_type: "fork" gives a Claude Code subagent your full conversation history with no re-briefing; a fresh Agent call starts clean — here's the decision rule and limits.]]></description>
+      <content:encoded><![CDATA[**`subagent_type: "fork"` inherits the full parent conversation; a fresh Agent call starts with only the delegation prompt — the right choice depends on whether the subagent needs to know what you know.**
+
+When you delegate work to a Claude Code subagent, the agent type determines what context it starts with.
+
+**Fresh agent (default)**
+
+```javascript
+Agent({
+  description: "Review the diff for correctness bugs",
+  prompt: "Review the changes in src/api/ for correctness bugs. The API uses Express 5 with async error handling..."
+})
+```
+
+A fresh agent starts clean — it has only the prompt you wrote. You re-brief it. This costs token re-entry but gives you a clean slate. Use it for:
+- Parallel independent tasks (ship multiple fresh agents in one message)
+- Work that requires deliberate isolation — no risk of picking up wrong conclusions from your session
+- Specialized review where you want a second opinion uncontaminated by your reasoning
+
+**Fork (`subagent_type: "fork"`)**
+
+```javascript
+Agent({
+  subagent_type: "fork",
+  description: "Research the cache invalidation approach",
+  prompt: "Given everything we've discussed about the architecture, research cache invalidation strategies that fit the constraints we identified. Focus on the Redis approach."
+})
+```
+
+A fork inherits your full conversation — every tool result, every file you've read, every conclusion you've reached. No re-briefing. Use it when:
+- The subagent needs to know what you know to do its job
+- You're extracting a research thread that would pollute your context with output you won't reuse
+- You want to keep raw tool output out of your context window
+
+**Decision rule**
+
+> Fork when the subagent needs the context you've already built. Fresh when it doesn't — or when you want parallel isolation.
+
+**Limits to know**
+
+- A fork cannot spawn its own forks (fork depth is capped at 1)
+- Forks are disabled by default in `claude -p` (non-interactive) mode — set `CLAUDE_CODE_FORK_SUBAGENT=1` to enable
+- `isolation: "worktree"` controls file isolation, not context inheritance — you can have a worktree-isolated fork or a non-isolated fresh agent
+- Forks carry the full parent context in their token budget — a long parent session makes an expensive fork
+
+**Sources:** [Anthropic: subagents in Claude Code](https://claude.com/blog/subagents-in-claude-code), [Claude Code sub-agents docs](https://code.claude.com/docs/en/sub-agents), [Claude Agent SDK: subagents](https://platform.claude.com/docs/en/agent-sdk/subagents), [Claude Code Handbook: fork vs fresh](https://joeyyu23.github.io/claude-code-handbook/en/book2-advanced/05-subagents)
+]]></content:encoded>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Check Two Things in Your AI Dev Environment Today: Claude Code's Allow-Rule File and Any Microsoft Agent Framework Install]]></title>
+      <link>https://www.infoworld.com/article/4247344/claude-codes-dont-ask-again-button-has-a-secrets-spilling-problem-2.html</link>
+      <guid isPermaLink="false">2026-11-21-02-claude-code-settings-local-json-secrets-microsoft-agent-framework-pypi</guid>
+      <pubDate>Sat, 21 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[GitGuardian found 31,088 secrets committed via Claude Code's approve history; Microsoft agent-framework 1.26.1–1.26.2 stole Azure and GitHub credentials on Python startup.]]></description>
+      <content:encoded><![CDATA[**Two unrelated credential exposure incidents hit the AI dev toolchain this week — your approve-history file and your Python site-packages both need a check.**
+
+**Incident 1: Claude Code's `.claude/settings.local.json` leaking secrets**
+
+When you click "Don't Ask Again" to approve a Claude Code tool call, Claude Code stores that approval in `.claude/settings.local.json`. If the approved command contained an inline credential — an API key passed as an environment variable, a token in a curl call — that credential is now in the file verbatim.
+
+Apiiro found this in early November; GitGuardian confirmed the scope: **31,088 secrets in 23,276 public GitHub repositories**, all from developers committing their local settings file.
+
+Check whether you're affected:
+
+```bash
+# Is the file tracked?
+git ls-files '*settings.local.json'
+
+# Has it ever been committed?
+git log --all -p -- .claude/settings.local.json | grep -E '(ANTHROPIC|AWS|sk-|Bearer)'
+
+# Remove it from tracking without deleting it
+git rm --cached .claude/settings.local.json
+echo '.claude/settings.local.json' >> .gitignore
+git commit -m "chore: untrack settings.local.json"
+```
+
+The fix is permanent: once it's in `.gitignore` and untracked, future "don't ask again" approvals won't be committed. If you found leaked credentials, rotate them before or immediately after removing the file.
+
+The underlying issue (tracked as [GitHub issue #13106](https://claudeissues.com/issue/13106)) is that the file has no `.gitignore` entry by default. Claude Code hasn't shipped a fix for new installs yet as of this writing.
+
+**Incident 2: Microsoft agent-framework PyPI supply chain attack (November 17)**
+
+Versions 1.26.1 and 1.26.2 of the `agent-framework` PyPI package — Microsoft's official multi-agent orchestration library — contained a credential stealer. It was delivered as a `.pth` file (a Python path extension that runs on interpreter startup, before your code executes) and exfiltrated Azure service principal credentials and GitHub Actions tokens.
+
+The packages were pulled in approximately 55 minutes. This is the second Microsoft PyPI package compromise this year.
+
+```bash
+# Check your installed version
+pip show agent-framework | grep Version
+
+# Check for unexpected .pth files in site-packages
+python -c "import site; print(site.getsitepackages())"
+# Then: ls <that path>/*.pth
+
+# Upgrade to 1.26.3 or later (clean release)
+pip install --upgrade agent-framework
+```
+
+If you ran 1.26.1 or 1.26.2 — or have them in a lockfile — treat any Azure service principal credentials and GitHub tokens in that environment as compromised and rotate them.
+
+**Sources:** [InfoWorld / GitGuardian report](https://www.infoworld.com/article/4247344/claude-codes-dont-ask-again-button-has-a-secrets-spilling-problem-2.html), [CSOonline / Apiiro](https://www.csoonline.com/article/4247336/claude-codes-dont-ask-again-button-has-a-secrets-spilling-problem.html), [BleepingComputer: Microsoft agent-framework](https://bleepingcomputer.com/news/security/microsofts-agent-framework-pypi-package-compromised-to-steal-credentials), [OX Security: technical breakdown](https://www.ox.security/blog/breaking-hijacked-releases-of-microsofts-official-agent-framework-steals-azure-and-ci-credentials/)
+]]></content:encoded>
+      <category>AI</category>
+      <category>News</category>
+      <category>Security</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Reads the Figma Frame File Name and Guesses the Layout — Point It at the Remote MCP Server and It Gets the Real Component Tree]]></title>
+      <link>https://github.com/figma/mcp-server-guide</link>
+      <guid isPermaLink="false">2026-11-21-01-figma-mcp-remote-server-claude-code-implement-frame</guid>
+      <pubDate>Sat, 21 Nov 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Add Figma's remote MCP server in one command and Claude Code reads your component library, variable values, and Code Connect mappings before writing any implementation code.]]></description>
+      <content:encoded><![CDATA[**Add `https://mcp.figma.com/mcp` as a remote MCP server and Claude Code reads your Figma component tree, design tokens, and Code Connect mappings before implementing a frame.**
+
+Without the MCP server, sharing a Figma design with Claude Code means pasting a screenshot or manually describing the component hierarchy. Claude Code infers layout from the image and guesses which components to use. With the remote MCP server, it reads the actual component structure, variable values, and — if you've set up Code Connect — the exact component names from your codebase.
+
+**Setup**
+
+```bash
+claude mcp add --transport http figma https://mcp.figma.com/mcp
+```
+
+That's the full setup command. Claude Code will prompt for OAuth the first time it calls a Figma tool. The server is remote (Figma-hosted), so there's nothing to install locally.
+
+**Prerequisite:** A Figma account with a **Dev seat or Full seat**. The MCP server uses the Dev Mode API; Viewer seats can't access it.
+
+**What Claude Code can read**
+
+Once connected, Claude Code has access to:
+
+- `get_component` — component metadata, properties, variants
+- `get_variable_collections` — your design token values (colors, spacing, typography)
+- `get_code_connect` — Code Connect mappings, linking Figma components to your actual component imports and prop signatures
+
+**Workflow: implementing a frame**
+
+Share the Figma frame URL in your session:
+
+```
+Here's the frame I need to implement: https://www.figma.com/design/abc123/MyDesign?node-id=42-100
+Build the React component using our existing component library.
+```
+
+Claude Code calls `get_code_connect` to look up which components map to the Figma frame's contents, reads the variable collections for token values, and then writes implementation code using your actual component names and prop signatures — not guesses from a screenshot.
+
+**Reverse direction: generating a Figma design**
+
+`generate_figma_design` works the other way — Claude Code creates a Figma frame from a description or existing code. This tool is Claude Code-only (not available in other MCP clients) and requires the same remote MCP server.
+
+**Code Connect prerequisite**
+
+The `get_code_connect` tool only returns useful data if you've set up Figma Code Connect for your component library. Without it, Claude Code still gets component structure and design tokens, but won't know which React (or Vue, or Swift) component each Figma component maps to.
+
+**Sources:** [Figma MCP server guide](https://github.com/figma/mcp-server-guide), [Figma: Claude Code for designers](https://www.figma.com/resource-library/claude-code-for-designers/), [Figma MCP server help article](https://help.figma.com/hc/en-us/articles/35281186390679), [builder.io: Claude Code + Figma MCP](https://www.builder.io/blog/claude-code-figma-mcp-server)
+]]></content:encoded>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+    </item>
 
       <item>
       <title><![CDATA[Your Recurring Claude Code Check Only Runs When You Remember to Type It — `/loop <interval>` Reschedules Any Prompt Inside a Session, Cloud Routines Survive the Terminal]]></title>
@@ -6277,158 +6458,9 @@ The `/reload-skills` command (added in v2.1.152) makes this explicit: it rescans
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Agent Resends the Whole Conversation Every Turn — Anthropic's Message Threads Beta Sends Only New Messages per Request]]></title>
-    <link>https://platform.claude.com/docs/en/build-with-claude/message-threads.md</link>
-    <guid isPermaLink="false">2026-11-03-06-anthropic-message-threads-api-beta-agent-turn-latency</guid>
-    <pubDate>Tue, 03 Nov 2026 20:02:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Anthropic's message threads beta (Nov 2) lets agents send only new messages per turn instead of full history. Threads expire after 5 minutes and don't support Message Batches or token counting.</description>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Message threads beta (beta header `message-threads-2026-08-12`) lets your agent send only new messages each turn instead of the full history; Anthropic reports ~35% lower time to first token on large requests.**
-
-If your Claude agent sends the full `messages` array on every turn, you're re-transmitting and re-tokenizing the same context repeatedly. The new message threads beta changes this: add a `thread` parameter to your Messages API request, and the platform holds the conversation between turns. Each subsequent call sends only the new message, and the response includes a thread ID for the next turn.
-
-The feature shipped November 2 and is [documented at platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/message-threads.md). It's available on the Claude API, AWS Bedrock, Microsoft Foundry, and GCP. Claude Code already uses it by default for most sessions.
-
-**Limits to know before you use it:**
-
-- Threads expire 5 minutes after the last request — your app still needs its own conversation history as a replay source; the platform holds state, but you hold the record
-- Not eligible for zero data retention or HIPAA use cases
-- Doesn't support Message Batches or the token counting API
-- The ~35% faster time-to-first-token figure is Anthropic's own benchmark on large requests, not independently verified
-
-**Why it matters:** For agents running long multi-turn conversations, resending the full history is the dominant latency source on each turn. Threads move that cost off the critical path. Worth using in any agent harness where you're building the messages array manually — but keep your own copy: the thread expiry means the platform is not a durable conversation store.
-
-**Sources:** [Anthropic message threads docs](https://platform.claude.com/docs/en/build-with-claude/message-threads.md) · [The New Stack](https://thenewstack.io/anthropic-claude-message-threads/) · [Unite.ai coverage](https://www.unite.ai/anthropic-launches-message-threads-beta-for-long-running-agents/)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Claude Code Slash Commands and Hooks Live in Three Separate READMEs Nobody Copies to New Repos — A Plugin Marketplace Bundle and `--scope project` Commit Them to `.claude/settings.json` for the Whole Team]]></title>
-    <link>https://code.claude.com/docs/en/plugins/install</link>
-    <guid isPermaLink="false">2026-11-03-04-claude-code-plugin-marketplace-project-scope-share-commands</guid>
-    <pubDate>Tue, 03 Nov 2026 12:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Install a Claude Code plugin at project scope and it writes to .claude/settings.json; commit that file and every teammate who trusts the repo gets the same slash commands, hooks, and MCP bindings.]]></description>
-    <content:encoded><![CDATA[**A Claude Code plugin bundles slash commands, hooks, MCP configs, and subagent definitions into one installable unit; `--scope project` writes the install into `.claude/settings.json` so you commit it once and teammates get it when they trust the repo.**
-
-Every project-specific Claude Code customization — the `/deploy` command, a `validate-blog.sh` PostToolUse hook, the Jira MCP config — currently lives in a file someone has to know about and manually copy to each repo. The plugin system changes that: a plugin is a directory with a `manifest.json` that bundles `commands/`, `hooks/`, `.mcp.json`, and `agents/` into a single installable unit. Install it at project scope and the entry lands in `.claude/settings.json`.
-
-**Three scopes — one matters for team distribution:**
-
-- `--scope user` (default): writes to `~/.claude/settings.json` — applies only to you
-- `--scope project`: writes to `.claude/settings.json` — commit it; teammates see it
-- `--scope local`: writes to `.claude/settings.local.json` — your override, not committed
-
-**How to set it up:**
-
-Register a marketplace (any git repo with a `.claude-plugin/marketplace.json`):
-
-```
-/plugin marketplace add owner/plugin-repo
-```
-
-Or add `extraKnownMarketplaces` directly in `.claude/settings.json` for project-wide automatic registration — anyone who opens the repo gets the registry without a separate command.
-
-Install a plugin at project scope:
-
-```
-claude plugin install my-tools@my-marketplace --scope project
-```
-
-Or inside a session: `/plugin install my-tools@my-marketplace --scope project`.
-
-Commit `.claude/settings.json`. When a teammate opens the repo and trusts the folder, Claude Code prompts them to install the configured plugins.
-
-**What a plugin can bundle:**
-
-- `commands/` — slash command `.md` definitions
-- `hooks/` — shell scripts wired to tool lifecycle events (PreToolUse, PostToolUse, Stop, Notification)
-- `.mcp.json` — MCP server declarations scoped to the project
-- `agents/` — subagent CLAUDE.md configurations
-
-**Real limit before you reach for this:** Auto-install on trust requires teammates to confirm the folder trust prompt. An independent test from July 2026 (dev.classmethod.jp) found only a folder-trust confirmation — not a per-plugin dialog — but that behavior may vary by Claude Code version and org plugin policy. Verify against your org's settings before treating it as zero-friction rollout.
-
-**Sources:** [Plugin install docs — code.claude.com](https://code.claude.com/docs/en/plugins/install) · [How to use Claude Code plugins — dev.to/thryx](https://dev.to/thryx/how-to-use-claude-code-plugins-install-from-a-marketplace-or-build-your-own-574) · [Team distribution test — dev.classmethod.jp](https://dev.classmethod.jp/articles/claude-code-plugin-team-distribution/)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your SFT-Fine-Tuned Model Gets Facts Right But Doesn't Show Its Work — GRPO on a Free Colab T4 Trains Any 1B+ Model to Reason Step-by-Step Using Format Rewards, No Labeled Answer Dataset Required]]></title>
-    <link>https://huggingface.co/learn/llm-course/en/chapter12/6</link>
-    <guid isPermaLink="false">2026-11-03-05-grpo-unsloth-reasoning-fine-tuning-gemma-lora-free-colab</guid>
-    <pubDate>Tue, 03 Nov 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[GRPO fine-tunes a model to reason step-by-step by rewarding format rather than correctness; the HuggingFace LLM Course Colab runs the full loop on Gemma 3 1B with Unsloth + LoRA on a free T4.]]></description>
-    <content:encoded><![CDATA[**GRPO (Group Relative Policy Optimization) fine-tunes a model to produce structured reasoning by rewarding format rather than answers — no labeled chain-of-thought dataset needed; the HuggingFace LLM Course exercise runs it on Gemma 3 1B with Unsloth + LoRA on a free Colab T4.**
-
-**What you'll be able to do after this:** Take a base or SFT-trained model and fine-tune it to produce structured `<reasoning>...</reasoning><answer>...</answer>` output before its final answers — without writing a labeled dataset of correct chain-of-thought. The reward functions score format, not content, so the model learns to externalise its thinking.
-
-**Three things to take away:**
-
-- GRPO is reinforcement learning without a separate reward model: the model generates multiple completions per prompt, your reward functions score them, and the update step pushes toward the higher-scoring half. You write the reward functions; they're plain Python.
-- Format rewards are the practical entry point: reward correct XML structure and penalise bare answers. The model learns the thinking structure and fills it in — you don't have to produce ground-truth reasoning traces.
-- Unsloth + QLoRA makes this feasible on free hardware: Gemma 3 1B at 4-bit loads in ~4 GB VRAM; a 3B model fits the same T4; the HuggingFace course exercise completes in under 30 minutes.
-
-**Walk-through (HuggingFace LLM Course, Chapter 12 Exercise 6):**
-
-```python
-from unsloth import FastLanguageModel
-model, tokenizer = FastLanguageModel.from_pretrained(
-    "google/gemma-3-1b-it",
-    max_seq_length=2048,
-    load_in_4bit=True,
-)
-model = FastLanguageModel.get_peft_model(model, r=32, lora_alpha=32)
-```
-
-Define a reward function that scores XML format:
-
-```python
-import re
-
-def format_reward(completions, **kwargs):
-    pattern = r"<reasoning>.*?</reasoning>\s*<answer>.*?</answer>"
-    return [0.5 if re.search(pattern, c, re.DOTALL) else 0.0
-            for c in completions]
-```
-
-Pass it to `GRPOTrainer` from TRL:
-
-```python
-from trl import GRPOTrainer, GRPOConfig
-
-trainer = GRPOTrainer(
-    model=model,
-    reward_funcs=[format_reward],
-    args=GRPOConfig(output_dir="grpo-output", max_steps=200),
-    train_dataset=dataset,
-)
-trainer.train()
-model.save_pretrained("grpo-reasoning-adapter")
-```
-
-The trainer generates N completions per prompt, scores each with `format_reward`, and updates toward the higher-scoring half. No labeled answers needed.
-
-**Limits to know before you start:** Unsloth requires a base model of at least 1.5B parameters — smaller models don't reliably generate thinking tokens. Format rewards also get gamed: check that the content inside the tags is coherent, not just structurally correct. If the model stops improving, the [Unsloth advanced notebook](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) uses partial-credit reward functions that are harder to game.
-
-**Sources:** [GRPO exercise — HuggingFace LLM Course Ch. 12.6](https://huggingface.co/learn/llm-course/en/chapter12/6) · [GRPO + LoRA docs — docs.unsloth.ai](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl) · [Train your own reasoning model — Unsloth tutorial](https://docs.unsloth.ai/basics/reasoning-grpo-and-rl/tutorial-train-your-own-reasoning-model-with-grpo) · [Gemma 3 GRPO walkthrough — youssefh.substack.com](https://youssefh.substack.com/p/gemma-3-reasoning-fine-tuning-with)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
