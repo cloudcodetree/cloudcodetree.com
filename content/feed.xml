@@ -10,7 +10,119 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 21 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 21 Nov 2026 12:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Every RAG Tutorial Skips the Part Where You Get the Text Out of the PDF — Docling Parses Documents Into Structure-Aware Markdown Chunks]]></title>
+      <link>https://developers.llamaindex.ai/python/examples/data_connectors/doclingreaderdemo/</link>
+      <guid isPermaLink="false">2026-11-21-04-docling-rag-document-parsing-pdf-docx-llamaindex</guid>
+      <pubDate>Sat, 21 Nov 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Most RAG tutorials assume clean text input. Docling converts PDFs, DOCX, and HTML into Markdown that preserves table rows and heading hierarchy — here's the LlamaIndex integration in 15 lines.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Developer Tools</category>
+      <content:encoded><![CDATA[**What you'll be able to do after this: load a messy enterprise PDF into LlamaIndex, preserve its table structure and heading hierarchy, and feed chunked nodes into a vector store — without writing any parsing logic yourself.**
+
+Most RAG tutorials start with `text = "Here is the document content..."`. Real documents are PDFs with two-column layouts, Word files with merged cells, and HTML with navigation wrapped around the article. A character-based chunker doesn't know the five words on the right column belong with the three on the left. Docling does.
+
+**Three things worth knowing:**
+
+1. **Docling converts PDFs, DOCX, PPTX, HTML, and images to structured Markdown or JSON**, preserving table rows, list items, and heading hierarchy that raw `pypdf` text extraction loses — the result is a Document model, not a flat string.
+2. **The LlamaIndex `DoclingReader` and `DoclingNodeParser` plug into any existing pipeline** — swap your `SimpleDirectoryReader` for `DoclingReader` and chunks immediately carry metadata like heading path, page number, and a table flag.
+3. **For plain digital PDFs it parses in seconds with no GPU**; for scanned or complex-layout PDFs, Docling uses its vision-language layout model — first run downloads ~300 MB of models.
+
+**Walk-through:**
+
+```bash
+pip install docling llama-index-readers-docling llama-index-node-parser-docling
+```
+
+```python
+from llama_index.readers.docling import DoclingReader
+from llama_index.node_parser.docling import DoclingNodeParser
+from llama_index.core import VectorStoreIndex
+
+# Load a PDF — returns Docling Document objects, not raw strings
+reader = DoclingReader()
+docs = reader.load_data(file_path="annual_report.pdf")
+
+# Parse into LlamaIndex TextNodes with structural metadata
+parser = DoclingNodeParser()
+nodes = parser.get_nodes_from_documents(docs)
+
+# Build your index — nodes are already chunked with context
+index = VectorStoreIndex(nodes)
+```
+
+Each node's `metadata` carries `dl_meta.heading_path` (the section this chunk lives under) and `dl_meta.doc_items[].label` (whether it's a paragraph, table cell, list item). Pass those to your vector store and you can filter by section at retrieval time.
+
+**Limit:** Docling's default pipeline runs locally — on a first run it downloads ~300 MB of models. For large-volume production ingestion, [Docling Serve](https://github.com/DS4SD/docling-serve) (self-hosted REST API) is a better fit. If your documents are simple digital PDFs with no tables, `pypdf` with less overhead may be enough; Docling's value compounds with complex, mixed-format document libraries.
+
+**Sources:** [LlamaIndex Docling Reader demo](https://developers.llamaindex.ai/python/examples/data_connectors/doclingreaderdemo/) · [IBM Docling RAG guide](https://ibm.com/granite/docs/use-cases/docling-rag) · [Docling GitHub](https://github.com/DS4SD/docling) · [Docling technical report (arXiv 2501.17887)](https://arxiv.org/abs/2501.17887)]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Has No Guard Against Pushing to Main or Dropping a Table — A PreToolUse Hook Blocks Those Commands Before They Run]]></title>
+      <link>https://code.claude.com/docs/en/hooks-guide</link>
+      <guid isPermaLink="false">2026-11-21-05-claude-code-pretooluse-hook-block-dangerous-bash-git-push-main</guid>
+      <pubDate>Sat, 21 Nov 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Code's PreToolUse hook fires before a tool runs; exit code 2 blocks it and sends the reason back to Claude. Here's the guard pattern for git push to main, database drops, and other irreversible commands.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <content:encoded><![CDATA[**Claude Code's `PreToolUse` hook fires before a tool runs; exit code `2` blocks the tool and sends your hook's stdout back to Claude as the reason — here's the guard pattern for `git push` to main, database drops, and other commands you'd regret.**
+
+This is distinct from the [Stop hook](https://code.claude.com/docs/en/claude-code/hooks), which gates session end. `PreToolUse` fires on individual tool calls — before the command executes, not after.
+
+**Wire it up in `.claude/settings.json`:**
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": "bash .claude/hooks/guard-dangerous.sh"}
+        ]
+      }
+    ]
+  }
+}
+```
+
+**The guard script:**
+
+```bash
+#!/usr/bin/env bash
+# .claude/hooks/guard-dangerous.sh  (chmod +x this file)
+INPUT=$(cat)
+CMD=$(echo "$INPUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d.get('tool_input', {}).get('command', ''))
+")
+
+if echo "$CMD" | grep -qE \
+  'git push.*(main|master)|git reset --hard|DROP TABLE|rm -rf /|git push --force'; then
+  echo "Guard: blocked '${CMD:0:120}' — matches a protected pattern."
+  echo "Use a feature branch, or state explicitly why this is safe."
+  exit 2
+fi
+```
+
+The hook receives JSON on stdin; `tool_input.command` is the bash command Claude is about to run. Exit `2` returns your message to Claude; exit `1` logs an error but lets the call through; exit `0` is a clean pass.
+
+**Keep it fast.** Every `PreToolUse` hook adds latency to every matching tool call. No network calls, no slow validation — keep the script under 100 ms. If you need a heavier check (linting a file before it's edited), use a `PostToolUse` hook instead.
+
+**What this does and doesn't do.** This is a friction layer, not a security boundary. Claude can work around a pattern-match by rephrasing the command. `dangerouslyDisableSandbox` bypasses `PreToolUse` in some execution environments. For genuine safety requirements, enforce them in CI — the hook is fast feedback in the development loop, not a substitute for server-side protection.
+
+**Sources:** [Claude Code hooks reference](https://code.claude.com/docs/en/claude-code/hooks) · [Claude Code hooks guide](https://code.claude.com/docs/en/hooks-guide) · [DataCamp: Claude Code Hooks tutorial](https://www.datacamp.com/tutorial/claude-code-hooks)]]></content:encoded>
+    </item>
 
       <item>
       <title><![CDATA[Your Research Subagent Re-Explains the Entire Codebase Each Time Because You Used Agent Instead of Fork — Fork Inherits the Full Session Context]]></title>
@@ -6383,81 +6495,8 @@ result = index(docs, record_manager, vectorstore,
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[The Claude Design Export Bundle Tells Claude Code What It Looks Like, Not What It Calls — Add a 10-Line Wiring Brief to Tell It the Routes, API Endpoints, and State Layer]]></title>
-    <link>https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff</link>
-    <guid isPermaLink="false">2026-11-03-08-claude-design-export-wiring-brief-route-api-data-layer-handoff</guid>
-    <pubDate>Tue, 03 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>The Claude Design export bundle carries layout and styling but not routes, API calls, or state. A short wiring brief in your handoff prompt prevents Claude Code from inventing a data layer.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: The Claude Design export gives Claude Code structure and styling — add one short section naming the route, the data calls, and the state layer so Claude Code doesn't guess the parts it can't see.**
-
-The Claude Design export bundle carries what the tool knows: component layout, visual structure, design tokens, and styling. It does not carry what it can't see: which route the screen lives at, what API calls the components make, what state management layer you're using, or how the data flows between components.
-
-Without that information, Claude Code makes plausible guesses — and those guesses often create technical debt: a new `useState` where you use React Query, a hardcoded fetch URL that won't match your backend, or a component dropped at `/new-screen` when it belongs at `/settings/notifications`.
-
-**Add a wiring brief to your handoff prompt.** It doesn't need to be long:
-
-```
-Route: /settings/notifications
-Data: GET /api/user/notifications → { items: Notification[], unread: number }
-State: React Query, 2-min cache, mutation via PATCH /api/user/notifications/:id
-Parent: app/(authenticated)/settings/layout.tsx wraps with SettingsNav
-Auth: session already in context — no additional guard needed
-```
-
-Five lines prevent three common mistakes. Claude Code reads this and places the component on the right route, wires it to the right data hook, and doesn't invent a parallel fetch layer.
-
-**What to include in the wiring brief:**
-1. **Route** — the exact path, including dynamic segments
-2. **Data** — the API call(s) and their return shapes (a one-line JSON schema is enough)
-3. **State** — your state library and cache policy, so it uses the existing pattern
-4. **Parent layout** — which wrapper component this screen lives inside
-5. **Auth** — whether this route requires auth and how it's already handled
-
-**The limit:** Claude Design has no access to your running API or codebase structure, so it can't derive any of this automatically. The wiring brief is manual work now. Future versions may read this from codebase context, but today the gap is real and worth closing yourself.
-
-**Sources:** [Claude Design handoff workflow (dev.to)](https://dev.to/jangwook_kim_e31e7291ad98/claude-design-developer-guide-to-anthropics-prototyping-tool-1nc2) · [Without tokens in CLAUDE.md, Claude makes its own choices (memorylake.ai)](https://www.memorylake.ai/en/blogs/migrate-claude-design-to-claude-code) · [Claude Code Playbook handoff guide](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Edited Skill SKILL.md Needs a Session Restart to Take Effect — Run /reload-skills to Test Changes Without Closing the Session]]></title>
-    <link>https://dev.classmethod.jp/articles/claude-code-reload-skills/</link>
-    <guid isPermaLink="false">2026-11-03-07-claude-code-reload-skills-skill-hot-reload-dev-loop</guid>
-    <pubDate>Tue, 03 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Claude Code hot-reloads skills from .claude/skills/ without a restart. The /reload-skills command confirms which skills were added, modified, or removed in the current session.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Changes to `.claude/skills/<name>/SKILL.md` take effect without restarting; run `/reload-skills` for an explicit rescan that shows exactly which skills changed.**
-
-When you're writing a new skill or debugging an existing one, the old workflow was: edit the SKILL.md, close the session, restart, test. As of Claude Code v2.1.0, edits to `~/.claude/skills/` and `.claude/skills/` are hot-reloaded — the runtime picks them up automatically during normal message handling.
-
-The `/reload-skills` command (added in v2.1.152) makes this explicit: it rescans both skill directories immediately and prints a summary of loaded, added, and removed skills. Use it when you want confirmation that your edit was picked up, or when you've edited several skills at once.
-
-**Practical loop for skill development:**
-
-1. Create `.claude/skills/my-skill/SKILL.md` with the skill's instructions
-2. Test in the current session: invoke it and see what Claude does
-3. Edit SKILL.md to refine
-4. Run `/reload-skills` — confirm the update appears in the summary
-5. Test again, without restarting
-
-**One limit:** A brand-new *top-level* `skills/` directory (not yet inside `.claude/`) still requires a restart for Claude Code to discover it. Once a skill directory is known to the runtime, edits inside it hot-reload on the next message or `/reload-skills` call.
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [What is Skill Hot-Reload in Claude Code (ClaudeLog)](https://claudelog.com/faqs/what-is-skill-hot-reload-in-claude-code/) · [/reload-skills deep-dive, Classmethod blog](https://dev.classmethod.jp/articles/claude-code-reload-skills/)
-]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
