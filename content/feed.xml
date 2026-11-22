@@ -10,7 +10,182 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 21 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 04:05:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Unattended Claude Code Agent Still Prompts for Approval When an Edge-Case Tool Call Isn't on Your List — `--dangerously-skip-permissions` Inside a Container Gives True Zero-Prompt Operation]]></title>
+      <link>https://code.claude.com/docs/en/sandbox-environments</link>
+      <guid isPermaLink="false">2026-11-22-03-claude-code-bypasspermissions-sandbox-container-unattended-ci</guid>
+      <pubDate>Sun, 22 Nov 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[`--allowedTools` scopes permissions but still prompts for unlisted tool calls. `--dangerously-skip-permissions` removes all prompts — safely only inside an isolated container where the container itself is the blast-radius boundary.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**`--dangerously-skip-permissions` removes all approval prompts from Claude Code. The safety comes from the container around it, not the flag — and that distinction is what makes it usable in automated pipelines.**
+
+Your headless agent hits a prompt, hangs, and your CI job times out. You add `--allowedTools "Bash,Read,Write,Edit"` and it mostly works — until the agent calls `WebFetch` to verify a URL, or `ListMcpResourcesTool` on a server you forgot to scope. Each unlisted tool is either a hang (if the prompt is interactive) or a denied tool call (if `denyInsteadOfPrompting` is set), and both outcomes break the run in ways that are hard to debug after the fact.
+
+The root issue is that an allowlist can't anticipate every tool a capable agent reaches for. `--dangerously-skip-permissions` (or its equivalent permission mode `bypassPermissions`) bypasses the approval layer entirely — no prompts, no denies, every tool call runs.
+
+**Why this is safe inside a container but not outside**
+
+The flag does not sandbox anything. It does not restrict network access, revoke credentials, or limit what Claude Code can read. What makes it safe to use is what you put around it: an isolated container or VM with:
+- Only the environment variables the task needs (not your full CI token set)
+- A firewall or network policy that blocks unapproved egress
+- A clean checkout, not your workstation with `~/.aws` and `~/.npmrc` mounted in
+
+Anthropic's own dev container (`github.com/trailofbits/claude-code-devcontainer`) ships a firewall that blocks unapproved outbound connections, which is why the flag is usable in that image. Without that boundary, you're giving the agent your full machine's network and credential access.
+
+**Running it:**
+
+```bash
+# Docker one-liner: clean container, project mounted read/write, no other creds
+# Use your base image of choice (Node LTS works; check the official sandbox docs
+# for the Anthropic-maintained devcontainer image)
+docker run --rm \
+  -v $(pwd):/workspace \
+  -w /workspace \
+  -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+  node:22 \
+  bash -c "npm install -g @anthropic-ai/claude-code && \
+           claude --dangerously-skip-permissions --print \
+                  'Run the test suite and fix any failures.'"
+```
+
+Replace the unbounded network with a custom bridge that permits only `api.anthropic.com` and your project's services — that's the firewall step that makes this defensible. Docker's own Claude Code sandbox doc (`docs.docker.com/ai/sandboxes/agents/claude-code/`) ships a pre-wired version if you want a ready-made starting point.
+
+**What to pass in and what to keep out**
+
+A common mistake is running the container with the full CI environment forwarded in. If your pipeline exports `AWS_ACCESS_KEY_ID`, `GITHUB_TOKEN`, and `DATABASE_URL`, those are visible to anything the agent runs. Pass only what the specific task needs. For a test-and-fix agent, that's usually just `ANTHROPIC_API_KEY`.
+
+**One thing `denyInsteadOfPrompting` still adds**
+
+Even with `bypassPermissions`, keeping `denyInsteadOfPrompting: true` in your project settings is worthwhile: it documents intent and blocks any tool the agent shouldn't have if you later run the same session interactively rather than in bypass mode.
+
+**Sources:** [Claude Code sandbox environments — code.claude.com](https://code.claude.com/docs/en/sandbox-environments) · [Trail of Bits dev container — github.com](https://github.com/trailofbits/claude-code-devcontainer) · [Run dangerously-skip-permissions safely with Docker — DEV Community](https://dev.to/trekhleb/run-claude-codes-dangerously-skip-permissions-safely-with-docker-514d) · [Sandboxing strategies for CI/CD — DEV Community](https://dev.to/claude_code_security/claude-code-in-cicd-sandboxing-strategies-that-actually-contain-the-blast-radius-150j)
+]]></content:encoded>
+      <media:content url="https://code.claude.com/images/sandbox-environments-og.png" medium="image"/>
+      <media:thumbnail url="https://code.claude.com/images/sandbox-environments-og.png"/>
+    </item>
+
+      <item>
+      <title><![CDATA[Claude Code v2.1.328 Makes Auto Mode the Default Starting Mode on Bedrock, Vertex, and Foundry]]></title>
+      <link>https://code.claude.com/docs/en/feature-availability</link>
+      <guid isPermaLink="false">2026-11-22-02-claude-code-v2-1-328-auto-mode-default-bedrock-vertex-foundry</guid>
+      <pubDate>Sun, 22 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Code v2.1.328 extends auto mode to Bedrock, Vertex, and Azure Foundry and makes it the default starting mode when none is set — teams on enterprise cloud deployments no longer need to opt in.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Claude Code v2.1.328 ships auto mode to Amazon Bedrock, Google Cloud's Agent Platform, and Microsoft Foundry as the default starting mode — no opt-in flag required.**
+
+Auto mode classifies each pending tool call and decides whether it needs your approval based on impact and reversibility. Previously it was available on the Anthropic API only by default; on third-party cloud providers, teams had to either run in `--print` (fully non-interactive) or manage a manual permission allowlist. v2.1.328 brings auto mode to Bedrock, Vertex, and Foundry and sets it as the default when no mode is specified.
+
+**Why it matters:** Enterprise teams running Claude Code through managed cloud deployments can rely on the same classifier-driven approval behavior they get on the Anthropic API, without reconfiguring every new project.
+
+**One limit to check:** Auto mode's model support varies by provider. Per aggregator coverage of the release, Sonnet 4.6 on some Bedrock configurations was not receiving auto mode in earlier versions. Check the [feature availability page](https://code.claude.com/docs/en/feature-availability) for the current per-provider model matrix before upgrading a production pipeline. Any `denyInsteadOfPrompting` or `--allowedTools` overrides you already have in settings continue to apply on top of auto mode.
+
+**Sources:** [DEV Community: week of November 22 Claude Code digest](https://dev.to/aicoding-guide/this-week-in-claude-code-codex-and-gemini-cli-week-of-november-22-2026-1ofi) · [Claude Code feature availability — code.claude.com](https://code.claude.com/docs/en/feature-availability) · [Releasebot: Claude Code November 2026](https://releasebot.io/updates/anthropic/claude-code)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Inference Code Is Locked to One Provider — OpenRouter Puts 400+ Models Behind a Single OpenAI-Compatible Endpoint With Per-Request Fallback]]></title>
+      <link>https://realpython.com/openrouter-api/</link>
+      <guid isPermaLink="false">2026-11-22-01-openrouter-api-python-openai-compatible-model-routing-fallback</guid>
+      <pubDate>Sun, 22 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[OpenRouter is an OpenAI-compatible gateway to 400+ models from dozens of providers. Change one string to switch models; list fallbacks so your app keeps running when a provider is rate-limited or down.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**OpenRouter sits between your code and 400+ models — Claude, GPT, Gemini, Llama, Mistral, and more — through a single OpenAI-compatible URL. Swap providers by changing a model string; add a fallback list so your app self-heals when one is down.**
+
+**What you'll be able to do after this:**
+- Call any model OpenRouter supports using the same `openai` Python client you already use, with one environment variable change
+- Declare ordered fallback models so a rate-limited or unavailable primary is retried automatically
+- Route to the cheapest provider for a given model, or force the fastest, with a one-word suffix
+
+**Three things to know first:**
+1. Model IDs on OpenRouter follow the pattern `vendor/model-name` (e.g. `anthropic/claude-sonnet-4-6`, `openai/gpt-4o`, `meta-llama/llama-3.1-70b-instruct`). IDs change when providers update their catalogs — query `/models` to get current ones rather than hardcoding from a tutorial.
+2. Auto-routing (`openrouter/auto`) selects the model automatically, powered by NotDiamond's routing. It may choose a weaker model when it underestimates task complexity — treat it as a convenience, not a production routing strategy for high-stakes tasks.
+3. Free models (`:free` suffix, e.g. `meta-llama/llama-3.3-70b-instruct:free`) are available but rate-limited; `openrouter/free` always resolves to whichever free model is currently available, so it can silently downgrade.
+
+**Walk-through:**
+
+```bash
+pip install openai python-dotenv
+```
+
+```python
+# .env
+OPENROUTER_API_KEY=sk-or-...
+
+# main.py
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1",
+)
+
+response = client.chat.completions.create(
+    model="anthropic/claude-sonnet-4-6",
+    messages=[{"role": "user", "content": "Summarize this in one sentence: ..."}],
+)
+print(response.choices[0].message.content)
+```
+
+That's the entire migration from a direct Anthropic or OpenAI client. The `base_url` and key are the only differences.
+
+**Adding fallback models:**
+
+OpenRouter accepts a non-standard `extra_body` parameter with a `models` list. If the first model fails, it tries the next:
+
+```python
+response = client.chat.completions.create(
+    model="anthropic/claude-sonnet-4-6",
+    messages=[...],
+    extra_body={
+        "models": [
+            "anthropic/claude-sonnet-4-6",
+            "openai/gpt-4o",
+            "meta-llama/llama-3.1-70b-instruct",
+        ]
+    }
+)
+```
+
+Only the successful attempt is billed. Order by provider diversity and decreasing cost to maximize resilience without overspending on fallbacks.
+
+**Provider routing suffixes:**
+- `:nitro` — fastest available provider for this model (higher cost)
+- `:floor` — cheapest available provider
+- `:free` — free tier only; may not exist for all models
+
+```python
+# Always route to the fastest Claude Sonnet provider
+model="anthropic/claude-sonnet-4-6:nitro"
+```
+
+**What OpenRouter doesn't give you:** model-level rate-limit visibility per provider, guaranteed latency SLAs, or any control over which data center serves a request. For compliance requirements (data residency, HIPAA) you still need to go direct to the provider.
+
+**Sources:** [Real Python: OpenRouter API tutorial](https://realpython.com/openrouter-api/) · [OpenRouter model routing docs](https://openrouter.ai/docs/guides/routing/routers/overview.md) · [KDnuggets: access multiple AI models with OpenRouter](https://www.kdnuggets.com/?p=210718) · [DataCamp: OpenRouter tutorial](https://www.datacamp.com/tutorial/openrouter)
+]]></content:encoded>
+      <media:content url="https://openrouter.ai/og.png" medium="image"/>
+      <media:thumbnail url="https://openrouter.ai/og.png"/>
+    </item>
 
       <item>
       <title><![CDATA[Your Claude Code Subagents Can't Message Each Other — Agent Teams Enable the Peer-to-Peer Channel That Subagents Don't Have]]></title>
@@ -6349,135 +6524,9 @@ docs = retriever.invoke("sci-fi films from 2020 with a rating above 8")
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[You Already Shipped the Component — Import the Repo Into Claude Design to Explore a Change Without Rebuilding From a Blank Canvas]]></title>
-    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
-    <guid isPermaLink="false">2026-11-04-04-claude-design-repo-import-code-to-design-round-trip-exploration</guid>
-    <pubDate>Wed, 04 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Link your GitHub repo in Claude Design's design system settings to start canvas explorations from your real components — not generic defaults. Use this when you need options before committing to a rework.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Link your GitHub repo in Claude Design's design system settings; explorations start from your real components, not generic defaults — the reverse round-trip for when you need three directions before committing to a rework.**
-
-The Claude Design → Claude Code handoff gets written about constantly. The reverse direction — taking something that already lives in your repo back into Claude Design to explore a change — works through design system import and is what you reach for when a component needs visual exploration before you commit to rework.
-
-**When this is useful:**
-- You want to try three layout directions on an existing feature without committing a diff
-- A stakeholder needs to see options, not a finished PR
-- You want Claude Design's generations to stay inside your component vocabulary instead of inventing new patterns
-
-**How to set it up:**
-
-In Claude Design, open the design system panel and link your repository. Claude Design reads your component exports, Tailwind config, and CSS tokens, using them as the generation context. You're no longer starting from a generic component library — you're starting from what your app already renders.
-
-```
-Claude Design → Design system panel → Link repository
-Paste your GitHub repo URL (must be public; use the file upload for private repos)
-```
-
-Once linked, any component Claude Design generates is checked against your component map before it appears. If your `Button` already exists in the repo, the generated output uses it rather than creating a new variant.
-
-**Where the round-trip breaks:**
-
-This is a one-way sync: Claude Design reads from the repo but doesn't push back automatically. Changes you make on the canvas are expressed as a new export bundle, not a diff against your component source. Use it for exploration and direction-setting, not for iterating on the actual implementation — that belongs in Claude Code once a direction is decided.
-
-Private repos require a manual upload rather than a live GitHub link, which means the design system context goes stale as your repo evolves. For active development, run `/design-sync` in Claude Code to keep the local spec current, then re-upload when you need a new exploration round.
-
-One further limit: Claude Design checks generated output against your component map, but it doesn't enforce your component API exactly — props may differ from your actual interface. Treat the output as a direction, not a finished component.
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design + Claude Code June 2026 update — gigazine.net](https://www.gigazine.net/gsc_news/en/20260618-claude-design-claude-code) · [Claude Design 2 design systems guide — gaugr.app](https://gaugr.app/en/blog/claude-design-2-update-design-systems-code-sync-guide)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Claude Code Automatically Summarizes Sessions Left Idle 54 Minutes — Set idleCompaction: false or Raise the Threshold When That Loses Your Context]]></title>
-    <link>https://claudelog.com/faqs/what-is-idle-compaction-in-claude-code/</link>
-    <guid isPermaLink="false">2026-11-04-03-claude-code-idle-compaction-54min-200k-threshold-settings</guid>
-    <pubDate>Wed, 04 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Idle compaction runs just before the one-hour cache expires; it saves resume cost but can drop accumulated constraints. Disable in settings.json or tune the CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS threshold.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Claude Code auto-summarizes your session at 54 minutes idle to cut cache-resume cost — if that summary drops critical accumulated context, disable it with `"idleCompaction": false` in settings.json.**
-
-Claude Code (v2.1.299, recently extended to the VS Code panel and desktop app's Code tab) added idle compaction: when a session sits idle for about 54 minutes, it automatically compacts the conversation just before the one-hour prompt cache expires. The goal is a cheaper resume — your next turn starts from a summary rather than re-sending the full history.
-
-**Three things to know:**
-- Compaction triggers at the 54-minute mark if the session exceeds 200,000 tokens. Below that, the cache just expires and the next turn resumes cold.
-- The summary can silently drop detailed constraints you built up during the session — if you issued many inline rules or decision context over time, they may not survive compaction.
-- `CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS` lets you lower the threshold floor (minimum 100,000); no documented way to raise it above 200K.
-
-**How to control it:**
-
-Disable completely:
-```json
-// .claude/settings.json
-{ "idleCompaction": false }
-```
-
-Or via `/config` → "Idle compaction" row (requires v2.1.302+). Turning off `autoCompact` also disables idle compaction.
-
-**When to disable:**
-- Sessions where you've built up specific constraints, file paths, or task state over time
-- Long-running background tasks where the session is waiting, not idle
-- Anytime you need the full history when you return
-
-**When to leave it on:**
-- Exploration sessions with no critical accumulated state — you get a cheaper cold start
-- Short, focused tasks where any summary would include everything that matters
-
-Note: one independent report suggests the env-var disable (`DISABLE_AUTO_COMPACT`) had inconsistent behavior in an earlier version. If you need reliable disablement, use the settings.json approach and confirm it took effect in `/config`.
-
-**Sources:** [What is Idle Compaction in Claude Code — claudelog.com](https://claudelog.com/faqs/what-is-idle-compaction-in-claude-code/) · [Claude Code Hub — idle compaction](https://wmedia.es/en/tips/claude-code-idle-compaction) · [dsebastien.net explainer](https://www.dsebastien.net/2026-10-16-claude-code-idle-compaction-cheaper-to-resume-but-from-a-summary/)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Google, Microsoft, OpenAI, and Anthropic Back a Shared robots.txt Token for AI Training Opt-Out]]></title>
-    <link>https://thenextweb.com/news/ai-training-opt-out-robots-txt-google-openai-microsoft-anthropic</link>
-    <guid isPermaLink="false">2026-11-04-02-ai-training-opt-out-robots-txt-usage-ai-training-token</guid>
-    <pubDate>Wed, 04 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Four major AI labs will honor __usage_ai-training in robots.txt starting 2027; add it now to exclude your content from future training runs once each company implements it.</description>
-    <category>AI</category>
-    <category>News</category>
-    <category>Policy</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Add `User-agent: __usage_ai-training / Disallow: /` to your robots.txt now — Google, Microsoft, OpenAI, and Anthropic jointly committed on October 30 to honor it for training opt-out, with implementation starting 2027.**
-
-On October 30, the four companies announced they will honor a shared robots.txt signal for AI training opt-out. The underlying mechanism is an IETF Internet-Draft authored by Anthropic's Kevin Kelley, adding a new policy token called `__usage_ai-training`.
-
-**How to add it:**
-
-```
-User-agent: __usage_ai-training
-Disallow: /
-```
-
-Add this group to your robots.txt alongside any existing `ClaudeBot`, `GPTBot`, or `Google-Extended` entries. The signal tells all four labs not to use the matching paths for training, without having to maintain separate entries per crawler.
-
-**Implementation timeline varies by company:** Anthropic says it has started. Microsoft gives February 1, 2027. Google and OpenAI give 2027 without a specific date.
-
-**Limits to understand:**
-- This is a voluntary IETF draft, not a ratified standard — no enforcement mechanism exists.
-- The existing `User-agent: *` wildcard deliberately does not cover the new token; your current wildcard block does not substitute for the new group.
-- It has no effect on content already in existing training datasets — only future runs.
-- Each company's existing mechanism (`Google-Extended`, `ClaudeBot`, etc.) still works independently.
-
-**Why it matters:** If you ship sites or APIs, adding this group is now the cross-vendor way to signal training opt-out for all four labs at once. Whether the signal holds long-term depends on each company's compliance — treat it as a reasonable-effort flag, not a legal guarantee.
-
-**Sources:** [Google, Microsoft, OpenAI and Anthropic back one AI training opt-out — thenextweb.com](https://thenextweb.com/news/ai-training-opt-out-robots-txt-google-openai-microsoft-anthropic) · [AI Weekly — opt-out token alert](https://aiweekly.co/alerts/openai-google-microsoft-anthropic-back-one-ai-opt-out-token)
-]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
