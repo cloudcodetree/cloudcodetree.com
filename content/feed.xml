@@ -10,7 +10,46 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 22 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 12:03:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Design Handoff Bundle Names Tokens Claude Code Has Never Seen — `/design-sync` Is the Step That Makes Them Match]]></title>
+      <link>https://claude.com/blog/claude-design-stays-on-brand-for-daily-work</link>
+      <guid isPermaLink="false">2026-11-22-04-design-sync-token-names-codebase-handoff-claude-code</guid>
+      <pubDate>Sun, 22 Nov 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Run `/design-sync` in Claude Code before exporting a handoff bundle — it uploads your existing design system into Claude Design so the bundle's token names already match your codebase.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Run `/design-sync` in Claude Code before exporting a handoff bundle — it uploads your existing design system into Claude Design so the bundle's token names already match your codebase.**
+
+When Claude Design exports a handoff bundle, it packages a component structure, layout hierarchy, and a list of design token names. Claude Code reads that token list and builds with those names — `var(--color-brand-primary)`, `spacing-4`, whatever the design file uses. If those names already exist in your codebase, you get clean variable references. If they don't — because you built the design from scratch inside Claude Design — Claude Code generates a new parallel token set that conflicts with or sits alongside the one you've already built.
+
+`/design-sync` closes that gap, and it needs to run before the export.
+
+**Run it from Claude Code:**
+
+```bash
+/design-sync
+```
+
+The command reads your existing design system from the working directory — `tokens.css`, your Tailwind config, component files — and uploads it into the linked Claude Design project. After that, when you create or adjust layouts in Claude Design, it uses your actual token names. The handoff bundle it generates then refers to `var(--color-brand-primary)` exactly as your codebase already defines it, so Claude Code implements against variables that already exist.
+
+**What to verify before syncing:**
+
+- Token names are consistent throughout — mixing `--color-primary` and `--clr-primary` in the same file produces confusion in both directions
+- Component files are in discoverable paths, not buried in undocumented subdirectories
+- If `/design-sync` doesn't appear in your command list, run `/update` to refresh skills — it may not appear in older sessions (reported by multiple practitioners)
+
+**The limit to know:** Sync is not live. Rename a token after syncing — say, `--color-primary` becomes `--color-brand-primary` — and the design file keeps the old name until you re-sync. Build the habit of re-syncing after any token rename or design system restructure, before your next handoff export.
+
+One independent reviewer (The New Stack, reviewing Claude Design's June 2026 update) noted that design operations draw from the same usage pool as other Claude work — so frequent re-syncs on a large design system are worth factoring into your planning.
+
+**Sources:** [Claude Design stays on brand for daily work (claude.com/blog)](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work) · [Anthropic ships major Claude Design overhaul — VentureBeat](https://venturebeat.com/technology/anthropic-ships-major-claude-design-overhaul-with-design-system-imports-code-round-trips-and-a-fix-for-its-token-burning-problem) · [The New Stack: Claude Design overhaul coverage](https://thenewstack.io/anthropic-claude-design-overhaul/)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Unattended Claude Code Agent Still Prompts for Approval When an Edge-Case Tool Call Isn't on Your List — `--dangerously-skip-permissions` Inside a Container Gives True Zero-Prompt Operation]]></title>
@@ -6445,84 +6484,6 @@ The practical test: if your system prompt is long enough to exceed the minimum a
 ]]></content:encoded>
   </item>
 
-<item>
-    <title><![CDATA[Your Retriever Returns Every Document When You Asked for the High-Rated Ones — LangChain's SelfQueryRetriever Parses Structured Filters Out of Plain English Before the Vector Search Runs]]></title>
-    <link>https://python.langchain.com/docs/how_to/self_query</link>
-    <guid isPermaLink="false">2026-11-04-05-selfqueryretriever-langchain-metadata-filter-plain-english</guid>
-    <pubDate>Wed, 04 Nov 2026 12:12:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[SelfQueryRetriever calls an LLM to parse structured constraints from your query and passes them as a metadata pre-filter alongside the vector search — so "sci-fi films from 2020 rated above 8" becomes year>=2020, genre=sci-fi, rating>8 before retrieval.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**LangChain's `SelfQueryRetriever` calls an LLM to extract structured filters from your query string and passes them to the vector store as a pre-filter — "sci-fi films from 2020 rated above 8" automatically becomes a year>=2020, genre=sci-fi, rating>8 filter run alongside the semantic search.**
-
-**What you'll be able to do after this:**
-- Write natural-language queries that automatically filter by year, author, source, or any metadata field stored with your chunks
-- Avoid post-filtering (which can return fewer than k results) by pushing the filter into the vector store before retrieval
-- Handle queries that mix semantic content with structured constraints without custom parsing code
-
-The official how-to is at [python.langchain.com/docs/how_to/self_query](https://python.langchain.com/docs/how_to/self_query); the Chroma-specific walkthrough at [python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query](https://python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query) is runnable in a notebook.
-
-**Setup:**
-
-```bash
-pip install langchain langchain-chroma langchain-anthropic lark
-```
-
-The `lark` package is required to parse the LLM-generated filter expressions. The retriever raises a clear error if it is missing.
-
-**Build the retriever:**
-
-```python
-from langchain_chroma import Chroma
-from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain.chains.query_constructor.schema import AttributeInfo
-from langchain_anthropic import ChatAnthropic
-
-# Documents must carry metadata when you embed them:
-# Document(page_content="...", metadata={"genre": "sci-fi", "year": 2020, "rating": 8.3})
-
-vectorstore = Chroma.from_documents(docs, embedding)
-
-metadata_field_info = [
-    AttributeInfo(name="genre",  description="Movie genre", type="string"),
-    AttributeInfo(name="year",   description="Release year as an integer", type="integer"),
-    AttributeInfo(name="rating", description="IMDB rating 1-10", type="float"),
-]
-
-llm = ChatAnthropic(model="claude-haiku-5-5", temperature=0)
-retriever = SelfQueryRetriever.from_llm(
-    llm,
-    vectorstore,
-    "Movie summaries and ratings",
-    metadata_field_info,
-)
-```
-
-**Query in plain English:**
-
-```python
-# The retriever calls the LLM once to generate:
-#   filter={year: {$gte: 2020}, genre: {$eq: "sci-fi"}, rating: {$gt: 8}}
-#   query="sci-fi films"
-# Then runs both the filter and similarity search in one vector store call.
-docs = retriever.invoke("sci-fi films from 2020 with a rating above 8")
-```
-
-**When it breaks:**
-
-- **Adds ~200-400ms per query** for the LLM filter-generation step. High-latency tolerance required.
-- **Filter quality depends on `AttributeInfo` descriptions.** A vague description ("some number") produces no filter and falls back to pure vector search silently.
-- **Only works with stores that support pre-retrieval metadata filtering** — Chroma, Qdrant, pgvector, Pinecone. FAISS does not, so "only documents tagged topic:rag" is not possible without migrating.
-- **`enable_limit=True`** lets the LLM set how many results to return, but the generated limit overrides your default `k`. Test on your data before enabling.
-- **Multi-field OR logic** is not universally supported across translators. Check your store's translator for exact operator support before relying on OR conditions.
-
-**Sources:** [LangChain how-to: Self-query retrieval](https://python.langchain.com/docs/how_to/self_query) · [Chroma SelfQuery integration](https://python.langchain.com/docs/integrations/retrievers/self_query/chroma_self_query) · [MongoDB Atlas self-query tutorial](https://www.mongodb.com/docs/atlas/ai-integrations/langchain/self-query-retrieval/)
-]]></content:encoded>
-  </item>
 
   
   
