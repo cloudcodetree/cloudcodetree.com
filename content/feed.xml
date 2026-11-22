@@ -10,7 +10,103 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 22 Nov 2026 12:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 22 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your RAG Index Has No Idea When Source Documents Change — LangChain's Indexing API Tracks Hashes and Removes Stale Chunks]]></title>
+      <link>https://python.langchain.com/docs/how_to/indexing</link>
+      <guid isPermaLink="false">2026-11-22-06-langchain-index-api-sqlrecordmanager-rag-knowledge-base-incremental</guid>
+      <pubDate>Sun, 22 Nov 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[LangChain's indexing API with SQLRecordManager tracks document content hashes. Run index() with cleanup="full" to skip unchanged files and purge stale chunks when source docs are deleted.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Your RAG index silently serves stale chunks the moment a source document changes — LangChain's `SQLRecordManager` tracks content hashes so re-runs skip what's unchanged and delete what's gone.**
+
+**What you'll be able to do after this:** keep a knowledge base in sync with a changing source directory — handling edits, new files, and deletions — without re-embedding everything from scratch.
+
+**Three takeaways:**
+- `index()` with a record manager hashes every document chunk; unchanged hashes are skipped, changed ones are re-embedded and re-indexed
+- `cleanup="full"` deletes orphaned vector store chunks when source documents are removed — without it, deleted files stay in retrieval results indefinitely
+- The record manager's SQLite state file must survive process restarts — commit it or put it in a durable path, or every run re-embeds everything
+
+**Walk-through:**
+
+```bash
+pip install langchain langchain-openai langchain-community chromadb
+```
+
+```python
+from langchain.indexes import SQLRecordManager, index
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import DirectoryLoader
+
+# 1. Record manager — run create_schema() once
+namespace = "chroma/my_docs"
+record_manager = SQLRecordManager(
+    namespace, db_url="sqlite:///record_manager_cache.sql"
+)
+record_manager.create_schema()
+
+# 2. Vector store
+vectorstore = Chroma(
+    embedding_function=OpenAIEmbeddings(),
+    persist_directory="./chroma_db"
+)
+
+# 3. Load all source docs each time
+loader = DirectoryLoader("./docs", glob="**/*.md")
+docs = loader.load()
+
+# 4. Incremental index — idempotent, handles adds/edits/deletes
+result = index(
+    docs,
+    record_manager,
+    vectorstore,
+    cleanup="full",         # remove chunks from deleted source docs
+    source_id_key="source", # group chunks by origin file path
+)
+print(result)
+# {'num_added': 2, 'num_updated': 0, 'num_skipped': 10, 'num_deleted': 1}
+```
+
+**Two limits to plan around:**
+- `cleanup="full"` runs *after* all documents are indexed, so there is a brief window where old and new chunks coexist — schedule indexing runs at low-traffic times if that matters
+- With Chroma on SQLite there is a known bug where stale chunks survive deletion; enabling WAL mode on the SQLite connection (`isolation_level=None`) mitigates it, but test on your store before relying on deletion in production
+
+**Sources:** [LangChain indexing how-to](https://python.langchain.com/docs/how_to/indexing) · [LangChain blog: syncing data sources to vector stores](https://www.langchain.com/blog/syncing-data-sources-to-vector-stores) · [DEV Community: incremental updates — keeping the knowledge base fresh](https://dev.to/wonderlab/rag-series-19-incremental-updates-keeping-the-knowledge-base-fresh-596c)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[gpt-6.2-astra and gpt-6.2-sol Are in the API — OpenAI Claims 20% Astra Price Cut; Independent Evals Rank Astra Second on Coding]]></title>
+      <link>https://openai.com/index/introducing-gpt-6-2-astra-sol</link>
+      <guid isPermaLink="false">2026-11-22-05-openai-gpt-6-2-astra-sol-api-pricing-coding-evals</guid>
+      <pubDate>Sun, 22 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[OpenAI shipped gpt-6.2-astra and gpt-6.2-sol Nov 17. Per OpenAI: Astra at $8/$40 per million tokens (20% cut); Sol holds $2/$10. Independent evals rank Astra second behind Fable 5.2 on coding-agent tasks.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**OpenAI released gpt-6.2-astra and gpt-6.2-sol into ChatGPT Work, Codex, and the developer API on November 17. Per OpenAI's announcement: Astra at $8/M input / $40/M output (20% below gpt-6-astra per OpenAI), Sol at $2/M input / $10/M output (unchanged from gpt-6.1-sol per OpenAI). Both include an Ultrafast option.**
+
+OpenAI says the models finish demanding tasks with fewer output tokens, though that claim is unindependently verified. gpt-6.1-astra was cancelled before release seven weeks ago; this is the first 6.2 family to ship.
+
+Independent benchmarks (Decrypt) place gpt-6.2-astra second behind Claude Fable 5.2 on coding-agent performance, with no measurable improvement on those tasks relative to gpt-6-astra.
+
+**Limit to know:** both models launch with tighter safeguards for high-risk cybersecurity requests than predecessors — if your app routes into that domain, review the updated usage policies before switching models.
+
+**Why it matters:** Astra's pricing cut is worth re-running your latency/cost calculations. If you're routing between providers via OpenRouter or the Anthropic SDK's fallback config, gpt-6.2-astra is now the comparison point — but independent coding-agent benchmarks haven't closed the gap with Fable 5.2, so measure on your own workloads before switching.
+
+**Sources:** [openai.com/index/introducing-gpt-6-2-astra-sol](https://openai.com/index/introducing-gpt-6-2-astra-sol) · [Decrypt: Astra vs Claude Fable 5.2](https://decrypt.co/383488/openai-gpt-6-2-astra-challenges-anthropic-price-but-not-every-benchmark) · [ghacks.net](https://www.ghacks.net/2026/11/18/openai-releases-gpt-6-2-astra-and-sol-with-lower-api-prices-and-ultrafast-for-pro-200/)
+]]></content:encoded>
+    </item>
 
       <item>
       <title><![CDATA[Your Claude Design Handoff Bundle Names Tokens Claude Code Has Never Seen — `/design-sync` Is the Step That Makes Them Match]]></title>
@@ -6344,146 +6440,8 @@ Three 300 ms tool calls: ~1.0 s → ~0.4 s per batch. Longer-running tools — d
 **Sources:** [Anthropic tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Claude Code system prompt, community gist (Jan 2026)](https://gist.github.com/chigkim/1f37bb2be98d97c952fd79cbb3efb1c6)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Claude Code Writes `color: #2563eb` When You Wanted `var(--color-primary)` — Put Your Design Tokens in tokens.css and Reference It in CLAUDE.md]]></title>
-    <link>https://design.gitlab.com/product-foundations/design-tokens-technical-implementation</link>
-    <guid isPermaLink="false">2026-11-04-07-css-design-tokens-dark-mode-claude-code</guid>
-    <pubDate>Wed, 04 Nov 2026 20:14:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Define primitive + semantic CSS custom properties in tokens.css, reference it in CLAUDE.md, and every generated component inherits your dark mode without extra prompting.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Design-to-Code</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Claude Code generates hardcoded hex colors by default because it has no way to know your token names — a `tokens.css` file and four lines in `CLAUDE.md` fix that.**
-
-**What you'll be able to do after this:** Create a two-layer CSS custom property file, wire it into `CLAUDE.md`, and verify that every new component Claude Code generates uses `var(--color-primary)` and switches between light and dark with a single attribute flip on `<html>`.
-
-**Three takeaways:**
-- Two layers: *primitives* (`--blue-600: #2563eb`) and *semantic tokens* (`--color-primary: var(--blue-600)`). Components reference only the semantic layer, so dark mode overrides live in one place.
-- Light defaults on `:root`; dark overrides under `[data-theme="dark"]` — `document.documentElement.setAttribute('data-theme', 'dark')` switches the whole app.
-- Four lines in `CLAUDE.md` tell Claude which file to reference and block hardcoded hex before it's written.
-
-**Walk-through:**
-
-**1. Create `src/styles/tokens.css`:**
-
-```css
-/* Primitives — raw values, never used directly in component CSS */
-:root {
-  --blue-600: #2563eb;
-  --blue-400: #60a5fa;
-  --grey-900: #111827;
-  --grey-100: #f3f4f6;
-  --white: #ffffff;
-}
-
-/* Semantic tokens — light defaults */
-:root {
-  --color-primary: var(--blue-600);
-  --color-surface: var(--white);
-  --color-text: var(--grey-900);
-  --color-border: var(--grey-100);
-}
-
-/* Dark overrides — semantic layer only */
-[data-theme="dark"] {
-  --color-primary: var(--blue-400);
-  --color-surface: var(--grey-900);
-  --color-text: var(--grey-100);
-  --color-border: #374151;
-}
-```
-
-**2. Add to `CLAUDE.md`:**
-
-```markdown
-## Styling rules
-- Use CSS custom properties from `src/styles/tokens.css` for all colors.
-- Reference semantic tokens only: `--color-primary`, `--color-surface`,
-  `--color-text`, `--color-border`.
-- Never hardcode hex values or RGB in component CSS or JSX `style` props.
-```
-
-**3. Toggle dark mode in JS:**
-
-```js
-document.documentElement.setAttribute('data-theme', 'dark')
-```
-
-**4. Verify:** Ask Claude Code to generate a new button component. It should emit `color: var(--color-text)`, not `color: #111827`. If it still writes hex, add a one-line note: "If you are about to write a hex color in CSS, stop and use a token instead."
-
-**Limits:** Existing components with hardcoded colors need a one-time migration. Claude Code won't auto-lint for violations — pair this setup with a [stylelint `color-no-hex` rule](https://stylelint.io/user-guide/rules/color-no-hex/) or a PostToolUse hook that runs stylelint on every `.css` write. The two-layer approach also requires consistent naming across your team; a stray `--primary-btn-bg: #2563eb` hardcoded in a component bypasses the dark override entirely.
-
-**Sources:** [GitLab design tokens implementation](https://design.gitlab.com/product-foundations/design-tokens-technical-implementation) · [MDN CSS custom properties](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_cascading_variables/Using_CSS_custom_properties) · [CSS architecture at scale — tokens and custom properties](https://dev.to/sabrielagency/css-architecture-that-actually-scales-design-tokens-custom-properties-and-the-systems-that-hold-22n3)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Every Agent Loop Re-Encodes Your System Prompt Even When Nothing Changed — Add One `cache_control` Field and Skip That Cost on Every Subsequent Call]]></title>
-    <link>https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching</link>
-    <guid isPermaLink="false">2026-11-04-06-claude-api-prompt-caching-cache-control-ephemeral-system-prompt</guid>
-    <pubDate>Wed, 04 Nov 2026 12:13:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Add cache_control: {"type": "ephemeral"} to your system prompt content block; the API caches that prefix and subsequent calls that reuse it bill at roughly 10% of full input token price, per Anthropic's pricing docs.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Add `cache_control: {"type": "ephemeral"}` to your system prompt content block; calls that hit the cache bill at roughly 10% of full input token price, per Anthropic's pricing documentation — but cache writes cost 125% of base input tokens, so the break-even is around two reuses.**
-
-If your agent runs many turns against the same system prompt — a tool list, a retrieved knowledge base, a large set of coding standards — you pay full input-token rates to re-encode that content on every single call. Prompt caching marks a prefix to be stored server-side so subsequent calls within the TTL window skip the encode.
-
-**Add a cache breakpoint:**
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-response = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    system=[
-        {
-            "type": "text",
-            "text": "You are an expert code reviewer...
-
-[500+ lines of standards and examples]",
-            "cache_control": {"type": "ephemeral"}  # mark the prefix to cache
-        }
-    ],
-    messages=[{"role": "user", "content": "Review this PR diff: ..."}]
-)
-```
-
-The API caches everything up to and including that block. Calls within the TTL that share the same prefix up to that point are cache hits.
-
-**Extend to 1 hour:**
-
-```python
-"cache_control": {"type": "ephemeral", "ttl": "1h"}
-```
-
-The default TTL is 5 minutes. Use `"1h"` for agent loops or batch jobs with gaps between calls longer than 5 minutes.
-
-**Where it matters most:** long system prompts (tool catalogs, full coding standards, documents you prepend to every call), agent loops with many turns against the same context, batch jobs running the same system prompt across hundreds of inputs.
-
-**Real limits — these determine whether caching helps you at all:**
-
-- **Cache writes cost 125% of base input tokens, per Anthropic's pricing docs.** A prompt you use once or change every call costs *more* with caching enabled. Break-even is roughly two cache reads per write.
-- **Up to 4 `cache_control` breakpoints per request.** If you mark more, the system tracks the last 4; earlier ones go uncached.
-- **Minimum cacheable prefix varies by model** (per Anthropic's docs: 2,048 tokens for Sonnet and Opus, 1,024 for Haiku). Prefixes shorter than the minimum are accepted but not cached.
-- **Tool definitions count toward the cached prefix.** If your tool list changes between calls, the cache misses — even if the system prompt text is identical.
-- **The cache is per-API-key.** A second key with the same system prompt starts a cold cache.
-
-The practical test: if your system prompt is long enough to exceed the minimum and you reuse it across multiple turns in a session, caching pays. A single-turn script with a short system prompt does not benefit.
-
-**Sources:** [Prompt caching — Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) · [Cache breakpoint glossary — PromptLayer](https://www.promptlayer.com/glossary/cache-breakpoint) · [Anthropic prompt caching via proxy — Orq.ai](https://docs.orq.ai/docs/proxy/providers/anthropic/prompt-caching)
-]]></content:encoded>
-  </item>
-
+  
+  
 
   
   
