@@ -10,7 +10,127 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 23 Nov 2026 12:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 23 Nov 2026 20:03:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your MCP Server Has a Tool for Every Row-by-ID Lookup — One Resource Template Replaces Them All]]></title>
+      <link>https://gofastmcp.com/docs/v3/servers/resources</link>
+      <guid isPermaLink="false">2026-11-23-07-mcp-resource-template-parameterized-uri-fastmcp-lookups</guid>
+      <pubDate>Mon, 23 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[MCP resource templates expose parameterized URIs (users://{id}) that clients read directly with resources/read — no tool call needed for read-only lookups, keeping your tool list focused on operations.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Best Practices</category>
+      <content:encoded><![CDATA[**Replace per-row tools with parameterized URI handlers: one `@mcp.resource` template exposes any variant of a data fetch, keeping your tool list focused on operations that actually need model reasoning.**
+
+A tool list that includes `get_user`, `get_post`, `get_comment`, and `get_order` has four entries doing the same thing: fetch a row by ID. MCP resource templates replace that pattern. When a client wants a specific row, it calls `resources/read` on a parameterized URI instead of routing through a tool — no extra LLM turn required for the lookup.
+
+## The pattern in FastMCP (Python)
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("my-data-server")
+
+@mcp.resource("users://{user_id}")
+def get_user(user_id: str) -> str:
+    return db.get_user(user_id)
+
+@mcp.resource("posts://{post_id}")
+def get_post(post_id: str) -> str:
+    return db.get_post(post_id)
+```
+
+Clients discover available templates via `resources/templates/list`, then read a specific resource with `resources/read` on a concrete URI (`users://42`). The URI value maps directly to the function argument.
+
+## Three things to know before wiring this in
+
+1. **Resources are read-only by design.** Use them for fetches. Mutations (`create_user`, `update_post`, `delete_order`) stay as tools — that is the right separation.
+2. **URI templates use RFC 6570 Level 1 syntax.** Most SDK implementations support simple `{variable}` placeholders only; complex expansions (`{+var}`, `{var*}`) are not guaranteed across all clients.
+3. **Not every MCP client surfaces templates the same way.** Claude Code reads them, but some clients don't expose templates in their UI panel. Test with [MCP Inspector](https://github.com/modelcontextprotocol/inspector) before relying on template discovery in your workflow.
+
+**When resources don't fit:** if the client needs to discover what IDs are available (not just read a known one), pair the template with a `list_*` tool that returns the available IDs. The template handles the fetch; the tool handles enumeration.
+
+**Sources:** [FastMCP resource templates — gofastmcp.com](https://gofastmcp.com/docs/v3/servers/resources) · [MCP specification: Resources — modelcontextprotocol.io](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) · [MCP Python SDK: URI templates — py.sdk.modelcontextprotocol.io](https://py.sdk.modelcontextprotocol.io/servers/uri-templates/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your DPO Fine-Tune Needs a Finished SFT Run Before It Can Start — ORPO Folds Both Passes Into One Free Colab GPU]]></title>
+      <link>https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto</link>
+      <guid isPermaLink="false">2026-11-23-08-orpo-single-pass-sft-alignment-unsloth-colab-llama3</guid>
+      <pubDate>Mon, 23 Nov 2026 20:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[ORPO (Odds Ratio Preference Optimization) combines instruction tuning and preference alignment in one training pass, removing the SFT checkpoint requirement and the reference model that DPO depends on.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**ORPO trains instruction following and preference alignment in a single pass, removing the SFT checkpoint that DPO requires as a prerequisite — Unsloth's free Colab runs the full pipeline on a T4 GPU.**
+
+**What you'll be able to do after this:**
+
+- Understand why DPO needs two training stages and what ORPO removes
+- Prepare a preference dataset (prompt, chosen, rejected) from an existing Hub dataset
+- Run a complete ORPO fine-tune on Llama 3 8B from a base model on a free Colab T4
+
+## The DPO prerequisite problem
+
+DPO computes its alignment loss relative to a reference model — a frozen copy of the SFT-trained checkpoint. That means you need to:
+
+1. SFT-train a base model on instruction pairs first
+2. DPO-train the resulting checkpoint against chosen/rejected preference pairs
+
+Skipping step 1 and running DPO against a raw base model usually performs poorly because the reference model's outputs are not well-calibrated for the preference signal.
+
+**ORPO removes the reference model.** It adds a log-odds ratio penalty to the standard SFT cross-entropy loss in the same backward pass: the model simultaneously learns to generate the target output AND to prefer the chosen response over the rejected one — without maintaining a separate frozen checkpoint.
+
+## The concrete walk-through
+
+The free T4 Colab notebook is linked directly from [Unsloth's ORPO guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto).
+
+**1. Install Unsloth and load the base model**
+
+```python
+%%capture
+!pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+
+from unsloth import FastLanguageModel
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name="unsloth/Meta-Llama-3-8B",   # base model, not instruct
+    max_seq_length=2048,
+    load_in_4bit=True,
+)
+model = FastLanguageModel.get_peft_model(model, r=16, ...)
+```
+
+**2. Load a preference dataset**
+
+ORPOTrainer expects `prompt`, `chosen`, and `rejected` columns. `mlabonne/orpo-dpo-mix-40k` on the Hub is a cleaned UltraFeedback mix that works without modification.
+
+**3. Train with ORPOTrainer**
+
+```python
+from trl import ORPOTrainer, ORPOConfig
+trainer = ORPOTrainer(
+    model=model,
+    args=ORPOConfig(max_steps=200, beta=0.1),
+    train_dataset=dataset,
+    tokenizer=tokenizer,
+)
+trainer.train()
+```
+
+The `beta` parameter weights the ORPO penalty against the SFT loss. The original paper uses 0.1; watch both loss components in the training log and adjust if one dominates.
+
+## Limits
+
+ORPO requires a preference dataset upfront — if you don't have human-rated pairs, you'll need to generate or curate them (sample multiple outputs, rate them). Training runs slower per step than SFT alone since both losses compute in every backward pass. And there is no stable SFT fallback: if alignment training goes wrong early, the model hasn't learned instruction following from a stable intermediate checkpoint.
+
+**Sources:** [Unsloth DPO, ORPO & KTO guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto) · [Fine-tune Llama 3 with ORPO — HuggingFace blog (mlabonne)](https://huggingface.co/blog/mlabonne/orpo-llama-3) · [ORPO: Monolithic Preference Optimization without Reference Model — arXiv:2403.07691](https://arxiv.org/abs/2403.07691)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Ollama Now Pulls Any GGUF Directly from HuggingFace Hub — One Command, Any Quant]]></title>
@@ -6352,92 +6472,8 @@ If you've used the standalone site and have design systems there, the migration 
 **Sources:** [Migrate from standalone Claude Design — support.claude.com](https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude) · [Claude Design migration walkthrough — memorylake.ai](https://www.memorylake.ai/en/blogs/migrate-claude-design-to-claude-code) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[You're Using Claude Code When You Should Be in Claude Design, and Vice Versa — the Decision Rule That Ends the Guessing]]></title>
-    <link>https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/</link>
-    <guid isPermaLink="false">2026-11-05-07-claude-design-claude-code-when-to-switch-decision-rule</guid>
-    <pubDate>Thu, 05 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Regenerate in Claude Design when you need to explore layout or interaction; switch to Claude Code once you're modifying real components, wiring behavior, or conforming to repo rules.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Regenerate in Claude Design when you need to explore layout or interaction; switch to Claude Code once you're modifying real components, wiring behavior, or conforming to repo rules.**
-
-After the first handoff, every component change raises the same question: go back to the design tool, or iterate in the editor? The wrong choice costs time — either generating code you then have to reconcile with your codebase, or manually implementing a visual change that would take two prompts in the design surface.
-
-**Stay in Claude Code when:**
-- The change involves props, event handlers, or data shape — implementation details
-- The component is already in your codebase with passing tests
-- The fix must conform to your TypeScript types, design tokens, or component API
-- It's a targeted correction, not an exploration
-
-**Go back to Claude Design when:**
-- The layout, information hierarchy, or interaction model needs to change
-- You want to compare two or three directions before writing any code
-- You haven't decided what it should look like — you need to see it
-- The current approach is structurally wrong, not just incorrectly implemented
-
-The asymmetry matters: an April 2026 hands-on review found Claude Design doesn't modify an existing component library's real code — it generates output that resembles your components. That gap is why the handoff is non-trivial. Once Claude Code has significantly customized a component, regenerating in Claude Design produces something you'll need to reconcile.
-
-**The round-trip cost:** `/design-sync` can push your component state back to the canvas (June 2026 two-way sync), but only published components in your team library are mappable. Changes Claude Code made directly to component internals don't surface automatically — the round-trip cost grows the further you've diverged.
-
-Limit: This decision logic applies on the second iteration and beyond. First time through, start in Claude Design; the rule applies when you're iterating on something that already exists in the codebase.
-
-**Sources:** [Claude Design hands-on review — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/) · [Claude Code and Claude Design two-way sync — pasqualepillitteri.it](https://pasqualepillitteri.it/en/news/5308/claude-code-claude-design-two-way-sync-design-sync) · [Claude Design guide — studiomeyer.io](https://studiomeyer.io/en/blog/claude-design-guide)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your MCP Server Approvals Don't Protect Against Tool Description Poisoning — Scan, Hook, and Audit Before Adding Another Server]]></title>
-    <link>https://arxiv.org/abs/2603.21642</link>
-    <guid isPermaLink="false">2026-11-05-06-mcp-tool-poisoning-scan-pretooluse-hook-defense</guid>
-    <pubDate>Thu, 05 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Tool description poisoning runs before permission prompts fire — scan tool descriptions for changes, log every MCP call with a PreToolUse hook, and prune your connected server list.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>MCP</category>
-    <category>Security</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Tool description poisoning runs before permission prompts — scan descriptions for changes, log every MCP call with a PreToolUse hook, and prune the connected server list.**
-
-A March 2026 paper from UBC ([arXiv:2603.21642](https://arxiv.org/abs/2603.21642)) tested seven MCP clients — Claude Code, Claude Desktop, Cursor, Cline, Continue, Gemini CLI, and Langflow — for prompt injection vulnerabilities. The finding most relevant to Claude Code users: tool description poisoning is the attack that bypasses permission dialogs. Claude Code reads tool descriptions during planning, before any `always_ask` prompt fires. Instructions embedded there execute in the model's reasoning before you see anything.
-
-**Three things worth wiring up now:**
-
-**1. Scan and pin tool descriptions:**
-```bash
-uvx mcp-scan@latest scan          # first run: hashes each server's tool descriptions
-uvx mcp-scan@latest scan          # subsequent runs: alerts on any change
-```
-A server that updates its description after you've trusted it — a rug pull — becomes visible. Limit: `mcp-scan` sends tool names and descriptions to `invariantlabs.ai`. Use `uvx mcp-scan@latest inspect` to review descriptions locally without transmitting them.
-
-**2. Log MCP calls with a PreToolUse hook:**
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "mcp__",
-      "hooks": [{"type": "command", "command": "echo \"$CLAUDE_TOOL_NAME $CLAUDE_TOOL_INPUT\" >> ~/.claude/mcp-audit.log"}]
-    }]
-  }
-}
-```
-An append-only record of every MCP call, keyed to tool name and input, independent of Claude Code's own logging.
-
-**3. Audit the connected list:**
-```bash
-claude mcp list
-```
-Remove servers you're not actively using. The attack surface is exactly this list.
-
-None of these is a complete defense — the arXiv paper found no fully immune client across all seven tested. The goal is raising the bar on unattended exploitation, not eliminating risk.
-
-**Sources:** [Are AI-assisted Development Tools Immune to Prompt Injection? — arXiv:2603.21642](https://arxiv.org/abs/2603.21642) · [mcp-scan — PyPI](https://pypi.org/project/mcp-scan/) · [Claude Code hooks — code.claude.com](https://code.claude.com/docs/en/hooks) · [Aptible MCP Security](https://aptible.com/mcp-security/mcp-prompt-injection)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   

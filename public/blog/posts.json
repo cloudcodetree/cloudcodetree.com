@@ -1,5 +1,42 @@
 [
   {
+    "id": "2026-11-23-07-mcp-resource-template-parameterized-uri-fastmcp-lookups",
+    "title": "Your MCP Server Has a Tool for Every Row-by-ID Lookup — One Resource Template Replaces Them All",
+    "excerpt": "MCP resource templates expose parameterized URIs (users://{id}) that clients read directly with resources/read — no tool call needed for read-only lookups, keeping your tool list focused on operati…",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "MCP",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://gofastmcp.com/docs/v3/servers/resources",
+    "content": "**Replace per-row tools with parameterized URI handlers: one `@mcp.resource` template exposes any variant of a data fetch, keeping your tool list focused on operations that actually need model reasoning.**\n\nA tool list that includes `get_user`, `get_post`, `get_comment`, and `get_order` has four entries doing the same thing: fetch a row by ID. MCP resource templates replace that pattern. When a client wants a specific row, it calls `resources/read` on a parameterized URI instead of routing through a tool — no extra LLM turn required for the lookup.\n\n## The pattern in FastMCP (Python)\n\n```python\nfrom mcp.server.fastmcp import FastMCP\n\nmcp = FastMCP(\"my-data-server\")\n\n@mcp.resource(\"users://{user_id}\")\ndef get_user(user_id: str) -> str:\n    return db.get_user(user_id)\n\n@mcp.resource(\"posts://{post_id}\")\ndef get_post(post_id: str) -> str:\n    return db.get_post(post_id)\n```\n\nClients discover available templates via `resources/templates/list`, then read a specific resource with `resources/read` on a concrete URI (`users://42`). The URI value maps directly to the function argument.\n\n## Three things to know before wiring this in\n\n1. **Resources are read-only by design.** Use them for fetches. Mutations (`create_user`, `update_post`, `delete_order`) stay as tools — that is the right separation.\n2. **URI templates use RFC 6570 Level 1 syntax.** Most SDK implementations support simple `{variable}` placeholders only; complex expansions (`{+var}`, `{var*}`) are not guaranteed across all clients.\n3. **Not every MCP client surfaces templates the same way.** Claude Code reads them, but some clients don't expose templates in their UI panel. Test with [MCP Inspector](https://github.com/modelcontextprotocol/inspector) before relying on template discovery in your workflow.\n\n**When resources don't fit:** if the client needs to discover what IDs are available (not just read a known one), pair the template with a `list_*` tool that returns the available IDs. The template handles the fetch; the tool handles enumeration.\n\n**Sources:** [FastMCP resource templates — gofastmcp.com](https://gofastmcp.com/docs/v3/servers/resources) · [MCP specification: Resources — modelcontextprotocol.io](https://modelcontextprotocol.io/specification/2025-11-25/server/resources) · [MCP Python SDK: URI templates — py.sdk.modelcontextprotocol.io](https://py.sdk.modelcontextprotocol.io/servers/uri-templates/)"
+  },
+  {
+    "id": "2026-11-23-08-orpo-single-pass-sft-alignment-unsloth-colab-llama3",
+    "title": "Your DPO Fine-Tune Needs a Finished SFT Run Before It Can Start — ORPO Folds Both Passes Into One Free Colab GPU",
+    "excerpt": "ORPO (Odds Ratio Preference Optimization) combines instruction tuning and preference alignment in one training pass, removing the SFT checkpoint requirement and the reference model that DPO depends…",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T20:02:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "Fine-Tuning",
+      "HuggingFace",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto",
+    "content": "**ORPO trains instruction following and preference alignment in a single pass, removing the SFT checkpoint that DPO requires as a prerequisite — Unsloth's free Colab runs the full pipeline on a T4 GPU.**\n\n**What you'll be able to do after this:**\n\n- Understand why DPO needs two training stages and what ORPO removes\n- Prepare a preference dataset (prompt, chosen, rejected) from an existing Hub dataset\n- Run a complete ORPO fine-tune on Llama 3 8B from a base model on a free Colab T4\n\n## The DPO prerequisite problem\n\nDPO computes its alignment loss relative to a reference model — a frozen copy of the SFT-trained checkpoint. That means you need to:\n\n1. SFT-train a base model on instruction pairs first\n2. DPO-train the resulting checkpoint against chosen/rejected preference pairs\n\nSkipping step 1 and running DPO against a raw base model usually performs poorly because the reference model's outputs are not well-calibrated for the preference signal.\n\n**ORPO removes the reference model.** It adds a log-odds ratio penalty to the standard SFT cross-entropy loss in the same backward pass: the model simultaneously learns to generate the target output AND to prefer the chosen response over the rejected one — without maintaining a separate frozen checkpoint.\n\n## The concrete walk-through\n\nThe free T4 Colab notebook is linked directly from [Unsloth's ORPO guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto).\n\n**1. Install Unsloth and load the base model**\n\n```python\n%%capture\n!pip install \"unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git\"\n\nfrom unsloth import FastLanguageModel\nmodel, tokenizer = FastLanguageModel.from_pretrained(\n    model_name=\"unsloth/Meta-Llama-3-8B\",   # base model, not instruct\n    max_seq_length=2048,\n    load_in_4bit=True,\n)\nmodel = FastLanguageModel.get_peft_model(model, r=16, ...)\n```\n\n**2. Load a preference dataset**\n\nORPOTrainer expects `prompt`, `chosen`, and `rejected` columns. `mlabonne/orpo-dpo-mix-40k` on the Hub is a cleaned UltraFeedback mix that works without modification.\n\n**3. Train with ORPOTrainer**\n\n```python\nfrom trl import ORPOTrainer, ORPOConfig\ntrainer = ORPOTrainer(\n    model=model,\n    args=ORPOConfig(max_steps=200, beta=0.1),\n    train_dataset=dataset,\n    tokenizer=tokenizer,\n)\ntrainer.train()\n```\n\nThe `beta` parameter weights the ORPO penalty against the SFT loss. The original paper uses 0.1; watch both loss components in the training log and adjust if one dominates.\n\n## Limits\n\nORPO requires a preference dataset upfront — if you don't have human-rated pairs, you'll need to generate or curate them (sample multiple outputs, rate them). Training runs slower per step than SFT alone since both losses compute in every backward pass. And there is no stable SFT fallback: if alignment training goes wrong early, the model hasn't learned instruction following from a stable intermediate checkpoint.\n\n**Sources:** [Unsloth DPO, ORPO & KTO guide](https://unsloth.ai/docs/get-started/reinforcement-learning-rl-guide/preference-dpo-orpo-and-kto) · [Fine-tune Llama 3 with ORPO — HuggingFace blog (mlabonne)](https://huggingface.co/blog/mlabonne/orpo-llama-3) · [ORPO: Monolithic Preference Optimization without Reference Model — arXiv:2403.07691](https://arxiv.org/abs/2403.07691)"
+  },
+  {
     "id": "2026-11-23-05-ollama-pull-hf-co-huggingface-gguf-any-model",
     "title": "Ollama Now Pulls Any GGUF Directly from HuggingFace Hub — One Command, Any Quant",
     "excerpt": "Ollama's hf.co:// prefix pulls any GGUF from HuggingFace Hub without manual download or conversion. Specify the quantization as a tag; alias the long name with `ollama cp` for daily use.",
