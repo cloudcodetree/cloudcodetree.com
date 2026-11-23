@@ -1,5 +1,77 @@
 [
   {
+    "id": "2026-11-23-04-claude-design-brand-spec-document-consistent-output-across-sessions",
+    "title": "Claude Design Resets Its Visual Context Every Session — A Brand Spec Document Anchors Outputs to Your Tokens Instead of AI Defaults",
+    "excerpt": "Claude Design has no session memory. A one-page brand spec document pasted at session start anchors hex values, fonts, border radii, and component rules so outputs match your design system instead…",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T04:08:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://support.claude.com/en/articles/claude-design",
+    "content": "**Without a brand spec, every Claude Design session starts from AI defaults: a generic sans-serif, blue-ish primary, and rounded \"AI aesthetic.\" A one-page reference pasted at session start anchors outputs to your actual tokens.**\n\nClaude Design has no persistent memory between sessions. The design system you established last week is gone unless you explicitly bring it in. The simplest fix is a brand spec document — a text file that describes your design decisions precisely enough that Claude Design can follow them without seeing your codebase.\n\n**What to put in the spec:**\n\n```markdown\n# Brand Spec — [Project Name]\n\n## Colors\nPrimary: #1a56db (CTAs and active states only)\nSurface: #f8fafc (page background), #ffffff (card background)\nOn-primary text: #ffffff\nDanger: #e02424\nText primary: #111827, secondary: #6b7280\n\n## Typography\nFont: Inter (web), system-ui (fallback) — never Arial or generic sans-serif\nHeading: weight 600, tracking -0.02em\nBody: weight 400, 1.6 line-height\n\n## Components\nButtons: rounded-lg (8px radius), no drop shadows, padding 10px 20px\nCards: rounded-xl (12px), border 1px #e5e7eb, no gradient backgrounds\n\n## Anti-patterns\nNo glassmorphism, gradient fills, or decorative patterns\nNo default blue (#3b82f6) — use our primary (#1a56db)\nNo \"AI aesthetic\" gradients on hero sections\n```\n\nPaste this at the start of every session, before any design prompt. Outputs that deviate can be corrected by citing the specific spec rule.\n\n**Two limits to plan around:** The spec is manually maintained — if your codebase tokens change, update the spec separately. Claude Design still can't read your actual token file; it's working from your text description. When the spec drifts from the code, generated output drifts too.\n\n**Where to store it:** Keep it as `docs/brand-spec.md` in your repo. Claude Code can read it and pass the content when it invokes a design session — or reference it from your CLAUDE.md so any session can find it without being told.\n\n**Why it matters for the handoff:** A brand spec reduces the gap between what Claude Design generates and what Claude Code implements. Without one, every imported component needs manual token substitution. With one, the first draft is usually close enough that Claude Code's corrections are small and predictable.\n\n**Sources:** [Claude Design overview — support.claude.com](https://support.claude.com/en/articles/claude-design) · [Claude Design produces AI slop unless you tell it not to — The Adpharm](https://www.theadpharm.com/insights/claude-design-without-the-ai-slop-look) · [Build a Design System in Claude Design — Mindstudio](https://www.mindstudio.ai/blog/build-design-system-claude-design-no-ai-aesthetics)"
+  },
+  {
+    "id": "2026-11-23-03-claude-code-workflow-script-api-agent-parallel-pipeline-orchestration",
+    "title": "Your Multi-Step Claude Code Jobs Wait for Each Agent to Finish Before Starting the Next — Workflow Scripts Fan Out in Parallel and Pipeline Results Through Stages",
+    "excerpt": "The Workflow tool runs a typed JS script that orchestrates subagents deterministically — agent(), parallel(), and pipeline() primitives, with stage progress, resume from failure, and cached replay.",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T04:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Agents"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs",
+    "content": "**For jobs that touch multiple independent files, run a review across N dimensions, or need a fan-out + verification pass, the Workflow tool runs a typed JavaScript script that orchestrates subagents deterministically — with phase progress, resume from failure, and cached replay.**\n\nAgent teams let subagents message each other. Workflows are different: you write the orchestration in JavaScript, fan out as many `agent()` calls as you need, and the harness runs them in parallel. The script is deterministic — same inputs, same execution graph. That makes failures debuggable and expensive parts reusable via cache.\n\n**Three primitives:**\n\n```javascript\nexport const meta = {\n  name: \"review-pr\",\n  description: \"Review a PR across three dimensions\",\n  phases: [{ title: \"Review\" }, { title: \"Verify\" }],\n}\n\n// agent(): one subagent — returns text, or JSON if you pass schema:\n// parallel(): all items run concurrently, waits for all to complete\n// pipeline(): streaming — item 0 hits stage 2 while item 1 is still in stage 1\n\nconst DIMENSIONS = [\"security\", \"performance\", \"correctness\"]\n\nconst reviews = await parallel(\n  DIMENSIONS.map(dim => () =>\n    agent(`Review the diff for ${dim} issues`, {\n      label: `review:${dim}`,\n      phase: \"Review\",\n      schema: FINDINGS_SCHEMA,\n    })\n  )\n)\n\nconst verified = await pipeline(\n  reviews.flat(),\n  r => agent(`Verify this finding: ${r.title}`, { phase: \"Verify\" })\n)\nreturn { confirmed: verified.filter(v => v.isReal) }\n```\n\n**To run it:** include \"workflow\" or \"ultracode\" in your request, or ask Claude to \"use a workflow.\" Live phase progress appears in `/workflows`.\n\n**To resume after a failure:** pass `resumeFromRunId: \"wf_...\"` on the next invocation. Completed `agent()` calls replay from cache; only the failed call and those after it re-run. This is the main reason to prefer `pipeline()` over `parallel()` for large jobs — intermediate results cache between stages.\n\n**What it won't do:** Each `agent()` call starts with zero context, so prompts must be self-contained — a subagent in one call cannot read what another wrote unless you pass the content explicitly. Each agent also draws from your session's token budget, so a 20-agent workflow is a large spend. The harness guideline is to keep scripts under 10 agents for routine work; go larger only when the task explicitly needs it.\n\n**Sources:** [Claude Code docs — code.claude.com](https://code.claude.com/docs) · [Dynamic workflows announcement — InfoQ](https://www.infoq.com/news/2026/06/dynamic-workflows-claude-code/) · [Claude Code Workflows: Deterministic orchestration — alexop.dev](https://alexop.dev/posts/claude-code-workflows-deterministic-orchestration/)"
+  },
+  {
+    "id": "2026-11-23-02-claude-code-opus-48-fast-mode-november-30-deadline-auto-continue",
+    "title": "Claude Code's Opus 4.8 Fast Mode Is Off November 30 — Check Your Config Now If Your Automation Relies on It",
+    "excerpt": "Opus 4.8 fast mode is removed November 30 — check .claude/settings.json and env vars now. Claude Code also now auto-continues sessions when usage limits reset; turn it off in /config if you prefer…",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Claude Code",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/changelog",
+    "content": "**Two Claude Code changes from the November changelog to act on before the month ends.**\n\n**Fast mode for Opus 4.8 is removed on November 30.** If you have it enabled in `.claude/settings.json` or via environment variables, CI runs and background agents using Opus 4.8 will get a different completion profile after that date. Fable 5.2 is the comparable-cost option for high-throughput coding tasks; Sonnet 5.5 covers most general-purpose use. Check your settings now — a silent behavioral change on December 1 is worse than a planned migration this week.\n\n**Auto-continue on usage limit reset is now a CLI default.** When a claude.ai usage limit hits, Claude Code now waits for the reset and resumes automatically rather than dropping the session. Turn it off in `/config` → \"Continue automatically at usage limit\" if you prefer manual control. Known gaps: it does not cover weekly caps, and a machine that sleeps through the reset window needs a manual Enter before the session continues.\n\n**Why it matters:** Fast mode configs buried in CI settings files are easy to forget until they break. The auto-continue default changes what \"unattended\" means — worth knowing if you're watching a job remotely or running overnight sessions.\n\n**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code auto-continue coverage — devx.com](https://www.devx.com/daily-news/claude-code-adds-automatic-usage-resumption/) · [Auto-continue usage limit guide — memorylake.ai](https://www.memorylake.ai/en/blogs/claude-code-continue-at-usage-limit)"
+  },
+  {
+    "id": "2026-11-23-01-langchain-self-query-retriever-metadata-filter-rag",
+    "title": "Your Vector Search Ignores the Date and Source Fields You Stored — LangChain's SelfQueryRetriever Parses Natural-Language Constraints Into Pre-Filters Before Similarity Search Runs",
+    "excerpt": "Vector similarity ignores date ranges, source filters, and categories. LangChain's SelfQueryRetriever uses an LLM to parse natural-language constraints into structured pre-filters before similarity…",
+    "author": "Chris Harper",
+    "date": "11-23-2026",
+    "publishedAt": "2026-11-23T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://python.langchain.com/docs/how_to/self_query/",
+    "content": "**If your RAG retriever returns results from the wrong time period or wrong source, the problem is not the embeddings — vector similarity has no way to honor \"from last week\" or \"from the blog\" unless you filter first. SelfQueryRetriever uses an LLM to infer the filter from the user's question before the search runs.**\n\n**What you will be able to do after this:** Build a retriever that narrows the search space by structured metadata (date, source, category, author) before vector similarity runs — so \"Python tutorials from the last two weeks\" retrieves the right documents even when older ones have higher embedding similarity.\n\n**Three takeaways:**\n- Dense search ranks by cosine distance alone. A document from two years ago on the same topic outscores a fresh one unless you filter by date before searching.\n- SelfQueryRetriever adds one LLM call per query to generate the filter. That call adds latency and cost — if your filters are predictable, passing `search_kwargs={\"filter\": {...}}` directly is cheaper and more reliable.\n- Filter syntax differs by vector store: Chroma uses `$gte`, `$lte`, `$eq`, `$contains`; Pinecone uses `$gt`, `$lt`; FAISS does not support metadata filtering natively. Test on your store before relying on this in production.\n\n**Walk-through:**\n\n```python\nfrom langchain.retrievers.self_query.base import SelfQueryRetriever\nfrom langchain.chains.query_constructor.base import AttributeInfo\nfrom langchain_chroma import Chroma\nfrom langchain_anthropic import ChatAnthropic\n\n# 1. Documents must carry metadata at ingest time\nfrom langchain_core.documents import Document\ndocs = [\n    Document(\n        page_content=\"How to use pgvector for RAG\",\n        metadata={\"source\": \"blog\", \"date\": \"2026-11-15\", \"category\": \"rag\"}\n    ),\n    # ...\n]\nvectorstore = Chroma.from_documents(docs, embedding_function)\n\n# 2. Describe each metadata field to the retriever\nmetadata_field_info = [\n    AttributeInfo(\n        name=\"source\",\n        description=\"Where the document came from: 'blog', 'docs', or 'github'\",\n        type=\"string\",\n    ),\n    AttributeInfo(\n        name=\"date\",\n        description=\"Publication date in YYYY-MM-DD format\",\n        type=\"string\",\n    ),\n    AttributeInfo(\n        name=\"category\",\n        description=\"Topic area: 'python', 'typescript', 'rag'\",\n        type=\"string\",\n    ),\n]\n\n# 3. Build the retriever — LLM parses the question into a filter\nretriever = SelfQueryRetriever.from_llm(\n    llm=ChatAnthropic(model=\"claude-sonnet-4-6\"),\n    vectorstore=vectorstore,\n    document_contents=\"Technical tutorials and blog posts\",\n    metadata_field_info=metadata_field_info,\n    verbose=True,  # log the generated filter during development\n)\n\n# 4. Query naturally\ndocs = retriever.invoke(\"RAG tutorials from the last two weeks\")\n# LangChain generates: {\"date\": {\"$gte\": \"2026-11-09\"}, \"category\": \"rag\"}\n# That filter runs against metadata before similarity search\n```\n\n**What to watch for:** The LLM-generated filter must match your metadata keys exactly — a mismatch silently returns no results rather than raising an error. Log with `verbose=True` during development to confirm the generated filter. For Chroma specifically, the `$gte` date comparison works only if dates are stored as ISO strings in consistent format; mixed formats produce incorrect ordering.\n\n**Sources:** [LangChain: How to do self-querying retrieval — python.langchain.com](https://python.langchain.com/docs/how_to/self_query/) · [MongoDB self-querying tutorial — mongodb.com/docs](https://www.mongodb.com/docs/atlas/ai-integrations/langchain/self-query-retrieval/) · [Advanced RAG techniques Part 7 — medium.com/@roberto.g.infante](https://medium.com/@roberto.g.infante/advanced-rag-techniques-with-langchain-part-7-843ecd3199f0)"
+  },
+  {
     "id": "2026-11-22-06-langchain-index-api-sqlrecordmanager-rag-knowledge-base-incremental",
     "title": "Your RAG Index Has No Idea When Source Documents Change — LangChain's Indexing API Tracks Hashes and Removes Stale Chunks",
     "excerpt": "LangChain's indexing API with SQLRecordManager tracks document content hashes. Run index() with cleanup=\"full\" to skip unchanged files and purge stale chunks when source docs are deleted.",

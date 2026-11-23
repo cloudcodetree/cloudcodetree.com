@@ -10,7 +10,221 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 22 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 23 Nov 2026 04:08:00 +0000</lastBuildDate>
+
+
+      <item>
+      <title><![CDATA[Claude Design Resets Its Visual Context Every Session — A Brand Spec Document Anchors Outputs to Your Tokens Instead of AI Defaults]]></title>
+      <link>https://support.claude.com/en/articles/claude-design</link>
+      <guid isPermaLink="false">2026-11-23-04-claude-design-brand-spec-document-consistent-output-across-sessions</guid>
+      <pubDate>Mon, 23 Nov 2026 04:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Design has no session memory. A one-page brand spec document pasted at session start anchors hex values, fonts, border radii, and component rules so outputs match your design system instead of AI defaults.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <content:encoded><![CDATA[**Without a brand spec, every Claude Design session starts from AI defaults: a generic sans-serif, blue-ish primary, and rounded "AI aesthetic." A one-page reference pasted at session start anchors outputs to your actual tokens.**
+
+Claude Design has no persistent memory between sessions. The design system you established last week is gone unless you explicitly bring it in. The simplest fix is a brand spec document — a text file that describes your design decisions precisely enough that Claude Design can follow them without seeing your codebase.
+
+**What to put in the spec:**
+
+```markdown
+# Brand Spec — [Project Name]
+
+## Colors
+Primary: #1a56db (CTAs and active states only)
+Surface: #f8fafc (page background), #ffffff (card background)
+On-primary text: #ffffff
+Danger: #e02424
+Text primary: #111827, secondary: #6b7280
+
+## Typography
+Font: Inter (web), system-ui (fallback) — never Arial or generic sans-serif
+Heading: weight 600, tracking -0.02em
+Body: weight 400, 1.6 line-height
+
+## Components
+Buttons: rounded-lg (8px radius), no drop shadows, padding 10px 20px
+Cards: rounded-xl (12px), border 1px #e5e7eb, no gradient backgrounds
+
+## Anti-patterns
+No glassmorphism, gradient fills, or decorative patterns
+No default blue (#3b82f6) — use our primary (#1a56db)
+No "AI aesthetic" gradients on hero sections
+```
+
+Paste this at the start of every session, before any design prompt. Outputs that deviate can be corrected by citing the specific spec rule.
+
+**Two limits to plan around:** The spec is manually maintained — if your codebase tokens change, update the spec separately. Claude Design still can't read your actual token file; it's working from your text description. When the spec drifts from the code, generated output drifts too.
+
+**Where to store it:** Keep it as `docs/brand-spec.md` in your repo. Claude Code can read it and pass the content when it invokes a design session — or reference it from your CLAUDE.md so any session can find it without being told.
+
+**Why it matters for the handoff:** A brand spec reduces the gap between what Claude Design generates and what Claude Code implements. Without one, every imported component needs manual token substitution. With one, the first draft is usually close enough that Claude Code's corrections are small and predictable.
+
+**Sources:** [Claude Design overview — support.claude.com](https://support.claude.com/en/articles/claude-design) · [Claude Design produces AI slop unless you tell it not to — The Adpharm](https://www.theadpharm.com/insights/claude-design-without-the-ai-slop-look) · [Build a Design System in Claude Design — Mindstudio](https://www.mindstudio.ai/blog/build-design-system-claude-design-no-ai-aesthetics)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Multi-Step Claude Code Jobs Wait for Each Agent to Finish Before Starting the Next — Workflow Scripts Fan Out in Parallel and Pipeline Results Through Stages]]></title>
+      <link>https://code.claude.com/docs</link>
+      <guid isPermaLink="false">2026-11-23-03-claude-code-workflow-script-api-agent-parallel-pipeline-orchestration</guid>
+      <pubDate>Mon, 23 Nov 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[The Workflow tool runs a typed JS script that orchestrates subagents deterministically — agent(), parallel(), and pipeline() primitives, with stage progress, resume from failure, and cached replay.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <content:encoded><![CDATA[**For jobs that touch multiple independent files, run a review across N dimensions, or need a fan-out + verification pass, the Workflow tool runs a typed JavaScript script that orchestrates subagents deterministically — with phase progress, resume from failure, and cached replay.**
+
+Agent teams let subagents message each other. Workflows are different: you write the orchestration in JavaScript, fan out as many `agent()` calls as you need, and the harness runs them in parallel. The script is deterministic — same inputs, same execution graph. That makes failures debuggable and expensive parts reusable via cache.
+
+**Three primitives:**
+
+```javascript
+export const meta = {
+  name: "review-pr",
+  description: "Review a PR across three dimensions",
+  phases: [{ title: "Review" }, { title: "Verify" }],
+}
+
+// agent(): one subagent — returns text, or JSON if you pass schema:
+// parallel(): all items run concurrently, waits for all to complete
+// pipeline(): streaming — item 0 hits stage 2 while item 1 is still in stage 1
+
+const DIMENSIONS = ["security", "performance", "correctness"]
+
+const reviews = await parallel(
+  DIMENSIONS.map(dim => () =>
+    agent(`Review the diff for ${dim} issues`, {
+      label: `review:${dim}`,
+      phase: "Review",
+      schema: FINDINGS_SCHEMA,
+    })
+  )
+)
+
+const verified = await pipeline(
+  reviews.flat(),
+  r => agent(`Verify this finding: ${r.title}`, { phase: "Verify" })
+)
+return { confirmed: verified.filter(v => v.isReal) }
+```
+
+**To run it:** include "workflow" or "ultracode" in your request, or ask Claude to "use a workflow." Live phase progress appears in `/workflows`.
+
+**To resume after a failure:** pass `resumeFromRunId: "wf_..."` on the next invocation. Completed `agent()` calls replay from cache; only the failed call and those after it re-run. This is the main reason to prefer `pipeline()` over `parallel()` for large jobs — intermediate results cache between stages.
+
+**What it won't do:** Each `agent()` call starts with zero context, so prompts must be self-contained — a subagent in one call cannot read what another wrote unless you pass the content explicitly. Each agent also draws from your session's token budget, so a 20-agent workflow is a large spend. The harness guideline is to keep scripts under 10 agents for routine work; go larger only when the task explicitly needs it.
+
+**Sources:** [Claude Code docs — code.claude.com](https://code.claude.com/docs) · [Dynamic workflows announcement — InfoQ](https://www.infoq.com/news/2026/06/dynamic-workflows-claude-code/) · [Claude Code Workflows: Deterministic orchestration — alexop.dev](https://alexop.dev/posts/claude-code-workflows-deterministic-orchestration/)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Claude Code's Opus 4.8 Fast Mode Is Off November 30 — Check Your Config Now If Your Automation Relies on It]]></title>
+      <link>https://code.claude.com/docs/en/changelog</link>
+      <guid isPermaLink="false">2026-11-23-02-claude-code-opus-48-fast-mode-november-30-deadline-auto-continue</guid>
+      <pubDate>Mon, 23 Nov 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Opus 4.8 fast mode is removed November 30 — check .claude/settings.json and env vars now. Claude Code also now auto-continues sessions when usage limits reset; turn it off in /config if you prefer manual control.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <content:encoded><![CDATA[**Two Claude Code changes from the November changelog to act on before the month ends.**
+
+**Fast mode for Opus 4.8 is removed on November 30.** If you have it enabled in `.claude/settings.json` or via environment variables, CI runs and background agents using Opus 4.8 will get a different completion profile after that date. Fable 5.2 is the comparable-cost option for high-throughput coding tasks; Sonnet 5.5 covers most general-purpose use. Check your settings now — a silent behavioral change on December 1 is worse than a planned migration this week.
+
+**Auto-continue on usage limit reset is now a CLI default.** When a claude.ai usage limit hits, Claude Code now waits for the reset and resumes automatically rather than dropping the session. Turn it off in `/config` → "Continue automatically at usage limit" if you prefer manual control. Known gaps: it does not cover weekly caps, and a machine that sleeps through the reset window needs a manual Enter before the session continues.
+
+**Why it matters:** Fast mode configs buried in CI settings files are easy to forget until they break. The auto-continue default changes what "unattended" means — worth knowing if you're watching a job remotely or running overnight sessions.
+
+**Sources:** [Claude Code changelog — code.claude.com](https://code.claude.com/docs/en/changelog) · [Claude Code auto-continue coverage — devx.com](https://www.devx.com/daily-news/claude-code-adds-automatic-usage-resumption/) · [Auto-continue usage limit guide — memorylake.ai](https://www.memorylake.ai/en/blogs/claude-code-continue-at-usage-limit)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Vector Search Ignores the Date and Source Fields You Stored — LangChain's SelfQueryRetriever Parses Natural-Language Constraints Into Pre-Filters Before Similarity Search Runs]]></title>
+      <link>https://python.langchain.com/docs/how_to/self_query/</link>
+      <guid isPermaLink="false">2026-11-23-01-langchain-self-query-retriever-metadata-filter-rag</guid>
+      <pubDate>Mon, 23 Nov 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Vector similarity ignores date ranges, source filters, and categories. LangChain's SelfQueryRetriever uses an LLM to parse natural-language constraints into structured pre-filters before similarity search runs.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <content:encoded><![CDATA[**If your RAG retriever returns results from the wrong time period or wrong source, the problem is not the embeddings — vector similarity has no way to honor "from last week" or "from the blog" unless you filter first. SelfQueryRetriever uses an LLM to infer the filter from the user's question before the search runs.**
+
+**What you will be able to do after this:** Build a retriever that narrows the search space by structured metadata (date, source, category, author) before vector similarity runs — so "Python tutorials from the last two weeks" retrieves the right documents even when older ones have higher embedding similarity.
+
+**Three takeaways:**
+- Dense search ranks by cosine distance alone. A document from two years ago on the same topic outscores a fresh one unless you filter by date before searching.
+- SelfQueryRetriever adds one LLM call per query to generate the filter. That call adds latency and cost — if your filters are predictable, passing `search_kwargs={"filter": {...}}` directly is cheaper and more reliable.
+- Filter syntax differs by vector store: Chroma uses `$gte`, `$lte`, `$eq`, `$contains`; Pinecone uses `$gt`, `$lt`; FAISS does not support metadata filtering natively. Test on your store before relying on this in production.
+
+**Walk-through:**
+
+```python
+from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.chains.query_constructor.base import AttributeInfo
+from langchain_chroma import Chroma
+from langchain_anthropic import ChatAnthropic
+
+# 1. Documents must carry metadata at ingest time
+from langchain_core.documents import Document
+docs = [
+    Document(
+        page_content="How to use pgvector for RAG",
+        metadata={"source": "blog", "date": "2026-11-15", "category": "rag"}
+    ),
+    # ...
+]
+vectorstore = Chroma.from_documents(docs, embedding_function)
+
+# 2. Describe each metadata field to the retriever
+metadata_field_info = [
+    AttributeInfo(
+        name="source",
+        description="Where the document came from: 'blog', 'docs', or 'github'",
+        type="string",
+    ),
+    AttributeInfo(
+        name="date",
+        description="Publication date in YYYY-MM-DD format",
+        type="string",
+    ),
+    AttributeInfo(
+        name="category",
+        description="Topic area: 'python', 'typescript', 'rag'",
+        type="string",
+    ),
+]
+
+# 3. Build the retriever — LLM parses the question into a filter
+retriever = SelfQueryRetriever.from_llm(
+    llm=ChatAnthropic(model="claude-sonnet-4-6"),
+    vectorstore=vectorstore,
+    document_contents="Technical tutorials and blog posts",
+    metadata_field_info=metadata_field_info,
+    verbose=True,  # log the generated filter during development
+)
+
+# 4. Query naturally
+docs = retriever.invoke("RAG tutorials from the last two weeks")
+# LangChain generates: {"date": {"$gte": "2026-11-09"}, "category": "rag"}
+# That filter runs against metadata before similarity search
+```
+
+**What to watch for:** The LLM-generated filter must match your metadata keys exactly — a mismatch silently returns no results rather than raising an error. Log with `verbose=True` during development to confirm the generated filter. For Chroma specifically, the `$gte` date comparison works only if dates are stored as ISO strings in consistent format; mixed formats produce incorrect ordering.
+
+**Sources:** [LangChain: How to do self-querying retrieval — python.langchain.com](https://python.langchain.com/docs/how_to/self_query/) · [MongoDB self-querying tutorial — mongodb.com/docs](https://www.mongodb.com/docs/atlas/ai-integrations/langchain/self-query-retrieval/) · [Advanced RAG techniques Part 7 — medium.com/@roberto.g.infante](https://medium.com/@roberto.g.infante/advanced-rag-techniques-with-langchain-part-7-843ecd3199f0)
+]]></content:encoded>
+    </item>
 
       <item>
       <title><![CDATA[Your RAG Index Has No Idea When Source Documents Change — LangChain's Indexing API Tracks Hashes and Removes Stale Chunks]]></title>
@@ -6238,208 +6452,10 @@ Replace the model with one from [Fireworks' function-calling catalog](https://do
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Claude Code Edits .env on Every Run Until You Add a 12-Line PreToolUse Hook]]></title>
-    <link>https://code.claude.com/docs/en/hooks</link>
-    <guid isPermaLink="false">2026-11-05-02-claude-code-pretooluse-hook-file-block-env-protect</guid>
-    <pubDate>Thu, 05 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[A PreToolUse hook that exits 2 on a file-match blocks any Edit or Write call before it runs — .env, production configs, and secret files become write-locked for the whole session.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**A PreToolUse hook that exits 2 on a file-match blocks any Edit or Write call before it runs — `.env`, production configs, and secret files become write-locked for the whole session.**
-
-Claude Code's hook system fires scripts at four points in the tool lifecycle. PostToolUse hooks run after a tool succeeds; they can't stop it. PreToolUse hooks fire before the tool runs and can block it: exit code 2 blocks the call and shows Claude the hook's stderr; exit code 0 allows it; exit code 1 adds a warning but still allows.
-
-**Write `.claude/hooks/protect-files.sh`:**
-
-```bash
-#!/usr/bin/env bash
-# Blocks Edit/Write to any file matching the blocklist.
-BLOCKLIST=(".env" ".env.*" "*.pem" "private-key.*" "production.yml" "secrets.*")
-FILE=$(echo "$CLAUDE_TOOL_INPUT" | jq -r '.file_path // .path // empty')
-[ -z "$FILE" ] && exit 0
-BASE=$(basename "$FILE")
-for PATTERN in "${BLOCKLIST[@]}"; do
-  if [[ "$BASE" == $PATTERN ]]; then
-    echo "BLOCKED: $FILE is in the write-protected list" >&2
-    exit 2
-  fi
-done
-exit 0
-```
-
-**Wire it in `.claude/settings.json`:**
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/protect-files.sh" }]
-      }
-    ]
-  }
-}
-```
-
-Claude Code passes the tool's input JSON in `CLAUDE_TOOL_INPUT`; `jq` extracts the target path. The exit 2 sends Claude the stderr message so it knows why it was blocked — without it, Claude retries and fails again silently.
-
-**Two limits to know:** First, this hook fires on every Edit and Write call, so keep the check fast (a `jq` parse is milliseconds). Second, the hook doesn't fire on `Bash` calls that write files directly — pair it with a Bash pre-hook or allowlist to close that gap. Secret scan hooks (which block `git commit/push` when secrets appear in the diff) are complementary, not a replacement, for this guard.
-
-**How it fits the hooks series:** PostToolUse handles what happens after a tool succeeds; Stop hooks gate when Claude ends a turn; PreToolUse is the place to intercept before damage is done. All three can coexist.
-
-**Sources:** [Hooks — Claude Code Docs](https://code.claude.com/docs/en/hooks) · [PreToolUse reference — code.claude.com](https://code.claude.com/docs/en/hooks#pretooluse) · [Claude Code hook patterns — morphllm.com](https://morphllm.com/blog/claude-code-hooks)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Claude Code Builds a New Button Component Every Time Because Figma's MCP Server Doesn't Know Your Button Exists — Code Connect Maps It in Three Steps]]></title>
-    <link>https://developers.figma.com/docs/figma-mcp-server/skill-figma-code-connect</link>
-    <guid isPermaLink="false">2026-11-05-03-figma-code-connect-mcp-claude-code-component-reuse</guid>
-    <pubDate>Thu, 05 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Figma Code Connect links library components to their real source files; the MCP server then tells Claude Code exactly which import and props to use instead of generating a duplicate.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Design-to-Code</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** Configure Figma Code Connect so Claude Code reads a Figma frame via the MCP server and generates code that uses your existing components — not new duplicates with the wrong props.
-
-**Three things to know first:**
-- Figma Code Connect links a Figma component to its real source file by writing a `.figma.ts` mapping file alongside your component; the Figma MCP server reads those mappings and passes them to Claude Code as context when you paste a Figma URL
-- Without Code Connect, Claude Code sees a visual design and guesses — it generates a component that looks right but uses the wrong props, naming, or file structure
-- Code Connect only works with components published to a Figma team library; unpublished components are invisible to the mapping
-
-**Step 1 — Install the Figma MCP server and authenticate:**
-
-```bash
-claude mcp add --transport http figma https://mcp.figma.com/mcp
-```
-
-Open a new Claude Code session, run `/mcp`, and authenticate in the browser. Confirm with `/mcp status figma`.
-
-Alternatively, install the bundled plugin (which also adds Code Connect skills):
-```bash
-claude plugin install figma@claude-plugins-official
-```
-
-**Step 2 — Write a Code Connect mapping for one component:**
-
-Create `src/components/Button.figma.ts` alongside your existing `Button.tsx`:
-
-```typescript
-import figma from '@figma/code-connect'
-import { Button } from './Button'
-
-figma.connect(Button, 'https://www.figma.com/file/ABC123/Design-System?node-id=1-2', {
-  props: {
-    variant: figma.enum('Variant', {
-      primary: 'primary',
-      secondary: 'secondary',
-      ghost: 'ghost',
-    }),
-    disabled: figma.boolean('Disabled'),
-    label: figma.string('Label'),
-  },
-  example: ({ variant, disabled, label }) => (
-    &lt;Button variant={variant} disabled={disabled}&gt;{label}&lt;/Button&gt;
-  ),
-})
-```
-
-The `node-id` comes from the Figma URL when you select the library component. Set `FIGMA_ACCESS_TOKEN` in your env, then push the mapping:
-
-```bash
-npx figma connect publish
-```
-
-Start with 5–10 high-use primitives (Button, Input, Card, Badge). Connecting every component upfront is impractical and unnecessary.
-
-**Step 3 — Test the loop:**
-
-Paste a Figma frame URL into Claude Code:
-
-```
-Implement this screen using our existing components:
-https://www.figma.com/file/ABC123/Design-System?node-id=5-10
-```
-
-With Code Connect configured, the generated output will say `import { Button } from './components/Button'` and use `variant="primary"` — your actual API — instead of inventing `&lt;button className="bg-blue-500 rounded px-4"&gt;`.
-
-**What it doesn't do:** Code Connect maps component usage, not layout logic. Claude still decides how to assemble components in a grid, handle responsive breakpoints, and what to do with unmapped components. Plan to audit the first few generations and add mappings for your most-used components before running at scale.
-
-**One real limit:** A stale mapping — Figma component updated, mapping not republished — is worse than no mapping. Claude Code receives the old props as authoritative and generates confidently wrong code. Build `npx figma connect publish` into your design-system update process, not a one-time setup step.
-
-**Sources:** [Figma Code Connect — Figma Developers](https://developers.figma.com/docs/figma-mcp-server/skill-figma-code-connect) · [Claude Code and Figma: Set up the MCP server — Figma Help](https://help.figma.com/hc/en-us/articles/39888612464151-Claude-Code-and-Figma-Set-up-the-MCP-server) · [Figma MCP server guide — GitHub](https://github.com/figma/mcp-server-guide) · [Figma to Claude Code workflow — superdesign.dev](https://superdesign.dev/blog/figma-to-claude-code)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Anthropic's ANT Roadshow May Start This Week — The Risk Factors Section Is What API Teams Should Read]]></title>
-    <link>https://www.anthropic.com/news/s1-sec</link>
-    <guid isPermaLink="false">2026-11-05-01-anthropic-ipo-roadshow-november-ant-nasdaq</guid>
-    <pubDate>Thu, 05 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Anthropic's ANT Nasdaq roadshow could start the week of November 9, with a first trade possible around November 16. For API-dependent teams, the S-1 risk factors are the useful section.]]></description>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Anthropic may begin its ANT Nasdaq roadshow the week of November 9, with a first trade possible around November 16 — for teams building on the Claude API, the S-1's risk factors section is the more useful reading than the valuation headline.**
-
-Anthropic filed its S-1 on October 26 (covered here then). Bloomberg reports the roadshow could begin as early as the week of November 9, putting a possible first trade around November 16 under standard SEC quiet-period rules — though Anthropic has not confirmed a specific date. Goldman Sachs and Morgan Stanley lead underwriting, with 22 banks participating.
-
-For developers, the valuation figure ($965 billion Series H; some outlets cite a $2 trillion IPO target) is noise. The useful section of the S-1 is risk factors: compute dependency on a small number of cloud providers, pricing sustainability as a key uncertainty, and the fact that model capability claims are forward-looking. The filing also notes that two unnamed customers account for roughly 20% of revenue — a concentration risk worth noting if you are one of Anthropic's enterprise API customers.
-
-**Why it matters:** A public Anthropic introduces shareholder scrutiny of every pricing tier from the moment shares price — teams with large API usage should monitor Q4 pricing announcements and check whether their current contract terms survive a pricing review.
-
-**Sources:** [Anthropic S-1 — anthropic.com](https://www.anthropic.com/news/s1-sec) · [IPO timeline — xtb.com](https://www.xtb.com/int/market-analysis/news/anthropic-files-prospectus-ahead-of-ipo-with-ant-ticker-on-nasdaq-the-launch-date-and-price-remain-a-mystery) · [Admiral Markets IPO analysis](https://admiralmarkets.com/education/articles/shares/anthropic-ipo)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Agent Runs Three Tool Calls Sequentially When They Could All Go in One Turn — One System Prompt Sentence Drops Latency to the Longest Single Call]]></title>
-    <link>https://docs.anthropic.com/en/docs/build-with-claude/tool-use</link>
-    <guid isPermaLink="false">2026-11-04-08-claude-api-independent-tool-calls-parallel-system-prompt</guid>
-    <pubDate>Wed, 04 Nov 2026 20:15:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Add "issue independent tool calls together in one response turn" to your system prompt and wall-clock latency drops from sum(T_i) to max(T_i) — no other code changes needed.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**When tool calls are independent, one sentence in your system prompt batches them into a single turn — wall-clock latency drops from the sum of each call to the longest one.**
-
-Your agent fetches an account balance, today's exchange rate, and a user record in three sequential turns because Claude doesn't know they're independent. The pattern: Claude calls tool → you return a result → Claude calls the next tool. Three round-trips instead of one.
-
-**The fix — add this to your system prompt:**
-
-```
-When multiple tool calls are independent (no data dependency between them),
-issue them all in a single response turn as separate tool_use blocks.
-```
-
-Claude Code's own system prompt includes this instruction — that's why it batches file reads and directory listings in one turn. Add it to your own agent loops and Claude will start grouping independent reads.
-
-**Why it matters:**
-
-For N independent calls with latencies T₁, T₂, T₃:
-- **Without batching:** T₁ + T₂ + T₃ + (round-trip overhead × 3)
-- **With batching:** max(T₁, T₂, T₃) + (round-trip overhead × 1)
-
-Three 300 ms tool calls: ~1.0 s → ~0.4 s per batch. Longer-running tools — database queries, external APIs — make this more dramatic.
-
-**When not to batch:** Tools with side effects or data dependencies must stay sequential — `create_account` then `fetch_account` is not safe to batch. Make dependencies explicit in your tool descriptions so Claude can reason about which calls can't be grouped. A description like "Returns the account created in the previous step" tells Claude those two calls are ordered.
-
-**One limit to check first:** Some agent SDKs and frameworks run a serial loop over `response.content` regardless of whether Claude issued multiple `tool_use` blocks in one turn. If your harness dispatches tools sequentially by design, the batching instruction shifts only where the latency sits — not how much there is. Verify your harness actually dispatches in parallel; see the [companion post on handling multiple tool_use blocks](/ai-news/2026-09-26-02-claude-parallel-tool-calls) for the execution-side code (asyncio.gather / Promise.all).
-
-**Sources:** [Anthropic tool use guide](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) · [Claude Code system prompt, community gist (Jan 2026)](https://gist.github.com/chigkim/1f37bb2be98d97c952fd79cbb3efb1c6)]]></content:encoded>
-  </item>
-
+  
+  
+  
+  
   
   
 
