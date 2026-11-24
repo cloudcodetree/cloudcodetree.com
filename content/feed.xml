@@ -10,7 +10,63 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 24 Nov 2026 12:12:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 24 Nov 2026 20:03:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your 100-Package Monorepo Loads Every CLAUDE.md Into Context — `claudeMdExcludes` Keeps the Packages You Never Touch Out of Scope]]></title>
+      <link>https://code.claude.com/docs/en/large-codebases</link>
+      <guid isPermaLink="false">2026-11-24-06-claude-code-claudemdexcludes-worktree-sparsepaths-monorepo</guid>
+      <pubDate>Tue, 24 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[claudeMdExcludes skips CLAUDE.md files for packages you never touch; worktree.sparsePaths sparse-checks out only relevant directories on session start. Both are committable settings that cut context noise in large monorepos.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**`claudeMdExcludes` in `.claude/settings.json` strips CLAUDE.md files for packages you never touch; `worktree.sparsePaths` sparse-checks out only relevant directories when a subagent starts a worktree.**
+
+In a monorepo with 50+ packages, every Claude Code session discovers and loads CLAUDE.md files from subdirectories as it reads files in them. A backend session touching `apps/api` may still load configuration from `packages/mobile` and `tools/legacy-*` as Claude explores the codebase — noise from code you never want it near.
+
+`claudeMdExcludes` cuts this. Add it to `.claude/settings.json`:
+
+```json
+{
+  "claudeMdExcludes": [
+    "**/packages/legacy-*/**",
+    "**/tools/vendor-scripts/**",
+    "**/apps/mobile/**"
+  ]
+}
+```
+
+Matching CLAUDE.md files are silently skipped. Patterns follow gitignore-style glob rules. The setting is array-mergeable across scopes: a project-level list sets the team baseline; individual developers add local overrides in `~/.claude/settings.json` without overwriting the project defaults. Managed policy CLAUDE.md files (org-level) cannot be excluded.
+
+**What it won't do.** `claudeMdExcludes` only skips CLAUDE.md configuration files — not source files. Claude can still read and edit any file in an excluded package; it won't load that package's configuration. For true source-file exclusion, add deny rules under `permissions.denyList`. The root-level CLAUDE.md always loads regardless; this setting only affects subdirectory files.
+
+For worktree sessions, `worktree.sparsePaths` pairs with this. When Claude creates a worktree via the Agent tool's `isolation: "worktree"` parameter, git checks out the whole repo by default — a 10 GB monorepo writes all packages. `worktree.sparsePaths` uses git sparse-checkout to write only the directories you list:
+
+```json
+{
+  "worktree": {
+    "sparsePaths": [
+      "apps/api",
+      "packages/shared",
+      "packages/database"
+    ]
+  }
+}
+```
+
+Root-level files (`.claude/`, `package.json`, lockfiles) always come through regardless. This cuts worktree creation from minutes to seconds on large repos.
+
+**Setup for a 100-package monorepo:**
+1. Commit a project `.claude/settings.json` with `claudeMdExcludes` covering legacy, vendored, and unrelated platform packages.
+2. Add `worktree.sparsePaths` with the packages each working team touches. List entries merge across scopes, so individuals can add paths in local settings without affecting teammates.
+3. Keep the root CLAUDE.md focused on cross-cutting conventions — per-package CLAUDE.md files carry the specialized rules, and they load only when Claude works in that directory.
+
+**Sources:** [Large codebases — code.claude.com](https://code.claude.com/docs/en/large-codebases) · [GitHub issue #4904: File filtering configuration request](https://github.com/anthropics/claude-code/issues/4904) · [Large projects guide — claude-code-handbook](https://joeyyu23.github.io/claude-code-handbook/en/book2-advanced/18-large-projects)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Background Agent Re-Pays Full Input Tokens on Every Turn When Gaps Exceed 5 Minutes — Set "ttl": "1h" on the System Prompt Block]]></title>
@@ -6402,53 +6458,7 @@ claude mcp remove my-server
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your LoRA Fine-Tune Passes `r=16` to `lora_rank` as a Magic Number — Here's What Rank, Alpha, and Target Modules Actually Control and Why the Defaults Work]]></title>
-    <link>https://huggingface.co/blog/mlabonne/sft-llama3</link>
-    <guid isPermaLink="false">2026-11-06-07-lora-rank-alpha-target-modules-qlora-unsloth-colab</guid>
-    <pubDate>Fri, 06 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[LoRA rank sets adapter size, alpha scales its effect, and target_modules picks which layers learn — understanding all three lets you tune for quality vs. cost.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>HuggingFace</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** choose LoRA rank, alpha, and target_modules deliberately for your task, run a QLoRA fine-tune of Llama 3.1 8B on a free Colab T4 GPU in under 30 minutes, and diagnose when the adapter is underfitting vs. the base model is simply missing knowledge.
-
-LoRA adapters have three settings that meaningfully affect what they learn. Most tutorials fix them and move on; here's what they actually do:
-
-**Three takeaways:**
-- `r` (rank) sets the adapter's parameter count. Each target layer gets two matrices — A of shape `(d × r)` and B of shape `(r × d)`. Lower r trains fewer parameters; higher r captures more complex updates. `r=16` works for most instruction-tuning; `r=4` for style transfer; `r=64` for domain shifts that require broad knowledge rewriting.
-- `lora_alpha` scales the adapter's contribution: the update is applied as `(alpha/r) × A×B`. Setting `alpha=r` gives scale=1.0 — the adapter runs at full strength. Setting `alpha=2r` amplifies it. Matching alpha to rank is the safest default; increase it only if the model underfits on eval.
-- `target_modules` picks which weight matrices receive adapters. For a Llama-class model, the standard full set is `['q_proj', 'k_proj', 'v_proj', 'o_proj', 'gate_proj', 'up_proj', 'down_proj']`. Targeting only `['q_proj', 'v_proj']` uses roughly 4× fewer parameters and still works well for instruction following; add the MLP projections (`gate_proj`, `up_proj`, `down_proj`) when teaching new factual knowledge.
-
-**Running the first fine-tune:**
-
-Maxime Labonne's HuggingFace guide (Jul 2024) is the clearest end-to-end: Llama 3.1 8B + QLoRA + Unsloth on a free Colab T4, trains in under 30 minutes. The key config block:
-```python
-from peft import LoraConfig
-config = LoraConfig(
-    r=16,
-    lora_alpha=16,
-    target_modules=["q_proj","k_proj","v_proj","o_proj","gate_proj","up_proj","down_proj"],
-    lora_dropout=0.05,
-    bias="none",
-    task_type="CAUSAL_LM",
-    use_rslora=True,  # scales alpha by 1/sqrt(r) instead of 1/r — more stable at high rank
-)
-```
-Set `load_in_4bit=True` on the model load for QLoRA: reduces VRAM from ~16 GB to ~6 GB with a small accuracy trade-off. The free T4 (16 GB) fits with QLoRA at r=16; standard LoRA at r=64 likely won't without a paid runtime.
-
-**Limits:**
-- Unsloth currently supports single-GPU training only — no distributed setup.
-- Adapters add `2 × r × d` parameters per target layer. At r=16 on a 4096-dimension model's 7 projections, that's roughly 9M new parameters — about 0.1% of a 7B base. Enough to change behaviour or format; not enough to inject broad knowledge the base model doesn't have. If your task needs new facts, consider RAG or a larger r instead.
-- `use_rslora=True` changes alpha scaling to `alpha/sqrt(r)`: training is more stable at large ranks but may require a learning-rate adjustment.
-
-**Sources:** [Fine-tune Llama 3.1 Ultra-Efficiently with Unsloth — HuggingFace Blog (Jul 2024)](https://huggingface.co/blog/mlabonne/sft-llama3) · [LoRA: Low-Rank Adaptation of Large Language Models — Hu et al. (arXiv 2021)](https://arxiv.org/abs/2106.09685) · [PEFT LoraConfig reference — HuggingFace Docs](https://huggingface.co/docs/peft/main/en/package_reference/lora)
-]]></content:encoded>
-  </item>
-
+  
   
   
 

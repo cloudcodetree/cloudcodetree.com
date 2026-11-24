@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-11-24-06-claude-code-claudemdexcludes-worktree-sparsepaths-monorepo",
+    "title": "Your 100-Package Monorepo Loads Every CLAUDE.md Into Context — `claudeMdExcludes` Keeps the Packages You Never Touch Out of Scope",
+    "excerpt": "claudeMdExcludes skips CLAUDE.md files for packages you never touch; worktree.sparsePaths sparse-checks out only relevant directories on session start. Both are committable settings that cut contex…",
+    "author": "Chris Harper",
+    "date": "11-24-2026",
+    "publishedAt": "2026-11-24T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/large-codebases",
+    "content": "**`claudeMdExcludes` in `.claude/settings.json` strips CLAUDE.md files for packages you never touch; `worktree.sparsePaths` sparse-checks out only relevant directories when a subagent starts a worktree.**\n\nIn a monorepo with 50+ packages, every Claude Code session discovers and loads CLAUDE.md files from subdirectories as it reads files in them. A backend session touching `apps/api` may still load configuration from `packages/mobile` and `tools/legacy-*` as Claude explores the codebase — noise from code you never want it near.\n\n`claudeMdExcludes` cuts this. Add it to `.claude/settings.json`:\n\n```json\n{\n  \"claudeMdExcludes\": [\n    \"**/packages/legacy-*/**\",\n    \"**/tools/vendor-scripts/**\",\n    \"**/apps/mobile/**\"\n  ]\n}\n```\n\nMatching CLAUDE.md files are silently skipped. Patterns follow gitignore-style glob rules. The setting is array-mergeable across scopes: a project-level list sets the team baseline; individual developers add local overrides in `~/.claude/settings.json` without overwriting the project defaults. Managed policy CLAUDE.md files (org-level) cannot be excluded.\n\n**What it won't do.** `claudeMdExcludes` only skips CLAUDE.md configuration files — not source files. Claude can still read and edit any file in an excluded package; it won't load that package's configuration. For true source-file exclusion, add deny rules under `permissions.denyList`. The root-level CLAUDE.md always loads regardless; this setting only affects subdirectory files.\n\nFor worktree sessions, `worktree.sparsePaths` pairs with this. When Claude creates a worktree via the Agent tool's `isolation: \"worktree\"` parameter, git checks out the whole repo by default — a 10 GB monorepo writes all packages. `worktree.sparsePaths` uses git sparse-checkout to write only the directories you list:\n\n```json\n{\n  \"worktree\": {\n    \"sparsePaths\": [\n      \"apps/api\",\n      \"packages/shared\",\n      \"packages/database\"\n    ]\n  }\n}\n```\n\nRoot-level files (`.claude/`, `package.json`, lockfiles) always come through regardless. This cuts worktree creation from minutes to seconds on large repos.\n\n**Setup for a 100-package monorepo:**\n1. Commit a project `.claude/settings.json` with `claudeMdExcludes` covering legacy, vendored, and unrelated platform packages.\n2. Add `worktree.sparsePaths` with the packages each working team touches. List entries merge across scopes, so individuals can add paths in local settings without affecting teammates.\n3. Keep the root CLAUDE.md focused on cross-cutting conventions — per-package CLAUDE.md files carry the specialized rules, and they load only when Claude works in that directory.\n\n**Sources:** [Large codebases — code.claude.com](https://code.claude.com/docs/en/large-codebases) · [GitHub issue #4904: File filtering configuration request](https://github.com/anthropics/claude-code/issues/4904) · [Large projects guide — claude-code-handbook](https://joeyyu23.github.io/claude-code-handbook/en/book2-advanced/18-large-projects)"
+  },
+  {
     "id": "2026-11-24-05-prompt-cache-ttl-background-agents-one-hour",
     "title": "Your Background Agent Re-Pays Full Input Tokens on Every Turn When Gaps Exceed 5 Minutes — Set \"ttl\": \"1h\" on the System Prompt Block",
     "excerpt": "The default 5-minute prompt cache TTL expires between turns in agents waiting on CI jobs or human review. Set \"ttl\": \"1h\" on the system prompt block to stay warm for an hour at 2x write cost.",
