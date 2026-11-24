@@ -1,5 +1,79 @@
 [
   {
+    "id": "2026-11-24-04-claude-md-design-system-section-component-api-token-names-implementation",
+    "title": "Every Claude Code Design Implementation Reinvents Your Component API — A Design Section in CLAUDE.md Ends That",
+    "excerpt": "Add a design system block to CLAUDE.md listing your component paths, token file location, and icon set — Claude Code reads it before touching a file and stops re-inventing what already exists in yo…",
+    "author": "Chris Harper",
+    "date": "11-24-2026",
+    "publishedAt": "2026-11-24T04:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/memory",
+    "content": "**Add a \"Design system\" block to CLAUDE.md listing your component names, token file, and naming conventions — Claude Code reads project memory before touching a file and stops re-inventing the library you already built.**\n\nWhen Claude Code implements a design from a handoff bundle or a description, it defaults to whatever feels standard — a bare `<Button>` where you have `<PrimaryButton variant=\"cta\">`, or hardcoded hex values where you have CSS custom properties. The fix is a standing design system section in CLAUDE.md that every session inherits.\n\n```markdown\n## Design system\n\nComponent library: `src/components/ui/`\nToken file: `src/styles/tokens.css`\n  — CSS custom properties: --color-primary, --color-surface, --color-text-muted,\n    --spacing-4, --radius-md\nIcon set: Heroicons v2 (`@heroicons/react/24/solid` or `/24/outline`)\n\nWhen implementing any UI:\n1. Use existing components from `src/components/ui/` before writing new ones\n2. Reference CSS custom properties from tokens.css — never hardcode hex values\n3. For layout use Tailwind classes; for brand color use the custom properties above\n4. If a component doesn't exist and needs creating, put it in `src/components/ui/`\n   with a named export, following the naming pattern already there\n```\n\n**What this changes in practice:** With this section present, the first draft of any design implementation uses `--color-primary` instead of `#1a56db`, your existing `<Card>` instead of a new `div` with the same styles, and your icon set rather than whatever appeared in Claude Code's training. Corrections shrink from layout-level to detail-level.\n\n**Pair it with per-task context:** When handing off a Claude Design bundle, add `Implement using the components and tokens in CLAUDE.md` to the prompt. Claude Code reads both the bundle structure and the project brief together.\n\n**The limit to plan around:** CLAUDE.md is manually maintained. Rename a token or move a component directory and the file falls out of sync — Claude Code will continue generating the old path until you update the entry. If you use `/design-sync` to push your design system into Claude Design, update CLAUDE.md in the same commit that changes the token names, so both sides stay aligned.\n\nThis is the complement to the per-session brand spec in Claude Design (which anchors Claude Design's output to your tokens). CLAUDE.md anchors Claude Code's implementation to the components that already exist.\n\n**Sources:** [CLAUDE.md project memory — code.claude.com](https://code.claude.com/docs/en/memory) · [Bridging Claude Design and Claude Code — DEV Community](https://dev.to/hrekov/bridging-claude-design-and-claude-code-3jbk) · [Claude Design to Claude Code workflow — flowpoint.ai](https://flowpoint.ai/blog/claude-design-to-claude-code)"
+  },
+  {
+    "id": "2026-11-24-02-review-md-claude-code-review-project-rules-custom-codebase",
+    "title": "Code Review Runs Generic Rules on Every PR Until You Add a REVIEW.md — Here's What to Put in It",
+    "excerpt": "Claude Code Review looks for REVIEW.md at your repo root before it starts. If the file exists, those rules augment its default behavior — give it your actual codebase conventions, not generic ones.",
+    "author": "Chris Harper",
+    "date": "11-24-2026",
+    "publishedAt": "2026-11-24T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/code-review",
+    "content": "**Claude Code Review checks for a `REVIEW.md` at your repo root before it runs. Without one, it applies generic rules. With one, it applies yours.**\n\nThe file is plain Markdown. Write it like instructions for a thorough reviewer who knows nothing about your team's conventions:\n\n```markdown\n# Review rules\n\n- This codebase uses Prisma. Flag any raw SQL or manual query construction.\n- Database migrations live in `prisma/migrations/`. A PR that edits schema.prisma\n  without a new migration file is incomplete.\n- All React components must import types from `@/types/` — no inline `any`.\n- Price formatting must use `lib/currency.ts`. Do not call `Intl.NumberFormat` directly.\n- Never approve a commit that removes a test without an inline comment explaining why.\n- API routes under `app/api/` must validate request bodies with Zod before accessing them.\n```\n\nThe structure that works:\n\n1. **Scope constraints** — which files or patterns Code Review should focus on\n2. **Known failure modes** — the bugs your team actually ships (not hypothetical ones)\n3. **Conventions a linter can't catch** — file ownership, library choices, naming patterns\n4. **Never-approve rules** — your absolute lines for security, data, or test coverage\n\n**Where to find what belongs in this file:** Your last five rejected PRs. The patterns that keep appearing in your code reviews as human comments. Anything your linter flags but doesn't block.\n\n**The limit:** REVIEW.md rules are additive — they extend Code Review's defaults, not replace them. There is no mechanism to disable a built-in rule you disagree with. If a default rule is noisy for your codebase (say, it flags a pattern you use deliberately), the only current mitigation is noting the exception in REVIEW.md so Claude Code treats it as intentional.\n\nAlso worth knowing: Code Review runs as a neutral GitHub check, so it can't block a merge on its own — it surfaces findings for human review. What REVIEW.md does is make those findings relevant to your actual codebase, not a generic one.\n\n**Sources:** [Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review) · [Set up Code Review — support.claude.com](https://support.claude.com/en/articles/14233555-set-up-code-review-for-claude-code) · [Automated PR review in GitHub Actions — DEV Community](https://dev.to/whoffagents/github-actions-claude-code-automated-pr-review-on-every-commit-510p)"
+  },
+  {
+    "id": "2026-11-24-01-claude-ship-code-review-ga-pr-steward-approvals-beta",
+    "title": "Claude Ship Launches: Code Review Moves to GA, PR Steward and Claude Approvals Hit Beta",
+    "excerpt": "Anthropic's Claude Ship suite launched November 23: Code Review is now generally available, while PR Steward (auto-fixes failing checks) and Claude Approvals (team-policy merges) are in public beta.",
+    "author": "Chris Harper",
+    "date": "11-24-2026",
+    "publishedAt": "2026-11-24T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "Claude Code",
+      "Developer Tools"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://techcrunch.com/2026/11/23/anthropic-launches-claude-ship-letting-ai-agents-review-fix-and-approve-code-changes/",
+    "content": "**Claude Ship landed November 23: Code Review is now generally available; PR Steward (auto-fixes failing checks) and Claude Approvals (merges under a team policy file) are in public beta. The `/ship` command drives the full PR cycle from Claude Code.**\n\n**The three components:**\n\n- **Code Review (GA):** Reviews a PR on open, on each push, or on demand with `@claude review`. Posts findings as a neutral GitHub check — it can't block a merge on its own. Skips draft PRs; forks require a manual `@claude review` comment.\n- **PR Steward (beta):** Receives Code Review's findings, attempts to fix failing checks, and pushes an amendment commit. For the common cases where Code Review spots something fixable, Steward does the fix without a manual round-trip.\n- **Claude Approvals (beta):** Evaluates a PR against a policy file you write and stamps approval when conditions are satisfied. Repository branch-protection rules still govern the actual merge — this doesn't bypass your required-reviewer count.\n\n**The `/ship` command:** Paid plan users can run `/ship` from Claude Code to push the current branch, open a PR, trigger review, and work through feedback in one flow. It counts as regular Claude Code usage.\n\n**Limits to know:** Anthropic reports an average cost of $15–25 per Code Review run, billed separately from plan usage. Both PR Steward and Claude Approvals are public beta and subject to change. Anthropic explicitly warns that Code Review may miss security flaws; it is advisory, not a replacement for human review. Code Review and Claude Ship are available on Team and Enterprise plans; the `/ship` command extends to paid individual plans.\n\n**Why it matters:** Automated review catches the boilerplate problems — missing migrations, stale tests, type escapes — before the human reviewer opens the PR. That shifts the human review to judgment calls instead of pattern matching.\n\n**Sources:** [Claude Ship launch — TechCrunch](https://techcrunch.com/2026/11/23/anthropic-launches-claude-ship-letting-ai-agents-review-fix-and-approve-code-changes) · [Claude Code Review docs](https://code.claude.com/docs/en/code-review) · [Set up Code Review — support.claude.com](https://support.claude.com/en/articles/14233555-set-up-code-review-for-claude-code)"
+  },
+  {
+    "id": "2026-11-24-03-qdrant-incremental-embedding-updates-knowledge-base-stale-vectors",
+    "title": "Your Knowledge Base Re-Embeds Everything When One Document Changes — Track Content Hashes So Only Altered Records Rebuild",
+    "excerpt": "Qdrant's incremental update tutorial builds a sync pipeline that stores a content hash and pipeline version on each vector — only documents whose hash changed get re-embedded on the next run.",
+    "author": "Chris Harper",
+    "date": "11-24-2026",
+    "publishedAt": "2026-11-24T04:04:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Embeddings",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://qdrant.tech/documentation/tutorials-operations/incremental-embedding-updates/",
+    "content": "**A sync pipeline that re-embeds only changed documents: store a content hash in each vector's payload, compare on each run, and skip unchanged records. Qdrant's official tutorial builds this end-to-end with a Colab notebook.**\n\n**What you'll be able to do after this:** Run a sync job that re-embeds only the documents that changed since the last run, skips unchanged records entirely, and deletes vectors for documents that were removed from the source — without re-scanning the whole collection.\n\n**Three-bullet takeaway:**\n- Store a content hash and pipeline version as payload metadata on each vector — if the incoming doc's hash matches the stored value, skip re-embedding and move on\n- Upsert by stable document ID (a hash of the document path, for example) — Qdrant replaces the whole point on upsert, so a re-run with an unchanged document lands with the same vectors, wasting one embed call but staying correct\n- Handle deletes explicitly: a naive sync that only processes \"active\" documents leaves stale vectors from removed docs that keep showing up in retrieval results — query all stored IDs, diff against your active set, delete the orphans\n\n**The core pattern in Python:**\n\n```python\nfrom qdrant_client import QdrantClient\nfrom qdrant_client.models import PointStruct\nimport hashlib\n\nclient = QdrantClient(\"https://your-cluster.qdrant.io\", api_key=\"...\")\n\ndef content_hash(text: str) -> str:\n    return hashlib.sha256(text.encode()).hexdigest()[:16]\n\ndef sync_document(doc_id: str, text: str, existing_hashes: dict):\n    h = content_hash(text)\n    if existing_hashes.get(doc_id) == h:\n        return  # unchanged — skip\n\n    vector = embed(text)  # your embedding call\n    client.upsert(\"my_kb\", points=[\n        PointStruct(\n            id=doc_id,\n            vector=vector,\n            payload={\"content_hash\": h, \"pipeline_version\": \"1.0\"}\n        )\n    ])\n    existing_hashes[doc_id] = h\n\ndef remove_deleted(active_ids: set, collection: str):\n    all_points, _ = client.scroll(collection, with_payload=[\"_id\"])\n    stale = [p.id for p in all_points if p.id not in active_ids]\n    if stale:\n        client.delete(collection, points_selector=stale)\n```\n\nThe official Qdrant tutorial walks through the full pipeline with Qdrant Cloud's free embedding inference and a runnable Colab notebook.\n\n**Limit:** Upserts are only safe for idempotent operations when you use stable, source-document-derived IDs. If the database uses store-generated keys, retrying a failed upsert creates duplicate records. Also: the `pipeline_version` field is how you trigger a full re-embed when you swap embedding models — bump the version and every record whose stored version doesn't match will re-embed on the next sync pass.\n\n**Sources:** [Incremental Embedding Updates — qdrant.tech](https://qdrant.tech/documentation/tutorials-operations/incremental-embedding-updates/) · [Maintaining index freshness — DEV Community](https://dev.to/beefedai/maintaining-index-freshness-incremental-updates-for-vector-databases-16eb) · [Qdrant upsert without recreating collection — oneuptime.com](https://oneuptime.com/blog/post/2026-08-28-how-to-upsert-new-qdrant-points-without-recreating-the-collection/view)"
+  },
+  {
     "id": "2026-11-23-07-mcp-resource-template-parameterized-uri-fastmcp-lookups",
     "title": "Your MCP Server Has a Tool for Every Row-by-ID Lookup — One Resource Template Replaces Them All",
     "excerpt": "MCP resource templates expose parameterized URIs (users://{id}) that clients read directly with resources/read — no tool call needed for read-only lookups, keeping your tool list focused on operati…",

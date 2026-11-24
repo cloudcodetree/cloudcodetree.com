@@ -10,7 +10,184 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Mon, 23 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Tue, 24 Nov 2026 04:07:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Every Claude Code Design Implementation Reinvents Your Component API — A Design Section in CLAUDE.md Ends That]]></title>
+      <link>https://code.claude.com/docs/en/memory</link>
+      <guid isPermaLink="false">2026-11-24-04-claude-md-design-system-section-component-api-token-names-implementation</guid>
+      <pubDate>Tue, 24 Nov 2026 04:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Add a design system block to CLAUDE.md listing your component paths, token file location, and icon set — Claude Code reads it before touching a file and stops re-inventing what already exists in your codebase.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Add a "Design system" block to CLAUDE.md listing your component names, token file, and naming conventions — Claude Code reads project memory before touching a file and stops re-inventing the library you already built.**
+
+When Claude Code implements a design from a handoff bundle or a description, it defaults to whatever feels standard — a bare `<Button>` where you have `<PrimaryButton variant="cta">`, or hardcoded hex values where you have CSS custom properties. The fix is a standing design system section in CLAUDE.md that every session inherits.
+
+```markdown
+## Design system
+
+Component library: `src/components/ui/`
+Token file: `src/styles/tokens.css`
+  — CSS custom properties: --color-primary, --color-surface, --color-text-muted,
+    --spacing-4, --radius-md
+Icon set: Heroicons v2 (`@heroicons/react/24/solid` or `/24/outline`)
+
+When implementing any UI:
+1. Use existing components from `src/components/ui/` before writing new ones
+2. Reference CSS custom properties from tokens.css — never hardcode hex values
+3. For layout use Tailwind classes; for brand color use the custom properties above
+4. If a component doesn't exist and needs creating, put it in `src/components/ui/`
+   with a named export, following the naming pattern already there
+```
+
+**What this changes in practice:** With this section present, the first draft of any design implementation uses `--color-primary` instead of `#1a56db`, your existing `<Card>` instead of a new `div` with the same styles, and your icon set rather than whatever appeared in Claude Code's training. Corrections shrink from layout-level to detail-level.
+
+**Pair it with per-task context:** When handing off a Claude Design bundle, add `Implement using the components and tokens in CLAUDE.md` to the prompt. Claude Code reads both the bundle structure and the project brief together.
+
+**The limit to plan around:** CLAUDE.md is manually maintained. Rename a token or move a component directory and the file falls out of sync — Claude Code will continue generating the old path until you update the entry. If you use `/design-sync` to push your design system into Claude Design, update CLAUDE.md in the same commit that changes the token names, so both sides stay aligned.
+
+This is the complement to the per-session brand spec in Claude Design (which anchors Claude Design's output to your tokens). CLAUDE.md anchors Claude Code's implementation to the components that already exist.
+
+**Sources:** [CLAUDE.md project memory — code.claude.com](https://code.claude.com/docs/en/memory) · [Bridging Claude Design and Claude Code — DEV Community](https://dev.to/hrekov/bridging-claude-design-and-claude-code-3jbk) · [Claude Design to Claude Code workflow — flowpoint.ai](https://flowpoint.ai/blog/claude-design-to-claude-code)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Code Review Runs Generic Rules on Every PR Until You Add a REVIEW.md — Here's What to Put in It]]></title>
+      <link>https://code.claude.com/docs/en/code-review</link>
+      <guid isPermaLink="false">2026-11-24-02-review-md-claude-code-review-project-rules-custom-codebase</guid>
+      <pubDate>Tue, 24 Nov 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Code Review looks for REVIEW.md at your repo root before it starts. If the file exists, those rules augment its default behavior — give it your actual codebase conventions, not generic ones.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <content:encoded><![CDATA[**Claude Code Review checks for a `REVIEW.md` at your repo root before it runs. Without one, it applies generic rules. With one, it applies yours.**
+
+The file is plain Markdown. Write it like instructions for a thorough reviewer who knows nothing about your team's conventions:
+
+```markdown
+# Review rules
+
+- This codebase uses Prisma. Flag any raw SQL or manual query construction.
+- Database migrations live in `prisma/migrations/`. A PR that edits schema.prisma
+  without a new migration file is incomplete.
+- All React components must import types from `@/types/` — no inline `any`.
+- Price formatting must use `lib/currency.ts`. Do not call `Intl.NumberFormat` directly.
+- Never approve a commit that removes a test without an inline comment explaining why.
+- API routes under `app/api/` must validate request bodies with Zod before accessing them.
+```
+
+The structure that works:
+
+1. **Scope constraints** — which files or patterns Code Review should focus on
+2. **Known failure modes** — the bugs your team actually ships (not hypothetical ones)
+3. **Conventions a linter can't catch** — file ownership, library choices, naming patterns
+4. **Never-approve rules** — your absolute lines for security, data, or test coverage
+
+**Where to find what belongs in this file:** Your last five rejected PRs. The patterns that keep appearing in your code reviews as human comments. Anything your linter flags but doesn't block.
+
+**The limit:** REVIEW.md rules are additive — they extend Code Review's defaults, not replace them. There is no mechanism to disable a built-in rule you disagree with. If a default rule is noisy for your codebase (say, it flags a pattern you use deliberately), the only current mitigation is noting the exception in REVIEW.md so Claude Code treats it as intentional.
+
+Also worth knowing: Code Review runs as a neutral GitHub check, so it can't block a merge on its own — it surfaces findings for human review. What REVIEW.md does is make those findings relevant to your actual codebase, not a generic one.
+
+**Sources:** [Claude Code Review — code.claude.com](https://code.claude.com/docs/en/code-review) · [Set up Code Review — support.claude.com](https://support.claude.com/en/articles/14233555-set-up-code-review-for-claude-code) · [Automated PR review in GitHub Actions — DEV Community](https://dev.to/whoffagents/github-actions-claude-code-automated-pr-review-on-every-commit-510p)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Claude Ship Launches: Code Review Moves to GA, PR Steward and Claude Approvals Hit Beta]]></title>
+      <link>https://techcrunch.com/2026/11/23/anthropic-launches-claude-ship-letting-ai-agents-review-fix-and-approve-code-changes/</link>
+      <guid isPermaLink="false">2026-11-24-01-claude-ship-code-review-ga-pr-steward-approvals-beta</guid>
+      <pubDate>Tue, 24 Nov 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Anthropic's Claude Ship suite launched November 23: Code Review is now generally available, while PR Steward (auto-fixes failing checks) and Claude Approvals (team-policy merges) are in public beta.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Developer Tools</category>
+      <content:encoded><![CDATA[**Claude Ship landed November 23: Code Review is now generally available; PR Steward (auto-fixes failing checks) and Claude Approvals (merges under a team policy file) are in public beta. The `/ship` command drives the full PR cycle from Claude Code.**
+
+**The three components:**
+
+- **Code Review (GA):** Reviews a PR on open, on each push, or on demand with `@claude review`. Posts findings as a neutral GitHub check — it can't block a merge on its own. Skips draft PRs; forks require a manual `@claude review` comment.
+- **PR Steward (beta):** Receives Code Review's findings, attempts to fix failing checks, and pushes an amendment commit. For the common cases where Code Review spots something fixable, Steward does the fix without a manual round-trip.
+- **Claude Approvals (beta):** Evaluates a PR against a policy file you write and stamps approval when conditions are satisfied. Repository branch-protection rules still govern the actual merge — this doesn't bypass your required-reviewer count.
+
+**The `/ship` command:** Paid plan users can run `/ship` from Claude Code to push the current branch, open a PR, trigger review, and work through feedback in one flow. It counts as regular Claude Code usage.
+
+**Limits to know:** Anthropic reports an average cost of $15–25 per Code Review run, billed separately from plan usage. Both PR Steward and Claude Approvals are public beta and subject to change. Anthropic explicitly warns that Code Review may miss security flaws; it is advisory, not a replacement for human review. Code Review and Claude Ship are available on Team and Enterprise plans; the `/ship` command extends to paid individual plans.
+
+**Why it matters:** Automated review catches the boilerplate problems — missing migrations, stale tests, type escapes — before the human reviewer opens the PR. That shifts the human review to judgment calls instead of pattern matching.
+
+**Sources:** [Claude Ship launch — TechCrunch](https://techcrunch.com/2026/11/23/anthropic-launches-claude-ship-letting-ai-agents-review-fix-and-approve-code-changes) · [Claude Code Review docs](https://code.claude.com/docs/en/code-review) · [Set up Code Review — support.claude.com](https://support.claude.com/en/articles/14233555-set-up-code-review-for-claude-code)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Knowledge Base Re-Embeds Everything When One Document Changes — Track Content Hashes So Only Altered Records Rebuild]]></title>
+      <link>https://qdrant.tech/documentation/tutorials-operations/incremental-embedding-updates/</link>
+      <guid isPermaLink="false">2026-11-24-03-qdrant-incremental-embedding-updates-knowledge-base-stale-vectors</guid>
+      <pubDate>Tue, 24 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Qdrant's incremental update tutorial builds a sync pipeline that stores a content hash and pipeline version on each vector — only documents whose hash changed get re-embedded on the next run.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Embeddings</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**A sync pipeline that re-embeds only changed documents: store a content hash in each vector's payload, compare on each run, and skip unchanged records. Qdrant's official tutorial builds this end-to-end with a Colab notebook.**
+
+**What you'll be able to do after this:** Run a sync job that re-embeds only the documents that changed since the last run, skips unchanged records entirely, and deletes vectors for documents that were removed from the source — without re-scanning the whole collection.
+
+**Three-bullet takeaway:**
+- Store a content hash and pipeline version as payload metadata on each vector — if the incoming doc's hash matches the stored value, skip re-embedding and move on
+- Upsert by stable document ID (a hash of the document path, for example) — Qdrant replaces the whole point on upsert, so a re-run with an unchanged document lands with the same vectors, wasting one embed call but staying correct
+- Handle deletes explicitly: a naive sync that only processes "active" documents leaves stale vectors from removed docs that keep showing up in retrieval results — query all stored IDs, diff against your active set, delete the orphans
+
+**The core pattern in Python:**
+
+```python
+from qdrant_client import QdrantClient
+from qdrant_client.models import PointStruct
+import hashlib
+
+client = QdrantClient("https://your-cluster.qdrant.io", api_key="...")
+
+def content_hash(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()[:16]
+
+def sync_document(doc_id: str, text: str, existing_hashes: dict):
+    h = content_hash(text)
+    if existing_hashes.get(doc_id) == h:
+        return  # unchanged — skip
+
+    vector = embed(text)  # your embedding call
+    client.upsert("my_kb", points=[
+        PointStruct(
+            id=doc_id,
+            vector=vector,
+            payload={"content_hash": h, "pipeline_version": "1.0"}
+        )
+    ])
+    existing_hashes[doc_id] = h
+
+def remove_deleted(active_ids: set, collection: str):
+    all_points, _ = client.scroll(collection, with_payload=["_id"])
+    stale = [p.id for p in all_points if p.id not in active_ids]
+    if stale:
+        client.delete(collection, points_selector=stale)
+```
+
+The official Qdrant tutorial walks through the full pipeline with Qdrant Cloud's free embedding inference and a runnable Colab notebook.
+
+**Limit:** Upserts are only safe for idempotent operations when you use stable, source-document-derived IDs. If the database uses store-generated keys, retrying a failed upsert creates duplicate records. Also: the `pipeline_version` field is how you trigger a full re-embed when you swap embedding models — bump the version and every record whose stored version doesn't match will re-embed on the next sync pass.
+
+**Sources:** [Incremental Embedding Updates — qdrant.tech](https://qdrant.tech/documentation/tutorials-operations/incremental-embedding-updates/) · [Maintaining index freshness — DEV Community](https://dev.to/beefedai/maintaining-index-freshness-incremental-updates-for-vector-databases-16eb) · [Qdrant upsert without recreating collection — oneuptime.com](https://oneuptime.com/blog/post/2026-08-28-how-to-upsert-new-qdrant-points-without-recreating-the-collection/view)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your MCP Server Has a Tool for Every Row-by-ID Lookup — One Resource Template Replaces Them All]]></title>
@@ -6284,194 +6461,10 @@ jobs:
 **Sources:** [Claude Code GitHub Actions docs — code.claude.com](https://code.claude.com/docs/en/github-actions) · [Autonomous PR review walkthrough — startdebugging.net](https://startdebugging.net/2026/05/how-to-run-claude-code-in-a-github-action-for-autonomous-pr-review/) · [Claude Code GitHub Actions CI/CD guide — wmedia.es](https://wmedia.es/en/tips/claude-code-github-actions-pr-review)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your RAG Retriever Misses Exact Product Names and Technical Identifiers — Combine BM25 and Vector Search With `EnsembleRetriever` for the Gaps Dense Embeddings Can't Fill]]></title>
-    <link>https://python.langchain.com/docs/how_to/ensemble_retriever/</link>
-    <guid isPermaLink="false">2026-11-06-05-bm25-ensemble-retriever-hybrid-search-langchain-rag</guid>
-    <pubDate>Fri, 06 Nov 2026 12:09:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Dense embeddings encode meaning but struggle with rare tokens, product names, and exact identifiers. BM25 handles those. LangChain EnsembleRetriever merges both with Reciprocal Rank Fusion in under 10 lines.</description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: Dense embeddings miss exact product names, error codes, and rare tokens that BM25 catches; `EnsembleRetriever` merges both retrievers via Reciprocal Rank Fusion in under 10 lines.**
+  
 
-**What you'll be able to do after this:** add a BM25 retriever alongside your existing vector store, merge their results with weighted RRF, and get higher recall on queries that contain identifiers, model names, or technical terms your embedding model blurs together.
-
-**Why dense alone falls short:**
-
-Embedding models compress semantics. That's a feature for paraphrase matching — but it's a bug when the query is `"gpt-4o-mini"` and your corpus mentions `"gpt-4o-mini"` exactly. The embedding treats those as nearly identical to `"GPT-4o Mini"`, `"OpenAI mini model"`, and sometimes `"small GPT"`. BM25 uses token overlap: if the query term appears in the document, it scores it, regardless of semantic similarity.
-
-The pattern that works: BM25 for recall on exact terms and rare tokens; dense vectors for recall on synonyms and paraphrases; RRF to merge.
-
-**Setup:**
-
-```bash
-pip install rank_bm25 langchain-community
-```
-
-```python
-from langchain_community.retrievers import BM25Retriever
-from langchain_community.vectorstores import Chroma
-from langchain.retrievers import EnsembleRetriever
-
-# Your existing docs list
-bm25_retriever = BM25Retriever.from_documents(docs)
-bm25_retriever.k = 5
-
-vector_store = Chroma.from_documents(docs, embedding=embeddings)
-vector_retriever = vector_store.as_retriever(search_kwargs={"k": 5})
-
-ensemble = EnsembleRetriever(
-    retrievers=[bm25_retriever, vector_retriever],
-    weights=[0.4, 0.6]
-)
-
-results = ensemble.invoke("gpt-4o-mini rate limits")
-```
-
-`EnsembleRetriever` runs both retrievers in parallel, then merges their ranked lists using Reciprocal Rank Fusion. Documents that rank highly in both lists float to the top; documents that only appear in one are penalized proportionally. The `weights` parameter scales RRF scores before fusion — 0.4/0.6 biases toward semantic similarity while still giving BM25 a meaningful voice.
-
-**Three things that break this in production:**
-
-1. **BM25 rebuilds from scratch on update** — there's no incremental index; every new document means rebuilding the full BM25 index. At a few thousand documents this is fast (< 1 second); at a million it becomes a bottleneck. At that scale, use a vector store with native sparse support (Qdrant and Elasticsearch both offer hybrid retrieval without maintaining a separate BM25 index).
-2. **Weights need tuning per domain** — the default 0.5/0.5 split works for general text; technical documentation with many exact identifiers often benefits from 0.5+ weight on BM25.
-3. **Deduplication by content hash** — `EnsembleRetriever` deduplicates by document content. If your documents have different metadata but identical text, only one copy comes back. Use distinct content or handle deduplication upstream.
-
-**Sources:** [EnsembleRetriever how-to — python.langchain.com](https://python.langchain.com/docs/how_to/ensemble_retriever/) · [BM25Retriever integration — python.langchain.com](https://python.langchain.com/docs/integrations/providers/rank_bm25) · [Hybrid search with BM25 and semantic search — blog.lancedb.com](https://blog.lancedb.com/hybrid-search-combining-bm25-and-semantic-search-for-better-results-with-lan-1358038fe7e6) · [How to Use Hybrid Search for Better LLM RAG Retrieval — learn.aisingapore.org](https://learn.aisingapore.org/2024/08/how-to-use-hybrid-search-for-better-llm-rag-retrieval-by-dr-leon-eversberg-aug-2024/)]]></content:encoded>
-  </item>
-
-<item>
-    <title><![CDATA[Your CLAUDE.md Has 200 Lines Because You've Never Run /doctor — It Flags Codebase-Derivable Content and Warns When You Cross 40 K Characters]]></title>
-    <link>https://code.claude.com/docs/en/best-practices</link>
-    <guid isPermaLink="false">2026-11-06-03-claude-code-doctor-audit-claude-md-trim-codebase-derivable</guid>
-    <pubDate>Fri, 06 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Run /doctor in Claude Code to find CLAUDE.md bloat — it flags size warnings at 40 K characters and identifies content Claude can already derive from your committed files.</description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: `/doctor` audits your CLAUDE.md for size bloat and content Claude could derive from the codebase itself; v2.1.206 (July 2026) added the codebase-derivable check.**
-
-Every line in CLAUDE.md loads on every request. Rules that document things Claude can already read from your project — the tech stack, the directory layout, that you're on Node 22 — burn context window on every conversation and can mask real conflicts. `/doctor` checks for this.
-
-**What /doctor flags:**
-
-```
-/doctor
-```
-
-1. **CLAUDE.md size** — warns when you cross 40 K characters (community-tested threshold; not stated in official docs). Over that, every conversation starts with a heavy always-on load.
-2. **Codebase-derivable content** — added in v2.1.206. If CLAUDE.md documents things visible in package.json, tsconfig, the directory tree, or other committed files, `/doctor` proposes removing them. Claude reads those files; the CLAUDE.md copy is redundant noise.
-3. **Local vs. committed duplicates** — if your user CLAUDE.md (`~/.claude/CLAUDE.md`) restates rules from the project file, it flags the overlap.
-
-**How to trim:**
-
-Review each proposed cut before accepting. `/doctor` can't tell whether a rule is there for a reason it couldn't discover — a one-line override for a framework default, an edge case that bit the team. When in doubt, keep it and add a brief inline note explaining why it's explicit.
-
-Practical order: remove tech-stack documentation first (Claude reads package.json and tsconfig), then remove directory descriptions that match what an `ls` already shows. Keep anything that overrides a default, resolves an ambiguity, or records a past mistake.
-
-**Limit:** `/doctor` reports tooling mismatches (missing Node version, broken MCP connections) but doesn't fix them — structural problems require manual repair. And the 40 K size threshold comes from community testing, not official docs; treat it as a signal, not a hard rule.
-
-**Sources:** [Claude Code best practices — code.claude.com](https://code.claude.com/docs/en/best-practices) · [/doctor command guide 2026 — thepromptshelf.dev](https://thepromptshelf.dev/blog/claude-code-doctor-checkup-command-guide-2026/) · [v2.1.206 release notes — dev.classmethod.jp](https://dev.classmethod.jp/en/articles/20260710-cc-updates-v2-1-206/)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Existing Component Lives in Code and You Want to Explore a Visual Change — /design export Pushes It Into Claude Design as a Live Prototype]]></title>
-    <link>https://support.claude.com/en/articles/14604416-get-started-with-claude-design</link>
-    <guid isPermaLink="false">2026-11-06-02-design-export-claude-code-live-prototype-reverse-round-trip</guid>
-    <pubDate>Fri, 06 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Use /design export in Claude Code to push an existing component into Claude Design as a live prototype, explore visual changes in the design surface, then import the result back as code.</description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: `/design export` takes an existing component from your codebase into Claude Design as a live visual prototype; `/design import` brings the design changes back as code edits — the reverse of the standard handoff direction.**
-
-**What you'll be able to do after this:** Take a component that already exists in your codebase, push it into Claude Design for visual exploration without touching the codebase, make layout or styling changes in the design surface, and pull those changes back as code — without rebuilding from a screenshot.
-
-**Three things to know before you start:**
-
-- `/design export` reads your component and creates an editable Claude Design prototype; `/design import <id>` applies design changes back as code edits in Claude Code (requires v2.1.233+, research preview on Pro/Max/Team/Enterprise)
-- Claude Design uses your Tailwind config, CSS tokens, and component exports as generation context, so explorations start from what your app actually renders rather than generic defaults
-- The bundle carries visual structure and styling; it doesn't carry runtime behavior, API calls, or state management — expect to wire those after the import
-
-**Walk-through:**
-
-```bash
-# Step 1: Export an existing component as a Claude Design prototype
-/design export --component src/components/CheckoutSummary.tsx
-
-# Claude publishes a live prototype and returns the project ID
-# Design project created: cd_proj_abc123
-# View at: https://claude.ai/design/cd_proj_abc123
-
-# Step 2: Open the link in Claude Design (browser)
-# Explore layout changes, spacing adjustments, variant directions
-# No code changes needed during this phase — iterate freely
-
-# Step 3: Pull design changes back into the codebase
-/design import cd_proj_abc123
-# Claude Code reads the updated bundle and applies
-# visual changes as code edits to the component file
-```
-
-**What survives the return trip:** layout changes, spacing, color tokens, component hierarchy. **What doesn't:** any behavior wired up after the last export — route handlers, fetch calls, context subscriptions need re-review after the import.
-
-**How this differs from `/design-sync`:** Sync pushes your design system (all components, tokens) into the canvas as a generation context. Export starts from one specific component in code and creates a prototype of it. Use export when you're exploring a rework of something that already exists; use sync when starting a new feature from scratch.
-
-A hands-on test from April 2026 found that Claude Design reads your component files as design artifacts, not as an editable component graph — the generated canvas looks right but isn't directly linked to your library's internals. That gap means you should treat the round-trip as "visual diff to apply," not as a lossless sync.
-
-**Sources:** [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design) · [Claude Design hands-on: what it generates and what it doesn't — ice-ice-bear.github.io](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/) · [/design skill, w34 release notes — code.claude.com](https://code.claude.com/docs/en/whats-new/2026-w34)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[The Standalone claude.ai/design Site Closes December 14 — Migrate Your Design Systems Through Artifacts Before Then or Lose Your Projects]]></title>
-    <link>https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude</link>
-    <guid isPermaLink="false">2026-11-06-01-claude-design-standalone-closing-december-14-migrate</guid>
-    <pubDate>Fri, 06 Nov 2026 04:02:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description>Anthropic's official migration guide confirms claude.ai/design shuts down December 14, 2026. Design systems migrate through Artifacts; chats, comments, and public share links are permanently deleted.</description>
-    <category>AI</category>
-    <category>News</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**TL;DR: claude.ai/design shuts down December 14, 2026; design systems migrate through the Artifacts page in Claude, but chats, comments, and public share links are permanently deleted.**
-
-Anthropic's [official migration guide](https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude) confirms the closure. After December 14 the standalone address redirects to Claude.
-
-**What moves:**
-
-- **Design systems** — migrate one to bring over all systems in the organization, via the Artifacts page in Claude
-- **Project files** — open projects carry over into Claude
-
-**What doesn't:**
-
-- Chats and comments in the standalone site are deleted permanently
-- Public share links break — anyone visiting an old `/design` share URL loses access
-- No export-and-reimport path for chat history
-
-**Where to work after closure:**
-
-The design workflow continues through two paths:
-
-1. **Claude.ai** — design systems live alongside conversations in Artifacts; the canvas is accessible from any Claude conversation
-2. **Claude Code** — the `/design` skill (research preview, v2.1.233+) lets you create, edit, import, and export designs without leaving the terminal, and connects to Claude Design via MCP
-
-If you've used the standalone site and have design systems there, the migration window is about 38 days from today.
-
-**Why it matters:** Public project links break permanently. If you've shared a claude.ai/design URL with a team, embedded it in documentation, or used it as a client handoff link, replace those links before December 14. Chats contain prompt history that isn't downloadable after closure — save anything you'd want to reference.
-
-**Sources:** [Migrate from standalone Claude Design — support.claude.com](https://support.claude.com/en/articles/17440474-migrate-from-standalone-claude-design-to-claude) · [Claude Design migration walkthrough — memorylake.ai](https://www.memorylake.ai/en/blogs/migrate-claude-design-to-claude-code) · [Get started with Claude Design — support.claude.com](https://support.claude.com/en/articles/14604416-get-started-with-claude-design)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
