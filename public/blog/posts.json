@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-25-08-claude-design-responsive-layout-failures-readme-flex-wrap-max-width",
+    "title": "Claude Design Outputs Fixed-Canvas Layouts and Doesn't Know About 375px — Four Lines in the Bundle README Prevent the Three Failures That Break on Mobile",
+    "excerpt": "Before porting a Claude Design bundle, add a responsive behavior section to the README — it prevents fixed widths, non-wrapping flex rows, and missing overflow rules from landing in your codebase.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T20:04:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff",
+    "content": "**Before porting a Claude Design bundle to Claude Code, add a responsive behavior section to the README — it prevents the three fixed-canvas artifacts that break on mobile from landing in your codebase.**\n\nClaude Design generates from a fixed-width artboard. The layout is correct on the design canvas. When Claude Code implements it, it reproduces the structure faithfully — which means it also reproduces the fixed-canvas artifacts: pixel widths, flex rows without `flex-wrap`, containers without scroll. The result looks right on a laptop and breaks on a phone.\n\n**The three failures that come from every fixed-canvas artboard:**\n\n1. **Fixed widths instead of fluid containers.** A 1,200px artboard generates `width: 1200px`. Without an instruction, Claude Code doesn't know to use `max-width: 75rem; width: 100%`.\n\n2. **Flex rows that never wrap.** A four-card row on a wide artboard becomes `display: flex; gap: 1.5rem` with no `flex-wrap: wrap` and no breakpoint column rule. At 375px it overflows horizontally.\n\n3. **No overflow on wide content.** Code blocks, tables, and long pre-formatted content overflow their containers on a narrow screen. Claude Design renders at full width; the overflow guard doesn't appear in the bundle.\n\n**The fix: add a responsive behavior block to the bundle README before exporting.**\n\nThe bundle README is a Markdown file Claude Code reads before it writes any implementation. Add this section at the top:\n\n```\n## Responsive behavior\n- Outer wrappers: max-width 75rem, width 100%, margin 0 auto\n- Card grids: 4 col ≥1024px → 2 col ≥640px → 1 col below\n- Code blocks, tables, pre: overflow-x: auto\n```\n\nClaude Code treats the README as implementation guidance, so this section prevents the three failures before any code is written. Adjust breakpoints to match your project's grid.\n\n**After implementation, do a three-breakpoint check** at 375px, 768px, and 1,280px in browser DevTools before merging. Responsive layout from a fixed artboard will always need a human review pass — the README reduces the rework, it doesn't eliminate it.\n\n**Limit:** The README can't encode every edge case. Deeply nested flex/grid layouts, aspect-ratio images, and sticky headers each have their own responsive failure modes. The three rules above catch the most common ones from Claude Design; the rest need a visual check.\n\n**Sources:** [Claude Design handoff guide — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Claude Code for designers: responsive layout — piazr.github.io](https://piazr.github.io/claude-code-for-designers/chapters/05.html) · [MDN: Responsive design overview — developer.mozilla.org](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Responsive_Design)"
+  },
+  {
+    "id": "2026-11-25-07-claude-code-debug-flag-jsonl-session-log-tool-calls",
+    "title": "Your Claude Code Session Does the Wrong Thing and You Can't See Why — `--debug` Writes Every Tool Call to `~/.claude/debug/latest` as JSONL",
+    "excerpt": "Run claude --debug to log every tool call, permission decision, and model response to ~/.claude/debug/latest as JSONL — open it after a confusing session to see exactly what happened and why.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T20:03:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/monitoring-usage",
+    "content": "**Run `claude --debug` to write a JSONL log of every tool call, permission decision, and model response to `~/.claude/debug/latest` — open it after a confusing session to see exactly what happened and why.**\n\nWhen a Claude Code session does the wrong thing — edits a file you didn't expect, skips a step, makes a tool call you can't explain — the terminal shows one-line summaries. `--debug` turns on session logging.\n\n```bash\nclaude --debug \"refactor the auth module\"\n# logs written to ~/.claude/debug/<session-id>.jsonl\n# latest symlink always points to the most recent log\n```\n\nThe log is newline-delimited JSON. Each line is one event: a tool call with its full input and output, a permission request and its result, or a model response. Query it with `jq`:\n\n```bash\n# Every tool call, in order\njq 'select(.type==\"tool_use\") | {tool: .name, input: .input}' \\\n  ~/.claude/debug/latest\n\n# Calls that triggered a permission prompt\njq 'select(.type==\"permission_request\")' ~/.claude/debug/latest\n\n# Any errored tool calls\njq 'select(.type==\"tool_result\" and .is_error==true)' \\\n  ~/.claude/debug/latest\n```\n\n`--debug-file <path>` redirects the log to a custom location; this also enables debug logging automatically without a separate flag.\n\n**`ANTHROPIC_LOG=debug`** goes deeper: it logs raw HTTP requests and responses between Claude Code and the API. Use it only for diagnosing API-level issues (auth failures, rate limits, unexpected model responses). **Do not set it when using the Agent SDK** — a known issue causes debug output to write to stdout, which corrupts the JSON protocol the SDK uses for parent-child communication. There is an open GitHub issue tracking this. For the top-level Claude Code CLI, it is safe.\n\n**Limits:** Debug logs contain full tool outputs — file content, bash output, everything Claude touched. `~/.claude/debug/` stores them in plain text with no expiry. On shared machines, rotate or delete the directory when done. The `--debug-file` flag redirects to a path you control.\n\n**Sources:** [Claude Code monitoring and usage — code.claude.com](https://code.claude.com/docs/en/monitoring-usage) · [GitHub issue: ANTHROPIC_LOG=debug corrupts Agent SDK JSON protocol — github.com/anthropics](https://github.com/anthropics/claude-agent-sdk-typescript/issues/157) · [DEV Community: Anatomy of a Claude Code event — dev.to](https://dev.to/ivanychev/anatomy-of-a-claude-code-event-oc0)"
+  },
+  {
     "id": "2026-11-25-06-claude-design-handoff-bundle-readme-interaction-notes-before-port",
     "title": "Your Claude Design Bundle Describes Each Interactive State in Prose — Expand the README Before Claude Code Implements the Wrong State Machine",
     "excerpt": "Claude Design's handoff bundle carries screenshots of each interactive state and a prose README, not state machine logic. Expand the interaction notes before passing to Claude Code, not after.",

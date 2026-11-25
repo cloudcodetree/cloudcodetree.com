@@ -10,7 +10,97 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 25 Nov 2026 12:07:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 25 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Claude Design Outputs Fixed-Canvas Layouts and Doesn't Know About 375px — Four Lines in the Bundle README Prevent the Three Failures That Break on Mobile]]></title>
+      <link>https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff</link>
+      <guid isPermaLink="false">2026-11-25-08-claude-design-responsive-layout-failures-readme-flex-wrap-max-width</guid>
+      <pubDate>Wed, 25 Nov 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Before porting a Claude Design bundle, add a responsive behavior section to the README — it prevents fixed widths, non-wrapping flex rows, and missing overflow rules from landing in your codebase.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Before porting a Claude Design bundle to Claude Code, add a responsive behavior section to the README — it prevents the three fixed-canvas artifacts that break on mobile from landing in your codebase.**
+
+Claude Design generates from a fixed-width artboard. The layout is correct on the design canvas. When Claude Code implements it, it reproduces the structure faithfully — which means it also reproduces the fixed-canvas artifacts: pixel widths, flex rows without `flex-wrap`, containers without scroll. The result looks right on a laptop and breaks on a phone.
+
+**The three failures that come from every fixed-canvas artboard:**
+
+1. **Fixed widths instead of fluid containers.** A 1,200px artboard generates `width: 1200px`. Without an instruction, Claude Code doesn't know to use `max-width: 75rem; width: 100%`.
+
+2. **Flex rows that never wrap.** A four-card row on a wide artboard becomes `display: flex; gap: 1.5rem` with no `flex-wrap: wrap` and no breakpoint column rule. At 375px it overflows horizontally.
+
+3. **No overflow on wide content.** Code blocks, tables, and long pre-formatted content overflow their containers on a narrow screen. Claude Design renders at full width; the overflow guard doesn't appear in the bundle.
+
+**The fix: add a responsive behavior block to the bundle README before exporting.**
+
+The bundle README is a Markdown file Claude Code reads before it writes any implementation. Add this section at the top:
+
+```
+## Responsive behavior
+- Outer wrappers: max-width 75rem, width 100%, margin 0 auto
+- Card grids: 4 col ≥1024px → 2 col ≥640px → 1 col below
+- Code blocks, tables, pre: overflow-x: auto
+```
+
+Claude Code treats the README as implementation guidance, so this section prevents the three failures before any code is written. Adjust breakpoints to match your project's grid.
+
+**After implementation, do a three-breakpoint check** at 375px, 768px, and 1,280px in browser DevTools before merging. Responsive layout from a fixed artboard will always need a human review pass — the README reduces the rework, it doesn't eliminate it.
+
+**Limit:** The README can't encode every edge case. Deeply nested flex/grid layouts, aspect-ratio images, and sticky headers each have their own responsive failure modes. The three rules above catch the most common ones from Claude Design; the rest need a visual check.
+
+**Sources:** [Claude Design handoff guide — claude-code-playbook.pages.dev](https://claude-code-playbook.pages.dev/en/docs/level-4/claude-design-handoff) · [Claude Code for designers: responsive layout — piazr.github.io](https://piazr.github.io/claude-code-for-designers/chapters/05.html) · [MDN: Responsive design overview — developer.mozilla.org](https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout/Responsive_Design)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Does the Wrong Thing and You Can't See Why — `--debug` Writes Every Tool Call to `~/.claude/debug/latest` as JSONL]]></title>
+      <link>https://code.claude.com/docs/en/monitoring-usage</link>
+      <guid isPermaLink="false">2026-11-25-07-claude-code-debug-flag-jsonl-session-log-tool-calls</guid>
+      <pubDate>Wed, 25 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Run claude --debug to log every tool call, permission decision, and model response to ~/.claude/debug/latest as JSONL — open it after a confusing session to see exactly what happened and why.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Run `claude --debug` to write a JSONL log of every tool call, permission decision, and model response to `~/.claude/debug/latest` — open it after a confusing session to see exactly what happened and why.**
+
+When a Claude Code session does the wrong thing — edits a file you didn't expect, skips a step, makes a tool call you can't explain — the terminal shows one-line summaries. `--debug` turns on session logging.
+
+```bash
+claude --debug "refactor the auth module"
+# logs written to ~/.claude/debug/<session-id>.jsonl
+# latest symlink always points to the most recent log
+```
+
+The log is newline-delimited JSON. Each line is one event: a tool call with its full input and output, a permission request and its result, or a model response. Query it with `jq`:
+
+```bash
+# Every tool call, in order
+jq 'select(.type=="tool_use") | {tool: .name, input: .input}' \
+  ~/.claude/debug/latest
+
+# Calls that triggered a permission prompt
+jq 'select(.type=="permission_request")' ~/.claude/debug/latest
+
+# Any errored tool calls
+jq 'select(.type=="tool_result" and .is_error==true)' \
+  ~/.claude/debug/latest
+```
+
+`--debug-file <path>` redirects the log to a custom location; this also enables debug logging automatically without a separate flag.
+
+**`ANTHROPIC_LOG=debug`** goes deeper: it logs raw HTTP requests and responses between Claude Code and the API. Use it only for diagnosing API-level issues (auth failures, rate limits, unexpected model responses). **Do not set it when using the Agent SDK** — a known issue causes debug output to write to stdout, which corrupts the JSON protocol the SDK uses for parent-child communication. There is an open GitHub issue tracking this. For the top-level Claude Code CLI, it is safe.
+
+**Limits:** Debug logs contain full tool outputs — file content, bash output, everything Claude touched. `~/.claude/debug/` stores them in plain text with no expiry. On shared machines, rotate or delete the directory when done. The `--debug-file` flag redirects to a path you control.
+
+**Sources:** [Claude Code monitoring and usage — code.claude.com](https://code.claude.com/docs/en/monitoring-usage) · [GitHub issue: ANTHROPIC_LOG=debug corrupts Agent SDK JSON protocol — github.com/anthropics](https://github.com/anthropics/claude-agent-sdk-typescript/issues/157) · [DEV Community: Anatomy of a Claude Code event — dev.to](https://dev.to/ivanychev/anatomy-of-a-claude-code-event-oc0)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Claude Design Bundle Describes Each Interactive State in Prose — Expand the README Before Claude Code Implements the Wrong State Machine]]></title>
@@ -6347,139 +6437,8 @@ curl -X DELETE https://api.anthropic.com/v1/admin/sessions/<session_id> \
 **Sources:** [Claude Enterprise release notes — Anthropic support](https://support.claude.com/en/articles/12138966-release-notes) · [Anthropic puts inline DLP inside Claude Enterprise — Unite.AI](https://www.unite.ai/anthropic-puts-inline-data-loss-prevention-inside-claude-enterprise/) · [Claude Enterprise inference hooks: a protocol review — mint.security](https://www.mint.security/blog/claude-enterprise-inference-hooks-a-protocol-review)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Every Claude Client Gets Its Own Hard-Coded Tool Integration Until You Build One MCP Server — `@mcp.tool()` Exposes Any Python Function to All Clients Without Duplication]]></title>
-    <link>https://modelcontextprotocol.io/docs/develop/build-server</link>
-    <guid isPermaLink="false">2026-11-08-01-mcp-server-python-fastmcp-tool-resource-build</guid>
-    <pubDate>Sun, 08 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Define tools and resources once in a Python MCP server with `@mcp.tool()` and `@mcp.resource()` decorators; test with the MCP Inspector via `mcp dev server.py`, then register with Claude Code using one command.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>MCP</category>
-    <category>Agents</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Write a Python function, decorate it with `@mcp.tool()`, and every MCP-compatible client — including Claude Code — can call it without a separate integration per client.**
-
-Before MCP, connecting an internal API to Claude Code meant a custom tool definition in every session config. Connect it to Cursor, same thing. Connect it to a Claude-powered agent, another integration. MCP flips that: you build the server once, and clients discover it over a standard protocol.
-
-**Install and scaffold:**
-
-```bash
-uv add "mcp[cli]"
-```
-
-```python
-from mcp.server.fastmcp import FastMCP  # SDK v1.x; check official docs for v2 import path
-
-mcp = FastMCP("my-tools")
-
-@mcp.tool()
-def get_latest_metrics(service: str, hours: int = 24) -> str:
-    """Return the last N hours of p99 latency for a service."""
-    # Replace with a real metrics API call
-    return f"p99 for {service}: 42ms (last {hours}h)"
-
-@mcp.resource("docs://{path}")
-def get_internal_doc(path: str) -> str:
-    """Return an internal doc by path."""
-    return open(f"docs/{path}").read()
-
-if __name__ == "__main__":
-    mcp.run()
-```
-
-The docstring is the tool description Claude sees when deciding whether to call it — write it as you would a function signature comment.
-
-**Test with the MCP Inspector:**
-
-```bash
-mcp dev server.py
-```
-
-This starts a local web UI at `http://localhost:5173` where you can invoke tools and resources interactively before wiring up any client. It's the fastest feedback loop for catching schema errors.
-
-**Register with Claude Code:**
-
-```bash
-claude mcp add my-tools --transport stdio -- uv run python server.py
-```
-
-Claude Code starts the server as a subprocess on `stdio` and injects the declared tools into every session automatically.
-
-**Where it breaks down:**
-
-- **stdio = local only.** The stdio transport connects one server to one client on the same machine. Sharing a server across machines or running it as a persistent service requires the Streamable HTTP transport (`mcp.run(transport="streamable-http")`), which is newer and less widely supported.
-- **Startup cost per session.** Claude Code starts the server fresh each session. Cold start for a Python server with heavy imports adds latency to the first tool call.
-- **Permission prompts still apply.** MCP tool calls go through Claude Code's standard permission model — Claude will still ask before running destructive tools unless you've pre-allowed them.
-
-**Sources:** [Build an MCP server — official quickstart](https://modelcontextprotocol.io/docs/develop/build-server) · [python-sdk — GitHub](https://github.com/modelcontextprotocol/python-sdk) · [MCP quickstart resources — GitHub](https://github.com/modelcontextprotocol/quickstart-resources)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your CI Eval Loop Waits for Each Inference Call Before Starting the Next — Anthropic's Message Batches API Submits All Requests at Once and Returns Results at Half Cost]]></title>
-    <link>https://docs.claude.com/en/docs/build-with-claude/message-batches</link>
-    <guid isPermaLink="false">2026-11-07-06-anthropic-message-batches-async-bulk-eval</guid>
-    <pubDate>Sat, 07 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Submit up to 100k requests as a single batch job; Anthropic charges 50% of standard rates and returns results as a .jsonl file. Good for eval runs, bulk classification, and document pipelines.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Best Practices</category>
-    <category>LLM</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Anthropic reports 50% cost reduction on the Message Batches API for async workloads — submit up to 100k requests in one call, pick up results as a `.jsonl` file when the batch completes.**
-
-A synchronous eval loop — one inference call per test case, waiting for each before the next — is the most expensive way to run evaluations. The Message Batches API submits every request in one call and handles rate-limit queuing on Anthropic's side. Per Anthropic's pricing page, all usage on the Batches API is billed at 50% of standard rates; that discount stacks with prompt caching.
-
-**How it works:**
-
-```python
-import anthropic, time
-
-client = anthropic.Anthropic()
-
-# 1. Build request list (same params as a standard Messages call)
-requests = [
-    {
-        "custom_id": f"eval-{i}",
-        "params": {
-            "model": "claude-sonnet-5-5",
-            "max_tokens": 512,
-            "messages": [{"role": "user", "content": f"Classify: {text}"}],
-        }
-    }
-    for i, text in enumerate(test_cases)
-]
-
-# 2. Submit
-batch = client.messages.batches.create(requests=requests)
-
-# 3. Poll until complete
-while batch.processing_status == "in_progress":
-    time.sleep(60)
-    batch = client.messages.batches.retrieve(batch.id)
-
-# 4. Stream results (.jsonl, arbitrary order)
-for result in client.messages.batches.results(batch.id):
-    if result.result.type == "succeeded":
-        print(result.custom_id, result.result.message.content[0].text)
-```
-
-`custom_id` ties each result back to your input — results arrive in arbitrary order, so keep it meaningful (e.g. the test-case id, the document path).
-
-**Good fits:** CI eval pipelines, nightly document classification or extraction, bulk summarization, offline enrichment jobs — anything where waiting an hour for the full batch beats paying double for real-time throughput.
-
-**Where it breaks down:**
-
-- **Not eligible for Zero Data Retention.** Per the official docs, data is retained under the standard retention policy for the feature. If ZDR is a compliance requirement, batch mode won't satisfy it — use the standard Messages API instead.
-- **Batches expire after 24 hours.** Most complete in under an hour, but Anthropic publishes no SLA for completion time. Don't schedule batch jobs without a timeout handler.
-- **No streaming.** Results arrive as a completed `.jsonl` file. Partial progress isn't visible until the batch ends, so this isn't a fit for anything that surfaces incremental output to a user.
-- **Rate limits still apply.** You can't bypass per-minute limits by batching; the batch endpoint itself has its own limits. See the current batch processing guide for the per-account caps.
-
-**Sources:** [Message Batches API — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/message-batches) · [Batch processing guide — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/batch-processing.md) · [Message Batching: when 50% off is worth the latency — DEV Community](https://dev.to/gabrielanhaia/anthropic-message-batching-when-50-off-is-worth-the-latency-4jfc)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
