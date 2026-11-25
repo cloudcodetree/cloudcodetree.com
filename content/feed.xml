@@ -10,7 +10,221 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Tue, 24 Nov 2026 20:03:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 25 Nov 2026 04:06:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Existing Component Has State, Props, and Variants You'd Have to Reconstruct — Pull the Design System Into Claude Design First So Redesigns Start From Reality]]></title>
+      <link>https://claude.com/blog/claude-design-stays-on-brand-for-daily-work</link>
+      <guid isPermaLink="false">2026-11-25-04-design-sync-code-to-claude-design-reverse-round-trip</guid>
+      <pubDate>Wed, 25 Nov 2026 04:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Run /design-sync in Claude Code before opening Claude Design and your redesign canvas starts from your actual components, tokens, and variants — not the tool's placeholder defaults.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Run `/design-sync` in a Claude Code session before opening Claude Design, and your redesign canvas starts from your actual components, tokens, and variants — not the tool's placeholder defaults.**
+
+The more common workflow is Claude Design → Claude Code: sketch something in the design tool, export it, integrate it. The reverse direction is less discussed but often more useful: you have a component in production and you want to explore redesign options before committing implementation time.
+
+The problem without `/design-sync` is that Claude Design doesn't know about your design system. It generates something that works visually but uses generic default typography, placeholder spacing, and made-up color values — none of which match your tokens. You end up spending a cleanup pass in Claude Code after every iteration.
+
+**The workflow:**
+
+1. In a Claude Code session in your repo, run:
+   ```
+   /design-sync
+   ```
+   This reads your design system from the codebase (tokens, component definitions, Tailwind config, MUI theme, or CSS custom properties) and pushes them to Claude Design.
+
+2. Open Claude Design. Your tokens and component variants now appear as the starting context.
+
+3. Describe the redesign — layout changes, information hierarchy, mobile/desktop behavior. Claude Design now generates from your palette and your spacing scale, not generic defaults.
+
+4. Export the redesign. Claude Code receives the export and applies it to the specific component, with existing props, state handling, and test coverage preserved.
+
+**What gets lost in the reverse direction** (the limitation to plan for): the component's behavioral complexity doesn't transfer. Event handlers, complex state machines, and async data patterns don't appear in the design surface. The exported layout is accurate; the logic is not. Plan for Claude Code to reconcile the new layout against the existing component implementation, not paste-replace it.
+
+**When to skip it and stay in Claude Code:** if the change is purely behavioral (swapping a sort order, changing an API call), or if it's a one-line style change (a color swap, a padding bump), the round-trip overhead isn't worth it. The design tool earns its overhead when you're deciding among three different layout directions and want to see them all before writing any code.
+
+**Sources:** [Anthropic: Claude Design now stays on brand for daily work](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work) · [VentureBeat: Anthropic ships Claude Design overhaul with code round-trips](https://venturebeat.com/technology/anthropic-ships-major-claude-design-overhaul-with-design-system-imports-code-round-trips-and-a-fix-for-its-token-burning-problem) · [Practitioner review: Claude Design tested on a real project](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Agent Writes Files Without Running Anything After — a PostToolUse Hook Lints and Formats Automatically on Every Edit]]></title>
+      <link>https://code.claude.com/docs/en/hooks</link>
+      <guid isPermaLink="false">2026-11-25-02-claude-code-posttooluse-hook-auto-lint-format-after-edit</guid>
+      <pubDate>Wed, 25 Nov 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[PostToolUse fires after every Edit or Write tool call. A shell hook runs your formatter on the changed file and surfaces lint failures back to Claude without blocking the tool call.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**PostToolUse fires after every Edit or Write tool call. A shell hook runs your formatter on the changed file and surfaces lint failures back to Claude without blocking the tool call.**
+
+Claude Code's hook system has three events: `PreToolUse` (fires before, can block), `Stop` (fires at session end, can block with exit 2), and `PostToolUse` (fires after every matching tool call, can't block but its stdout returns to Claude's context). PostToolUse is the right place for per-edit feedback loops — format, lint, run the file's affected tests.
+
+**Wire it in `.claude/settings.json`:**
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-edit.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**`.claude/hooks/post-edit.sh`:**
+
+```bash
+#!/bin/bash
+# Claude Code writes tool context as JSON to stdin
+FILE=$(cat | jq -r '.tool_input.file_path // empty')
+[ -z "$FILE" ] || [ ! -f "$FILE" ] && exit 0
+
+# Format in place (suppress output — just apply)
+npx prettier --write "$FILE" > /dev/null 2>&1 || true
+
+# Lint and report failures — stdout goes back to Claude's context
+npx eslint "$FILE" --format compact --no-error-on-unmatched-pattern
+```
+
+Claude Code writes a JSON payload to the hook's stdin. The key fields for file tools are `tool_input.file_path` (the file being written) and `tool_name` (e.g., `Edit`). For Bash calls, the relevant field is `tool_input.command`. The payload also carries `tool_response` (the tool's result), `session_id`, and `cwd`.
+
+**Key difference from PreToolUse:** PreToolUse fires before the edit — the file doesn't have its new content yet. PostToolUse fires after, so the file is already written and lintable.
+
+**Key difference from the Stop hook:** Stop fires once at session end. PostToolUse fires after every Edit or Write in the session — it's for per-operation feedback, not a final gate.
+
+**Limits:** PostToolUse runs synchronously before Claude sees the next turn. A formatter that takes 300 ms on each call is noticeable across a long editing session. Keep the script fast: lint only the changed file, not the whole project. If you need a heavier check (a full test suite or type-check pass), put it in the Stop hook instead, where it runs once.
+
+**Sources:** [Claude Code hooks docs](https://code.claude.com/docs/en/hooks) · [Hook stdin schema (pablolion.github.io)](https://pablolion.github.io/claude-hookwatch/reference/hook-stdin-schema.html) · [Claude Code Hooks as Automated Quality Gates (Understanding Data)](https://understandingdata.com/posts/claude-code-hooks-quality-gates/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[vLLM v0.34.0 Removes Model Runner V1 and Changes Default Block Size — Three Breaking Changes to Check Before Upgrading; GitHub Copilot Retires 6 Models Dec 14]]></title>
+      <link>https://github.com/vllm-project/vllm/releases/tag/v0.34.0</link>
+      <guid isPermaLink="false">2026-11-25-01-vllm-v034-model-runner-v1-removed-block-size-copilot-dec14</guid>
+      <pubDate>Wed, 25 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[vLLM v0.34.0 (Nov 16) drops V1 runner, sets default block size to 64, requires huggingface_hub 2.0+. GitHub Copilot retires Claude Fable 5 and five others on December 14.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**vLLM v0.34.0 (November 16) silently breaks three common configurations. GitHub Copilot retires Claude Fable 5 and five other models December 14.**
+
+Two breaking-change deadlines this week.
+
+## vLLM v0.34.0 (November 16)
+
+If you serve models with vLLM, three changes in v0.34.0 will break existing setups without startup warnings:
+
+- **Model Runner V1 removed.** The flag `VLLM_USE_V2_MODEL_RUNNER=0` now fails at startup. Custom logits processors written against the V1 API need to be migrated to the V2 sampler module. The vLLM team published a [Model Runner V2 migration guide](https://vllm.ai/blog/2026-03-24-mrv2) in March.
+- **Default block size: 16 → 64.** The KV cache now sizes from actually-free GPU memory after warmup (extensible KV cache is on by default). If you sized memory budgets assuming the old 16-block default, benchmark memory usage before promoting. Use `--no-enable-extensible-kv-cache` to restore the previous static-allocation behavior during testing.
+- **huggingface_hub ≥ 2.0.0 required.** Existing environments with older releases will fail on import.
+- ROCm 7.2 images are discontinued; AMD users need ROCm 10.0.
+
+**Limit worth flagging:** extensible KV cache sizing is no longer static — if your GPU has variable free memory across restarts (from other processes), cache capacity will vary between runs. Worth testing for consistency in production environments.
+
+## GitHub Copilot model retirements — December 14
+
+GitHub is removing six models from all Copilot experiences on December 14. Per the GitHub changelog:
+
+| Retiring model | Suggested replacement |
+|---|---|
+| Claude Fable 5 | Claude Fable 5.2 |
+| Claude Haiku 4.5 | Claude Haiku 5.5 |
+| Gemini 3.8 Flash | Gemini 4 Flash |
+| Gemini 4 Argon | Gemini 4 Pro |
+| Grok 4.6 | Grok 5 |
+| Kimi K3 | TBA |
+
+If you pin model names in Copilot policies, CI scripts, or in GitHub Actions workflows that call the Copilot API, test against the replacements before December 7.
+
+**Why it matters:** A vLLM upgrade that changes KV cache behavior or fails at startup is expensive to debug in production. The Copilot retirements affect any team that pins model IDs by name in automation — a silent fallback to a default model on December 14 is a behavior change, not an error.
+
+**Sources:** [vLLM v0.34.0 release notes summary (ai-tldr.dev)](https://ai-tldr.dev/releases/vllm-v0-34-0/) · [vLLM Model Runner V2 blog](https://vllm.ai/blog/2026-03-24-mrv2) · [GitHub Copilot model deprecation changelog](https://github.blog/changelog/2026-11-13-upcoming-deprecation-of-selected-github-copilot-models-in-december)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Dense Retriever Misses Keywords Your Users Type Exactly — `EnsembleRetriever` Combines BM25 and Vector Search With Reciprocal Rank Fusion to Cover Both Gaps]]></title>
+      <link>https://python.langchain.com/docs/how_to/ensemble_retriever/</link>
+      <guid isPermaLink="false">2026-11-25-03-hybrid-search-bm25-ensembleretriever-rrf-langchain</guid>
+      <pubDate>Wed, 25 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[LangChain's EnsembleRetriever merges a BM25 keyword retriever with a dense vector retriever using Reciprocal Rank Fusion. Install rank_bm25, combine four objects, beat either retriever alone on mixed queries.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** build a hybrid retriever that ranks keyword-heavy queries and semantic queries well, without choosing between them.
+
+- BM25 catches exact keywords that semantic search misses; dense vectors catch synonyms and paraphrases that BM25 misses — combining them raises recall on both query types simultaneously.
+- Reciprocal Rank Fusion (RRF) merges the two ranked lists without requiring you to reconcile incompatible similarity scores from different spaces.
+- `EnsembleRetriever` applies RRF by default with four lines of setup; adjust the `weights` parameter based on your query distribution and validate with RAGAS or DeepEval.
+
+Dense vector search handles paraphrases and meaning-based queries well but misses exact-match signals — a user asking for "RFC 7807" or a specific function name won't get great results from embedding similarity alone. BM25 (keyword search) handles exact matches and term frequency well but misses synonyms and reformulations. Hybrid search at query time combines both and re-ranks using Reciprocal Rank Fusion (RRF), which typically outperforms either retriever alone on mixed query types.
+
+LangChain's `EnsembleRetriever` runs both retrievers in parallel and merges the results with RRF by default. Official docs at [python.langchain.com/docs/how_to/ensemble_retriever/](https://python.langchain.com/docs/how_to/ensemble_retriever/).
+
+**Install:**
+```bash
+pip install rank_bm25 langchain-community langchain-huggingface
+```
+
+**Code:**
+```python
+from langchain_community.retrievers import BM25Retriever
+from langchain.retrievers import EnsembleRetriever
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
+
+docs = [...]  # your Document list
+
+bm25_retriever = BM25Retriever.from_documents(docs)
+bm25_retriever.k = 4
+
+embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
+faiss_store = FAISS.from_documents(docs, embeddings)
+dense_retriever = faiss_store.as_retriever(search_kwargs={"k": 4})
+
+# EnsembleRetriever merges results with RRF
+# weights control contribution strength, not a threshold
+hybrid = EnsembleRetriever(
+    retrievers=[bm25_retriever, dense_retriever],
+    weights=[0.5, 0.5]
+)
+
+results = hybrid.invoke("your query here")
+```
+
+**What RRF does:** each retriever returns its own ranked list. RRF scores each document as `1 / (rank + k)` from each list (k=60 is the standard default), then sums the scores. A document that ranks 2nd in BM25 and 3rd in vector search scores higher than one that ranks 1st in only one list — rewarding breadth of evidence across retrieval methods.
+
+**When to adjust weights:** 0.5/0.5 is a reasonable starting point. In highly technical corpora with exact identifiers (API names, error codes, function signatures), lean BM25 (0.6–0.7). For conversational queries and paraphrases, lean dense (0.3/0.7). Measure the difference on your actual queries with RAGAS or DeepEval rather than guessing.
+
+**Key limits:**
+- BM25 is a bag-of-words method — it has no sense of "near" or "related"; misspellings and morphological variants miss.
+- Hybrid search requires the full document set in memory for BM25 (via `rank_bm25`). For large corpora, consider a vector database that supports native hybrid search (Qdrant, Weaviate, Elasticsearch) instead of maintaining a separate in-memory BM25 index.
+- `EnsembleRetriever`'s default RRF uses k=60; at very small corpora (under ~100 documents) this parameter matters more and may benefit from tuning.
+- BM25 import path: use `langchain_community.retrievers.BM25Retriever` (not `langchain.retrievers`), which requires `langchain-community` installed separately.
+
+**Sources:** [LangChain EnsembleRetriever docs](https://python.langchain.com/docs/how_to/ensemble_retriever/) · [LanceDB: Hybrid Search combining BM25 and semantic search with LangChain](https://lancedb.substack.com/p/hybrid-search-combining-bm25-and) · [LangChain Open Tutorial: EnsembleRetriever](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/10-retriever/03-ensembleretriever)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your 100-Package Monorepo Loads Every CLAUDE.md Into Context — `claudeMdExcludes` Keeps the Packages You Never Touch Out of Scope]]></title>
@@ -6302,162 +6516,10 @@ for idx in result.citations:
 **Sources:** [How to get a RAG application to add citations — LangChain docs](https://python.langchain.com/docs/how_to/qa_citations) · [Citation-aware RAG in Python — netjstech.com (April 2026)](https://www.netjstech.com/2026/04/citation-aware-rag-application-in.html)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Claude Code Silently Drops Five of Your Eight Requested Changes — Ask for a Task List First and Each Step Becomes a Visible, Interruptible Checkpoint]]></title>
-    <link>https://code.claude.com/docs</link>
-    <guid isPermaLink="false">2026-11-07-03-claude-code-todowrite-task-plan-checkpoint-complex-tasks</guid>
-    <pubDate>Sat, 07 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Ask Claude Code to write its task plan before starting any multi-step task — a live checklist appears in the terminal and each step becomes a visible, interruptible checkpoint.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Before sending Claude Code on any task with five or more steps, ask it to write out its plan first — a live task list appears in the terminal, and you can catch a wrong assumption before code is written.**
-
-By default, Claude Code starts acting on a complex request immediately. If its interpretation of step 3 differs from yours, you find out when it has already edited half a dozen files. A prior plan makes the difference visible at zero cost.
-
-**Add this to any complex prompt:**
-
-```
-Before you start, write your task plan using TodoWrite.
-List each step with its current state as "pending".
-Wait for my confirmation before proceeding.
-```
-
-The terminal shows the task list as Claude Code creates it. You read it. If step 2 is wrong, say so now — before any edits land. Once you approve, it proceeds and marks steps complete as it goes, so you always know where the run is.
-
-**Three cases where this pays off immediately:**
-- Refactors that touch more than one module (you can verify the file list before changes)
-- Tasks where the right starting point is ambiguous (the plan exposes the assumption)
-- Long CI runs where you need a progress trail without watching a scrolling terminal
-
-**What it doesn't prevent:** TodoWrite is session-scoped. If the session ends mid-task, the list is gone. For work that spans sessions, also ask Claude Code to write a `PLAN.md` to disk at the same time — same content, but it survives a restart.
-
-**Limit:** Useful for complex tasks; adds an extra round-trip on simple ones. For "rename this variable" or "fix the type error on line 42," skip it — the planning step costs more than it saves.
-
-**Sources:** [Claude Code task management — claudefa.st](https://claudefa.st/blog/guide/development/task-management) · [TodoWrite and task management — engineering-playbook.vercel.app](https://engineering-playbook.vercel.app/claude-code/todowrite-and-task-management) · [Claude Code docs — code.claude.com](https://code.claude.com/docs)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Claude Enterprise: Project Billing Tags Now in Beta and Unified Chat+Cowork Turns On by Default November 16]]></title>
-    <link>https://support.claude.com/en/articles/12138966-release-notes</link>
-    <guid isPermaLink="false">2026-11-07-02-claude-enterprise-billing-tags-cowork-unified-november-16</guid>
-    <pubDate>Sat, 07 Nov 2026 04:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Claude Enterprise Nov 5-6: project billing tags in beta let teams track AI spend by charge code; unified chat+Cowork defaults on for all orgs on November 16.]]></description>
-    <category>AI</category>
-    <category>News</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Two Claude Enterprise changes this week: project billing tags (Nov 6, beta) attach charge codes to projects for cost tracking; the unified chat+Cowork interface defaults on for all orgs on November 16.**
-
-**Project billing tags (beta, Nov 6):** Enterprise admins can tag projects with the charge codes or client-matter numbers their org already uses. Spend appears broken down by tag in the admin console. Useful when multiple teams share one Enterprise org and need a cost split without creating separate orgs. Per Anthropic's release notes, this is in beta.
-
-**Unified chat+Cowork (November 16 deadline):** Anthropic is merging the separate Cowork and chat surfaces into one experience. Orgs that haven't changed the setting will have it turned on automatically on November 16. Worth reviewing with your admin before then — anything relying on the current Cowork-only interface should be re-verified after the change.
-
-**Why it matters:** Billing tag visibility is small quality-of-life for finance sign-off on shared orgs. The unified interface is the larger operational change — if your team has Claude Code routines or integrations that behave differently in Cowork vs. chat context, check them now rather than on November 17.
-
-**Limit:** Project billing tags are in beta; the schema and reporting UI may change. The November 16 auto-enablement is announced as an org-level default, not a forced change — an admin can still turn it off before then.
-
-**Sources:** [Claude release notes — support.claude.com](https://support.claude.com/en/articles/12138966-release-notes) · [Set up the unified Claude Enterprise experience — support.claude.com](https://support.claude.com/en/articles/17444462-set-up-and-manage-the-new-unified-claude-experience-for-your-enterprise-organization)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Imported Claude Design Component Renders Fine at 1280px and Breaks Below 400px — Have Claude Code Audit AI-Generated Layouts for Responsive Failures Before You Integrate]]></title>
-    <link>https://claude.com/resources/articles/build-responsive-web-layouts</link>
-    <guid isPermaLink="false">2026-11-07-01-claude-code-audit-ai-generated-layout-responsive-mobile-failures</guid>
-    <pubDate>Sat, 07 Nov 2026 04:02:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Use Claude Code to audit AI-generated components for responsive failures before they enter your codebase: catch fixed widths, hover-only interactions, and overflow before Playwright.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Claude Design</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** Give Claude Code a component that displayed correctly in Claude Design and broke at a 375 px viewport; it identifies which CSS rules are the cause and suggests replacements before the component enters your codebase.
-
-AI design tools generate layouts tuned for the design-canvas viewport — typically 1280–1440 px. Mobile behavior is implied, not tested. Anthropic's guide on responsive layout work says Claude Code can "explore project file structure, identify viewport-specific problems across multiple files, and propose fixes that maintain existing architecture." That capability is real, but it only fires if you direct it at the right questions.
-
-**Three things this gives you:**
-- A focused prompt runs the audit in under a minute, before Playwright, before code review, before staging
-- Claude Code finds structural issues — fixed px widths, hover-only interactions, tables that overflow, touch targets below 44 × 44 px — not just visual mismatches you'd spot at a glance
-- Fix suggestions stay in your stack; you don't regenerate the whole component from the design tool for a single CSS tweak
-
-**The audit prompt (run after export, before `git add`):**
-
-```
-Audit `src/components/ImportedCard.tsx` and its styles for responsive failures.
-Check for:
-1. CSS widths in px that break below 500px — suggest fluid alternatives
-2. hover: interactions with no equivalent touch event
-3. Tables or flex rows that overflow rather than wrap at narrow widths
-4. Touch targets below 44×44px
-Propose a corrected version for each issue found.
-```
-
-Then resize DevTools to 375 px and check by eye — Claude Code catches structure, your eyes catch rendering.
-
-**Limits:** This audit finds CSS and markup issues. It does not catch iOS input zoom (triggered by `font-size < 16px` on inputs), GPU compositing artifacts, or safe-area inset failures on notched devices. Those require a real device before ship. The Playwright responsive test suite from [this earlier post](https://cloudcodetree.com/ai-news/2026-10-22-04-playwright-responsive-viewport-ai-generated-ui) is the right follow-up for systematic CI coverage.
-
-**Sources:** [Build responsive web layouts — claude.com](https://claude.com/resources/articles/build-responsive-web-layouts) · [Mobile UI QA checklist for AI-generated code — DEV.to](https://dev.to/sahil_kat/mobile-ui-quality-control-checklist-for-ai-generated-code-33p1)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Remote MCP Server Returns 401 and You're Hardcoding Tokens in CLAUDE.md — `claude mcp add --transport http` Followed by `claude mcp login` Handles OAuth Discovery and Token Refresh]]></title>
-    <link>https://code.claude.com/docs/en/mcp</link>
-    <guid isPermaLink="false">2026-11-06-06-remote-mcp-server-oauth-bearer-claude-mcp-login</guid>
-    <pubDate>Fri, 06 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Claude Code's built-in OAuth support handles sign-in, token storage, and automatic refresh for remote MCP servers — no tokens in your config files.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>MCP</category>
-    <category>Claude Code</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Add a remote MCP server with `--transport http`, then run `claude mcp login` once — Claude Code discovers the OAuth endpoint, signs you in, stores the token, and refreshes it automatically.**
-
-You add a remote MCP server and it immediately 401s. You reach for CLAUDE.md or a shell config to hardcode a token. That works, but it means managing token rotation by hand and leaking credentials into config files you commit.
-
-Claude Code has built-in auth support for remote servers over HTTP transport.
-
-**Bearer token (static API key):**
-```bash
-claude mcp add --transport http my-server https://api.example.com/mcp \
-  --header "Authorization: Bearer $MY_API_KEY"
-```
-The key comes from your environment — not from CLAUDE.md. Claude Code stores it in its MCP config and sends it on every request.
-
-**OAuth 2.0 (token exchange and refresh):**
-```bash
-claude mcp add --transport http my-server https://api.example.com/mcp
-claude mcp login my-server
-```
-Claude Code reads the server's WWW-Authenticate header to discover the authorization server, opens a browser tab for sign-in, stores the access and refresh tokens, and re-authorizes silently when the token expires. No code required.
-
-Verify what's configured:
-```bash
-claude mcp get my-server
-```
-Shows whether OAuth credentials are stored for that entry.
-
-Remove a server and its stored tokens:
-```bash
-claude mcp remove my-server
-```
-
-**Limits and failure modes:**
-- OAuth discovery requires the server to return a `resource_metadata` parameter in its WWW-Authenticate header. If it doesn't, you need to configure the authorization server endpoint manually.
-- `claude mcp login` is for **public client** OAuth (browser-based sign-in). Machine-to-machine flows (confidential clients, service accounts) need a bearer token header instead.
-- If you get a 401 after setup, check that the environment variable for the bearer token is set in the shell that launched Claude Code — not just in a `.env` file Claude Code doesn't read automatically.
-- One confirmed edge case: if a server both requires a bearer token and advertises OAuth discovery in its headers, Claude Code may ignore the configured `--header` and attempt OAuth instead. Work around it by removing the OAuth discovery header on the server side, or pin to bearer-only configuration.
-- Claude Code v2.1.265+ prefers HTTP transport over SSE automatically. On older versions, pass `--transport sse` explicitly if the server requires it.
-
-**Sources:** [Remote MCP auth — WorkOS (Jul 2026)](https://workos.com/blog/claude-code-connector-workos-authkit-mcp) · [MCP auth in Claude Code — TrueFoundry](https://truefoundry.com/blog/mcp-authentication-in-claude-code) · [MCP OAuth 2.0 guide — MCP Playground](https://mcpplaygroundonline.com/blog/mcp-server-oauth-authentication-guide) · [Issue: bearer header ignored when server advertises OAuth — github.com/anthropics/claude-code](https://github.com/anthropics/claude-code/issues/59467)
-]]></content:encoded>
-  </item>
-
+  
+  
+  
+  
   
   
   

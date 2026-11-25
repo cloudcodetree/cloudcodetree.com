@@ -1,5 +1,81 @@
 [
   {
+    "id": "2026-11-25-04-design-sync-code-to-claude-design-reverse-round-trip",
+    "title": "Your Existing Component Has State, Props, and Variants You'd Have to Reconstruct — Pull the Design System Into Claude Design First So Redesigns Start From Reality",
+    "excerpt": "Run /design-sync in Claude Code before opening Claude Design and your redesign canvas starts from your actual components, tokens, and variants — not the tool's placeholder defaults.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T04:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude.com/blog/claude-design-stays-on-brand-for-daily-work",
+    "content": "**Run `/design-sync` in a Claude Code session before opening Claude Design, and your redesign canvas starts from your actual components, tokens, and variants — not the tool's placeholder defaults.**\n\nThe more common workflow is Claude Design → Claude Code: sketch something in the design tool, export it, integrate it. The reverse direction is less discussed but often more useful: you have a component in production and you want to explore redesign options before committing implementation time.\n\nThe problem without `/design-sync` is that Claude Design doesn't know about your design system. It generates something that works visually but uses generic default typography, placeholder spacing, and made-up color values — none of which match your tokens. You end up spending a cleanup pass in Claude Code after every iteration.\n\n**The workflow:**\n\n1. In a Claude Code session in your repo, run:\n   ```\n   /design-sync\n   ```\n   This reads your design system from the codebase (tokens, component definitions, Tailwind config, MUI theme, or CSS custom properties) and pushes them to Claude Design.\n\n2. Open Claude Design. Your tokens and component variants now appear as the starting context.\n\n3. Describe the redesign — layout changes, information hierarchy, mobile/desktop behavior. Claude Design now generates from your palette and your spacing scale, not generic defaults.\n\n4. Export the redesign. Claude Code receives the export and applies it to the specific component, with existing props, state handling, and test coverage preserved.\n\n**What gets lost in the reverse direction** (the limitation to plan for): the component's behavioral complexity doesn't transfer. Event handlers, complex state machines, and async data patterns don't appear in the design surface. The exported layout is accurate; the logic is not. Plan for Claude Code to reconcile the new layout against the existing component implementation, not paste-replace it.\n\n**When to skip it and stay in Claude Code:** if the change is purely behavioral (swapping a sort order, changing an API call), or if it's a one-line style change (a color swap, a padding bump), the round-trip overhead isn't worth it. The design tool earns its overhead when you're deciding among three different layout directions and want to see them all before writing any code.\n\n**Sources:** [Anthropic: Claude Design now stays on brand for daily work](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work) · [VentureBeat: Anthropic ships Claude Design overhaul with code round-trips](https://venturebeat.com/technology/anthropic-ships-major-claude-design-overhaul-with-design-system-imports-code-round-trips-and-a-fix-for-its-token-burning-problem) · [Practitioner review: Claude Design tested on a real project](https://ice-ice-bear.github.io/posts/2026-04-22-claude-design/)"
+  },
+  {
+    "id": "2026-11-25-02-claude-code-posttooluse-hook-auto-lint-format-after-edit",
+    "title": "Your Claude Code Agent Writes Files Without Running Anything After — a PostToolUse Hook Lints and Formats Automatically on Every Edit",
+    "excerpt": "PostToolUse fires after every Edit or Write tool call. A shell hook runs your formatter on the changed file and surfaces lint failures back to Claude without blocking the tool call.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T04:05:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Claude Code",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/hooks",
+    "content": "**PostToolUse fires after every Edit or Write tool call. A shell hook runs your formatter on the changed file and surfaces lint failures back to Claude without blocking the tool call.**\n\nClaude Code's hook system has three events: `PreToolUse` (fires before, can block), `Stop` (fires at session end, can block with exit 2), and `PostToolUse` (fires after every matching tool call, can't block but its stdout returns to Claude's context). PostToolUse is the right place for per-edit feedback loops — format, lint, run the file's affected tests.\n\n**Wire it in `.claude/settings.json`:**\n\n```json\n{\n  \"hooks\": {\n    \"PostToolUse\": [\n      {\n        \"matcher\": \"Edit|Write\",\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"bash .claude/hooks/post-edit.sh\"\n          }\n        ]\n      }\n    ]\n  }\n}\n```\n\n**`.claude/hooks/post-edit.sh`:**\n\n```bash\n#!/bin/bash\n# Claude Code writes tool context as JSON to stdin\nFILE=$(cat | jq -r '.tool_input.file_path // empty')\n[ -z \"$FILE\" ] || [ ! -f \"$FILE\" ] && exit 0\n\n# Format in place (suppress output — just apply)\nnpx prettier --write \"$FILE\" > /dev/null 2>&1 || true\n\n# Lint and report failures — stdout goes back to Claude's context\nnpx eslint \"$FILE\" --format compact --no-error-on-unmatched-pattern\n```\n\nClaude Code writes a JSON payload to the hook's stdin. The key fields for file tools are `tool_input.file_path` (the file being written) and `tool_name` (e.g., `Edit`). For Bash calls, the relevant field is `tool_input.command`. The payload also carries `tool_response` (the tool's result), `session_id`, and `cwd`.\n\n**Key difference from PreToolUse:** PreToolUse fires before the edit — the file doesn't have its new content yet. PostToolUse fires after, so the file is already written and lintable.\n\n**Key difference from the Stop hook:** Stop fires once at session end. PostToolUse fires after every Edit or Write in the session — it's for per-operation feedback, not a final gate.\n\n**Limits:** PostToolUse runs synchronously before Claude sees the next turn. A formatter that takes 300 ms on each call is noticeable across a long editing session. Keep the script fast: lint only the changed file, not the whole project. If you need a heavier check (a full test suite or type-check pass), put it in the Stop hook instead, where it runs once.\n\n**Sources:** [Claude Code hooks docs](https://code.claude.com/docs/en/hooks) · [Hook stdin schema (pablolion.github.io)](https://pablolion.github.io/claude-hookwatch/reference/hook-stdin-schema.html) · [Claude Code Hooks as Automated Quality Gates (Understanding Data)](https://understandingdata.com/posts/claude-code-hooks-quality-gates/)"
+  },
+  {
+    "id": "2026-11-25-01-vllm-v034-model-runner-v1-removed-block-size-copilot-dec14",
+    "title": "vLLM v0.34.0 Removes Model Runner V1 and Changes Default Block Size — Three Breaking Changes to Check Before Upgrading; GitHub Copilot Retires 6 Models Dec 14",
+    "excerpt": "vLLM v0.34.0 (Nov 16) drops V1 runner, sets default block size to 64, requires huggingface_hub 2.0+. GitHub Copilot retires Claude Fable 5 and five others on December 14.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T04:04:00.000Z",
+    "tags": [
+      "AI",
+      "News",
+      "LLM",
+      "Developer Tools",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://github.com/vllm-project/vllm/releases/tag/v0.34.0",
+    "content": "**vLLM v0.34.0 (November 16) silently breaks three common configurations. GitHub Copilot retires Claude Fable 5 and five other models December 14.**\n\nTwo breaking-change deadlines this week.\n\n## vLLM v0.34.0 (November 16)\n\nIf you serve models with vLLM, three changes in v0.34.0 will break existing setups without startup warnings:\n\n- **Model Runner V1 removed.** The flag `VLLM_USE_V2_MODEL_RUNNER=0` now fails at startup. Custom logits processors written against the V1 API need to be migrated to the V2 sampler module. The vLLM team published a [Model Runner V2 migration guide](https://vllm.ai/blog/2026-03-24-mrv2) in March.\n- **Default block size: 16 → 64.** The KV cache now sizes from actually-free GPU memory after warmup (extensible KV cache is on by default). If you sized memory budgets assuming the old 16-block default, benchmark memory usage before promoting. Use `--no-enable-extensible-kv-cache` to restore the previous static-allocation behavior during testing.\n- **huggingface_hub ≥ 2.0.0 required.** Existing environments with older releases will fail on import.\n- ROCm 7.2 images are discontinued; AMD users need ROCm 10.0.\n\n**Limit worth flagging:** extensible KV cache sizing is no longer static — if your GPU has variable free memory across restarts (from other processes), cache capacity will vary between runs. Worth testing for consistency in production environments.\n\n## GitHub Copilot model retirements — December 14\n\nGitHub is removing six models from all Copilot experiences on December 14. Per the GitHub changelog:\n\n| Retiring model | Suggested replacement |\n|---|---|\n| Claude Fable 5 | Claude Fable 5.2 |\n| Claude Haiku 4.5 | Claude Haiku 5.5 |\n| Gemini 3.8 Flash | Gemini 4 Flash |\n| Gemini 4 Argon | Gemini 4 Pro |\n| Grok 4.6 | Grok 5 |\n| Kimi K3 | TBA |\n\nIf you pin model names in Copilot policies, CI scripts, or in GitHub Actions workflows that call the Copilot API, test against the replacements before December 7.\n\n**Why it matters:** A vLLM upgrade that changes KV cache behavior or fails at startup is expensive to debug in production. The Copilot retirements affect any team that pins model IDs by name in automation — a silent fallback to a default model on December 14 is a behavior change, not an error.\n\n**Sources:** [vLLM v0.34.0 release notes summary (ai-tldr.dev)](https://ai-tldr.dev/releases/vllm-v0-34-0/) · [vLLM Model Runner V2 blog](https://vllm.ai/blog/2026-03-24-mrv2) · [GitHub Copilot model deprecation changelog](https://github.blog/changelog/2026-11-13-upcoming-deprecation-of-selected-github-copilot-models-in-december)"
+  },
+  {
+    "id": "2026-11-25-03-hybrid-search-bm25-ensembleretriever-rrf-langchain",
+    "title": "Your Dense Retriever Misses Keywords Your Users Type Exactly — `EnsembleRetriever` Combines BM25 and Vector Search With Reciprocal Rank Fusion to Cover Both Gaps",
+    "excerpt": "LangChain's EnsembleRetriever merges a BM25 keyword retriever with a dense vector retriever using Reciprocal Rank Fusion. Install rank_bm25, combine four objects, beat either retriever alone on mix…",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T04:03:00.000Z",
+    "tags": [
+      "AI",
+      "Tutorial",
+      "RAG",
+      "Best Practices",
+      "Building AI Products"
+    ],
+    "readTime": 3,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://python.langchain.com/docs/how_to/ensemble_retriever/",
+    "content": "**What you'll be able to do after this:** build a hybrid retriever that ranks keyword-heavy queries and semantic queries well, without choosing between them.\n\n- BM25 catches exact keywords that semantic search misses; dense vectors catch synonyms and paraphrases that BM25 misses — combining them raises recall on both query types simultaneously.\n- Reciprocal Rank Fusion (RRF) merges the two ranked lists without requiring you to reconcile incompatible similarity scores from different spaces.\n- `EnsembleRetriever` applies RRF by default with four lines of setup; adjust the `weights` parameter based on your query distribution and validate with RAGAS or DeepEval.\n\nDense vector search handles paraphrases and meaning-based queries well but misses exact-match signals — a user asking for \"RFC 7807\" or a specific function name won't get great results from embedding similarity alone. BM25 (keyword search) handles exact matches and term frequency well but misses synonyms and reformulations. Hybrid search at query time combines both and re-ranks using Reciprocal Rank Fusion (RRF), which typically outperforms either retriever alone on mixed query types.\n\nLangChain's `EnsembleRetriever` runs both retrievers in parallel and merges the results with RRF by default. Official docs at [python.langchain.com/docs/how_to/ensemble_retriever/](https://python.langchain.com/docs/how_to/ensemble_retriever/).\n\n**Install:**\n```bash\npip install rank_bm25 langchain-community langchain-huggingface\n```\n\n**Code:**\n```python\nfrom langchain_community.retrievers import BM25Retriever\nfrom langchain.retrievers import EnsembleRetriever\nfrom langchain_community.vectorstores import FAISS\nfrom langchain_huggingface import HuggingFaceEmbeddings\n\ndocs = [...]  # your Document list\n\nbm25_retriever = BM25Retriever.from_documents(docs)\nbm25_retriever.k = 4\n\nembeddings = HuggingFaceEmbeddings(model_name=\"BAAI/bge-base-en-v1.5\")\nfaiss_store = FAISS.from_documents(docs, embeddings)\ndense_retriever = faiss_store.as_retriever(search_kwargs={\"k\": 4})\n\n# EnsembleRetriever merges results with RRF\n# weights control contribution strength, not a threshold\nhybrid = EnsembleRetriever(\n    retrievers=[bm25_retriever, dense_retriever],\n    weights=[0.5, 0.5]\n)\n\nresults = hybrid.invoke(\"your query here\")\n```\n\n**What RRF does:** each retriever returns its own ranked list. RRF scores each document as `1 / (rank + k)` from each list (k=60 is the standard default), then sums the scores. A document that ranks 2nd in BM25 and 3rd in vector search scores higher than one that ranks 1st in only one list — rewarding breadth of evidence across retrieval methods.\n\n**When to adjust weights:** 0.5/0.5 is a reasonable starting point. In highly technical corpora with exact identifiers (API names, error codes, function signatures), lean BM25 (0.6–0.7). For conversational queries and paraphrases, lean dense (0.3/0.7). Measure the difference on your actual queries with RAGAS or DeepEval rather than guessing.\n\n**Key limits:**\n- BM25 is a bag-of-words method — it has no sense of \"near\" or \"related\"; misspellings and morphological variants miss.\n- Hybrid search requires the full document set in memory for BM25 (via `rank_bm25`). For large corpora, consider a vector database that supports native hybrid search (Qdrant, Weaviate, Elasticsearch) instead of maintaining a separate in-memory BM25 index.\n- `EnsembleRetriever`'s default RRF uses k=60; at very small corpora (under ~100 documents) this parameter matters more and may benefit from tuning.\n- BM25 import path: use `langchain_community.retrievers.BM25Retriever` (not `langchain.retrievers`), which requires `langchain-community` installed separately.\n\n**Sources:** [LangChain EnsembleRetriever docs](https://python.langchain.com/docs/how_to/ensemble_retriever/) · [LanceDB: Hybrid Search combining BM25 and semantic search with LangChain](https://lancedb.substack.com/p/hybrid-search-combining-bm25-and) · [LangChain Open Tutorial: EnsembleRetriever](https://langchain-opentutorial.gitbook.io/langchain-opentutorial/10-retriever/03-ensembleretriever)"
+  },
+  {
     "id": "2026-11-24-06-claude-code-claudemdexcludes-worktree-sparsepaths-monorepo",
     "title": "Your 100-Package Monorepo Loads Every CLAUDE.md Into Context — `claudeMdExcludes` Keeps the Packages You Never Touch Out of Scope",
     "excerpt": "claudeMdExcludes skips CLAUDE.md files for packages you never touch; worktree.sparsePaths sparse-checks out only relevant directories on session start. Both are committable settings that cut contex…",
