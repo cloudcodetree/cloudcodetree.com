@@ -10,7 +10,87 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 25 Nov 2026 04:06:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 25 Nov 2026 12:07:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Design Bundle Describes Each Interactive State in Prose — Expand the README Before Claude Code Implements the Wrong State Machine]]></title>
+      <link>https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux</link>
+      <guid isPermaLink="false">2026-11-25-06-claude-design-handoff-bundle-readme-interaction-notes-before-port</guid>
+      <pubDate>Wed, 25 Nov 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Design's handoff bundle carries screenshots of each interactive state and a prose README, not state machine logic. Expand the interaction notes before passing to Claude Code, not after.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <media:content url="https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/68c469d23594abeb9ab6ee48_70ed020ecf8fa028b9bc95fa819720b6_og_claude-generic.jpg" medium="image"/>
+      <media:thumbnail url="https://cdn.prod.website-files.com/6889473510b50328dbb70ae6/68c469d23594abeb9ab6ee48_70ed020ecf8fa028b9bc95fa819720b6_og_claude-generic.jpg"/>
+      <content:encoded><![CDATA[**Claude Design's handoff bundle carries layout, tokens, and screenshots of each interactive state — but the state transition logic between states is prose, not code. Read and expand the README before Claude Code implements.**
+
+A handoff bundle contains: component structure and layout hierarchy, design token names, copy, per-state screenshots, and a README describing the target stack and interactions. Claude Code fetches the bundle and uses the README as its implementation guide. The gap is in the state transition layer.
+
+A button with hover, active, loading, and disabled states appears in the bundle as four screenshots and a note like "disabled while form submits." Claude Code reads that and infers the transition logic. For simple cases it's right. For multi-step async flows — loading with retry, different disabled copy at each step, error recovery — the inferred logic diverges from the design intent before the first commit.
+
+**Before passing the bundle:**
+
+1. Open the bundle README directly — the URL is `api.anthropic.com/v1/design/h/<hash>` and Claude Code's WebFetch reads it
+2. Find each interactive component's state description
+3. Where descriptions are vague ("error state on failure"), make them precise: "shows inline error message when submit returns 4xx; re-enables button after 3 seconds; retries max twice"
+4. Add stack-specific notes: "use `shadcn/ui Button`, not raw HTML; `variant="destructive"` for error state"
+
+**After the port, verify at three breakpoints** (375, 768, 1280px): confirm all interactive states from the screenshots are wired up, and check that the bundle's design token names map to your codebase. The `/design-sync` step handles token-name alignment (run it before creating the design); this verification is about state logic and responsive layout behavior.
+
+**What the bundle doesn't transfer:** Container queries, `grid-template-subgrid`, and CSS animation keyframes. These aren't part of the generated bundle — add them manually or specify them in the README before passing it to Claude Code.
+
+**Sources:** [Using Claude Design for prototypes and UX — claude.com](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design now stays on brand — claude.com/blog](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work) · [Claude Design + Claude Code handoff production guide — claudelab.net](https://claudelab.net/en/articles/claude-ai/claude-design-claude-code-handoff-production-guide)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Team's Shared MCP Servers Live in Each Developer's Personal Config — `.mcp.json` Commits the Endpoint to the Project Repo Instead]]></title>
+      <link>https://code.claude.com/docs/en/mcp</link>
+      <guid isPermaLink="false">2026-11-25-05-claude-code-remote-mcp-project-scope-mcp-json-oauth-team-share</guid>
+      <pubDate>Wed, 25 Nov 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Add remote MCP servers at project scope with `claude mcp add --transport http --scope project`; Claude Code writes the endpoint to `.mcp.json` and each developer authenticates independently.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Claude Code</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Add a remote OAuth MCP server once at project scope and `.mcp.json` commits the endpoint to the repo — each developer authenticates with their own credentials, nothing secret is committed.**
+
+Local MCP servers start as stdio subprocesses on your machine — right for filesystem tools and local databases. Remote MCP servers run as HTTP endpoints, handle authentication server-side through OAuth, and are what third-party vendors publish. Add one at project scope and the endpoint lives in `.mcp.json` at the project root:
+
+```bash
+# Add a hosted MCP server at project scope
+claude mcp add --transport http --scope project notion https://mcp.notion.so/mcp/
+
+# User scope (personal only, writes to ~/.claude.json)
+claude mcp add --transport http --scope user linear https://mcp.linear.app/sse
+```
+
+The first time a team member opens the project, Claude Code prompts for approval of the new server. Then `/mcp` shows sign-in state: each person completes the OAuth browser flow for their own account. Credentials never appear in the committed file — only the endpoint URL.
+
+**`.mcp.json` format** when editing directly:
+```json
+{
+  "mcpServers": {
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.so/mcp/"
+    }
+  }
+}
+```
+Omit `"type": "http"` and Claude Code treats the entry as a stdio config and never connects.
+
+**For API-key servers** (not OAuth): inject the key as an environment variable and reference it in the header config — do not hardcode it in `.mcp.json`. Use `--scope user` for any server whose authentication is personal rather than per-account OAuth.
+
+**What it won't do:** project scope shares the endpoint URL, not the session. Every developer signs in independently and can revoke their own access without affecting teammates. If the OAuth flow completes but `/mcp` still shows "Needs authentication," test the token exchange separately with the MCP Inspector before changing project settings.
+
+**Sources:** [Claude Code MCP docs — code.claude.com](https://code.claude.com/docs/en/mcp) · [Remote MCP support in Claude Code — claude.com/blog](https://claude.com/blog/claude-code-remote-mcp) · [Claude Code OAuth deep dive — dev.to](https://dev.to/emblemai/claude-code-oauth-deep-dive-how-emblemais-mcp-server-handles-auth-e29)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Existing Component Has State, Props, and Variants You'd Have to Reconstruct — Pull the Design System Into Claude Design First So Redesigns Start From Reality]]></title>
@@ -6400,122 +6480,8 @@ for result in client.messages.batches.results(batch.id):
 **Sources:** [Message Batches API — Anthropic docs](https://docs.claude.com/en/docs/build-with-claude/message-batches) · [Batch processing guide — platform.claude.com](https://platform.claude.com/docs/en/build-with-claude/batch-processing.md) · [Message Batching: when 50% off is worth the latency — DEV Community](https://dev.to/gabrielanhaia/anthropic-message-batching-when-50-off-is-worth-the-latency-4jfc)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Complex Claude Code Session Ends When You Close the Terminal — `/rename` It Before You Finish and `--resume` Gets You Back Instantly]]></title>
-    <link>https://code.claude.com/docs/en/sessions</link>
-    <guid isPermaLink="false">2026-11-07-04-claude-code-rename-resume-session-persist-context</guid>
-    <pubDate>Sat, 07 Nov 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[/rename stores a session by name before you close; claude --resume <name> reopens it in any directory with its full history intact. Flags like --mcp-config must be passed again.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**`/rename <name>` stores a session by name before you close; `claude --resume <name>` or `claude --continue` reopens it in any directory with its full history intact.**
-
-When a Claude Code session builds up real value — an hour of debugging context, accumulated file insights, a decision trail — closing the terminal forgets it. By default `claude --continue` reopens the most recent session in that directory. That breaks the moment you switch directories or the most recent session isn't the one you want.
-
-**Name a session before you close it:**
-
-```
-/rename auth-debug-session
-```
-
-Claude Code stores it in the session table. Next session:
-
-```bash
-claude --resume auth-debug-session   # exact name
-claude --resume                      # pick from a list
-```
-
-Inside a running session, `/resume` opens the same picker without leaving the terminal.
-
-**What carries over:**
-- Full conversation history (or its compact summary if idle compaction ran)
-- The session's model and agent type
-- Permission mode (can be overridden: `claude --resume <name> --permission-mode default`)
-
-**What you must pass again on resume:** `--mcp-config`, `--settings`, `--plugin-dir`, `--add-dir`, and `--fallback-model` don't persist — they aren't part of the session record. Keep a wrapper shell alias for sessions with non-default flags so you don't have to remember them.
-
-**Limit:** Sessions launched via `claude -p` (headless print mode) or through the Agent SDK are excluded from the picker and from `--continue`. They run non-interactively and don't appear in `claude --resume`.
-
-**Sources:** [Manage sessions — Claude Code Docs](https://code.claude.com/docs/en/sessions) · [Claude Code headless mode](https://code.claude.com/docs/en/headless) · [Session flags, community testing — claudeissues.com](https://claudeissues.com)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your RAG Chain Returns Plain Text and Users Can't Verify Which Source Backs Each Claim — Add a `CitedAnswer` Schema and Every Fact Gets Its Document Index]]></title>
-    <link>https://python.langchain.com/docs/how_to/qa_citations</link>
-    <guid isPermaLink="false">2026-11-07-05-langchain-cited-answer-structured-output-rag-citations</guid>
-    <pubDate>Sat, 07 Nov 2026 12:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Define a CitedAnswer Pydantic schema with an answer string and a list of integer indices; pass it to .with_structured_output() and the LLM cites its sources in every response.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** modify your existing LangChain RAG chain to return a structured `CitedAnswer` object — an answer string plus a list of citation indices — so every claim can be traced back to a retrieved source chunk.
-
-Currently most RAG answers are plain text: the LLM summarizes or misremembers something, and there is no way to tell which chunk it drew from. Citations close that gap by forcing the model to reference document IDs inline.
-
-**Step 1 — Define the schema:**
-
-```python
-from pydantic import BaseModel, Field
-from langchain_anthropic import ChatAnthropic
-
-class CitedAnswer(BaseModel):
-    answer: str = Field(
-        description="The answer, with inline [N] markers referencing source indices"
-    )
-    citations: list[int] = Field(
-        description="0-based indices of the retrieved documents that support the answer"
-    )
-
-llm = ChatAnthropic(model="claude-sonnet-5-5").with_structured_output(CitedAnswer)
-```
-
-**Step 2 — Label the retrieved chunks before passing them to the LLM:**
-
-```python
-def format_docs_with_ids(docs):
-    return "\n\n".join(
-        f"[{i}] {doc.page_content}\nSource: {doc.metadata.get('source', '')}"
-        for i, doc in enumerate(docs)
-    )
-
-context = format_docs_with_ids(retrieved_docs)
-prompt = f"""Answer using ONLY the provided context.
-Cite each fact as [N] where N is the document index.
-
-Context:
-{context}
-
-Question: {question}"""
-
-result = llm.invoke(prompt)
-# result.answer: "HNSW uses an M parameter to control edges [0]. Higher ef_construction improves recall [1]."
-# result.citations: [0, 1]
-```
-
-**Step 3 — Surface the sources:**
-
-```python
-for idx in result.citations:
-    print(f"[{idx}] {retrieved_docs[idx].metadata['source']}")
-```
-
-**Three takeaways:**
-- `.with_structured_output()` calls the tool/function-calling API — the model fills in the schema rather than guessing JSON format
-- Claude Sonnet 5.5 and other Anthropic models support this via `langchain-anthropic`
-- LangChain's how-to describes five citation methods; the tool-calling approach above is recommended first because it is most reliable
-
-**Limits:** `.with_structured_output()` does not stream — the full `CitedAnswer` object returns once at the end, increasing perceived latency for long answers. The LLM can still cite a source index that does not support the claim; surface the actual chunk alongside the answer so users can verify.
-
-**Sources:** [How to get a RAG application to add citations — LangChain docs](https://python.langchain.com/docs/how_to/qa_citations) · [Citation-aware RAG in Python — netjstech.com (April 2026)](https://www.netjstech.com/2026/04/citation-aware-rag-application-in.html)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   

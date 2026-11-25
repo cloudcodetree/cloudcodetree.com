@@ -1,5 +1,43 @@
 [
   {
+    "id": "2026-11-25-06-claude-design-handoff-bundle-readme-interaction-notes-before-port",
+    "title": "Your Claude Design Bundle Describes Each Interactive State in Prose — Expand the README Before Claude Code Implements the Wrong State Machine",
+    "excerpt": "Claude Design's handoff bundle carries screenshots of each interactive state and a prose README, not state machine logic. Expand the interaction notes before passing to Claude Code, not after.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T12:07:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "Design",
+      "Claude Design",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux",
+    "content": "**Claude Design's handoff bundle carries layout, tokens, and screenshots of each interactive state — but the state transition logic between states is prose, not code. Read and expand the README before Claude Code implements.**\n\nA handoff bundle contains: component structure and layout hierarchy, design token names, copy, per-state screenshots, and a README describing the target stack and interactions. Claude Code fetches the bundle and uses the README as its implementation guide. The gap is in the state transition layer.\n\nA button with hover, active, loading, and disabled states appears in the bundle as four screenshots and a note like \"disabled while form submits.\" Claude Code reads that and infers the transition logic. For simple cases it's right. For multi-step async flows — loading with retry, different disabled copy at each step, error recovery — the inferred logic diverges from the design intent before the first commit.\n\n**Before passing the bundle:**\n\n1. Open the bundle README directly — the URL is `api.anthropic.com/v1/design/h/<hash>` and Claude Code's WebFetch reads it\n2. Find each interactive component's state description\n3. Where descriptions are vague (\"error state on failure\"), make them precise: \"shows inline error message when submit returns 4xx; re-enables button after 3 seconds; retries max twice\"\n4. Add stack-specific notes: \"use `shadcn/ui Button`, not raw HTML; `variant=\"destructive\"` for error state\"\n\n**After the port, verify at three breakpoints** (375, 768, 1280px): confirm all interactive states from the screenshots are wired up, and check that the bundle's design token names map to your codebase. The `/design-sync` step handles token-name alignment (run it before creating the design); this verification is about state logic and responsive layout behavior.\n\n**What the bundle doesn't transfer:** Container queries, `grid-template-subgrid`, and CSS animation keyframes. These aren't part of the generated bundle — add them manually or specify them in the README before passing it to Claude Code.\n\n**Sources:** [Using Claude Design for prototypes and UX — claude.com](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design now stays on brand — claude.com/blog](https://claude.com/blog/claude-design-stays-on-brand-for-daily-work) · [Claude Design + Claude Code handoff production guide — claudelab.net](https://claudelab.net/en/articles/claude-ai/claude-design-claude-code-handoff-production-guide)"
+  },
+  {
+    "id": "2026-11-25-05-claude-code-remote-mcp-project-scope-mcp-json-oauth-team-share",
+    "title": "Your Team's Shared MCP Servers Live in Each Developer's Personal Config — `.mcp.json` Commits the Endpoint to the Project Repo Instead",
+    "excerpt": "Add remote MCP servers at project scope with `claude mcp add --transport http --scope project`; Claude Code writes the endpoint to `.mcp.json` and each developer authenticates independently.",
+    "author": "Chris Harper",
+    "date": "11-25-2026",
+    "publishedAt": "2026-11-25T12:06:00.000Z",
+    "tags": [
+      "AI",
+      "Workflow",
+      "MCP",
+      "Claude Code",
+      "Building AI Products"
+    ],
+    "readTime": 2,
+    "image": "https://img.cloudcodetree.com/_default.png",
+    "imageSource": "https://code.claude.com/docs/en/mcp",
+    "content": "**Add a remote OAuth MCP server once at project scope and `.mcp.json` commits the endpoint to the repo — each developer authenticates with their own credentials, nothing secret is committed.**\n\nLocal MCP servers start as stdio subprocesses on your machine — right for filesystem tools and local databases. Remote MCP servers run as HTTP endpoints, handle authentication server-side through OAuth, and are what third-party vendors publish. Add one at project scope and the endpoint lives in `.mcp.json` at the project root:\n\n```bash\n# Add a hosted MCP server at project scope\nclaude mcp add --transport http --scope project notion https://mcp.notion.so/mcp/\n\n# User scope (personal only, writes to ~/.claude.json)\nclaude mcp add --transport http --scope user linear https://mcp.linear.app/sse\n```\n\nThe first time a team member opens the project, Claude Code prompts for approval of the new server. Then `/mcp` shows sign-in state: each person completes the OAuth browser flow for their own account. Credentials never appear in the committed file — only the endpoint URL.\n\n**`.mcp.json` format** when editing directly:\n```json\n{\n  \"mcpServers\": {\n    \"notion\": {\n      \"type\": \"http\",\n      \"url\": \"https://mcp.notion.so/mcp/\"\n    }\n  }\n}\n```\nOmit `\"type\": \"http\"` and Claude Code treats the entry as a stdio config and never connects.\n\n**For API-key servers** (not OAuth): inject the key as an environment variable and reference it in the header config — do not hardcode it in `.mcp.json`. Use `--scope user` for any server whose authentication is personal rather than per-account OAuth.\n\n**What it won't do:** project scope shares the endpoint URL, not the session. Every developer signs in independently and can revoke their own access without affecting teammates. If the OAuth flow completes but `/mcp` still shows \"Needs authentication,\" test the token exchange separately with the MCP Inspector before changing project settings.\n\n**Sources:** [Claude Code MCP docs — code.claude.com](https://code.claude.com/docs/en/mcp) · [Remote MCP support in Claude Code — claude.com/blog](https://claude.com/blog/claude-code-remote-mcp) · [Claude Code OAuth deep dive — dev.to](https://dev.to/emblemai/claude-code-oauth-deep-dive-how-emblemais-mcp-server-handles-auth-e29)"
+  },
+  {
     "id": "2026-11-25-04-design-sync-code-to-claude-design-reverse-round-trip",
     "title": "Your Existing Component Has State, Props, and Variants You'd Have to Reconstruct — Pull the Design System Into Claude Design First So Redesigns Start From Reality",
     "excerpt": "Run /design-sync in Claude Code before opening Claude Design and your redesign canvas starts from your actual components, tokens, and variants — not the tool's placeholder defaults.",
