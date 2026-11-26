@@ -10,7 +10,106 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 26 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 26 Nov 2026 12:15:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Coding Agent Reads CLAUDE.md and AGENTS.md Before You Approve Anything — Bitdefender Found 22 GitHub Repos Using Those Files to Run a Credential Harvester]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-05-malicious-claudemd-agentsmd-github-ai-agent-defense</link>
+      <guid isPermaLink="false">2026-11-26-05-malicious-claudemd-agentsmd-github-ai-agent-defense</guid>
+      <pubDate>Thu, 26 Nov 2026 12:15:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[22 malicious GitHub repos use CLAUDE.md and AGENTS.md to run a credential harvester before you approve a file. Three defensive habits to adopt now.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Security</category>
+      <category>Claude Code</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**A Nov. 17 Bitdefender report found 22 malicious GitHub repos that use AI coding agent config files — CLAUDE.md, AGENTS.md, Cursor rules — to get your coding session to run a credential harvester before you have approved a single edit.**
+
+The attack targets developers who clone an unfamiliar repo and open it in a coding session. The repo's CLAUDE.md or AGENTS.md contains an instruction to run `setup.js` (or similar). Your agent treats it as a project directive and executes it — often before the first file edit you approve. The payload harvests GitHub/GitLab tokens, SSH keys, `.env` files, CI/CD secrets, browser-stored credentials, and cloud keys. By default it then opens up to 25 pull requests in repos the stolen token can reach, spreading the trap to other developers who clone those repos.
+
+**Three habits that block this:**
+
+1. **Read the agent config files before you do anything else in a cloned repo.**
+   ```bash
+   cat CLAUDE.md AGENTS.md .cursorrules .windsurfrules 2>/dev/null
+   ```
+   Any instruction to run an executable is a red flag.
+
+2. **Review every unexpected shell command in your session's tool-use stream.** Claude Code shows you each Bash call before it runs. An unfamiliar `node setup.js` or `python install.py` in a repo you just cloned deserves a denial.
+
+3. **Use a sandboxed environment for untrusted repos.** Claude Code's `--sandbox` flag prevents file-system access outside the working tree and blocks outbound network calls.
+
+**What this won't fix on its own:** there is no automatic scanning of agent config files — the defense requires the developer to actually read them. Claude Code loads CLAUDE.md at session start and treats its contents as project directives; it cannot distinguish a legitimate project convention from an injected instruction by itself.
+
+**Sources:** [Bitdefender Labs: How AI Agents Become New Targets in GitHub Malware Campaign](https://bitdefender.com/en-us/blog/labs/how-ai-agents-become-new-targets-in-github-malware-campaign), [SecurityOnline summary](https://securityonline.info/github-ai-agent-malware-coding-assistants/), [Claude Code memory/CLAUDE.md docs](https://code.claude.com/docs/en/memory)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Every MCP Tutorial Shows You How to Connect to Someone Else's Server — Here Is How to Build One That Wraps Your Own API or CLI in 20 Lines of Python]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-04-build-mcp-server-fastmcp-python-tool-claude-code</link>
+      <guid isPermaLink="false">2026-11-26-04-build-mcp-server-fastmcp-python-tool-claude-code</guid>
+      <pubDate>Thu, 26 Nov 2026 12:14:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Build a working MCP server in Python with FastMCP: decorate a function with @mcp.tool(), run it, and Claude Code can call it as a first-class tool.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>MCP</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Build a working MCP server in Python: decorate a function with `@mcp.tool()`, run it with FastMCP, and any MCP-compatible client (Claude Code, Cursor, etc.) can call it as a first-class tool.**
+
+**What you'll be able to do after this:** expose any internal API, database query, or CLI command as a native tool in a Claude Code session — without waiting for someone else to publish a server for it.
+
+**Three things to understand before you write a line:**
+
+- An MCP server is just a process that answers `tools/list` and `tools/call` requests over stdio (local) or Streamable HTTP (remote). FastMCP generates that boilerplate from your functions.
+- **Tools vs. resources:** tools are actions with side effects the model explicitly invokes; resources are addressable read-only data the host can read without invoking. Most tutorials default to tools — that is fine for APIs, but expose read-only data (a schema, a config file) as a resource.
+- Claude Code reads project MCP servers from `.claude/mcp.json`. The server runs as a local process — no deployment needed during development.
+
+**Minimal server:**
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("internal-tools")
+
+@mcp.tool()
+def get_open_issues(repo: str, label: str = "bug") -> list[dict]:
+    """Return open issues for a repo filtered by label.
+
+    Use this when asked to list, triage, or summarize open issues.
+    repo: owner/name format, e.g. 'acme/backend'
+    label: GitHub issue label to filter by (default: 'bug')
+    Returns: list of dicts with id, title, url, and created_at.
+    """
+    return fetch_issues(repo, label)   # your internal call here
+
+if __name__ == "__main__":
+    mcp.run()
+```
+
+Wire it in `.claude/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "internal-tools": {
+      "command": "python",
+      "args": ["tools/mcp_server.py"]
+    }
+  }
+}
+```
+
+Claude Code now sees `get_open_issues` as a native tool it can invoke mid-task.
+
+**Where it breaks:** tool descriptions are the main failure mode. A vague docstring ("gets data") makes the model skip the tool entirely or invoke the wrong one. Write what it *returns*, what each parameter *controls*, and when to prefer it over alternatives. The [Real Python Python MCP tutorial](https://realpython.com/python-mcp/) walks through a complete server with an e-commerce data source, with particular attention to description writing, tools vs. resources, and integration with an AI agent.
+
+**Limit:** FastMCP servers communicate over stdio by default, which means they restart with each new Claude Code session. For a server that needs to maintain state between sessions (a cache, an open database connection), use Streamable HTTP transport instead — the Python SDK's `mcp.server.streamablehttp` module handles this, though it requires a running process you manage separately.
+
+**Sources:** [Real Python: Python MCP](https://realpython.com/python-mcp/), [MCP spec: tools vs. resources](https://modelcontextprotocol.io/docs/concepts/tools), [Claude Code MCP docs](https://code.claude.com/docs/en/mcp)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Claude Code Session Loses Context the Moment You Close the Terminal — `--resume <session-id>` Brings It Back Exactly Where You Left Off, With No Rebriefing]]></title>
@@ -6252,83 +6351,7 @@ Also: **fast mode for Claude Opus 4.8 retires November 30, 2026.** Update any sc
 
 
 
-  <item>
-    <title><![CDATA[Your RAG Chain Passes Its Unit Tests But Still Hallucinates — DeepEval Scores Faithfulness, Contextual Precision, and Recall as Pytest Assertions]]></title>
-    <link>https://deepeval.com/tutorials/rag-qa-agent/tutorial-rag-qa-evaluation</link>
-    <guid isPermaLink="false">2026-11-08-06-deepeval-rag-faithfulness-contextual-precision-pytest</guid>
-    <pubDate>Sun, 08 Nov 2026 20:02:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[DeepEval turns RAG evaluation into pytest assertions — Contextual Precision, Contextual Recall, and Faithfulness are LLM-as-judge metrics you gate CI on, not prose you read manually.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**DeepEval turns RAG evaluation into pytest: three LLM-as-judge metrics score whether retrieved chunks were ranked well, whether the answer stayed inside them, and whether the right chunks came back at all.**
-
-Your RAG pipeline passes every unit test and still hallucinates. The problem is that existing tests check plumbing — retriever returns something, LLM responds — not quality: were the right chunks promoted? Did the answer stay inside the context?
-
-**What you'll be able to do after this:** write pytest assertions that catch retrieval ranking problems, groundedness failures, and coverage gaps before they reach production — using the same LLM you already call.
-
-**Three takeaways:**
-- `ContextualPrecisionMetric` catches ranking problems: were the most relevant chunks promoted above noise?
-- `FaithfulnessMetric` catches generation drift: does the answer include claims not in the retrieved context?
-- `ContextualRecallMetric` catches coverage holes: did the retriever surface all the facts the question needed?
-
-**The walkthrough:**
-
-```bash
-pip install -U deepeval
-```
-
-```python
-from deepeval import evaluate
-from deepeval.test_case import LLMTestCase
-from deepeval.metrics import (
-    ContextualPrecisionMetric,
-    ContextualRecallMetric,
-    FaithfulnessMetric,
-)
-
-case = LLMTestCase(
-    input="What is the refund policy for digital goods?",
-    actual_output=your_chain.invoke("What is the refund policy for digital goods?"),
-    # your retriever's returned chunks, in ranking order
-    retrieval_context=["Digital goods are non-refundable after download.", ...],
-    # used by Precision and Recall to judge coverage
-    expected_output="Digital goods cannot be refunded once downloaded.",
-)
-
-evaluate(
-    test_cases=[case],
-    metrics=[
-        ContextualPrecisionMetric(threshold=0.5),
-        ContextualRecallMetric(threshold=0.5),
-        FaithfulnessMetric(threshold=0.5),
-    ],
-)
-```
-
-Each metric uses a configured LLM as judge — by default OpenAI, [configurable to any provider](https://deepeval.com/docs/metrics-introduction#using-a-custom-llm-as-judge) including Anthropic models. Scores are 0–1; a test case passes only when every metric clears its threshold.
-
-**Running in pytest:**
-
-```python
-# test_rag.py
-def test_refund_policy():
-    case = LLMTestCase(input=..., actual_output=..., retrieval_context=[...], expected_output=...)
-    assert_test(case, [ContextualPrecisionMetric(), FaithfulnessMetric()])
-```
-
-```bash
-pytest test_rag.py -v
-```
-
-**Limits:** Each evaluation turn calls your judge LLM — a full suite over hundreds of question-answer pairs has real API cost. DeepEval can use a local Ollama model as judge (lower cost, noisier on nuanced faithfulness checks). A 0.5 threshold flags clear failures; production gates typically need 0.7+, which you calibrate against a labeled set. The LlamaIndex integration guide notes that judge-model defaults point to `gpt-4o`, so check the config before billing surprises arrive.
-
-**Sources:** [DeepEval RAG Agent Evaluation Tutorial](https://deepeval.com/tutorials/rag-qa-agent/tutorial-rag-qa-evaluation) · [Evaluating RAG with DeepEval and LlamaIndex — LlamaIndex blog](https://llamaindex.ai/blog/evaluating-rag-with-deepeval-and-llamaindex) · [DeepEval Faithfulness metric](https://deepeval.com/docs/metrics-faithfulness) · [DeepEval Contextual Precision](https://deepeval.com/docs/metrics-contextual-precision)]]></content:encoded>
-  </item>
-
+  
   <item>
     <title><![CDATA[Your Team's CLAUDE.md Is Committed but Your Personal Preferences Aren't — CLAUDE.local.md Is the Gitignored Per-Developer Override That Loads Every Session]]></title>
     <link>https://code.claude.com/docs/en/memory</link>
@@ -6385,60 +6408,7 @@ grep -q 'CLAUDE.local.md' .gitignore || echo 'CLAUDE.local.md' >> .gitignore
   </item>
 
 
-  <item>
-    <title><![CDATA[Your Team's Deploy Checklist Exists Only in Slack — Encode It in `.claude/commands/name.md` and `/name` Runs It Every Time]]></title>
-    <link>https://code.claude.com/docs/en/slash-commands</link>
-    <guid isPermaLink="false">2026-11-08-05-claude-code-custom-slash-commands-claude-commands-md</guid>
-    <pubDate>Sun, 08 Nov 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Drop a Markdown file in .claude/commands/, type /filename <args>, and Claude Code runs the encoded prompt with $ARGUMENTS and inline shell output — no copy-pasting, no forgetting a step.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**A Markdown file in `.claude/commands/` becomes a slash command at startup — `$ARGUMENTS` injects whatever you type after the name, and backtick lines starting with `!` run shell commands before Claude sees the prompt.**
-
-Claude Code loads every `.md` file in `.claude/commands/` as a project-scoped slash command. The filename (without `.md`) is the command name. The file content is the prompt Claude receives. Commit the directory and the whole team shares it.
-
-**The authoring format:**
-
-```markdown
-<!-- .claude/commands/check-pr.md -->
----
-allowed-tools: Bash, Read, Grep
----
-Review PR #$ARGUMENTS for security issues.
-
-First, fetch the diff:
-`!gh pr diff $ARGUMENTS`
-
-Then check each changed file for:
-- Unparameterized SQL in raw query strings
-- Missing input validation at API boundaries
-- Credentials or secrets in new config keys
-
-Report findings as `file:line — issue` entries.
-```
-
-Type `/check-pr 42` and Claude Code fetches the diff for PR #42, injects it inline, and runs the review against your three criteria.
-
-**Three mechanics worth knowing:**
-
-1. **`$ARGUMENTS`** — the string after the command name, dropped in wherever `$ARGUMENTS` appears in the file. `/check-pr 42` passes `42`; `/deploy staging v2.1.3` passes `staging v2.1.3`. It is a single variable — split inside a shell block if you need parts.
-2. **Backtick lines with `!`** — `` `!command` `` runs a shell command before Claude processes the prompt; the output is injected inline. Claude sees live data (the actual diff, the CI log, the recent commits), not a placeholder you forgot to fill.
-3. **`allowed-tools` frontmatter** — restricts which tools this command can invoke. A code-review command that should never write files gets `Bash, Read, Grep` only. Without it, the command inherits the full tool set.
-
-**When a custom command earns its file:**
-- Steps that always happen in the same order: fetch diff → grep for a pattern → analyze → report
-- Context-gathering that takes several manual steps before Claude has what it needs
-- Shared quality gates — security scan, release-notes generation, test-failure triage — that need a consistent, versioned prompt
-
-**Limits:** Commands are Markdown files in the repo — a new team member does not have them until they clone, and changes go through code review like any other source file. For personal or exploratory prompts, `~/.claude/commands/` stores per-user commands that do not commit. `$ARGUMENTS` interpolates the whole string after the command name; there is no positional-argument syntax (`$1`, `$2`) built in — parse it in the shell block if you need separate parts.
-
-**Sources:** [Custom slash commands — Claude Code Docs](https://code.claude.com/docs/en/slash-commands) · [Project configuration — code.claude.com](https://code.claude.com/docs/en/project-overview) · [Claude Code custom commands in practice — AI Engineer Guide](https://aiengineerguide.com/til/claude-code-custom-command/)]]></content:encoded>
-  </item>
-
+  
   
   
   
