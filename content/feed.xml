@@ -10,7 +10,69 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 26 Nov 2026 12:15:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 26 Nov 2026 20:08:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Every LoRA Tutorial Uses `r=8` as a Default — That Rank Setting Controls Your Actual Trainable Parameter Count, and Here Is How to Choose It]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-06-lora-rank-alpha-peft-parameter-count-explained</link>
+      <guid isPermaLink="false">2026-11-26-06-lora-rank-alpha-peft-parameter-count-explained</guid>
+      <pubDate>Thu, 26 Nov 2026 20:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[LoRA freezes base weights and trains two thin adapter matrices — `r` controls trainable parameter count. Here's what each LoraConfig setting does and how to pick r for your task.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**LoRA freezes the base model and trains two thin adapter matrices — rank `r` is their width, controlling how many parameters you actually update and setting a ceiling on task complexity.**
+
+Fine-tuning a 7B-parameter model from scratch requires 14+ GB of VRAM just to hold the gradients. LoRA sidesteps this by never updating the original weights.
+
+**What LoRA does:**
+For each targeted weight matrix, LoRA adds two small matrices — A of shape (r×d_in) and B of shape (d_out×r) — where `r` is the rank you choose. Only A and B are trained; the base weights stay frozen. At inference, the adapter output is `x·W₀ + x·B·A·(alpha/r)`, where `alpha/r` is the scaling factor.
+
+For a typical attention projection (d=4096) with r=8:
+- Original matrix: 4,096 × 4,096 = **16.7M parameters**
+- Two LoRA adapters: (4,096×8) + (8×4,096) = **65,536 parameters** (~0.4%)
+
+That reduction is why a 7B LoRA checkpoint is 8 MB instead of 14 GB.
+
+**What you'll be able to do after this:**
+- Understand why LoRA fine-tunes ~0.1% of model parameters instead of all of them
+- Choose a rank value based on task complexity rather than copying a default
+- Read a `LoraConfig` and know what each parameter actually does
+
+**Key `LoraConfig` parameters:**
+```python
+from peft import LoraConfig, get_peft_model
+
+config = LoraConfig(
+    r=8,                              # rank — lower = fewer params, less expressiveness
+    lora_alpha=16,                    # scaling = alpha/r; set alpha = 2×r as a starting heuristic
+    target_modules=["q_proj", "v_proj"],  # which attention weights to adapt
+    lora_dropout=0.05,
+    bias="none",
+)
+model = get_peft_model(model, config)
+model.print_trainable_parameters()
+# trainable params: 4,194,304 || all params: 6,738,415,616 || trainable%: 0.0623%
+```
+
+The `alpha = 2×r` heuristic (from Sebastian Raschka's experiments) keeps the effective learning rate stable when you change `r`, so you don't have to re-tune your optimizer every time you try a different rank.
+
+**Choosing r:**
+- Format-following, style transfer, single-domain: r=4–8 is usually enough
+- Complex reasoning, multi-domain, large domain shift: try r=32–64
+- If eval metrics plateau before training loss falls, your rank ceiling may be too low
+
+**Merge for zero inference overhead:**
+After training, run `model = model.merge_and_unload()`. The adapter matrices fold back into the original weights — inference becomes identical to the base model, with no extra compute.
+
+**Limits:**
+Low rank bets that the needed update fits in a low-dimensional subspace. It fails when the update is genuinely complex — you can't fix it by training longer, only by raising r. Also: `target_modules` names vary by architecture (Llama uses `q_proj`/`v_proj`; Phi and Mistral use different names) — always check the model's config before training.
+
+**Sources:** [HuggingFace PEFT — LoRA conceptual guide](https://huggingface.co/docs/peft/conceptual_guides/lora) · [Sebastian Raschka — Practical Tips for Finetuning LLMs Using LoRA](https://magazine.sebastianraschka.com/p/practical-tips-for-finetuning-llms) · [Original LoRA paper — Hu et al. 2021](https://arxiv.org/abs/2106.09685)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Coding Agent Reads CLAUDE.md and AGENTS.md Before You Approve Anything — Bitdefender Found 22 GitHub Repos Using Those Files to Run a Credential Harvester]]></title>
@@ -6352,61 +6414,7 @@ Also: **fast mode for Claude Opus 4.8 retires November 30, 2026.** Update any sc
 
 
   
-  <item>
-    <title><![CDATA[Your Team's CLAUDE.md Is Committed but Your Personal Preferences Aren't — CLAUDE.local.md Is the Gitignored Per-Developer Override That Loads Every Session]]></title>
-    <link>https://code.claude.com/docs/en/memory</link>
-    <guid isPermaLink="false">2026-11-08-07-claude-local-md-gitignored-per-developer-override</guid>
-    <pubDate>Sun, 08 Nov 2026 20:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[CLAUDE.local.md sits alongside your committed CLAUDE.md, loads automatically every session, takes precedence when rules conflict, and never gets checked into the repo.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**`CLAUDE.local.md` is a gitignored per-developer file that loads alongside the committed `CLAUDE.md` and wins on any conflict — the right place for personal tool paths, debug preferences, and machine-specific facts your team doesn't need.**
-
-Your project's `CLAUDE.md` is committed and shared. That's correct — team conventions, codebase structure, and deploy steps should be consistent. But some instructions only apply to you: your virtualenv path, your preference to never use `sudo`, the fact that your machine maps `python` to 3.12 while CI uses 3.11, your note to always print the SQL query during this debugging session.
-
-Putting those in the shared file is noise for your teammates. Keeping them only in your head means every new Claude Code session starts without them.
-
-**`CLAUDE.local.md` is the per-developer override.** It sits in the project root alongside `CLAUDE.md`. Claude Code reads it on startup, adds it to `.gitignore` automatically, and never stages it. When instructions conflict with the shared file, the local file wins.
-
-**What it's for — a short checklist:**
-
-```markdown
-# My local overrides for this project
-- Use ~/.venvs/myproject/bin/python, not the system python
-- Never use sudo — ask me first if you need elevated access
-- My machine is on macOS ARM; avoid x86-only tools
-- When debugging DB issues, print the full SQL query before executing
-- I'm working on the payments module this week — focus suggestions there
-```
-
-**How to create it:**
-
-```bash
-# Create in project root (Claude Code gitignores it automatically)
-touch CLAUDE.local.md
-# Verify — if it was missed:
-grep -q 'CLAUDE.local.md' .gitignore || echo 'CLAUDE.local.md' >> .gitignore
-```
-
-**The companion: `.claude/settings.local.json`** does the same for settings — it's also gitignored and takes precedence over the committed `.claude/settings.json`. If you have been pasting personal `allow` rules (tool permissions, `Bash` patterns) into the shared settings file, move them here.
-
-```json
-{
-  "permissions": {
-    "allow": ["Bash(pnpm run:*)", "Bash(node scripts/:*)"]
-  }
-}
-```
-
-**Limits:** `CLAUDE.local.md` only helps the person who wrote it — shared team conventions still belong in `CLAUDE.md`. It loads every turn, so keep it short; a 400-line personal file bleeds context budget the same as a 400-line shared one. For one-session context (a debugging hypothesis, a temporary constraint), use a `/memory` note instead — it doesn't persist to disk.
-
-**Sources:** [Claude Code memory and CLAUDE.md hierarchy — code.claude.com](https://code.claude.com/docs/en/memory) · [CLAUDE.md hierarchy and local overrides — morphllm.com](https://www.morphllm.com/claude-md-guide) · [settings.local.json reference](https://code.claude.com/docs/en/settings)]]></content:encoded>
-  </item>
-
+  
 
   
   
