@@ -10,7 +10,163 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Wed, 25 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 26 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Loses Context the Moment You Close the Terminal — `--resume <session-id>` Brings It Back Exactly Where You Left Off, With No Rebriefing]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-03-claude-code-resume-session-id-chain-script-pipeline</link>
+      <guid isPermaLink="false">2026-11-26-03-claude-code-resume-session-id-chain-script-pipeline</guid>
+      <pubDate>Thu, 26 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[`claude --resume <session-id>` picks up any saved session from any directory. In scripts, capture the JSON output session_id and pass it to the next invocation to chain follow-up prompts.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**`claude --resume <session-id>` picks up any saved session from any directory; in scripts, capture the ID from JSON output and pass it to chain follow-up prompts across separate invocations without rebriefing.**
+
+You're 45 minutes into a complex refactor. You hit a blocker, close the terminal, come back the next morning — and now you have to re-explain the whole context to Claude. Claude Code persists sessions to disk. The missing step is passing `--resume`.
+
+```bash
+# Resume the most recent session in the current directory
+claude --continue
+
+# Resume any session by ID, from any directory
+claude --resume 01JDR4Z9A8B7C6D5E4F3G2H1K0
+
+# In a script: capture the session ID from a previous run and resume it
+SESSION=$(claude -p "Start the refactor" --output-format json | jq -r '.session_id')
+# ... other work ...
+claude -p "Now add tests for what you just changed" --resume "$SESSION"
+```
+
+The last pattern is what makes Claude Code scriptable across separate invocations: each step gets the full reasoning from the previous run, not just the file diff. The Agent SDK exposes the same mechanism as `resume: "session_id"` in the options object alongside `fork_session`, which branches a session into a new ID without altering the original — useful when you want to explore two approaches from the same point.
+
+**Three things the docs clarify that most people miss:**
+
+1. Sessions created with `claude -p` (headless) or the Agent SDK are hidden from `claude --continue`'s picker — they can still be resumed, but only with `--resume <id>`.
+2. `--resume` restores the saved permission mode; pass `--permission-mode` to override it on that run.
+3. Sessions don't cross credential pools — a session started on a Claude subscription account can't be resumed via Bedrock credentials and vice versa.
+
+**Where the session ID comes from:** pass `--output-format json` to any `claude -p` run; the response object has a `session_id` field. Store it in a file or env var between pipeline steps.
+
+**Limit:** Sessions don't survive indefinitely — the disk-persisted session expires if Claude Code hasn't been updated and re-indexed the session store. For multi-day workflows, commit the session ID to a CI artifact or `.claude/.session` file so the next job can pick it up.
+
+**Sources:** [Claude Code sessions docs](https://code.claude.com/docs/en/sessions) · [Agent SDK sessions reference](https://code.claude.com/docs/en/agent-sdk/sessions)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Claude Code Mode Now Works in Bedrock, Foundry, and Google Cloud Sessions — Also: claude-opus-4-5 Retires January 22]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-02-code-mode-cloud-providers-opus-4-5-deprecation-jan-22</link>
+      <guid isPermaLink="false">2026-11-26-02-code-mode-cloud-providers-opus-4-5-deprecation-jan-22</guid>
+      <pubDate>Thu, 26 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Claude Code Mode (JS tool calls) now available in terminal sessions on Bedrock, Foundry, and Google Cloud (v2.1.331+). Separately: claude-opus-4-5 retires Jan 22, 2027.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Two Nov 23 changelog items: Code Mode (experimental JS tool calls) is now available on Bedrock, Foundry, and Google Cloud — and claude-opus-4-5 has a firm retirement date of January 22, 2027.**
+
+**Code Mode on cloud providers.** Code Mode is an experimental opt-in in which Claude writes JavaScript to call its tools rather than generating JSON tool-call syntax. It was added in the Nov 19 release for Claude Platform sessions; the [Nov 23 changelog](https://code.claude.com/docs/en/changelog) extends it to terminal sessions on Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, and Claude Platform on AWS. You need v2.1.331 or later. Limitations: sessions started on a Claude subscription or Console account can't be resumed on a cloud provider, and Code Mode doesn't work through a gateway or with Claude for Government.
+
+**Why it matters:** If your team routes Claude Code through Bedrock or Foundry for compliance reasons, Code Mode is now available to test on your workloads. Early reports suggest it reduces tool-call formatting errors in tight loops, but it's still experimental — worth running against your own benchmarks before switching.
+
+**Opus 4.5 retirement.** Anthropic [announced](https://platform.claude.com/docs/en/about-claude/model-deprecations) November 23 that `claude-opus-4-5` (and its dated alias `claude-opus-4-5-20251101`) retires from the API on January 22, 2027. Requests after that date will fail. The recommended replacement is `claude-opus-5-5`. Two migration gotchas: (1) if you use extended thinking with the old `budget_tokens` field, remove it, set `thinking` to `adaptive`, and switch to `output_config` effort — the new interface is different; (2) if your code prefills responses, Opus 5.5 doesn't accept a prefill, so that path needs changing before you switch. Retirement dates on Bedrock, Google Cloud, and Foundry may differ — check the [model deprecations page](https://platform.claude.com/docs/en/about-claude/model-deprecations) for each platform's schedule.
+
+**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog) · [Model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations) · [Opus 4.5 migration guide](https://platform.claude.com/docs/en/models/fable-5-2/migration-guide)
+]]></content:encoded>
+    </item>
+
+      <item>
+      <title><![CDATA[Your Claude Code Session Generates Hardcoded Colors Because It Can't See Your Token File — DTCG JSON + Style Dictionary + a DESIGN.md Summary Is What It Needs]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-26-01-design-tokens-dtcg-style-dictionary-claude-code-consume</link>
+      <guid isPermaLink="false">2026-11-26-01-design-tokens-dtcg-style-dictionary-claude-code-consume</guid>
+      <pubDate>Thu, 26 Nov 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Structure design tokens as DTCG JSON, build to CSS custom properties with Style Dictionary v5, and add a DESIGN.md summary Claude Code reads every session. One setup, every component uses your tokens.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Design-to-Code</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**What you'll be able to do after this:** author new components in Claude Code that reference your actual design tokens — `var(--color-brand-primary)`, not `#3b82f6` — without manually correcting every generated file.**
+
+Claude Code generates new components using framework defaults or hardcoded values because it doesn't know your token system. The fix is not a prompt. It's structured source of truth that agents can read.
+
+**Three-bullet takeaway:**
+- DTCG JSON (the [W3C Design Tokens Format Module 2025.10](https://www.w3.org/community/reports/design-tokens/CG-FINAL-format-20251028/)) is the right source-of-truth format — Style Dictionary v5 builds it into CSS custom properties, TypeScript enums, Tailwind theme extensions, and anything else your stack needs.
+- A `DESIGN.md` summary (not the full token file) is what Claude Code should read on every session — it lists the semantic token names and their usage conventions, not raw values.
+- One `CLAUDE.md` rule pointing at that file means generated components reference `var(--color-brand-primary)` from the start, with no post-generation cleanup.
+
+**Steps:**
+
+**1. Install Style Dictionary v5:**
+```bash
+npm install -D style-dictionary@5
+```
+
+**2. Create `tokens/color.tokens.json` in DTCG format:**
+```json
+{
+  "color": {
+    "brand": {
+      "primary": { "$type": "color", "$value": "#3b82f6" },
+      "secondary": { "$type": "color", "$value": "#06b6d4" }
+    },
+    "surface": {
+      "default": { "$type": "color", "$value": "#0f172a" },
+      "elevated": { "$type": "color", "$value": "#1e293b" }
+    }
+  }
+}
+```
+
+**3. Add `sd.config.mjs` to build to `dist/tokens.css`:**
+```js
+export default {
+  source: ['tokens/**/*.tokens.json'],
+  preprocessors: ['tokens-studio'],
+  platforms: {
+    css: {
+      transformGroup: 'css',
+      prefix: 'color',
+      buildPath: 'dist/',
+      files: [{ destination: 'tokens.css', format: 'css/variables' }]
+    }
+  }
+}
+```
+
+**4. Write `DESIGN.md`** — a human-readable summary of your semantic token names and usage conventions:
+```markdown
+## Design tokens
+CSS custom properties compiled from `tokens/`. Use these names, not raw values.
+
+| Token | Use for |
+|---|---|
+| `--color-brand-primary` | primary actions, links, focus rings |
+| `--color-brand-secondary` | accents, highlights |
+| `--color-surface-default` | page background |
+| `--color-surface-elevated` | card, modal backgrounds |
+```
+
+**5. Add to `CLAUDE.md`:**
+```markdown
+# Design system
+Read DESIGN.md before generating any UI. Use the CSS custom properties listed there, never hardcoded color values.
+```
+
+**6. Test:** open a new Claude Code session and ask it to build a button. It should reference your token names without prompting.
+
+**Limit:** `DESIGN.md` has to be kept in sync with `tokens.json` by hand. Rename a token and forget to update the doc and Claude Code's output will reference the old name. Add a simple CI lint step — a `grep` check that every token name in `DESIGN.md` exists in the compiled CSS — to catch drift before it reaches a PR.
+
+**Sources:** [Martin Fowler: Design Token-Based UI Architecture](https://martinfowler.com/articles/design-token-based-ui-architecture.html) · [W3C Design Tokens Format Module 2025.10](https://www.w3.org/community/reports/design-tokens/CG-FINAL-format-20251028/) · [DEV.to: Building a design token ecosystem](https://dev.to/timges/building-a-design-token-ecosystem-from-source-of-truth-to-automated-distribution-gpg) · [Style Dictionary docs](https://amzn.github.io/style-dictionary/)
+]]></content:encoded>
+    </item>
 
       <item>
       <title><![CDATA[Claude Design Outputs Fixed-Canvas Layouts and Doesn't Know About 375px — Four Lines in the Bundle README Prevent the Three Failures That Break on Mobile]]></title>
@@ -6283,160 +6439,9 @@ Type `/check-pr 42` and Claude Code fetches the diff for PR #42, injects it inli
 **Sources:** [Custom slash commands — Claude Code Docs](https://code.claude.com/docs/en/slash-commands) · [Project configuration — code.claude.com](https://code.claude.com/docs/en/project-overview) · [Claude Code custom commands in practice — AI Engineer Guide](https://aiengineerguide.com/til/claude-code-custom-command/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Fine-Tuned LoRA Adapters Each Need Their Own vLLM Instance — `--enable-lora --lora-modules` Serves Dozens of Adapters on One Base Model]]></title>
-    <link>https://docs.vllm.ai/en/stable/models/lora.html</link>
-    <guid isPermaLink="false">2026-11-08-04-vllm-multi-lora-adapters-serving-lora-modules-max-loras</guid>
-    <pubDate>Sun, 08 Nov 2026 12:03:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[--enable-lora --lora-modules name=path lets one vLLM server switch between LoRA adapters per-request; clients select an adapter by passing its registered name as the model ID.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Self-Hosting</category>
-    <category>Fine-Tuning</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**`--enable-lora --lora-modules name=path` lets one vLLM server switch between LoRA adapters per-request — one copy of the base weights in VRAM, dozens of fine-tunes accessible by name.**
-
-**What you'll be able to do after this:** Serve multiple fine-tuned LoRA adapters from a single base model and GPU allocation, without spinning up a separate vLLM instance per fine-tune.
-
-**Three things this unlocks:**
-
-1. Clients use the same OpenAI-compatible API; they select an adapter (or the unmodified base) by passing its name as the `model=` value
-2. `--max-loras N` controls how many adapters stay in GPU memory simultaneously — misses swap from disk (LRU cache), not an error
-3. All adapters must share the same base model; serving adapters for different base models requires separate server instances
-
-**How to set it up:**
-
-```bash
-pip install vllm
-
-# Adapters must be in PEFT format (adapter_config.json + adapter_model.safetensors)
-# -- the output of model.save_pretrained() or model.push_to_hub()
-
-vllm serve meta-llama/Llama-3.1-8B-Instruct \
-  --enable-lora \
-  --lora-modules customer_support=/models/cs-adapter \
-                 code_review=/models/cr-adapter \
-  --max-loras 2 \
-  --max-lora-rank 64
-```
-
-If you pushed your adapter to the Hub with `model.push_to_hub()`, pass the Hub path (`username/cs-adapter`) instead of a local directory.
-
-**Selecting an adapter from client code:**
-
-```python
-from openai import OpenAI
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="x")
-
-# customer_support adapter
-resp = client.chat.completions.create(
-    model="customer_support",          # name from --lora-modules
-    messages=[{"role": "user", "content": "How do I return an order?"}]
-)
-
-# base model, no adapter
-resp = client.chat.completions.create(
-    model="meta-llama/Llama-3.1-8B-Instruct",
-    messages=[{"role": "user", "content": "Explain HNSW indexing."}]
-)
-```
-
-`curl http://localhost:8000/v1/models` lists all registered adapters alongside the base model.
-
-**Limits:** An adapter whose rank exceeds `--max-lora-rank` is rejected at load time — set the flag to match your largest adapter. `--max-loras` is a VRAM budget: too high and you exhaust GPU memory, too low and cache misses spike latency (not fatal, but measurable). Runtime adapter loading/unloading is available but requires `VLLM_ALLOW_RUNTIME_LORA_UPDATING=True`, which the vLLM docs flag as a production risk. All adapters in one server instance must share the same base model — mixing base models requires separate instances.
-
-**Sources:** [vLLM LoRA adapters — docs.vllm.ai](https://docs.vllm.ai/en/stable/models/lora.html) · [Multi-LoRA serving guide — docs.anyscale.com](https://docs.anyscale.com/llm/serving/multi-lora)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Claude Code Session Keeps Solving the Wrong Problem After an Hour of Tool Calls — `/goal` Locks the Session to One Explicit Objective and Loops Until It's Met]]></title>
-    <link>https://www.mindstudio.ai/blog/claude-code-goal-command-autonomous-tasks</link>
-    <guid isPermaLink="false">2026-11-08-03-claude-code-goal-command-autonomous-loop</guid>
-    <pubDate>Sun, 08 Nov 2026 04:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[`/goal <text>` turns Claude Code into an autonomous loop that keeps working until a machine-checkable condition is true; added in v2.1.139 as a research preview for unattended tasks.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**`/goal <condition>` pins an explicit objective to the session and loops Claude Code until the condition is verifiably true — added in v2.1.139 (May 2026) as a research preview.**
-
-Long sessions drift. After 20 tool calls and two compaction cycles the model is still technically "on task," but its working definition of "done" has drifted from what you meant at the start. `/goal` is a session directive, not a prompt: set it once and the session loops — running tools, checking its own output, trying again — until it can demonstrate that the stated condition holds.
-
-**Usage:**
-
-```
-/goal "All 47 unit tests pass and eslint returns zero errors"
-```
-
-The objective persists across tool calls and compaction for the life of the session. Claude evaluates whether the condition is satisfied after each significant action and continues if it is not.
-
-For unattended runs with the CLI:
-
-```bash
-claude --dangerously-skip-permissions \
-  -p '/goal "migrate auth module to new token format; existing session tests stay passing"'
-```
-
-The session exits when it judges the goal met, or when it hits a blocker it cannot resolve.
-
-**Where it works:**
-
-- CI-style gates: "all tests pass," "lint returns zero errors," "build succeeds"
-- Refactors with a verifiable before/after state: "all usages of the old API replaced and the type checker is clean"
-- Autonomous scripted pipelines you would otherwise have to babysit
-
-**Where it breaks down:**
-
-- **Needs a machine-checkable condition.** Vague goals ("improve the code quality") give the model an easy exit — it will decide it succeeded. The goal must be something the session can evaluate without asking you.
-- **Research preview.** The `/goal` command is not in the stable API. Behavior around compaction and subagents is not officially documented and may change.
-- **Full blast radius with write access.** `--dangerously-skip-permissions` lets the loop run file edits, shell commands, and git commits without pausing. Scope the goal and the directory carefully.
-
-**Sources:** [MindStudio: Claude Code /goal command](https://www.mindstudio.ai/blog/claude-code-goal-command-autonomous-tasks) · [startupfortune.com: Claude adds /goal](https://startupfortune.com/claude-adds-goal-to-keep-working-until-the-job-is-done/) · [Stork.ai: /goal guide](https://www.stork.ai/blog/claudes-goal-command-will-change-how-you-work)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Claude Enterprise Nov 5: Security Center Shows Policy Gaps, Admin API Gets Session Revocation, Developer Platform Adds IP Allowlisting]]></title>
-    <link>https://support.claude.com/en/articles/12138966-release-notes</link>
-    <guid isPermaLink="false">2026-11-08-02-claude-enterprise-security-center-session-revoke-ip-allowlist</guid>
-    <pubDate>Sun, 08 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Anthropic's Nov 5 enterprise release adds a security center that flags configuration gaps against Anthropic's recommendations, Admin API session revocation, and IP allowlisting for the Developer Platform — all in beta.]]></description>
-    <category>AI</category>
-    <category>News</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Anthropic's Nov 5 enterprise release includes a security center for configuration gap analysis, Admin API session revocation, and IP allowlisting for the Developer Platform — all currently in beta.**
-
-Three additions shipped together on November 5:
-
-**Security center (beta).** A new dashboard in the Claude.ai admin panel audits your organization's configuration against Anthropic's security recommendations and surfaces gaps. The recommendations are Anthropic's own judgment, not a third-party benchmark — treat the flagged items as a prioritized checklist, not a compliance report.
-
-**Admin API: session revocation.** Admins can now invalidate active Claude.ai sessions via the Admin API. Useful for responding to a compromised account or offboarding without waiting for session expiry. Revoke a session:
-
-```bash
-curl -X DELETE https://api.anthropic.com/v1/admin/sessions/<session_id> \
-  -H "X-API-Key: $ADMIN_API_KEY"
-```
-
-(Exact endpoint shape from release notes — verify against current Admin API docs before wiring into automation.)
-
-**Developer Platform IP allowlisting (beta).** Organizations can now restrict API key usage to a declared list of IP ranges. Keys used from outside the allowlist are rejected. Applies to the Developer Platform (direct API access), not to Claude.ai web sessions.
-
-**Inference hooks — background.** The release notes also reference inference hook visibility improvements. Inference hooks (beta since Aug 5, 2026) let an organization route every prompt and response through its own HTTPS security server before and after inference; the security server can allow or deny the request but cannot rewrite it. The Nov 5 update improves hook status visibility in the admin panel.
-
-**Where it breaks down:**
-
-- All three features are still in beta — APIs and UI may change.
-- Security center recommendations reflect Anthropic's defaults; your organization's risk model may differ.
-- Inference hooks can only allow or deny requests, not rewrite them — DLP use cases that require redaction need a different approach.
-
-**Sources:** [Claude Enterprise release notes — Anthropic support](https://support.claude.com/en/articles/12138966-release-notes) · [Anthropic puts inline DLP inside Claude Enterprise — Unite.AI](https://www.unite.ai/anthropic-puts-inline-data-loss-prevention-inside-claude-enterprise/) · [Claude Enterprise inference hooks: a protocol review — mint.security](https://www.mint.security/blog/claude-enterprise-inference-hooks-a-protocol-review)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
