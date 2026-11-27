@@ -10,7 +10,117 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 27 Nov 2026 12:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 27 Nov 2026 20:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Complex Sessions Use One Model for Planning and Execution — `opusplan` Routes Opus to Plan Mode, Sonnet to Everything Else]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-07-opusplan-model-per-task-plan-execute-claude-code</link>
+      <guid isPermaLink="false">2026-11-27-07-opusplan-model-per-task-plan-execute-claude-code</guid>
+      <pubDate>Thu, 27 Nov 2026 20:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[`opusplan` is a --model alias that runs Opus during Plan Mode for hard architectural decisions and switches to Sonnet for execution — set it once and stop paying Opus rates for the whole session.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**`opusplan` is a `--model` alias that routes planning to Opus and execution to Sonnet — you get stronger reasoning on the architectural decision without paying Opus rates for the whole session.**
+
+Default sessions run on Sonnet, which handles most tasks well. The place where Opus earns its cost is plan mode: reasoning through a multi-file refactor before touching any code, designing a data model, or unblocking a session that's been cycling. `opusplan` captures exactly that case.
+
+**To use it:**
+```bash
+# Start a session on opusplan
+claude --model opusplan
+
+# Or switch mid-session
+/model opusplan
+```
+
+Inside the session:
+- **Plan Mode** (Shift+Tab, or `claude --plan`) routes to `opus`.
+- Outside plan mode — writing files, running commands — routes to `sonnet`.
+
+**Pin the underlying models explicitly:**
+```bash
+export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-5-5"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-4-6"
+```
+
+If you omit these, Claude Code resolves `opus` and `sonnet` to Anthropic's current defaults, which change when new model versions ship. Setting them prevents silent upgrades from changing behavior mid-project.
+
+**For fan-out work (spawning subagents):** `opusplan` doesn't apply to subagents. Set each subagent's model in its frontmatter:
+```yaml
+# .claude/agents/file-scanner.md
+---
+model: haiku
+---
+```
+
+**Limits:** Plan mode context caps around 200k tokens — a large plan can still fall back to Sonnet. The env-var resolution runs `ANTHROPIC_DEFAULT_OPUS_MODEL` → Claude Code's built-in alias → Anthropic's current default; a subagent's explicit `model:` frontmatter overrides all three. If the planning step isn't genuinely complex, Sonnet already handles it and `opusplan` adds no benefit.
+
+**Sources:** [Claude Code model configuration — official docs](https://code.claude.com/docs/en/model-config.md) · [opusplan in practice — mindstudio.ai](https://www.mindstudio.ai/blog/save-tokens-claude-code-opus-plan-mode) · [Model tiers and task routing — hackernoon](https://hackernoon.com/navigating-claude-code-models-tiers-and-effort)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Claude Design Export Has Silent Layout Bugs at 375px — Serve It Locally Before Handing Off to Claude Code]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-08-claude-design-preflight-test-localhost-375px-layout-css</link>
+      <guid isPermaLink="false">2026-11-27-08-claude-design-preflight-test-localhost-375px-layout-css</guid>
+      <pubDate>Thu, 27 Nov 2026 20:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Serve your Claude Design standalone HTML export locally at 375px and check for horizontal overflow, broken font fallbacks, and mismatched color tokens before handing off to Claude Code.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Serve your Claude Design standalone HTML export at 375px in Chrome DevTools before passing it to Claude Code — it takes five minutes and surfaces layout failures, font issues, and color mismatches before they become code cleanup cycles.**
+
+**What you'll be able to do after this:**
+Run a preflight check on any Claude Design export that surfaces the three most common CSS issues before they reach implementation.
+
+**Three takeaways:**
+- Claude Design's standalone HTML export is a real browser document — Chrome DevTools at 375px shows exactly which responsive failures are hidden in the generated CSS.
+- Three things to test before every handoff: horizontal overflow, missing font fallbacks, and color values that don't exist in your token file.
+- The findings go into the handoff README as a "Known gaps" block — Claude Code reads it before writing any implementation code.
+
+**Walk-through:**
+
+```bash
+# 1. Export from Claude Design
+#    File → Export → Standalone HTML → save to your project dir
+
+# 2. Serve locally (no install needed)
+python3 -m http.server 8080 &
+open http://localhost:8080/your-export.html
+
+# 3. Open Chrome DevTools (Cmd+Opt+I on Mac, F12 on Windows)
+#    Toggle device toolbar → set width to 375px
+```
+
+Watch for three things:
+
+1. **Horizontal overflow.** A scrollbar at the bottom of the viewport means a flex or grid container has no wrap rule. Note which element in DevTools.
+
+2. **Font failure.** Network tab → Fonts. If a `fonts.googleapis.com` request is blocked (e.g. by a CSP header on your production server), all generated typography degrades to system font. Add a `font-display: swap` local fallback or move the import inline.
+
+3. **Mismatched color tokens.** Use the DevTools color picker on key elements. Any hex value that doesn't appear in your `tokens.css` or Tailwind config won't survive the design-system cleanup pass. List them now.
+
+Add what you find to the README before passing to Claude Code:
+
+```markdown
+## Known gaps — fix before or during porting
+- [ ] `.card-row` overflows at 375px: needs `flex-wrap: wrap`
+- [ ] Google Fonts import blocked by CSP — add local fallback for Inter
+- [ ] `#1a2b3c` not in token file — map to `var(--color-surface-muted)` or add token
+```
+
+Claude Code reads the README before touching any file. These become explicit implementation constraints rather than surprises on first run.
+
+**Limit:** Visual inspection catches layout and CSS issues. Interaction state completeness — hover transitions, multi-step loading sequences, error recovery — requires a separate state specification step (see the README interaction notes guide).
+
+**Sources:** [Using Claude Design for prototypes and UX — official Anthropic tutorial](https://claude.com/resources/tutorials/using-claude-design-for-prototypes-and-ux) · [Claude Design limitations independent review — eesel.ai](https://www.eesel.ai/blog/claude-design-review-2026)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Large Refactor Runs One File at a Time — /batch Splits It Across Up to 30 Parallel Worktree Agents]]></title>
@@ -6352,92 +6462,8 @@ Each `handle_support_ticket()` call appears as one trace in Langfuse containing 
 **Sources:** [Langfuse Anthropic integration docs](https://langfuse.com/integrations/model-providers/anthropic) · [Python decorator docs](https://langfuse.com/docs/sdk/python/decorators) · [Towards AI: trace your first agent pipeline](https://pub.towardsai.net/getting-started-with-langfuse-tracing-your-first-agent-pipeline-38fca9271530) · [PyImageSearch self-hosted Langfuse + vLLM series](https://pyimagesearch.com/2026/05/18/llm-observability-with-self-hosted-langfuse-and-vllm/)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Claude Code "Yes, Don't Ask Again" Saves the Full Shell Command — Including Any Password or API Key Inline in It]]></title>
-    <link>https://github.com/anthropics/claude-code/issues/5544</link>
-    <guid isPermaLink="false">2026-11-09-08-claude-code-settings-local-json-plaintext-secrets-gitignore-fix</guid>
-    <pubDate>Mon, 09 Nov 2026 20:08:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Choosing "Yes, don't ask again" stores the full shell command as a plaintext allow rule in .claude/settings.local.json. If the command contained a credential, the credential is now in that file. Apiiro found 1,122+ public repos with exposed secrets.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Security</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Choosing "Yes, don't ask again" stores the full shell command — including any inline credential — in `.claude/settings.local.json`. Apiiro found 1,122+ public repos with exposed secrets.**
-
-When Claude Code asks permission to run a shell command and you pick "Yes, and don't ask again," it records the exact command string as an allow rule in `.claude/settings.local.json`. Commands like `PGPASSWORD=s3cr3t psql -U app prod` or `curl -H "Authorization: Bearer $TOKEN" ...` where `$TOKEN` was expanded before you ran it get stored verbatim.
-
-## Why the existing protection isn't enough
-
-Claude Code adds `.claude/settings.local.json` to your global git excludes (usually `~/.gitignore_global`). That protects the developer's current machine — but global git excludes do not travel with the repository. A collaborator who clones on a different machine has no protection, and the file can be committed and pushed. In many of the 1,122 cases Apiiro found, Claude Code itself was listed as the commit co-author.
-
-Secrets remain in git history and in every clone and fork even after the file is deleted.
-
-## Three things to do now
-
-**1. Add it to your project's `.gitignore`:**
-
-```
-# .gitignore
-.claude/settings.local.json
-```
-
-This protects all collaborators, not just the original developer. The committed `.claude/settings.json` (team-shared allow rules) is fine; it's the `.local` variant that shouldn't travel.
-
-**2. Never inline credentials in a "don't ask again" command.** Use environment variables that Claude Code can reference rather than values:
-
-```bash
-# Fine — the allow rule records the reference, not the secret
-PGPASSWORD="$DB_PASS" psql -U app prod
-
-# Dangerous — the allow rule stores the literal string
-PGPASSWORD=s3cr3t psql -U app prod
-```
-
-**3. Audit your existing history.** Check whether the file was ever committed:
-
-```bash
-git log --all --oneline -- .claude/settings.local.json
-```
-
-If it shows up, rotate every credential that appeared in an allow rule there. Deleting the file from HEAD is not enough — secrets stay in git history, forks, and clones.
-
-**One limit:** Pre-commit secret scanners that check for known key formats (GitHub PAT, AWS keys) may not detect a database password stored inside a shell command string. After adding the file to `.gitignore`, also consider a scanner that flags credential patterns inside any command block.
-
-**Sources:** [Apiiro security report — aviatrix.ai threat research center](https://aviatrix.ai/threat-research-center/claude-code-dont-ask-again-settings-local-json-passwords-keys-1122-github-2026/) · ["Don't ask again" leaks developer secrets — iTnews](https://www.itnews.com.au/news/dont-ask-again-in-anthropics-claude-code-leaks-developer-secrets-630203) · [Claude Code GitHub issue #5544](https://github.com/anthropics/claude-code/issues/5544)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Anthropic Launches Claude Fable 5.2 and Mythos 5.2 — Better Coding at a Lower Per-Token Price]]></title>
-    <link>https://www.anthropic.com/claude-fable-and-mythos-5-2</link>
-    <guid isPermaLink="false">2026-11-09-07-claude-fable-5-2-mythos-5-2-launch-coding-price-cut</guid>
-    <pubDate>Mon, 09 Nov 2026 20:06:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Fable 5.2 and Mythos 5.2 launched today. Fable 5.2 is 20% cheaper than Fable 5.1 and Anthropic reports it scores 49.1% on FrontierCode 2.0 at Xhigh effort.]]></description>
-    <category>AI</category>
-    <category>News</category>
-    <category>LLM</category>
-    <category>Claude Code</category>
-    <category>Frontier</category>
-    <content:encoded><![CDATA[**Fable 5.2 launches today: $8/$40 per million tokens (down from $10/$50), Anthropic reports 30% faster output, and Vals AI ranks it first of 36 models in independent evaluation.**
-
-Anthropic released Fable 5.2 and Mythos 5.2 on November 9, 2026. The two are the same underlying model; Fable carries stronger safeguards for general availability while Mythos is for dual-use research organizations.
-
-**Fable 5.2 by the numbers (Anthropic's figures):**
-- **Price:** $8 input / $40 output per million tokens; optional fast mode at $16 / $80
-- **Speed:** Outputs up to 30% faster than Fable 5.1 (Anthropic claims)
-- **Coding:** 49.1% on FrontierCode 2.0 at Xhigh effort — highest Anthropic has reported for any released model; Vals AI, an independent evaluation firm, places it first of 36 models on its Vals Index at 71.31%, ahead of Sonnet 5.5 (70.85%) and Gemini 4 Carbon (70.45%)
-- **Other:** 64.9% on the RoboDojo Sim robotics benchmark at Max effort
-
-**Limits:** Fast mode roughly doubles the per-token cost. Fable 5.2 is not the top model on every leaderboard — Vals AI notes a margin of error of ±0.96 points. Anthropic still recommends Opus 5.5 as the everyday model for cost-sensitive use. Mythos 5.2 is not available to most developers. Benchmark scores on FrontierCode and RoboDojo originate with Anthropic; treat them as vendor-reported claims until independent replications appear.
-
-**Why it matters:** If you route complex coding tasks to Opus 5.5 today because Fable 5.1 wasn't strong enough, the price/capability trade-off just shifted. The 20% price cut on the standard tier is the most direct change for most teams.
-
-**Sources:** [Official announcement — anthropic.com](https://www.anthropic.com/claude-fable-and-mythos-5-2) · [Independent benchmarks — vals.ai](https://www.vals.ai/models/anthropic_claude-fable-5-2) · [Launch coverage — The Next Web](https://thenextweb.com/news/claude-fable-5-2-mythos-5-2-anthropic-launch-price)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
