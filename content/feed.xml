@@ -10,7 +10,220 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 26 Nov 2026 20:08:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 27 Nov 2026 04:05:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Ship a SKILL.md With Your MCP Server So Users Get Workflows, Not Just Tools]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-03-skill-md-authoring-mcp-server-claude-code</link>
+      <guid isPermaLink="false">2026-11-27-03-skill-md-authoring-mcp-server-claude-code</guid>
+      <pubDate>Thu, 27 Nov 2026 04:05:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[With Skills over MCP in public beta, your MCP server can deliver workflow instructions Claude Code loads automatically. Here's the SKILL.md format and what makes a skill worth shipping.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>MCP</category>
+      <content:encoded><![CDATA[Now that Skills over MCP is in public beta (Claude Code v2.1.331+), every MCP server can ship workflow procedures alongside its tools. When a user connects your server, Claude Code discovers and loads any `SKILL.md` files in the `skills/` directory — giving them documented procedures they can invoke with a slash command.
+
+Here's what that looks like from the server-author side.
+
+## Directory layout
+
+```
+my-mcp-server/
+├── src/
+│   └── index.ts       # your tools
+└── skills/
+    ├── deploy/
+    │   └── SKILL.md   # /deploy skill
+    └── rollback/
+        └── SKILL.md   # /rollback skill
+```
+
+Claude Code reads every `SKILL.md` under `skills/` when the server connects, registers each as a slash command under the server's namespace (e.g. `/my-mcp-server:deploy`), and injects the content when the user invokes it.
+
+## SKILL.md format
+
+```markdown
+---
+name: deploy
+description: Deploy the current branch to the staging environment
+---
+
+Deploy the current git branch to the staging Kubernetes cluster.
+
+## Steps
+
+1. Run `git status` and confirm the working tree is clean.
+2. Call `mcp__my-mcp-server__build` with `{target: "staging"}`.
+   Wait for the tool to return `{status: "ready"}` before continuing.
+3. Call `mcp__my-mcp-server__deploy` with `{env: "staging", branch: "<current-branch>"}`.
+4. Tail the deployment logs with `mcp__my-mcp-server__logs` until the health check passes.
+5. Report the deployed SHA and the staging URL.
+```
+
+The frontmatter `name` is required — it sets the slash-command suffix. `description` controls how the skill appears in `/skills` listings and informs triggering. The body is Markdown; Claude follows it step-by-step when invoked.
+
+## What makes a skill worth shipping
+
+**Good skills are procedure specifications, not documentation.** They tell Claude exactly which tools to call, in what order, and what to check. Avoid prose that describes what tools do in general — instead, give the concrete sequence for a specific workflow.
+
+Keep the SKILL.md body concise: Claude reserves only a small context slice for the full skill list, and a bloated SKILL.md will be truncated. Put reference material — config schemas, error codes, edge cases — in separate supporting files the skill loads only when needed.
+
+**Use your own tool names.** Skills are most useful when they wire together the specific tools your server provides. Generic bash steps that don't need MCP tools belong in a local `.claude/skills/` file, not in a server-distributed SKILL.md.
+
+**Test the trigger.** The `description` field drives automatic triggering — when Claude thinks a task matches, it loads the skill. Write the description as a natural phrase matching how users would describe the workflow, not a tag cloud.
+
+## Resources
+
+- [Anthropic skill best practices](https://platform.claude.com/docs/agents-and-tools/agent-skills/best-practices)
+- [Claude Code skills docs](https://code.claude.com/docs/en/skills)
+- [DEV: Claude Code Skill Authoring 2026](https://dev.to/dibi8/claude-code-skill-authoring-how-to-package-procedures-claude-loads-only-when-relevant-2026-4k0j)
+- [Sherlock: How to Write Skills for Claude Code and Cowork](https://sherlock.xyz/post/how-to-write-skills-for-claude-code-and-cowork)
+]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Claude Code v2.1.331 Adds Skills over MCP Beta and Brings Tasks to GA]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-02-skills-over-mcp-public-beta-mcp-tasks-ga-claude-code</link>
+      <guid isPermaLink="false">2026-11-27-02-skills-over-mcp-public-beta-mcp-tasks-ga-claude-code</guid>
+      <pubDate>Thu, 27 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[MCP servers can now ship SKILL.md workflow instructions directly to Claude Code. Skills load automatically when users connect a server. Requires Claude Code v2.1.331+.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Claude Code</category>
+      <category>MCP</category>
+      <category>Anthropic</category>
+      <content:encoded><![CDATA[Anthropic shipped two significant Claude Code updates on November 24–26: **Skills over MCP** entered public beta, and **MCP Tasks** reached general availability.
+
+## Skills over MCP
+
+When a user connects an MCP server that includes a `skills/` directory containing `SKILL.md` files, Claude Code now loads those instructions automatically and makes them available as slash commands. Tool authors can ship not just tools but also **workflow procedures** — step-by-step guides that Claude follows when invoked.
+
+Previously, skills only worked with locally authored `.claude/skills/` files or through Claude plugins. Skills over MCP extends this to any MCP server: install a server, get its tools *and* its documented workflows in a single step.
+
+**Requirements:** Claude Code v2.1.331+ (check with `claude --version`). Skills over MCP is currently in public beta — feedback via the [Claude Code GitHub discussions](https://github.com/anthropics/claude-code/discussions).
+
+**Security note:** Skill content is loaded from the connected MCP server and treated as project-level instructions, with the same trust model as project CLAUDE.md files. Review what a server ships before connecting it to a production project.
+
+## MCP Tasks reach GA
+
+MCP Tasks — which let tools signal that an operation is running in the background and deliver results asynchronously — have moved to general availability. The GA version adds richer status signaling and improved timeout handling. Teams running long-horizon agentic workflows no longer need the `--experimental-tasks` flag.
+
+## Upgrade
+
+```bash
+npm update -g @anthropic-ai/claude-code
+claude --version  # should show 2.1.331 or later
+```
+
+## Sources
+
+- [Anthropic: Extending Claude's capabilities with skills and MCP servers](https://claude.com/blog/extending-claude-capabilities-with-skills-mcp-servers)
+- [Dataconomy: Anthropic Adds Skills Over MCP To Claude And Claude Code Beta](https://dataconomy.com/2026/11/26/anthropic-adds-skills-over-mcp-to-claude-and-claude-code/)
+- [VentureBeat: MCP servers can now deliver AI agent skills](https://venturebeat.com/technology/mcp-servers-can-now-deliver-ai-agent-skills-changing-what-companies-approve-when-they-connect-one)
+]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Query Decomposition: Turn One Complex Question Into Better RAG Results]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-01-rag-query-decomposition-subquestions-langchain-llamaindex</link>
+      <guid isPermaLink="false">2026-11-27-01-rag-query-decomposition-subquestions-langchain-llamaindex</guid>
+      <pubDate>Thu, 27 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Break multi-part questions into atomic sub-queries before retrieval. LangChain and LlamaIndex both ship decomposition primitives; here's how to wire them up and when it pays off.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>RAG</category>
+      <category>LangChain</category>
+      <category>LlamaIndex</category>
+      <category>Python</category>
+      <content:encoded><![CDATA[Multi-faceted questions are RAG killers. Ask "What are the differences between GPT-4 and Claude on coding tasks, and which is cheaper for high-volume use?" and a single embedding query will satisfy neither sub-topic well. **Query decomposition** solves this by splitting the input into atomic sub-questions, running independent retrievals, and merging the results before generation.
+
+## Why decomposition helps
+
+A vector similarity search optimizes for a single semantic centroid. When a question spans two or more distinct concepts, the retrieved chunks tend to cluster around whichever concept dominates the embedding — the other gets crowded out. Decomposing into sub-queries gives each concept its own retrieval pass, dramatically improving recall on multi-hop and comparative questions.
+
+## LangChain: structured decomposition
+
+LangChain's query analysis module exposes decomposition through a prompt-plus-structured-output binding. You define a `SubQuery` schema and wire it into a decomposition chain:
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel
+from typing import List
+
+class SubQuery(BaseModel):
+    sub_query: str
+
+decompose_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are an expert at converting user questions into database queries. "
+     "Perform query decomposition. Given a user question, break it into distinct "
+     "sub questions that you need to answer to respond to the original question. "
+     "Each sub question should be about a single concept/fact/idea."),
+    ("human", "{question}")
+])
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+decomposer = decompose_prompt | llm.with_structured_output(SubQuery)
+```
+
+For a full pipeline, wrap this in a `RunnableParallel` that fires one retriever per sub-question, then passes all retrieved docs to a synthesis prompt.
+
+## LlamaIndex: SubQuestionQueryEngine
+
+LlamaIndex ships `SubQuestionQueryEngine` as a first-class primitive. It treats each document source as a named *tool* and uses an LLM to decide which sources each sub-question should query:
+
+```python
+from llama_index.core.query_engine import SubQuestionQueryEngine
+from llama_index.core.tools import QueryEngineTool, ToolMetadata
+
+tools = [
+    QueryEngineTool(
+        query_engine=your_index.as_query_engine(),
+        metadata=ToolMetadata(
+            name="product_docs",
+            description="Detailed product documentation"
+        )
+    )
+]
+
+query_engine = SubQuestionQueryEngine.from_defaults(
+    query_engine_tools=tools,
+    verbose=True
+)
+
+response = query_engine.query(
+    "Compare the pricing and latency of the two providers in our docs"
+)
+```
+
+The engine logs each sub-question alongside which tool it routed to — useful for debugging.
+
+## When to use it (and when not to)
+
+Decomposition shines on **comparative questions**, **multi-hop reasoning** (where one answer depends on another), and **broad survey questions** that naturally span several sections of a knowledge base.
+
+Skip it for simple factual lookups — an extra LLM call adds latency (~300–600 ms) with no benefit. A lightweight classifier to route queries ("is this multi-part?") keeps the fast path fast.
+
+## Merge strategy matters
+
+After independent retrieval, you need to synthesize multiple answer fragments:
+
+- **Sequential**: answer sub-questions in dependency order, feeding prior answers as context — best for multi-hop chains
+- **Parallel then merge**: retrieve everything in parallel, hand all chunks to one synthesis call — fastest wall-clock time
+- **Iterative refinement**: LlamaIndex's default — sub-answers assembled into a final response incrementally — most coherent for open-ended questions
+
+## Resources
+
+- [LangChain query decomposition docs](https://python.langchain.com/docs/use_cases/query_analysis/techniques/decomposition)
+- [LlamaIndex Sub Question Query Engine notebook](https://developers.llamaindex.ai/python/examples/query_engine/sub_question_query_engine/index.md)
+- [Educative: Query Decomposition for Better Precision](https://www.educative.io/courses/advanced-rag-techniques/query-decomposition-for-better-precision)
+]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Every LoRA Tutorial Uses `r=8` as a Default — That Rank Setting Controls Your Actual Trainable Parameter Count, and Here Is How to Choose It]]></title>
@@ -6320,97 +6533,9 @@ response = client.messages.create(
 **Sources:** [To fine-tune or not to fine-tune — Meta AI Blog](https://ai.meta.com/blog/when-to-fine-tune-llms-vs-other-techniques/) · [Methods for adapting LLMs — Meta AI](https://ai.meta.com/blog/adapting-large-language-models-llms/) · [Fine-tuning vs RAG in 2026: A Practical Decision Framework — Tian Pan](https://tianpan.co/forum/t/fine-tuning-vs-rag-in-2026-a-practical-decision-framework-for-production-llm-systems/995)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Long-Running MCP Tool Call Holds Claude's Attention — The `/tasks` Panel and an Env Var Give You Back Control]]></title>
-    <link>https://code.claude.com/docs/en/changelog</link>
-    <guid isPermaLink="false">2026-11-09-03-mcp-background-tasks-panel-env-var-long-running-claude-code</guid>
-    <pubDate>Mon, 09 Nov 2026 04:08:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Claude Code v2.1.319 backgrounds long-running MCP tool calls immediately. Here's how to observe, test, and control this behavior — with the escape hatch for tools that need to stay in the main thread.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>MCP</category>
-    <category>Claude Code</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Since v2.1.319, Claude Code backgrounds long-running MCP tool calls immediately instead of holding the main thread — here's how to observe, test, and control this in your servers.**
-
-Before v2.1.319, a slow MCP tool call either held Claude Code's focus during execution or was auto-backgrounded at the 2-minute timeout. The new behavior is immediate and explicit: tool calls that Claude Code classifies as long-running are moved to the background at the start, freeing Claude to continue working while the tool runs.
-
-**What you can do with running tasks:**
-- Open `/tasks` (alias `/bashes`) to see all running MCP tasks and their status
-- A counter appears in the status line while a task runs
-- Claude resumes with the full tool result once the task completes
-
-**Testing your server:** Run your tools with `/tasks` open and verify they appear there. If a fast tool (under 1 second) is being backgrounded unexpectedly, check the classification — the official changelog has the heuristic.
-
-**Opting out:** Set `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1` in your environment if a tool call needs to block the main thread — for example, when testing a tool interactively or when it streams intermediate output you need to watch in real time.
-
-**Where this doesn't help:** Tools that need Claude to poll for completion after returning a task handle still require a polling tool on your server. Tools that return in under a second are unaffected.
-
-The earlier 2-minute auto-background threshold (from v2.1.212) remains as a catch-all for any MCP call that hasn't finished in time — this new behavior runs earlier than that.
-
-**Sources:** [Claude Code changelog v2.1.319](https://code.claude.com/docs/en/changelog), [v2.1.319 release notes](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-319/), [MCP progress notification tracking](https://claudeissues.com/issue/86464-bug-mcp-progress-notifications-are-received-but-discarded-once-a-call-is-auto-ba)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Claude Code v2.1.319 Backgrounds MCP Tasks Immediately; Auto-Mode Classifier Removed Behind LLM Gateways]]></title>
-    <link>https://code.claude.com/docs/en/changelog</link>
-    <guid isPermaLink="false">2026-11-09-02-claude-code-v2-1-319-mcp-background-auto-mode-gateway</guid>
-    <pubDate>Mon, 09 Nov 2026 04:06:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[v2.1.319 (Nov 6) backgrounds MCP tasks immediately and removes the auto-mode classifier fallback behind LLM gateways — teams routing through ANTHROPIC_BASE_URL need explicit allow rules.]]></description>
-    <category>AI</category>
-    <category>News</category>
-    <category>Claude Code</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Two changes in Claude Code v2.1.319 (Nov 6) affect anyone running MCP servers or deploying Claude Code in enterprise LLM gateway environments.**
-
-**MCP background tasks:** Tool calls Claude Code identifies as long-running tasks now run in the background immediately, rather than holding the main thread. Status appears in `/tasks` (or `/bashes`). Disable per-session with `CLAUDE_CODE_DISABLE_MCP_TASK_BACKGROUND=1`.
-
-**Auto-mode behind gateways:** The built-in classifier fallback is removed. If your team routes Claude Code through a corporate LLM proxy via `ANTHROPIC_BASE_URL` and the proxy doesn't pass through Anthropic's classifier endpoint, Claude Code now asks or denies instead of silently degrading. Teams in this setup need explicit allow rules in CLAUDE.md or settings.json — run `claude /status` to check if the classifier is reachable.
-
-Also: **fast mode for Claude Opus 4.8 retires November 30, 2026.** Update any scripts or API calls that pin `claude-opus-4-8` fast mode to `claude-opus-5-5` before then.
-
-**Why it matters:** If your team uses Claude Code behind a gateway and recently noticed more permission prompts after upgrading, this is the cause — the fix is explicit allow rules, not reverting to an older version.
-
-**Sources:** [Claude Code changelog](https://code.claude.com/docs/en/changelog), [v2.1.319 release notes](https://ai-tldr.dev/releases/anthropic-claude-code-2-1-319/), [Releasebot Claude updates](https://releasebot.io/updates/anthropic/claude)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your v0 Component Uses shadcn Defaults, Not Your Design System — `npx shadcn add` + Claude Code Closes That Gap]]></title>
-    <link>https://vercel.com/blog/maximizing-outputs-with-v0-from-ui-generation-to-code-creation</link>
-    <guid isPermaLink="false">2026-11-09-01-v0-add-codebase-shadcn-nextjs-claude-code-token-adapt</guid>
-    <pubDate>Mon, 09 Nov 2026 04:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[v0's "Add to Codebase" CLI command drops a generated component into your Next.js project in seconds; Claude Code then adapts it to your design tokens and component library in one pass.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Design</category>
-    <category>Design-to-Code</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**v0's "Add to Codebase" CLI command drops a generated component into your Next.js project in seconds; Claude Code then adapts it to your design tokens and component library in one pass.**
-
-**What you'll be able to do after this:** Generate a complex UI component in v0 — a data table, settings panel, or chart wrapper — and land it in your existing project using your color tokens, your `<Button>`, and your TypeScript types, not shadcn/ui defaults.
-
-**Three takeaways:**
-- `npx shadcn@latest add <v0-url>` installs the component and any missing shadcn primitives directly into `components/ui/` — no copy-paste required.
-- The main failure modes are missing CSS variables and server/client component boundary errors, both fixable with a focused Claude Code prompt.
-- v0 output assumes shadcn/ui; if your project uses a different library or custom tokens, Claude Code can adapt it in one pass rather than you rewriting every import manually.
-
-**The workflow:**
-
-1. Build and iterate your component on [v0.dev](https://v0.dev) until it looks right.
-2. Click **Add to Codebase** → copy the `npx shadcn@latest add <url>` command. Run it at your project root — it installs the component into `components/ui/` and any shadcn primitives it depends on.
-3. Import the component in a page. Run `tsc --noEmit` and your dev server to catch missing CSS vars (`--background`, `--foreground`, `--primary`) and boundary errors.
-4. Open Claude Code: `"This component uses shadcn tokens and imports from 'shadcn/ui'. Adapt it to use our design system (see CLAUDE.md tokens section) and replace shadcn primitives with components from @/components."` One pass usually covers it.
-5. Re-run your type checker and spot-check the rendered output.
-
-**Where it breaks:** shadcn's default styling bleeds through when your CSS token set doesn't cover the full range the component uses. Keep your token list in CLAUDE.md so Claude Code knows what variables are available. If your project doesn't use shadcn/ui at all, include which component library you do use in the adaptation prompt.
-
-**Sources:** [v0 official guide](https://vercel.com/blog/maximizing-outputs-with-v0-from-ui-generation-to-code-creation), [v0-to-Next.js integration walkthrough](https://dev.to/brandon-vibestart/from-v0-output-to-production-nextjs-in-90-minutes-a-6-step-integration-workflow-2026-4c60), [shadcn/ui CLI docs](https://ui.shadcn.com/docs/cli)]]></content:encoded>
-  </item>
-
+  
+  
+  
 
 
   
