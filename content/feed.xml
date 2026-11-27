@@ -10,7 +10,145 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 27 Nov 2026 04:05:00 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 27 Nov 2026 12:08:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your Large Refactor Runs One File at a Time — /batch Splits It Across Up to 30 Parallel Worktree Agents]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-06-claude-code-batch-large-refactor-parallel-worktree-prs</link>
+      <guid isPermaLink="false">2026-11-27-06-claude-code-batch-large-refactor-parallel-worktree-prs</guid>
+      <pubDate>Thu, 27 Nov 2026 12:08:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[/batch decomposes a large task into 5-30 independent units, runs each in an isolated git worktree that creates its own PR, and shows you the full plan before anything touches your code.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Claude Code</category>
+      <category>Agents</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**`/batch` decomposes a large codebase task into independent units, runs each in an isolated worktree that creates its own PR, and shows you the full plan before anything touches your code.**
+
+The `/batch` skill has been bundled with Claude Code since v2.1.63. Trigger it with a natural-language description of the change:
+
+```
+/batch Migrate all Express route handlers in src/routes/ from callbacks to async/await. Each route file is independent.
+```
+
+Claude Code responds with a **plan review** before writing a single line: the full decomposition — typically 5–30 units — with which files each agent will touch. You review and approve. After approval, each unit gets its own git worktree (a separate branch off your current HEAD), implements the change, runs any configured test scripts, and opens a pull request. All units run in parallel.
+
+**When to reach for `/batch`:**
+- Renaming a type or function across many independent files
+- Migrating a repeated pattern (error handling, import style, auth check) across N routes or handlers
+- Adding a new field to N data-layer files that don't call each other
+
+**When NOT to use it:**
+- Changes where unit A creates something unit B needs to import — the agents don't see each other's output, so the dependency silently breaks
+- Changes spanning fewer than ~5 files — sequential is faster and cheaper
+- CI/CD pipelines — `/batch` is a session command; use `claude -p` for headless automation
+
+**Limits to know:** Each agent runs at full token budget, so 10 parallel agents spend roughly 10x the tokens of one sequential run. You also end up with one open PR per unit — a 20-agent batch means 20 PRs to review and merge. There is no auto-merge or rebase step, and the branches don't know about each other's commits, so conflicts remain your problem if scoping was wrong.
+
+The plan review is the guard: if two units overlap on the same file, that's visible before execution. Reject and re-scope rather than letting conflicting agents race to the same file.
+
+**Sources:** [Claude Code agents — official /batch docs](https://code.claude.com/docs/en/agents) · [/batch command explained — wotai.co](https://wotai.co/blog/claude-code-batch) · [Claude Code refactors your codebase too slowly — Coding Beauty Dev](https://codingbeautydev.beehiiv.com/p/claude-code-refactors-your-codebase-too-slowly-this-feature-fixes-that)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Claude Design's Standalone Site Closes December 14 — What Moves, What You Must Export, and What Disappears]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-05-claude-design-standalone-closes-dec-14-migrate-artifacts</link>
+      <guid isPermaLink="false">2026-11-27-05-claude-design-standalone-closes-dec-14-migrate-artifacts</guid>
+      <pubDate>Thu, 27 Nov 2026 12:07:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[The standalone claude.ai/design site closes December 14. Projects, chats, and public links don't auto-migrate — act before the deadline or lose your work.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Design</category>
+      <category>Claude Design</category>
+      <content:encoded><![CDATA[**The standalone claude.ai/design site shuts down December 14; design work continues inside Claude as artifacts, but projects, chats, and public share links don't auto-migrate — you need to act before the deadline.**
+
+Anthropic confirmed the closure via an official support article. Claude Design itself isn't going away — new designs, design systems, and slide decks created in Claude are saved as artifacts, and the `/design-sync` workflow in Claude Code continues unchanged. The only thing ending is the separate standalone site.
+
+**What breaks on December 14:**
+- Public share links to standalone projects stop resolving
+- Chats and project comments in the standalone site are not carried over
+- Standalone projects become read-only, then deleted per Anthropic's data-retention schedule (no specific deletion date given)
+
+**What carries over automatically:** nothing. You migrate it, or it's gone.
+
+**What to do before December 14:**
+1. Open any standalone Claude Design project you want to keep
+2. Use Anthropic's migration flow to move designs into Claude as artifacts (see the support article linked below)
+3. Export any design system configuration separately — the imported snapshot doesn't auto-sync after migration
+
+**After migration:** the workflow is the same. Run `/design-sync` from Claude Code to push updated component info into the artifact, same as before. The hosting location changed; the round-trip didn't.
+
+**Limit:** migrated projects are point-in-time copies. If you keep working in the standalone version after migrating and before December 14, those changes aren't reflected in the migrated artifact — the original becomes read-only once you trigger the migration.
+
+**Why it matters:** any team that shares Claude Design links in Slack or Notion has 17 days to either migrate those projects or update the links. Public project URLs go dark on the 14th with no redirect.
+
+**Sources:** [Move from standalone Claude Design to Claude — support.claude.com](https://support.claude.com/en/articles/17440474-move-from-standalone-claude-design-to-claude) · [Claude Design is closing December 14 — Medium/Design Bootcamp](https://medium.com/design-bootcamp/claude-design-is-closing-on-december-14-here-is-what-designers-need-to-do-before-then-32af7182f773) · [Claude Design standalone site closes Dec 14 — adaptd.ai](https://adaptd.ai/updates/claude-design-standalone-closes-december/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Inference Code Is Locked to One Provider — Together AI Runs 200+ Open-Source Models on a Drop-in OpenAI-Compatible Endpoint]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-27-04-together-ai-serverless-inference-python-openai-compatible-llama-open-source</link>
+      <guid isPermaLink="false">2026-11-27-04-together-ai-serverless-inference-python-openai-compatible-llama-open-source</guid>
+      <pubDate>Thu, 27 Nov 2026 12:06:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Together AI's serverless inference is OpenAI-SDK-compatible: set base_url to https://api.together.ai/v1 and call Llama 3.3 70B, Qwen-2.5-72B, and 200+ open-source models with no GPUs to manage.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>LLM</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Together AI's serverless inference is drop-in compatible with the OpenAI Python SDK: change `base_url` to `https://api.together.ai/v1` and you're calling Llama 3.3 70B, Qwen-2.5-72B, and others with no GPUs to manage.**
+
+**What you'll be able to do after this:** swap your inference provider in one environment variable, call 200+ hosted open-source LLMs serverlessly without touching your existing SDK code, and fall back to a different model by changing one string.
+
+- Together AI doesn't host proprietary models — no GPT, no Claude. It's the open-source tier: Llama, Qwen, Mistral, DeepSeek, Phi.
+- **Model IDs change.** Together deprecates old IDs when updated versions ship. Always check the [serverless catalog](https://docs.together.ai/docs/serverless/overview) rather than hardcoding an ID from a blog post.
+- Together Python SDK 3.0 (October 2026) has breaking changes from 2.x. If you have existing Together code, check the migration guide before upgrading.
+
+**Using the OpenAI-compatible endpoint (existing OpenAI code — change two lines):**
+
+```python
+import os
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.together.ai/v1",
+    api_key=os.environ["TOGETHER_API_KEY"],
+)
+
+response = client.chat.completions.create(
+    model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    messages=[{"role": "user", "content": "Explain KV cache in one paragraph."}],
+)
+print(response.choices[0].message.content)
+```
+
+**Using the native Together SDK (SDK 3.0 pattern):**
+
+```python
+pip install together  # SDK 3.0+
+```
+
+```python
+from together import Together
+
+client = Together()  # reads TOGETHER_API_KEY from env
+
+response = client.chat.completions.create(
+    model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    messages=[{"role": "user", "content": "Explain KV cache in one paragraph."}],
+)
+print(response.choices[0].message.content)
+```
+
+**When to use serverless vs. dedicated endpoints:** Serverless endpoints are shared and can queue at high concurrency. For consistent low-latency at production scale, Together offers dedicated deployments and reserved capacity. Serverless is the right starting point for prototyping and low-to-medium traffic; watch your p95 latency as volume grows and consider dedicated when it climbs.
+
+**Other limits:** Together AI reports per-token pricing on their pricing page, but those figures change — verify before budgeting. The Messages API (`POST /v1/messages`, OpenAI-compatible) and the Responses API (`POST /v1/responses`) are both available at the base URL; check which endpoint your SDK version targets.
+
+**Sources:** [Together AI serverless inference docs](https://docs.together.ai/docs/serverless/overview) · [Together Python SDK — GitHub](https://github.com/togethercomputer/together-py) · [Serverless inference with Together AI — debuggercafe.com](https://debuggercafe.com/serverless-inference-with-together-ai/)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Ship a SKILL.md With Your MCP Server So Users Get Workflows, Not Just Tools]]></title>
@@ -6300,239 +6438,9 @@ Anthropic released Fable 5.2 and Mythos 5.2 on November 9, 2026. The two are the
 **Sources:** [Official announcement — anthropic.com](https://www.anthropic.com/claude-fable-and-mythos-5-2) · [Independent benchmarks — vals.ai](https://www.vals.ai/models/anthropic_claude-fable-5-2) · [Launch coverage — The Next Web](https://thenextweb.com/news/claude-fable-5-2-mythos-5-2-anthropic-launch-price)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Every RAG Tutorial Starts With `all-MiniLM-L6-v2` — Use the MTEB Leaderboard's Retrieval Tab to Find Out If That's Still the Right Call]]></title>
-    <link>https://huggingface.co/spaces/mteb/leaderboard</link>
-    <guid isPermaLink="false">2026-11-09-06-mteb-retrieval-tab-embedding-model-selection-rag</guid>
-    <pubDate>Mon, 09 Nov 2026 20:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[The overall MTEB average misleads for RAG — filter to the retrieval tab to compare models on actual retrieval tasks, then test your top candidates on your own data before committing.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>RAG</category>
-    <category>Embeddings</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Filter the MTEB leaderboard to the retrieval tab — not the overall average — to compare embedding models on actual RAG recall, then test your top candidates on your own documents.**
-
-**What you'll be able to do after this:**
-- Navigate the [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard) and filter it to the retrieval task instead of the overall average
-- Identify the trade-off between model size and retrieval score for three common tiers
-- Run a lightweight A/B comparison against your own documents before committing to a model
-
----
-
-Most RAG tutorials reach for `sentence-transformers/all-MiniLM-L6-v2` without explaining why. It was near the top of the leaderboard when the tutorials were written — small, fast, and good enough. MTEB (Massive Text Embedding Benchmark) is the benchmark that tells you whether it still is for your use case.
-
-MTEB scores hundreds of embedding models across 56 datasets covering retrieval, reranking, clustering, classification, and other tasks. The key rule before reading any ranking: **filter to the retrieval tab, not the overall average**. A model that wins the overall leaderboard can sit mid-pack on retrieval — the overall score folds in classification and clustering tasks that have nothing to do with RAG recall.
-
-## Three common size tiers and what you trade
-
-| Model | Params | Dims | Approximate retrieval score |
-|---|---|---|---|
-| `all-MiniLM-L6-v2` | 22M | 384 | ~56 on BEIR retrieval |
-| `bge-base-en-v1.5` | 110M | 768 | ~63 on BEIR retrieval |
-| `bge-large-en-v1.5` | 335M | 1024 | ~65 on BEIR retrieval |
-
-The jump from MiniLM to bge-base is roughly 7 retrieval points at ~5× the embedding time. Whether that matters depends on your query volume and latency budget. Scores above are approximate BEIR averages; check the live leaderboard for current figures.
-
-## A practical selection workflow
-
-**1. Open the leaderboard and filter to task: retrieval.** Sort descending. This gives you a list ranked on the datasets that matter — NQ, HotpotQA, MSMARCO, FEVER, and others from the BEIR benchmark suite.
-
-**2. Flag contamination risk.** Models trained after 2023 may have seen parts of the BEIR datasets. A model card that lists MTEB scores without saying whether the benchmark corpora were excluded from training should be treated with caution. The [premai.io comparison](https://blog.premai.io/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting) calls this out for several 2025–2026 models.
-
-**3. Test on your own corpus.** MTEB tells you how models rank on public datasets. Your documents are different. Per [Zilliz's analysis](https://zilliz.com/blog/choose-embedding-model-rag-2026), the 11th-ranked MTEB model outperformed the top-ranked one on their actual documents. After shortlisting from the leaderboard, embed 200–500 of your own chunks with each candidate and run a small retrieval eval:
-
-```python
-from sentence_transformers import SentenceTransformer
-import numpy as np
-
-model_a = SentenceTransformer("BAAI/bge-base-en-v1.5")
-model_b = SentenceTransformer("all-MiniLM-L6-v2")
-
-# Embed your eval queries and chunks, then compare hit@3 or MRR
-```
-
-**One limit:** MTEB primarily covers single-language English text retrieval. If your documents are multilingual, switch to the MTEB Multilingual tab — the rankings shift substantially. For code retrieval, check the code retrieval task filter. Neither the English nor multilingual tab reflects performance on structured data, tables, or very long documents.
-
-**Sources:** [MTEB Leaderboard — huggingface.co/spaces/mteb/leaderboard](https://huggingface.co/spaces/mteb/leaderboard) · [Best Embedding Models for RAG 2026 — premai.io](https://blog.premai.io/best-embedding-models-for-rag-2026-ranked-by-mteb-score-cost-and-self-hosting) · [How to Choose the Best Embedding Model for RAG — Zilliz](https://zilliz.com/blog/choose-embedding-model-rag-2026) · [Top embedding models on the MTEB leaderboard — Modal](https://modal.com/blog/mteb-leaderboard-article)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your `claude -p` Script Gets the Final Answer and Loses Every Tool Call — `--output-format stream-json` Streams Each Event as Parseable NDJSON]]></title>
-    <link>https://code.claude.com/docs/en/headless</link>
-    <guid isPermaLink="false">2026-11-09-05-claude-code-output-format-stream-json-ci-ndjson-events-parse</guid>
-    <pubDate>Mon, 09 Nov 2026 12:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Run claude --output-format stream-json and each tool call, result, and final answer arrives as its own JSON line — so CI scripts can inspect every step, not just the last sentence.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Claude Code</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**Run `claude -p` with `--output-format stream-json` and every tool call, result, and final answer arrives as its own JSON line (NDJSON) — so CI scripts can inspect what Claude did, not just what it said.**
-
-When you wire `claude -p "..."` into a build pipeline today, you get a text blob: Claude's final answer. If the session made tool calls to gather context — reading files, running searches, checking git history — those steps are invisible. `--output-format stream-json` changes that: each session event streams as a JSON object on its own line as it happens, making the full execution trace parseable.
-
-## The three output modes
-
-| Flag | Use case |
-|---|---|
-| (none) or `--output-format text` | Human-readable terminal output — the default |
-| `--output-format json` | Full session as a single JSON object after completion — includes `total_cost_usd`, tool call history, final result |
-| `--output-format stream-json` | NDJSON stream: each event appears as it happens. Best for long tasks where `json` mode would time out the CI runner |
-
-## Streaming events in a CI job
-
-```bash
-# Log each tool call in real time; act on the final result
-claude -p "Audit all TypeScript files for console.log calls that weren't removed before prod." \
-  --output-format stream-json \
-  --allowedTools "Glob,Read,Bash" \
-  | while IFS= read -r event; do
-      type=$(echo "$event" | jq -r '.type // empty')
-      case "$type" in
-        tool_use) echo "→ $(echo "$event" | jq -r '.name')" ;;
-        result)   echo "Session complete" ;;
-      esac
-    done
-```
-
-The [headless docs](https://code.claude.com/docs/en/headless) define the full event schema; event types you don't recognise are safe to skip — treat them as informational.
-
-## Getting cost and session data from `--output-format json`
-
-```bash
-# Run a code review and capture cost
-output=$(claude -p "Review the diff and output JSON only: {\"issues\": [], \"severity\": \"none|low|critical\"}" \
-  --output-format json \
-  --allowedTools "Read" < diff.txt)
-
-cost=$(echo "$output" | jq -r '.cost_usd // .total_cost_usd // "unknown"')
-echo "Review cost: \$cost"
-```
-
-The JSON output includes `total_cost_usd` and `session_id` — pass the session ID to `--resume` in a follow-up `claude -p` call to continue the same conversation from a script.
-
-## Practical patterns
-
-- **Cost gate:** Extract `total_cost_usd` from the final JSON object and fail the job if Claude exceeded a per-task budget — useful when you fan out many parallel reviews
-- **Fail on critical finding:** Ask Claude to output structured JSON with a severity field, parse it with `jq`, and `exit 1` if severity is `critical`
-- **Audit trail:** Pipe `stream-json` to a log file alongside the CI artifact; every tool call is there if you need to replay what Claude did
-
-**One limit:** `--output-format json` waits for the session to finish before writing anything to stdout. For tasks that might run for minutes, use `stream-json` instead — the CI runner won't time out, and you get progress. Neither mode supports interactive prompts; both require `--print` / `-p` mode.
-
-**Sources:** [Headless mode — Claude Code Docs](https://code.claude.com/docs/en/headless) · [Claude Code automation and stream-json — The Prompt Shelf](https://thepromptshelf.dev/blog/claude-code-print-mode-stream-json-automation-2026/) · [Headless mode CI/CD guide — SFEIR Institute](https://institute.sfeir.com/en/claude-code/claude-code-headless-mode-and-ci-cd/tutorial/)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Model Gives Generic Answers Even After Fine-Tuning — Three Questions Diagnose Whether the Fix Is RAG or Behavior Training]]></title>
-    <link>https://ai.meta.com/blog/when-to-fine-tune-llms-vs-other-techniques/</link>
-    <guid isPermaLink="false">2026-11-09-04-rag-vs-fine-tuning-three-question-test-knowledge-behavior</guid>
-    <pubDate>Mon, 09 Nov 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[RAG injects knowledge at query time; fine-tuning changes model behavior permanently. Three diagnostic questions tell you which one actually solves your problem.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Fine-Tuning</category>
-    <category>RAG</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**RAG injects knowledge at query time; fine-tuning changes model behavior permanently. The most common applied-AI mistake is using fine-tuning to fix a knowledge gap — here's the three-question test that tells them apart.**
-
-**What you'll be able to do after this:** Diagnose any model output problem as either a knowledge gap (needs RAG) or a behavior gap (needs fine-tuning) in under two minutes, and avoid the most expensive mistake in applied AI: running a fine-tuning job on a problem only retrieval can solve.
-
-**Three takeaways:**
-1. Fine-tuning changes *how* the model responds — format, style, tone, reasoning structure. It does not reliably add new facts; it bakes in training signal the model may surface without grounding.
-2. RAG changes *what* the model knows at query time. It's debuggable (inspect the retrieved chunks), reversible (remove a document and it's gone), and always current.
-3. The two compose: fine-tune once to lock in output format and domain vocabulary, then add RAG to inject changing facts at query time.
-
-## The three diagnostic questions
-
-**1. If you pasted the right information into the prompt, would the model answer correctly?**
-
-Test it in under a minute:
-
-```python
-import anthropic
-client = anthropic.Anthropic()
-
-# Failing without context
-response = client.messages.create(
-    model="claude-haiku-5-5",
-    max_tokens=256,
-    messages=[{"role": "user", "content": "What is our Q3 refund policy for enterprise customers?"}]
-)
-# Probably: "I don't have access to your company's policies..."
-
-# Now paste the relevant document
-with open("policies/q3-enterprise-refund.md") as f:
-    policy_text = f.read()
-
-response = client.messages.create(
-    model="claude-haiku-5-5",
-    max_tokens=256,
-    messages=[{
-        "role": "user",
-        "content": f"Policy:\n{policy_text}\n\nWhat is the Q3 refund policy for enterprise customers?"
-    }]
-)
-# If this answers correctly: the fix is RAG, not fine-tuning
-```
-
-**→ Answers correctly with context → RAG.** The model has the capability; it lacks the information.
-**→ Still wrong even with context → Fine-tuning candidate.** The model doesn't know *how* to respond, even when given the facts.
-
-**2. Does the information change, or do you need to cite a source?**
-
-A model fine-tuned on last month's docs will confidently cite outdated numbers with no way to tell. Meta's own guidance is explicit: "If the problem requires access to a dynamic corpus of data, fine-tuning may not be the right approach, as the knowledge of the LLM can soon become stale."
-
-→ Changing or citable data → **RAG.**
-
-**3. Is the problem about *how* it responds, not *what* it says?**
-
-- Always outputs a specific JSON schema
-- Always replies in a particular language or voice
-- Always reasons through a fixed structure before answering
-- Consistent domain vocabulary across a narrow task
-
-These are behavior/format changes that a system prompt alone can be inconsistent about at scale.
-
-→ Output format, style, reasoning structure → **Fine-tuning** (try a detailed system prompt with few-shot examples first).
-
-## The practical hybrid
-
-Most production systems end up using both. Fine-tune to lock in output behavior — the JSON schema your API consumers depend on — then add RAG to inject current facts at query time. The fine-tuned model processes retrieved context more reliably because it already knows what shape the answer should take:
-
-```python
-# Fine-tuned model: always outputs {"answer": "...", "sources": [...]}
-# RAG: injects the current facts at query time
-context_chunks = retrieve_top_k(query, vector_store, k=5)
-response = client.messages.create(
-    model="your-fine-tuned-checkpoint",
-    max_tokens=512,
-    system='You are a support assistant. Output only valid JSON: {"answer": string, "sources": [string]}',
-    messages=[{
-        "role": "user",
-        "content": f"Context:\n{chr(10).join(context_chunks)}\n\nQuestion: {query}"
-    }]
-)
-```
-
-## When fine-tuning genuinely wins alone
-
-- Output format compliance at scale (consistent JSON schema without long few-shot examples per prompt)
-- Domain vocabulary and tone consistency (legal, medical, brand voice)
-- Latency/cost: a fine-tuned smaller model can outperform prompting a larger one for a narrow task
-- Teaching a reasoning *pattern* where training examples fully specify correct behavior
-
-**Common mistakes to avoid:**
-- Fine-tuning to fix hallucinations → usually makes the model more *confidently* wrong
-- Fine-tuning on knowledge you'll need to update → no diff, no rollback, stale weights with no indicator
-- Fine-tuning before trying prompting → always test system prompts and few-shot examples first
-
-**Sources:** [To fine-tune or not to fine-tune — Meta AI Blog](https://ai.meta.com/blog/when-to-fine-tune-llms-vs-other-techniques/) · [Methods for adapting LLMs — Meta AI](https://ai.meta.com/blog/adapting-large-language-models-llms/) · [Fine-tuning vs RAG in 2026: A Practical Decision Framework — Tian Pan](https://tianpan.co/forum/t/fine-tuning-vs-rag-in-2026-a-practical-decision-framework-for-production-llm-systems/995)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
