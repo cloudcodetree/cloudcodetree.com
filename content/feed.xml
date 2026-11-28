@@ -10,7 +10,139 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Sat, 28 Nov 2026 04:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 28 Nov 2026 12:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Your FastMCP Server Restarts Every Claude Code Session and Lives on Your Machine — Four Lines Move It to Streamable HTTP and Let Anyone on Your Team Connect]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-28-05-fastmcp-stdio-to-streamable-http-modal-cloud-run-deploy</link>
+      <guid isPermaLink="false">2026-11-28-05-fastmcp-stdio-to-streamable-http-modal-cloud-run-deploy</guid>
+      <pubDate>Sat, 28 Nov 2026 12:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[stdio MCP servers die on session end and only run on your machine. Switching to Streamable HTTP transport takes four lines; deploy to Modal or Cloud Run and share the URL with the whole team.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>MCP</category>
+      <category>Developer Tools</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Your local MCP server restarts on every Claude Code session and only exists on your machine. Switching to Streamable HTTP transport is a four-line change and lets anyone on the team connect by URL.**
+
+When you built a local MCP server in stdio mode, you got a process that launches fresh on every new Claude Code session and only works on the developer's own machine. That is fine for personal tools. For a shared internal API — the kind your whole team should use — you want a URL that persists and that anyone can add to their `.mcp.json`.
+
+**The two-line code change in FastMCP:**
+
+```python
+# Before: stdio (personal, restarts per session)
+mcp.run()
+
+# After: Streamable HTTP (shareable, persistent)
+mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+```
+
+Your tools, descriptions, and resources are unchanged.
+
+**The serverless pitfall:** If you deploy to a serverless platform (Cloud Run, Vercel, Modal without a persistent container), use stateless mode. The older SSE transport issued a session ID; subsequent requests that hit a different instance would 404 because that instance had no record of the session. FastMCP's stateless mode avoids this:
+
+```python
+# For serverless (Cloud Run, Modal, Vercel)
+app = mcp.http_app(stateless_http=True)   # returns an ASGI app
+# Serve with Uvicorn or any ASGI host
+```
+
+Modal's example wraps it as a web endpoint; Cloud Run accepts it as a container that listens on `PORT`. Both have free tiers for low-traffic internal tools.
+
+**Wire it in `.mcp.json` after deployment:**
+
+```json
+{
+  "mcpServers": {
+    "internal-tools": {
+      "type": "http",
+      "url": "https://your-deployed-server.modal.run/mcp"
+    }
+  }
+}
+```
+
+Commit this to the project repo and every team member's Claude Code session gets the server on first open.
+
+**When to stay on stdio:** File-system tools, local database connections, and dev-only utilities belong as stdio servers — they restart fast and need no hosting. Move to HTTP only when multiple team members need the same tool or when the server needs to persist state between sessions.
+
+**Limits:** Streamable HTTP servers need hosting and add a cold-start latency to the first tool call in each session. Auth is not shown above — add API key validation in the ASGI middleware or use the OAuth flow Claude Code already supports for remote MCP servers. Stateless mode means no server-side session state between requests; if your tools require multi-step state, persist it externally (a database, R2, etc.).
+
+**Sources:** [FastMCP HTTP deployment — gofastmcp.com](https://gofastmcp.com/docs/deployment/http) · [Deploy stateless MCP server on Modal — modal.com](https://modal.com/docs/examples/mcp_server_stateless) · [Build and deploy a remote MCP server on Cloud Run — cloud.google.com](https://cloud.google.com/run/docs/tutorials/deploy-remote-mcp-server) · [MCP 2026-07-28 spec: stateless core — blog.modelcontextprotocol.io](https://blog.modelcontextprotocol.io/posts/2026-07-28/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your Scripts Still Call `vllm serve` Just to Process 500 Prompts — The `LLM` Class Runs the Same Engine In-Process and Needs No Server]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-28-04-vllm-llm-class-offline-batch-inference-script-no-server</link>
+      <guid isPermaLink="false">2026-11-28-04-vllm-llm-class-offline-batch-inference-script-no-server</guid>
+      <pubDate>Sat, 28 Nov 2026 12:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[vLLM's LLM class loads a model directly into your Python script and runs all prompts through the same batching engine as the server — no port, no server process, no curl.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Self-Hosting</category>
+      <category>LLM</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**vLLM has two modes: an HTTP server (`vllm serve`) and an in-process Python class (`LLM`). For batch scripts — eval runs, dataset annotation, bulk generation — the class is simpler and uses the same batching engine.**
+
+**What you'll be able to do after this:** Process thousands of prompts in a batch script without standing up or managing a server process. Same throughput, no open ports.
+
+**Three things to understand before the code:**
+
+1. `vllm serve` is an HTTP server that stays running and handles concurrent requests over the network. The `LLM` class is in-process: it loads the model, processes all prompts, and exits with your script.
+2. Both use the same continuous batching scheduler internally. The `LLM` class does not sacrifice throughput — it just does not expose an HTTP endpoint.
+3. When NOT to use the `LLM` class: if you have multiple scripts or processes that need to share one GPU, run `vllm serve` instead. The `LLM` class holds the GPU for the full duration of your script.
+
+**The code:**
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(
+    model="meta-llama/Llama-3.1-8B-Instruct",
+    max_model_len=4096,       # cap context to fit smaller GPUs
+)
+
+params = SamplingParams(
+    temperature=0.0,          # deterministic for evals
+    max_tokens=256,
+)
+
+prompts = [
+    "Summarize this product review: ...",
+    "Classify the sentiment of: ...",
+    # ... thousands more
+]
+
+outputs = llm.generate(prompts, params)
+for output in outputs:
+    print(output.outputs[0].text)
+```
+
+**For chat-format prompts** (instruction-tuned models), use `llm.chat()` — it applies the model's chat template automatically:
+
+```python
+conversations = [
+    [{"role": "user", "content": "Extract the JSON from: ..."}],
+    [{"role": "user", "content": "Rate this answer 1-5: ..."}],
+]
+outputs = llm.chat(conversations, params)
+```
+
+**Three-way decision rule:**
+
+| Scenario | Use |
+|---|---|
+| Process a fixed batch and exit | `LLM` class |
+| Persistent endpoint for multiple clients | `vllm serve` |
+| Dataset larger than one machine's memory | Ray Data LLM |
+
+**Limits:** The `LLM` class holds the model in GPU memory until the script exits — you cannot run two `LLM` instances on the same GPU at once, and the GPU is unavailable to other processes while your script runs. `max_model_len` defaults to the model's full context window; override it when your prompts are short and you want to fit a larger model on a smaller GPU. For very large datasets that exceed RAM, Ray Data LLM uses vLLM internally and streams execution across a cluster.
+
+**Sources:** [vLLM offline inference docs — docs.vllm.ai](https://docs.vllm.ai/en/stable/serving/offline_inference/) · [NYU HPC: LLM inference with vLLM (independent practical guide)](https://services.rt.nyu.edu/docs/hpc/ml_ai_hpc/LLM%20inference/vLLM/) · [vLLM examples — github.com/vllm-project/vllm](https://github.com/vllm-project/vllm/tree/main/examples)]]></content:encoded>
+      </item>
+
 
       <item>
       <title><![CDATA[Anthropic's Five-Component Design for Agents That Run Without Waiting for a User Message]]></title>
@@ -6254,145 +6386,8 @@ Explicit `allow` rules are unaffected — those calls still execute without prom
 ]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Manual Tool Loop Calls the API, Checks stop_reason, Builds the Next Message, and Repeats — `client.beta.messages.tool_runner` Does That With a `for` Loop and Two Decorators]]></title>
-    <link>https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner</link>
-    <guid isPermaLink="false">2026-11-10-05-anthropic-sdk-tool-runner-beta-auto-agent-loop</guid>
-    <pubDate>Tue, 10 Nov 2026 20:13:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <description><![CDATA[Annotate your Python functions with @beta_tool, pass them to client.beta.messages.tool_runner(), and iterate — the SDK handles the call/result loop automatically, without manual message assembly.]]></description>
-    <content:encoded><![CDATA[**Annotate your Python functions with `@beta_tool`, pass them to `client.beta.messages.tool_runner()`, and iterate — the SDK calls the API, invokes matching tools, and feeds results back automatically.**
-
-**What you'll be able to do after this:** Build a multi-step tool-using agent (search → fetch → compute → format) without writing the message-assembly loop yourself.
-
-A manual tool-calling loop requires: call the API, check `stop_reason == "tool_use"`, extract each `tool_use` block by id, call the matching function, build a `tool_result` content block with the right structure, append it to the messages list, repeat until `stop_reason == "end_turn"`. That's roughly 30 lines of message-assembly bookkeeping before your first real function does anything useful.
-
-The Anthropic Python SDK's `ToolRunner` (currently in beta) wraps that loop:
-
-```python
-from anthropic import Anthropic
-from anthropic.lib.tools import beta_tool
-
-client = Anthropic()
-
-@beta_tool
-def get_weather(location: str, unit: str = "celsius") -> str:
-    """Get the current weather for a location."""
-    return f"22°C in {location}"   # your real implementation
-
-@beta_tool
-def convert_currency(amount: float, from_currency: str, to_currency: str) -> str:
-    """Convert an amount between currencies."""
-    return f"{amount * 1.08} {to_currency}"   # your real implementation
-
-runner = client.beta.messages.tool_runner(
-    model="claude-sonnet-5-5",
-    tools=[get_weather, convert_currency],
-    messages=[{"role": "user", "content": "Weather in Paris and 100 USD in euros?"}],
-)
-
-# Iterate through all turns (including tool call/result turns):
-for message in runner:
-    pass
-
-# Or skip intermediate turns and get the final message directly:
-final = runner.until_done()
-print(final.content[0].text)
-```
-
-`@beta_tool` builds the JSON schema automatically from Python type hints and the function's docstring — no manual `{"name": ..., "input_schema": {"type": "object", "properties": {...}}}` block required.
-
-**Limits:**
-
-- The tool runner is in beta (`client.beta`), so the interface may change before it graduates to stable.
-- It does not support human-in-the-loop approval inside the loop. If you need a "confirm this action?" step before an action runs, use the manual loop instead.
-- Async is supported: use `async for` on the async client's `tool_runner`.
-- The SDK does not handle client-side context compaction for long runs — trim your messages manually if the context grows large.
-
-**Sources:** [Tool Runner (SDK) — Anthropic Docs](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-runner) · [tools_runner.py SDK example](https://sources.debian.org/src/anthropic-sdk-python/0.76.0-1/examples/tools_runner.py)
-]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Anthropic API Calls Block Until the Full Response Arrives — `client.messages.stream()` Gives You Token-by-Token Text for Any Streaming UI]]></title>
-    <link>https://platform.claude.com/docs/build-with-claude/streaming</link>
-    <guid isPermaLink="false">2026-11-10-04-anthropic-sdk-messages-stream-token-by-token-text-streaming-fastapi</guid>
-    <pubDate>Tue, 10 Nov 2026 12:05:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Replace client.messages.create() with the client.messages.stream() context manager and iterate stream.text_stream — tokens arrive as they generate instead of blocking on the full response, so a FastAPI SSE endpoint can forward each token to the browser immediately.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>Developer Tools</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What changes:** replace `client.messages.create()` with the `client.messages.stream()` context manager, then iterate `stream.text_stream` — tokens arrive as they generate instead of blocking on the full response.
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-# Blocking — waits for the full response
-message = client.messages.create(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Explain vector search."}]
-)
-print(message.content[0].text)
-
-# Streaming — tokens arrive as they generate
-with client.messages.stream(
-    model="claude-sonnet-5-5",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Explain vector search."}]
-) as stream:
-    for text in stream.text_stream:
-        print(text, end="", flush=True)
-final = stream.get_final_message()   # full Message object with usage counts
-```
-
-The context manager handles connection lifecycle. `stream.get_final_message()` returns the complete `Message` object with `usage.input_tokens` and `usage.output_tokens`, so you still have token counts after streaming.
-
-## Wire it to a FastAPI SSE endpoint
-
-```python
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-import anthropic
-
-app = FastAPI()
-client = anthropic.Anthropic()
-
-@app.get("/chat")
-def chat(prompt: str):
-    def token_stream():
-        with client.messages.stream(
-            model="claude-sonnet-5-5",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}]
-        ) as stream:
-            for text in stream.text_stream:
-                yield f"data: {text}\n\n"
-        yield "data: [DONE]\n\n"
-    return StreamingResponse(token_stream(), media_type="text/event-stream")
-```
-
-The browser side reads via `EventSource` or a `fetch` reader loop against `/chat?prompt=...`.
-
-## Limits
-
-- **NGINX / load balancer timeouts**: the default read timeout is 60 s. A slow generation on large `max_tokens` can still time out upstream. Set `proxy_read_timeout 300s;` or equivalent on any reverse proxy between your app and the client.
-- **Cloudflare Workers free tier**: the CPU time limit is 10 ms per request; holding a Worker context open for a streaming response does not work on the free tier. Use Cloudflare's `fetch()` with `ReadableStream` instead of a blocking SDK loop inside a Worker.
-- **Cloudflare Workers paid (Unbound)**: the wall-clock limit is 30 s for a Workers-to-origin request. If your LLM call streams beyond 30 s, the client gets a truncated response with no error. Stream shorter outputs or proxy through a Durable Object.
-- **`get_final_message()` placement**: call it outside the `with` block after iteration finishes, not inside it. Inside the block it blocks until all tokens arrive, defeating the purpose of streaming in a generator context.
-
-**Sources:** [Anthropic streaming docs](https://platform.claude.com/docs/build-with-claude/streaming) · [Python SDK source (Debian sources mirror)](https://sources.debian.org/src/python-anthropic/) · [Streaming responses with Claude API in Python (dev.to, 2026)](https://dev.to/kalyna_pro/streaming-responses-with-claude-api-in-python-2026-44la)]]></content:encoded>
-  </item>
-
+  
+  
   
   
   
