@@ -10,7 +10,136 @@
     <atom:link href="https://cloudcodetree.com/feed.xml" rel="self" type="application/rss+xml" />
     <description>Daily field notes on AI-assisted engineering.</description>
     <language>en-us</language>
-    <lastBuildDate>Thu, 27 Nov 2026 20:04:00 +0000</lastBuildDate>
+    <lastBuildDate>Sat, 28 Nov 2026 04:04:00 +0000</lastBuildDate>
+
+      <item>
+      <title><![CDATA[Anthropic's Five-Component Design for Agents That Run Without Waiting for a User Message]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-28-03-always-on-agents-five-components-anthropic</link>
+      <guid isPermaLink="false">2026-11-28-03-always-on-agents-five-components-anthropic</guid>
+      <pubDate>Sat, 28 Nov 2026 04:04:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Anthropic's William Hu describes the five components every always-on agent needs: an event inbox, timers, memory, permissions, and an outbox — without all five, your agent is just a cron job.]]></description>
+      <category>AI</category>
+      <category>Workflow</category>
+      <category>Agents</category>
+      <category>Best Practices</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**Without all five components, your agent is just a cron job. Anthropic's William Hu describes the design that makes it a real agent — one that reacts, remembers, and acts under appropriate constraints.**
+
+Most agent demos respond to a single user message. Production always-on agents run continuously, trigger from events (not prompts), and act autonomously for extended periods. They need a different architecture.
+
+Anthropic's five components for always-on agents:
+
+**1. Event inbox**
+The agent monitors a stream of events — calendar updates, Slack DMs, file changes, webhooks — and decides which ones warrant a response. This is the trigger layer. Without it, you have a cron job that ignores context.
+
+**2. Timers**
+Explicit time-based triggers ("run this at 09:00 every weekday") separate from event-driven ones. Important because event streams go quiet; timers keep the agent proactive.
+
+**3. Memory**
+Access to conversation history, task state, and long-term preferences. Hu distinguishes working memory (current context window) from episodic memory (what happened in prior sessions). Without persistent memory, the agent starts fresh every invocation.
+
+**4. Permissions**
+An explicit, queryable model of what the agent is allowed to do. Not just "can call these tools" but "can send email to these addresses, can modify these files, cannot call external APIs without approval." Permissions should be auditable and revocable.
+
+**5. Outbox**
+A mechanism for the agent to surface actions it took, decisions it deferred, and situations it needs human judgment for. The outbox is what prevents an always-on agent from becoming a silent actor.
+
+**Where most implementations fall short:** Implementations typically nail inbox + timers, partially cover memory, and skip permissions and outbox entirely. The result is an agent that works in demos but can't be audited or trusted in production.
+
+**What "good enough" looks like for low-volume use:** A cron trigger + file-backed memory + a Slack channel for outbox messages handles the inbox, timers, memory, and outbox cases. Permissions are the hard part; even a simple text file of "allowed domains" is better than nothing.
+
+**Limits:** Implementing all five components in production is non-trivial. Memory at scale requires a vector store or structured DB, not a JSON file. Permissions need a policy engine. The pattern is an architecture goal, not an afternoon project.
+
+**Sources:** [Building always-on agents — Anthropic / William Hu (Nov 13, 2026)](https://claude.com/blog/building-always-on-agents) · [Always-on agents in practice — smartscope.blog](https://smartscope.blog/p/building-always-on-agents-components) · [Persistent agent state — LangGraph docs](https://langchain-ai.github.io/langgraph/how-tos/persistence/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Opus 4.8 Fast Mode Returns an Error on November 30 — No Silent Fallback, Migrate to Opus 5.5]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-28-02-opus-4-8-fast-mode-removal-november-30-error</link>
+      <guid isPermaLink="false">2026-11-28-02-opus-4-8-fast-mode-removal-november-30-error</guid>
+      <pubDate>Sat, 28 Nov 2026 04:03:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[Opus 4.8 fast mode is removed November 30 — calls return an error, not a graceful fallback. If you've hardcoded --model opus:4.8:fast, test your migration path today.]]></description>
+      <category>AI</category>
+      <category>News</category>
+      <category>Developer Tools</category>
+      <category>Claude Code</category>
+      <content:encoded><![CDATA[Opus 4.8 fast mode was deprecated October 30 and is removed **November 30, 2026**. After that date, calls to `--model opus:4.8:fast` (or `claude-opus-4-8:fast` in the API) return an error — there is no silent fallback to Opus 4.8 standard or Opus 5.5.
+
+**Check your exposure now:**
+```bash
+grep -r "opus.*fast\|fast.*opus\|opus-4-8:fast\|claude-opus-4-8:fast" ~/.claude/ .claude/ .env* 2>/dev/null
+```
+
+**What to do:**
+- If you use `--model opus:fast` (the alias, not the versioned form): this is unaffected — `opus:fast` resolves to the current Opus fast tier.
+- If you've hardcoded `opus:4.8:fast` or `claude-opus-4-8:fast`: migrate to `opus:5.5:fast` or `claude-opus-5-5:fast` before November 30.
+- Opus 4.8 standard speed (`--model opus:4.8`) is **not** affected by this change and continues to work.
+
+**Why this is different from Opus 4.6:** Opus 4.6 fast mode removal fell back gracefully to standard speed. Opus 4.8 returns an explicit error. If you have automation that depends on the fast tier, test your migration path today.
+
+**Sources:** [Claude Code fast mode documentation](https://code.claude.com/docs/en/fast-mode) · [Opus 4.8 fast mode removal timeline — claude-world.com](https://claude-world.com/articles/claude-opus-4-8-fast-mode-removal/)]]></content:encoded>
+      </item>
+
+      <item>
+      <title><![CDATA[Your QLoRA Training Loop Uses `batch_size=1` Because Bigger OOMs — `gradient_accumulation_steps` Gives You an Effective Batch of 16 at the Same Memory Cost]]></title>
+      <link>https://cloudcodetree.com/ai-news/2026-11-28-01-gradient-accumulation-steps-qlora-training-effective-batch-size</link>
+      <guid isPermaLink="false">2026-11-28-01-gradient-accumulation-steps-qlora-training-effective-batch-size</guid>
+      <pubDate>Sat, 28 Nov 2026 04:02:00 +0000</pubDate>
+      <dc:creator>Chris Harper</dc:creator>
+      <description><![CDATA[gradient_accumulation_steps=8 with per_device_train_batch_size=2 gives an effective batch of 16 without touching your VRAM budget — here's why it works, what it costs, and the one place it silently breaks.]]></description>
+      <category>AI</category>
+      <category>Tutorial</category>
+      <category>Fine-Tuning</category>
+      <category>HuggingFace</category>
+      <category>Building AI Products</category>
+      <content:encoded><![CDATA[**What you'll be able to do after this:**
+Run QLoRA fine-tuning with an effective batch size of 8–32 on a single GPU with 16–24 GB of VRAM, without any change to your VRAM budget.
+
+---
+
+If you've run a QLoRA training loop on a consumer GPU, you've seen this error:
+
+```
+RuntimeError: CUDA out of memory. Tried to allocate ...
+```
+
+The fix people reach for first — increase `per_device_train_batch_size` — makes it worse. A batch size of 1 or 2 is the ceiling. But batch size affects training stability: too small, and gradients are noisy, learning is slow, and loss curves spike.
+
+`gradient_accumulation_steps` is the fix. It runs `N` forward passes with a small batch, accumulates the gradients from each pass, then does one weight update — giving you the statistical behavior of a batch `N` times larger, without the memory cost.
+
+**Three things to understand:**
+
+1. **What "effective batch size" means:** `effective_batch_size = per_device_train_batch_size × gradient_accumulation_steps`. With `batch_size=2` and `accumulation_steps=8`, you get the gradient signal of batch 16, one update per 8 steps.
+
+2. **What it costs:** Gradient accumulation doesn't increase throughput. The forward passes still happen sequentially; you're doing more of them per update. Training wall-clock time is roughly the same as `batch_size=16` would be (if memory allowed it), because the number of forward passes per epoch is the same.
+
+3. **The one place it silently breaks:** If you use a custom loss function and you're averaging over the batch, you need to divide the loss by `gradient_accumulation_steps` before calling `.backward()`. HuggingFace Trainer handles this automatically; raw PyTorch loops don't. Missing this normalization means your effective learning rate scales with `accumulation_steps`.
+
+**The config (HuggingFace Trainer + TRL):**
+```python
+from transformers import TrainingArguments
+from trl import SFTTrainer
+
+training_args = TrainingArguments(
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=8,     # effective batch = 16
+    gradient_checkpointing=True,        # ~20% slower, ~40% less activation memory
+    bf16=True,
+    optim="adamw_8bit",
+    output_dir="./out",
+)
+```
+
+> **Unsloth users:** don't set `gradient_checkpointing` in `TrainingArguments`. Pass `use_gradient_checkpointing="unsloth"` to `FastLanguageModel.get_peft_model()` instead — Unsloth's implementation is 30% more memory-efficient.
+
+**Gradient checkpointing** (shown above) is a companion optimization: instead of storing all activations for backprop, it recomputes them from checkpoints. This costs ~20% extra compute but cuts activation memory by ~40%. The two optimizations compose well for a 24 GB GPU running a 7B or 13B model with 4-bit quantization.
+
+**Limits:** Gradient accumulation doesn't improve throughput — you're doing the same amount of compute per epoch. For distributed training (multi-GPU), standard data-parallel batching is more efficient. The technique is specifically for single-GPU memory constraints.
+
+**Sources:** [Efficient training on a single GPU — HuggingFace docs](https://huggingface.co/docs/transformers/en/perf_train_gpu_one) · [Gradient accumulation in LLM fine-tuning — Sebastian Raschka](https://sebastianraschka.com/blog/2023/llm-grad-accumulation.html)]]></content:encoded>
+      </item>
 
       <item>
       <title><![CDATA[Your Complex Sessions Use One Model for Planning and Execution — `opusplan` Routes Opus to Plan Mode, Sonnet to Everything Else]]></title>
@@ -6264,204 +6393,9 @@ The browser side reads via `EventSource` or a `fetch` reader loop against `/chat
 **Sources:** [Anthropic streaming docs](https://platform.claude.com/docs/build-with-claude/streaming) · [Python SDK source (Debian sources mirror)](https://sources.debian.org/src/python-anthropic/) · [Streaming responses with Claude API in Python (dev.to, 2026)](https://dev.to/kalyna_pro/streaming-responses-with-claude-api-in-python-2026-44la)]]></content:encoded>
   </item>
 
-  <item>
-    <title><![CDATA[Your Inference Code Calls Three Different SDKs for Three Different Providers — Cloudflare Workers AI's OpenAI-Compatible Endpoint Cuts That to One SDK]]></title>
-    <link>https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/</link>
-    <guid isPermaLink="false">2026-11-10-03-cloudflare-workers-ai-openai-compatible-endpoint-single-sdk-inference</guid>
-    <pubDate>Tue, 10 Nov 2026 12:04:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[Cloudflare Workers AI exposes an OpenAI-compatible /chat/completions endpoint: point the openai Python SDK at api.cloudflare.com/client/v4/accounts/{id}/ai/v1 with a Workers AI token and call Llama 3.3, Mistral, Gemma, and others with the same code that calls OpenAI GPT.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Cloud</category>
-    <category>LLM</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** call Llama 3.3, Mistral, Gemma, and other models on Cloudflare Workers AI using the standard `openai` Python SDK — the same code that calls OpenAI GPT works against Workers AI by changing three lines.
-
-- Use one SDK for every inference provider instead of maintaining separate `anthropic`, `openai`, and `google.generativeai` import paths
-- Run inference from Python scripts against Workers AI's hosted fleet without opening a provider account for each model
-- Stream tokens the same way you already do with the OpenAI client
-
-## Setup
-
-```bash
-pip install openai
-```
-
-```python
-import os
-from openai import OpenAI
-
-client = OpenAI(
-    api_key=os.environ["CLOUDFLARE_API_TOKEN"],
-    base_url=(
-        f"https://api.cloudflare.com/client/v4/accounts/"
-        f"{os.environ['CLOUDFLARE_ACCOUNT_ID']}/ai/v1"
-    )
-)
-
-response = client.chat.completions.create(
-    model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    messages=[{"role": "user", "content": "Explain HNSW indexing in three sentences."}]
-)
-print(response.choices[0].message.content)
-```
-
-`CLOUDFLARE_API_TOKEN` = an API token with the **Workers AI Read** permission (not your Global API key). `CLOUDFLARE_ACCOUNT_ID` appears in the Cloudflare dashboard URL bar.
-
-## Streaming
-
-```python
-stream = client.chat.completions.create(
-    model="@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    messages=[{"role": "user", "content": "Explain HNSW indexing."}],
-    stream=True,
-)
-for chunk in stream:
-    delta = chunk.choices[0].delta.content
-    if delta:
-        print(delta, end="", flush=True)
-```
-
-## Available models
-
-Browse the full catalog at [developers.cloudflare.com/workers-ai/models/](https://developers.cloudflare.com/workers-ai/models/). Common picks:
-
-| Model | Workers AI name |
-|---|---|
-| Llama 3.3 70B (fast) | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` |
-| Mistral 7B Instruct | `@cf/mistral/mistral-7b-instruct-v0.2-lora` |
-| Gemma 7B | `@cf/google/gemma-7b-it` |
-| Qwen 2.5 Coder 15B | `@cf/qwen/qwen2.5-coder-15b-instruct` |
-
-## Limits
-
-- **Free tier — neurons**: Workers AI free tier gives 10,000 neurons/day. The 70B model costs roughly 7–10 neurons per output token, so ~1,000–1,400 output tokens before hitting the daily cap. The 7B–8B models cost fewer neurons per token. Neuron cost is listed on each model's page in the catalog.
-- **Latency**: Workers AI runs inference at Cloudflare's edge. From a standalone Python script on your laptop, that is an extra round-trip compared to calling the model's native API. The endpoint is fastest when your code runs inside a Cloudflare Worker, colocated with the inference fleet.
-- **Model availability**: not every model in the catalog is available in every region at every time — a 503 from the endpoint means the model is at capacity. Build retry logic for production use.
-- **OpenAI API surface parity**: Workers AI implements `chat/completions` and embeddings. It does not implement function calling, fine-tuning, files, or assistants — if your code uses those OpenAI features, it will not work against this endpoint.
-
-**Sources:** [Workers AI OpenAI compatibility docs](https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/) · [Workers AI model catalog](https://developers.cloudflare.com/workers-ai/models/) · [Cloudflare Workers AI tutorial (mecanik.dev)](https://mecanik.dev/en/posts/cloudflare-workers-ai-tutorial/) · [Workers AI with Agno (agno.com docs)](https://docs.agno.com/examples/models/cloudflare/basic)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your MCP Tool Just Reads a File and Returns It — That's a Resource, Not a Tool, and the Difference Cuts Conversation Overhead]]></title>
-    <link>https://modelcontextprotocol.io/docs/concepts/resources</link>
-    <guid isPermaLink="false">2026-11-10-02-mcp-resource-vs-tool-static-data-conversation-overhead</guid>
-    <pubDate>Tue, 10 Nov 2026 04:15:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[If your MCP tool only reads static data and returns it unchanged, convert it to a resource — resources remove the tool_use/tool_result overhead and let Claude browse data without consuming a conversation turn.]]></description>
-    <category>AI</category>
-    <category>Workflow</category>
-    <category>MCP</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**If your MCP tool only reads static data and returns it unchanged, it's a resource — converting it removes tool-call overhead and lets Claude browse the data without consuming a conversation turn.**
-
-The MCP spec draws a sharp line between **tools** (actions Claude explicitly invokes, with inputs and side effects) and **resources** (addressable data Claude or the host can read, like a filesystem). Most MCP servers built from tutorials default to tools — even for things that just read a file or return a schema that never changes.
-
-The practical cost: each tool call consumes a `tool_use` and `tool_result` block in the conversation, counts against context, and forces Claude to reason explicitly about "should I call this now?" For tools that retrieve the same static data every time, that overhead fires on every request.
-
-Resources sidestep this. Claude (or the host client) can list available resources and read them on demand without a tool_use block. With FastMCP:
-
-```python
-# Before: a tool that reads the same file every time
-@mcp.tool()
-def get_database_schema() -> str:
-    return open("schema.sql").read()
-
-# After: a resource — same data, available without a tool_use block
-@mcp.resource("db://schema")
-def database_schema() -> str:
-    return open("schema.sql").read()
-```
-
-The decision rule:
-
-- **Tool** → takes inputs, performs an action, may change state (query a database, run a command, write a file)
-- **Resource** → returns data you would read in a documentation page: schema, API reference, project rules, config
-
-A quick check: delete the tool name from your docstring. If what remains is "returns the contents of X," it should be a resource.
-
-**Limits:** Resources aren't re-fetched automatically when the underlying data changes — there is no cache invalidation. For data that updates frequently (live query results, test output), keep it as a tool. Converting to a resource also does not eliminate token cost: a large schema still consumes context tokens when Claude reads it; the saving is in conversation-turn overhead, not token count. And not all MCP host clients expose resource browsing in the same way — verify your target client (Claude Code, your SDK-based host) supports resources before converting a production tool.
-
-**Sources:** [MCP resources concept](https://modelcontextprotocol.io/docs/concepts/resources) · [FastMCP resources](https://github.com/jlowin/fastmcp) · [MCP spec — tools vs resources](https://spec.modelcontextprotocol.io/specification/server/resources/)]]></content:encoded>
-  </item>
-
-  <item>
-    <title><![CDATA[Your Anthropic SDK Calls Run in a Black Box — `AnthropicInstrumentor` Puts Every Generation, Token Count, and Latency Into a Trace You Can Inspect]]></title>
-    <link>https://langfuse.com/integrations/model-providers/anthropic</link>
-    <guid isPermaLink="false">2026-11-10-01-langfuse-anthropic-instrumentor-llm-tracing-observe</guid>
-    <pubDate>Tue, 10 Nov 2026 04:14:00 +0000</pubDate>
-    <dc:creator>Chris Harper</dc:creator>
-    <description><![CDATA[AnthropicInstrumentor() from opentelemetry-instrumentation-anthropic captures every Claude API call automatically; @observe groups multi-step functions into a single trace tree in Langfuse without changing any business logic.]]></description>
-    <category>AI</category>
-    <category>Tutorial</category>
-    <category>Agents</category>
-    <category>Best Practices</category>
-    <category>Building AI Products</category>
-    <content:encoded><![CDATA[**What you'll be able to do after this:** instrument your Python app so every Claude API call appears as a trace with its full prompt, response, token counts, and latency — without touching your existing API call code.
-
-- See input/output for every generation, plus model name and token usage, in a shareable trace UI
-- Group multi-step functions into a single trace tree so a failure tells you exactly which call caused it
-- Filter traces by user ID or session ID to debug production issues for specific users
-
-## Setup
-
-```bash
-pip install langfuse opentelemetry-instrumentation-anthropic
-```
-
-Configure Langfuse and call `instrument()` once before any API call:
-
-```python
-import os
-os.environ["LANGFUSE_PUBLIC_KEY"] = "pk-lf-..."
-os.environ["LANGFUSE_SECRET_KEY"] = "sk-lf-..."
-os.environ["LANGFUSE_HOST"] = "https://cloud.langfuse.com"  # or self-hosted
-
-from langfuse import observe, get_client
-from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
-import anthropic
-
-AnthropicInstrumentor().instrument()   # one line, all SDK calls now traced
-client = anthropic.Anthropic()
-```
-
-Every `client.messages.create(...)` call from this point is automatically captured as a **generation** span — model, prompt, response, tokens, latency. No changes to your existing API calls.
-
-## Group calls with `@observe`
-
-```python
-@observe()
-def handle_support_ticket(ticket: str) -> dict:
-    category = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=64,
-        messages=[{"role": "user", "content": f"One-word category: {ticket}"}]
-    ).content[0].text
-
-    reply = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=256,
-        messages=[{"role": "user", "content": f"Draft reply for a {category} issue: {ticket}"}]
-    ).content[0].text
-
-    return {"category": category, "reply": reply}
-```
-
-Each `handle_support_ticket()` call appears as one trace in Langfuse containing two nested generations. Nested `@observe`-decorated functions are linked automatically — no manual span management.
-
-## Limits
-
-- **SDK version:** Langfuse v3 Python SDK requires a Langfuse server at v4.59.0+ for self-hosting. If your instance is older, stay on the v2 SDK (`from langfuse.decorators import observe`).
-- **Short-lived scripts:** Traces are sent asynchronously. Add `get_client().flush()` at the end of scripts that exit immediately or the last trace can be dropped.
-- **Self-hosting:** The Docker Compose stack is documented at langfuse.com/self-hosting. Cloud-hosted Langfuse rate-limits high-volume trace ingestion — for production workloads generating thousands of traces per minute, plan for self-hosting.
-- **Anthropic SDK auto-instrumentation caveat:** `AnthropicInstrumentor` captures generations correctly for `messages.create`. Streaming responses and tool use blocks may have partial capture depending on the instrumentation package version — test your specific call patterns before relying on completeness.
-
-**Sources:** [Langfuse Anthropic integration docs](https://langfuse.com/integrations/model-providers/anthropic) · [Python decorator docs](https://langfuse.com/docs/sdk/python/decorators) · [Towards AI: trace your first agent pipeline](https://pub.towardsai.net/getting-started-with-langfuse-tracing-your-first-agent-pipeline-38fca9271530) · [PyImageSearch self-hosted Langfuse + vLLM series](https://pyimagesearch.com/2026/05/18/llm-observability-with-self-hosted-langfuse-and-vllm/)]]></content:encoded>
-  </item>
-
+  
+  
+  
   
   
   
